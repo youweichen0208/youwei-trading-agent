@@ -120,7 +120,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 ### S06 — 开始 baseline/quant 前向运行（Phase 1A；依赖 S05）
 
 - [ ] 发布固定 baseline 与简单量化模型，登记训练与校准版本。（进展：管线载具 baseline-constant-v0 / quant-momentum-v0 已随 S06a 落地并全量披露；正式模型选择须 Trial 登记 + release 人工批准，待阻断项解除）
-- [ ] 人工批准初始 release，按已登记规则固定20证券 panel，事前登记每批60个 case。（阻断：S&P 500 PIT 总体/GICS 快照未取得、生产套餐 ToS 未确认、人工批准未发生；工程路径已就绪）
+- [ ] 人工批准初始 release，按已登记规则固定20证券 panel，事前登记每批60个 case。（阻断：S&P 500 PIT 总体/GICS 快照未取得、生产套餐 ToS 未确认、人工批准未发生；工程路径已就绪——登记抽样算法 sector-stratified-hash-v1 已实现并通过 K01 已知答案复算，见 S06c）
 - [ ] llm_adjusted 保留 unavailable/not_enabled，不填充伪造 LLM 结果。（管线已固定封存该位置，S06a 验收）
 - [ ] Scheduler 按周创建新批次，按交易日检查到期 Outcome。（已落地：见 S06a/S06b 进度；已 resolved Outcome 的供应商更正自动触发已于 S06b 落地）
 - [ ] 最小只读查询显示计划数、完成数、缺失、迟到、数据质量和评分适用范围。（已落地：campaign_status 服务 + 租户隔离 API，见 S06a 进度）
@@ -355,6 +355,13 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 - 交付：**训练 manifest 登记**（`ledger/training.py` + `training_manifests` 表，append-only 触发器同 research_releases）——manifest 结构校验：至少一个特征集（逐特征 name/kind/definition/missing_policy，缺失政策显式）与一个模型（role/model_version/artifact{kind, ref, 64-hex sha} + 五项固定事实 preprocessing/fitting_window/calibration/label_maturation/feature_set，none 需明说不可默认）；模型 feature_set 必须解析到已声明特征集；登记幂等（同 id 同内容返原行）同 id 异内容冲突；内容 hash 自排斥且与键序无关。**载具 manifest 已知答案**（`vehicle_training_manifest`）：baseline-constant-v0 / quant-momentum-v0 的 artifact hash 锁定 quant/models.py 实际字节（改代码不改登记可被检测），特征集 momentum-20d-v0 含显式缺失政策（不足 21 根 bar → unavailable/insufficient_history，不伪造）。**campaign 注册接线**：release manifest 的 training_manifest_ref + sha256 必须解析到已登记内容，feature_set_version 必须为该 manifest 声明、baseline_version/quant_model_version 必须与其模型一致；无引用的 release 照旧注册（向后兼容）。migration `c5d6e7f8a9b0`。
 - 验收：6 个新测试（登记幂等/冲突、结构校验 11 组反例全部拒收且零落库、内容 hash 自排斥+键序无关、载具已知答案含 artifact hash 对照实际文件、append-only 触发器、campaign 接线 6 路径：有效/未知 ref/hash 不匹配/特征集未声明/模型版本不一致/缺 hash 字段）。迁移实测 upgrade/downgrade/upgrade、2 触发器在位。`uv run --frozen pytest -q` → 240 通过。
 - 待办：正式模型选定后登记其 manifest（Trial 登记与人工 release 批准归人）；载具 manifest 的正式登记（tm-vehicles-v0）随首个正式 release 起执行；派生特征（consensus/IV 等外部特征依赖）待补源后随特征集登记扩展。
+
+### S06c 进度（2026-09-28）
+
+- 状态：**正式 campaign 启动准备的纯工程项完成**（抽样器；无需任何采购）。
+- 交付：`quant/sampling.py`——S00 登记算法 sampling-json-v1（sector-stratified-hash-v1，seed=20260927，N=20）的首个仓库内实现：总体规范化（仅 security_id + sector_code、按 security_id 升序、重复拒绝、缺 PIT sector code 停止登记不静默删除）；配额（每层 1 名 + (N_s-1)/(M-K) 先取整再余数降序、同余按 sector code 升序；M=K=20 零分母分支）；层内按 SHA256(compact_JSON([sampler_version, seed, frame_hash, sector_code, security_id])) 升序取座、同 hash 按 security_id；compact JSON 严格按登记规则（数组序固定、对象键字典序、无空格、UTF-8、无 BOM/换行）；选中名单升序 + selected_list_sha256；draw manifest（算法事实，源版本/映射由数据层补充）。
+- 验收：8 个新测试（**K01 已知答案全量复现**——配额 S01–S09×2/S10/S11×1、末两层选中 SEC-10-2/SEC-11-1、记录 hash 37421b62… 一次复算一致；行序不变性；compact JSON 规则；异余数分配手算对照 9/6/3/1/1；M=K=20 每层一名；M<20/缺分类/重复 id/K>20 四组拒绝；规范化只留协议字段；确定性 + manifest 形状）。纯计算无 PG 依赖。`uv run --frozen pytest -q` → 248 通过。
+- 待办：成分快照到手后的接线——EODHD 帧构建（ticker→永久 ID 映射 + sector 归属）→ select_sample → panel_manifest 登记；GICS 协议修订决策仍待用户选择。
 
 ```text
 任务：
