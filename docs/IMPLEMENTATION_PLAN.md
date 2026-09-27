@@ -3,7 +3,7 @@
 日期：2026-09-27\
 设计依据：[ARCHITECTURE.md](ARCHITECTURE.md)\
 问题来源：[v0.2 评审](ARCHITECTURE_REVIEW_v0.2.md)\
-状态：S00 协议已确认定稿（2026-09-27）；S01 主体完成（Tiingo 字段级验证已实测；EOD 实盘观测随 S04 首次采集、生产套餐条款确认待购买时；网关取消/用量/限额待验收）；S02 已完成（隔离开发环境验收，2026-09-27）；S03 第一纵切片完成（沙箱执行与产物链路，2026-09-27）；S04 第一/二纵切片完成（PIT 数据基础、交易日历与冻结快照，2026-09-27）；S05 第一/二/三纵切片完成（campaign 登记与封存核心、Outcome 版本化回填、最小评估报告，2026-09-27）；S06 第一纵切片完成（前向预测管线：调度/封存接线/状态查询，2026-09-27；正式 campaign 启动项仍阻断）；S03 剩余部署项与 S06 正式启动及 S07–S11 待实施、待验收。
+状态：S00 协议已确认定稿（2026-09-27）；S01 主体完成（Tiingo 字段级验证已实测；EOD 实盘观测随 S04 首次采集、生产套餐条款确认待购买时；网关取消/用量/限额待验收）；S02 已完成（隔离开发环境验收，2026-09-27）；S03 第一纵切片完成（沙箱执行与产物链路，2026-09-27）；S04 第一/二纵切片完成（PIT 数据基础、交易日历与冻结快照，2026-09-27）；S05 已完成四纵切片（封存核心、Outcome 回填、评估报告、归档与监控，2026-09-27）；S06 第一纵切片完成（前向预测管线，2026-09-27；正式 campaign 启动项仍阻断）；S03 剩余部署项与 S06 正式启动及 S07–S11 待实施、待验收。
 
 ## 1. 执行规则
 
@@ -109,7 +109,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 - [ ] 应用 UPDATE/DELETE/TRUNCATE 禁止；提交权限、链头锁、规范化行内容与链序号固定。（进展：DB 触发器 + 逐 campaign 哈希链 + 链校验器已落地；提交权限的 API 接线归 S06/S07，生产角色 revocation 随 S09 部署）
 - [ ] Outcome 按 case 回填，以 revision/supersedes 追加更正，禁止分叉和覆盖。（已落地：见 S05b 进度；退市/并购对价等公司行为终值仍限价格序列内的拆分分红，复杂事件走 unresolved+依据路径）
 - [ ] 最小 Evaluation 固定 case、commit、结果版本及评分代码；按预测类型计算 Brier、MSE/RMSE 等。（已落地：见 S05c 进度；月度汇总与区块自举区间明确不在此片，前者归 S06 调度、后者待参数登记）
-- [ ] 独立 Ledger 归档桶、保留策略、链校验、对象引用恢复与迟到/未确认监控。（待实施）
+- [ ] 独立 Ledger 归档桶、保留策略、链校验、对象引用恢复与迟到/未确认监控。（已落地：OSS 已排除 MVP → 本地内容寻址归档导出（JSONL + manifest 含链头 hash，供链外锚定）；verify_archive 免库自证（文件 hash + 从归档行重算提交链 + outcome 链 + 报告 hash）；verify_against_db 对象引用恢复校验（FK 防删 + 快照/raw 对象完整性）与链分歧报告；归档目录追加式永不改写；迟到/未确认监控入 ops（见 S05d 进度））
 
 交付：可独立运行的预测封存、到期结果任务和可复算报告。
 
@@ -309,6 +309,13 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 - 交付：**沙箱 Runner**（`youwei_core/sandbox/`）——隔离契约全部由 Runner 强制，调用方仅提供不可信文本（script/argv/env）+ snapshot_id，不能指定镜像/挂载/网络/宿主路径：固定镜像（仅 Runner 配置，部署时 digest 固定）、非 root（65534）、只读根、cap-drop ALL、no-new-privileges、CPU/memory/PID 限额、`--network none`、容器仅获显式 per-job 环境变量；输入（物化快照 + 脚本）只读挂载。**输出链路**：产物写入 size-capped tmpfs（磁盘满风险被 tmpfs 硬性约束，宿主无可写路径）；容器 detached 运行，可信 wrapper 写完成标记，`docker exec tar` 流式导出后**内存内 tar 校验**（白名单扩展、单文件/总量/数量上限、拒绝 symlink/hardlink/特殊成员/绝对路径/穿越/非 UTF-8）——产物从不落宿主磁盘；实测发现 `docker cp` 不可见 tmpfs 内容，故改用 tar 流。**生命周期**：墙钟超时杀死并清理容器、OOM 检测（exit 137 / State.OOMKilled）、日志截断（64KB）；脚本自身非零退出是结果而非基础设施故障。**产物存储**：`artifacts` 表（append-only 触发器）+ attempt fencing 受限存储路径（迟到/跨租 Worker 产物拒收）+ 租户隔离读取；spool 物化双重 hash 校验（读取时 + 写入后，篡改检测）。**接线**：`sandbox.execute` handler 注册入 worker（Settings：sandbox_image/runtime/memory/timeout）；migration `f2a3b4c5d6e7`。
 - 验收：11 个新测试（实测容器）：隔离契约（网络阻断/只读根/非 root/宿主环境变量不泄露）、快照物化→脚本读取→产物入库全链路（hash/attempt 绑定/事件）、脚本失败是结果、argv shell-quoting 安全、symlink 拒绝、扩展/大小/UTF-8 三类反例、超时杀死且容器无残留、OOM 检测、spool 篡改检测、存储 fencing、append-only 触发器。迁移实测：upgrade/downgrade/upgrade、2 触发器。
 - 待办（S03 剩余）：Runner 独立部署形态（当前 in-process 于 worker）与 Data Service 流式接口（当前直读 DB 快照）；目标机 runsc 运行时实测（S01 已验环境，需接线验证）；Parquet 等二进制产物类型扩展；定量镜像入口与 quant 库发布（S06 正式模型时）；磁盘水位监控随 S09。
+
+### S05d 进度（2026-09-27）
+
+- 状态：**S05 第四纵切片完成，S05 四项任务全部落地**（隔离开发环境验收；正式前向运行归 S06）。
+- 交付：**Ledger 归档**（`youwei_core/ledger/archive.py`）——`export_campaign_archive`：campaign 完整 ledger 记录（commits/predictions/commit_events/outcome_revisions/evaluation_reports）导出为确定性 JSONL（规范排序 + 规范化序列化）+ manifest（逐文件内容 hash、行数、导出时链头 seq/hash、release 引用），时间戳子目录每次导出新建（追加式约定，永不改写）；manifest 链头 hash 为**链外锚定值**（本地历史可重写，锚定 hash 不可）；`verify_archive` **免数据库自证**：文件 hash、从归档行重算完整提交链（内容 hash 重算——篡改者同时修正文件 hash 仍会被内容重算识破）、outcome 修订链、报告内容 hash、manifest 链头一致；`verify_against_db`：对象引用恢复校验（引用快照存在且内容/raw 对象完整——DB 层 FK 已防删除被引快照，内容篡改由校验识破）+ 活库与归档链分歧报告（导出后新封存为预期 note）。**监控**：ops_snapshot 新增 ledger 节——`unconfirmed_past_deadline`（确认丢失，任意发生即告警 `ledger_unconfirmed_past_deadline`）、`late_confirmations`（合法记录态，仅披露）、`unheaded_overdue_outcomes`（exit 后 14 天无 outcome 头 → 调度器卡死告警 `ledger_outcomes_not_resolved`；14 天裕量安全覆盖假日拉伸的 5 交易日宽限期）。
+- 验收：6 个新测试：导出→免库自证（链头/行数/双导出独立目录）、**双重篡改检测**（文件 hash 与内容 hash 重算两级）、链分歧 note + FK 防删 + 内容篡改识破、未知 campaign 拒绝、ops 干净态零告警 + 未确认过期告警 + 重放补确认后转为 late 披露、exit 过期无头告警。
+- 待办：链外锚定操作流程（人工将 manifest 链头 hash 记录到 Git/外部媒介，随首个正式 campaign 启动）；归档自动化调度（当前手动导出，随 S09 部署周期化）；归档恢复演练（从归档重建可读视图，S09 恢复演练范围）。
 
 ```text
 任务：

@@ -22,13 +22,23 @@ Alert semantics:
   shipped (deployment sets archive_timeout, so silence is failure)
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import exists, func, select, text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from youwei_core.config import Settings
-from youwei_core.db.meta import attempts, budget_entries, events, jobs, runs
+from youwei_core.db.meta import (
+    attempts,
+    budget_entries,
+    events,
+    forecast_cases,
+    forecast_commit_events,
+    forecast_commits,
+    jobs,
+    outcome_revisions,
+    runs,
+)
 
 
 def _age_seconds(now: datetime, ts: datetime | None) -> float | None:
@@ -115,6 +125,57 @@ async def ops_snapshot(engine: AsyncEngine) -> dict:
             )
         ).one()
 
+        # --- ledger health (S05 closeout) ------------------------------
+        # A commit without a durable confirmation whose deadline has
+        # passed means the confirmation was lost: an incident on any
+        # occurrence (time-protocol §4). Late confirmations are a
+        # recorded legitimate state (excluded from the on-time set).
+        confirmation = forecast_commit_events.alias("confirmation")
+        unconfirmed = (
+            await conn.execute(
+                select(func.count(), func.min(forecast_cases.c.prediction_deadline_utc))
+                .select_from(forecast_commits)
+                .join(
+                    forecast_cases, forecast_cases.c.id == forecast_commits.c.case_id
+                )
+                .outerjoin(
+                    confirmation,
+                    (confirmation.c.commit_id == forecast_commits.c.id)
+                    & (confirmation.c.event_type == "durable_confirmation"),
+                )
+                .where(
+                    confirmation.c.id.is_(None),
+                    forecast_cases.c.prediction_deadline_utc < now,
+                )
+            )
+        ).one()
+        late = (
+            await conn.execute(
+                select(func.count()).where(
+                    forecast_commit_events.c.event_type == "durable_confirmation",
+                    forecast_commit_events.c.payload["timeliness"].as_string()
+                    == "late",
+                )
+            )
+        ).scalar_one()
+
+        # cases whose exit passed long ago with no outcome head at all:
+        # the resolver's grace policy (5 trading days) must have decided
+        # them by now — 14 calendar days safely clears any holiday
+        # stretch, so any occurrence means the scheduler is stuck
+        unheaded = (
+            await conn.execute(
+                select(func.count(), func.min(forecast_cases.c.exit_at_utc))
+                .select_from(forecast_cases)
+                .where(
+                    forecast_cases.c.exit_at_utc < now - timedelta(days=14),
+                    ~exists(
+                        select(1).where(outcome_revisions.c.case_id == forecast_cases.c.id)
+                    ),
+                )
+            )
+        ).one()
+
     return {
         "queue": {
             "queued_jobs": queued[0],
@@ -142,6 +203,13 @@ async def ops_snapshot(engine: AsyncEngine) -> dict:
             "archived_count": archiver.archived_count,
             "failed_count": archiver.failed_count,
             "last_archived_age_seconds": _age_seconds(now, archiver.last_archived_time),
+        },
+        "ledger": {
+            "unconfirmed_past_deadline": unconfirmed[0],
+            "oldest_unconfirmed_age_seconds": _age_seconds(now, unconfirmed[1]),
+            "late_confirmations": late,
+            "unheaded_overdue_outcomes": unheaded[0],
+            "oldest_unheaded_age_seconds": _age_seconds(now, unheaded[1]),
         },
     }
 
@@ -181,6 +249,12 @@ def evaluate_alerts(snapshot: dict, settings: Settings) -> list[str]:
         or wal["last_archived_age_seconds"] > settings.alert_wal_archive_stale_seconds
     ):
         alerts.append("wal_archive_stale")
+
+    ledger = snapshot.get("ledger", {})
+    if ledger.get("unconfirmed_past_deadline", 0) > 0:
+        alerts.append("ledger_unconfirmed_past_deadline")
+    if ledger.get("unheaded_overdue_outcomes", 0) > 0:
+        alerts.append("ledger_outcomes_not_resolved")
 
     return alerts
 
