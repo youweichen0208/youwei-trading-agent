@@ -1,7 +1,7 @@
 [project]
 name = "youwei-core"
 version = "0.1.0"
-description = "youwei trading agent v0.3 core: persistent jobs, budgets, events (S02a)"
+description = "youwei trading agent v0.3 core: persistent jobs, budgets, events, auth, ops (S02)"
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "fastapi>=0.115,<0.116",

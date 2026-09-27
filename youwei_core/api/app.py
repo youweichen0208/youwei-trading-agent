@@ -19,6 +19,7 @@ from youwei_core.config import Settings
 from youwei_core.db.engine import make_engine
 from youwei_core.jobs import service as jobs_service
 from youwei_core.jobs.service import IdempotencyConflict, RunNotFound, RunSubmission
+from youwei_core.ops.service import ops_status
 
 _bearer = HTTPBearer(auto_error=False)
 
@@ -125,6 +126,25 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             }
         except RunNotFound:
             raise HTTPException(status_code=404, detail="run not found") from None
+
+    # --- ops endpoints (health & alerting) --------------------------------
+
+    @app.get("/healthz")
+    async def healthz():
+        """Liveness only, no DB dependency: a database blip must not get
+        the API killed by a restart policy. Deep checks live in
+        /v1/ops/status."""
+        return {"status": "ok"}
+
+    @app.get("/v1/ops/status")
+    async def get_ops_status(
+        request: Request,
+        _admin: Annotated[Principal, Depends(require_admin)],
+    ):
+        """Deployment health snapshot + alerts (queue backlog, pending
+        budget reconciliation, unpublished outbox events, unreaped
+        expired leases, overdue runs, WAL archive staleness)."""
+        return await ops_status(request.app.state.engine, request.app.state.settings)
 
     # --- admin endpoints (bootstrap key) ----------------------------------
 

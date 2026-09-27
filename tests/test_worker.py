@@ -9,6 +9,9 @@ Covered (per the S02 decision):
   cancelled
 - heartbeat extends the lease
 - concurrent claims get distinct jobs
+- wall-clock deadline (S02b closeout): an overdue run is cancelled by
+  the next claim pass; a future deadline never cancels; an in-flight
+  attempt that outlives its run's deadline lands 'late' (fenced)
 """
 
 import asyncio
@@ -146,6 +149,70 @@ async def test_concurrent_claims_get_distinct_jobs(db_engine, tenant_id):
     )
     assert c1 is not None and c2 is not None
     assert c1.job_id != c2.job_id
+
+
+# --- wall-clock deadline (S02b closeout) --------------------------------
+
+
+async def _make_deadline_run(engine, tenant_id, key, *, wall_clock_seconds):
+    submission = RunSubmission(
+        kind="research",
+        total_budget_micros=1_000_000,
+        wall_clock_seconds=wall_clock_seconds,
+        jobs=[JobSubmission(kind="noop", payload={})],
+    )
+    result = await submit_run(engine, tenant_id, submission, key)
+    return result.run_id
+
+
+async def test_wall_clock_deadline_cancels_overdue_run(db_engine, tenant_id):
+    """A run past its wall_clock_deadline is cancelled by the next
+    claim pass (reaper-on-claim), not silently executed."""
+    from youwei_core.jobs.service import list_events
+
+    run_id = await _make_deadline_run(db_engine, tenant_id, "w-dl", wall_clock_seconds=1)
+    await asyncio.sleep(1.2)  # deadline passes with no worker touching it
+
+    # any claim doubles as the deadline reaper: run cancelled, nothing claimed
+    assert await claim_next_job(db_engine, "w1") is None
+
+    view = await get_run_view(db_engine, tenant_id, run_id)
+    assert view["status"] == "cancelled"
+    assert all(j["status"] == "cancelled" for j in view["jobs"])
+
+    event_types = [e["event_type"] for e in await list_events(db_engine, tenant_id, run_id)]
+    assert "run.deadline_exceeded" in event_types
+
+
+async def test_future_deadline_does_not_cancel(db_engine, tenant_id):
+    run_id = await _make_deadline_run(
+        db_engine, tenant_id, "w-dl-future", wall_clock_seconds=3600
+    )
+    assert await claim_next_job(db_engine, "w1") is not None
+
+    view = await get_run_view(db_engine, tenant_id, run_id)
+    assert view["status"] == "running"
+
+
+async def test_deadline_overrun_fences_inflight_attempt(db_engine, tenant_id):
+    """An attempt still running when its run's deadline passes has its
+    business result fenced (preserved as 'late', not applied)."""
+    run_id = await _make_deadline_run(db_engine, tenant_id, "w-dl-run", wall_clock_seconds=1)
+    claimed = await claim_next_job(db_engine, "w1", lease_ttl=60)  # lease outlives deadline
+    await asyncio.sleep(1.2)  # deadline passes while the handler "works"
+
+    # another worker's claim pass reaps the overdue run
+    assert await claim_next_job(db_engine, "w2") is None
+
+    # the in-flight attempt completes after the deadline: fenced
+    outcome = await complete_attempt(db_engine, claimed.job_id, 1, {"done": True})
+    assert outcome == "fenced"
+    late = await _attempt_status(db_engine, claimed.job_id, 1)
+    assert late["status"] == "late"
+    assert late["result"] == {"done": True}
+
+    view = await get_run_view(db_engine, tenant_id, run_id)
+    assert view["status"] == "cancelled"
 
 
 # --- helpers -----------------------------------------------------------

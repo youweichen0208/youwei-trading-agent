@@ -32,3 +32,11 @@ class Settings(BaseSettings):
     # S02b: HMAC secret for per-job capability tokens. Configure per
     # deployment; a stable value keeps issued tokens valid across restarts.
     capability_secret: str = "dev-insecure-capability-secret"
+
+    # S02b closeout: ops alert thresholds (architecture section 11).
+    # Age-based signals compare against these; count-based signals
+    # (expired leases, overdue runs) alert on any occurrence.
+    alert_queue_backlog_age_seconds: float = 300.0
+    alert_unpublished_events_age_seconds: float = 60.0
+    alert_pending_reconciliation_age_seconds: float = 3600.0
+    alert_wal_archive_stale_seconds: float = 1800.0

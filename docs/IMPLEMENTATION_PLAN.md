@@ -3,7 +3,7 @@
 日期：2026-09-27\
 设计依据：[ARCHITECTURE.md](ARCHITECTURE.md)\
 问题来源：[v0.2 评审](ARCHITECTURE_REVIEW_v0.2.md)\
-状态：S00 协议已确认定稿（2026-09-27）；S01–S11 工程任务均待实施、待验收。
+状态：S00 协议已确认定稿（2026-09-27）；S01 技术验证大部分完成（Tiingo 待 token、网关取消/用量/限额待验收）；S02 已完成（隔离开发环境验收，2026-09-27）；S03–S11 待实施、待验收。
 
 ## 1. 执行规则
 
@@ -54,7 +54,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 - [x] 在目标 Linux ECS 上执行真实 quant 依赖，验证 gVisor、Parquet、资源与网络限制（runsc 开销噪声级、mmap 正常、锁定配置生效、网络阻断；见 [实测记录](research/s01-target-verification.md)）。
 - [ ] 试用数据源（Tiingo），验证原始版本、源时间、退市/公司行为、许可与模型使用范围；待账号 token（能力核实见 [tiingo-capabilities](research/tiingo-capabilities.md)）。
 - [ ] 验证 LLM Gateway 的工具调用、辅助请求、取消、用量记录和并发限额（工具调用/流式/网关链路已通，火山需 Bearer 头；取消/用量/限额待 S02；见 [实测记录](research/s01-target-verification.md)）。
-- [ ] 用隔离测试库验证备份工具的本地 WAL 归档与恢复（OSS 已排除出 MVP 范围）。
+- [x] 用隔离测试库验证备份工具的本地 WAL 归档与恢复（OSS 已排除出 MVP 范围）（[演练脚本](../ops/backup/pitr_drill.sh)、[记录](ops/backup-pitr-drill.md)：归档+基准备份+PITR 停点验证通过；容量级指标待目标机 S09 重测）。
 
 交付：固定版本清单、技术验证记录、供应商与授权决定、恢复样例及未解决问题。
 
@@ -62,13 +62,13 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 
 ### S02 — 建立持久任务、权限和预算（Phase 1A；依赖 S01）
 
-- [ ] Core API / Worker 共用模块化代码库，分开运行凭证和资源限额。
-- [ ] PG run/job/attempt/step/event/outbox 表，短事务领取、租约、心跳、递增 attempt_token。
-- [ ] 在每次有副作用的提交处校验 fencing token；服务重启后从已完成步骤恢复。
-- [ ] Idempotency-Key 绑定租户及 payload hash；同键不同输入拒绝。
-- [ ] 身份来自鉴权；按 job 签发能力令牌，限制快照、工具、租户和有效期。
-- [ ] run 级原子费用预留、结算、最大尝试数、墙钟期限、取消传播和结构化日志。
-- [ ] 从第一版设置备份、任务积压、磁盘、WAL、预算与错误告警。
+- [x] Core API / Worker 共用模块化代码库，分开运行凭证和资源限额。
+- [x] PG run/job/attempt/step/event/outbox 表，短事务领取、租约、心跳、递增 attempt_token（events 表兼作 outbox；步骤留痕以 attempt + events 承载，见 db/meta.py 设计说明）。
+- [x] 在每次有副作用的提交处校验 fencing token；服务重启后从已完成步骤恢复。
+- [x] Idempotency-Key 绑定租户及 payload hash；同键不同输入拒绝。
+- [x] 身份来自鉴权；按 job 签发能力令牌，限制快照、工具、租户和有效期（令牌机制与 scope 已落地；快照粒度 scope 待 S04 快照 ID 接入）。
+- [x] run 级原子费用预留、结算、最大尝试数、墙钟期限、取消传播和结构化日志（墙钟期限由 claim 路径 reaper 执行，超期 run 取消、在造 attempt 结果被 fence）。
+- [x] 从第一版设置备份、任务积压、磁盘、WAL、预算与错误告警（备份/PITR 演练、/v1/ops/status 队列积压/待对账预算/未发布事件/未收割过期租约/超期 run/WAL 归档延迟告警；磁盘水位为宿主层监控，随 S09 部署验收落实）。
 
 交付：可独立运行的确定性执行控制与任务查询接口。
 
@@ -241,8 +241,21 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 ### S02b 进度（2026-09-27）
 
 - 已完成：Bearer API Key 认证（sha256 存储、撤销、admin bootstrap 键管理租户/键；X-Tenant-Id 通道已移除）、按 job 签发 HMAC 能力令牌（绑定 job/attempt/租户/范围，有效期≤租约）、取消传播（watchdog 心跳同时轮询 job 状态，取消时终止 handler、attempt 落 cancelled）、LLM Gateway 客户端（预留→调用→结算；fail-closed：账本不可达不发送；传输/网关错误释放、超时保留待对账；占位价待对账）、结构化 JSON 日志。
-- 待完成（S02b 收尾）：ops 健康检查与告警端点（队列积压、待对账预算、未发布事件）、备份恢复演练（本地 WAL 归档 + PITR）。
-- 验收：48 个测试（auth 8、capability 7、取消传播 1、gateway 客户端 7、日志 3，其余回归）。
+- S02b 收尾（同日完成）：墙钟期限执行（claim 路径 reaper：超期 run 及其未终态 job 取消、run.deadline_exceeded 事件、在造 attempt 补交结果被 fence）；ops 健康检查与告警端点（/healthz 无鉴权 liveness；/v1/ops/status 管理键鉴权，报告队列积压、待对账预算、未发布事件、未收割过期租约、超期 run、WAL 归档状态及阈值告警）；备份恢复演练（本地 WAL 归档 + PITR）。
+- 验收：59 个测试（新增：墙钟期限 3、ops 8）；PITR 演练一次通过（备份后提交恢复后在库、目标时间后提交不在库、恢复库过 alembic head 与应用读路径）。
+
+### S02 完成记录（2026-09-27）
+
+```text
+任务：S02 建立持久任务、权限和预算（S02a + S02b + 收尾）
+负责人：项目所有者（验收）；Agent（实现与测试）
+状态：已完成（隔离开发环境验收；生产部署与真实恢复演练归 S09）
+实现引用：youwei_core/{api,auth,budget,jobs,llm,ops,worker}；migrations 086db0070190 + 0d8471d9eb62；tests/；ops/backup/pitr_drill.sh
+固定配置/版本：Settings（YOUWEI_* 前缀）：lease_ttl 30s、心跳 10s、告警阈值（队列积压 300s/未发布事件 60s/待对账 3600s/WAL 归档 1800s）；fencing token = attempt_no；生产归档配置要求见 docs/ops/backup-pitr-drill.md
+验证命令或报告：`.venv/bin/pytest -q` → 59 通过；`./ops/backup/pitr_drill.sh` → PASS（实测见 docs/ops/backup-pitr-drill.md）
+验收时间与结果：2026-09-27。杀进程、重复投递、租约过期、旧 Worker 迟到提交、取消/完成竞争、预算并发与重复结算、提交响应丢失均不产生重复业务提交；墙钟超期 run 不再执行且在造结果被 fence；PITR 停点正确（备份后提交在库、目标后提交不在库）
+剩余限制：火山侧网关取消/用量/并发限额验收与真实定价对账待接入（S07 前完成）；能力令牌的快照粒度 scope 待 S04 快照 ID；磁盘水位、告警外发通道、生产环境实测 RPO/RTO 随 S09 部署验收；日志采集管道随部署建立
+```
 
 执行时为每个 Sxx 增补以下记录；没有证据的任务保持未完成。
 

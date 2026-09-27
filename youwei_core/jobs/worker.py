@@ -35,6 +35,56 @@ def _lease_expiry(lease_ttl: float) -> datetime:
     return datetime.now(UTC) + timedelta(seconds=lease_ttl)
 
 
+async def _reap_deadline_exceeded_runs(conn) -> int:
+    """Cancel runs past their wall_clock_deadline (S02: wall-clock
+    limits are enforced, not just stored).
+
+    Runs flip to 'cancelled' and their queued/running jobs to
+    'cancelled'. In-flight attempts are terminated by their watchdogs
+    (job stops running -> handler cancelled) and any completion that
+    slips through lands 'late' via the normal fencing check. Leases
+    left behind by dead workers expire and requeue into a cancelled
+    run, where _reap_expired leaves the job cancelled. Like lease
+    reaping this runs on every claim: with no worker claiming, nothing
+    executes either, and /v1/ops/status surfaces the overdue runs."""
+    overdue_ids = (
+        await conn.execute(
+            select(runs.c.id).where(
+                runs.c.status.in_(("pending", "running")),
+                runs.c.wall_clock_deadline.is_not(None),
+                runs.c.wall_clock_deadline < func.now(),
+            )
+        )
+    ).scalars().all()
+    for run_id in overdue_ids:
+        run = (
+            await conn.execute(
+                select(runs).where(runs.c.id == run_id).with_for_update()
+            )
+        ).mappings().one()
+        if run.status not in ("pending", "running"):  # raced with another finisher
+            continue
+        await conn.execute(
+            update(runs)
+            .where(runs.c.id == run_id)
+            .values(status="cancelled", updated_at=func.now())
+        )
+        await conn.execute(
+            update(jobs)
+            .where(jobs.c.run_id == run_id, jobs.c.status.in_(("queued", "running")))
+            .values(status="cancelled", updated_at=func.now())
+        )
+        await conn.execute(
+            events.insert().values(
+                tenant_id=run.tenant_id,
+                run_id=run_id,
+                event_type="run.deadline_exceeded",
+                payload={"wall_clock_deadline": run.wall_clock_deadline.isoformat()},
+            )
+        )
+    return len(overdue_ids)
+
+
 async def _reap_expired(conn) -> int:
     """Mark lease-expired attempts and requeue/fail their jobs.
 
@@ -114,11 +164,13 @@ async def claim_next_job(
 ) -> ClaimedJob | None:
     """Claim the oldest queued job of a non-terminal run.
 
-    Short transaction: reap expired attempts, then claim with
-    FOR UPDATE SKIP LOCKED, then insert the attempt row. attempt_no is
-    the incremented job counter (monotonic fencing token).
+    Short transaction: reap deadline-exceeded runs, then expired
+    attempts, then claim with FOR UPDATE SKIP LOCKED, then insert the
+    attempt row. attempt_no is the incremented job counter (monotonic
+    fencing token).
     """
     async with engine.begin() as conn:
+        await _reap_deadline_exceeded_runs(conn)
         await _reap_expired(conn)
 
         candidate = (
