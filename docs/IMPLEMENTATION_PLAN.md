@@ -48,13 +48,13 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 
 ### S01 — 核实运行时与部署可行性（Phase 0；依赖 S00）
 
-- [ ] 固定 Hermes、Pi、Python/Node、镜像与依赖版本；依据[运行时核实](research/hermes-pi-runtime-verification.md)验证实际接口。
-- [ ] Hermes 独立任务实例、工具白名单、关闭研究链路内置记忆/后台学习/会话检索。
-- [ ] Pi 工具和 RPC 管理命令白名单；资源自动加载、技能及扩展固定为可信部署内容。
-- [ ] 在目标 Linux ECS 上执行真实 quant 依赖，验证 gVisor、Parquet、资源与网络限制。
-- [ ] 试用数据源，验证原始版本、源时间、退市/公司行为、许可与模型使用范围。
-- [ ] 验证 LLM Gateway 的工具调用、辅助请求、取消、用量记录和并发限额。
-- [ ] 用隔离测试库验证所选备份工具与 OSS 的上传、WAL 恢复和权限。
+- [x] 固定 Hermes、Pi、Python/Node、镜像与依赖版本；依据运行时核实验证实际接口（Hermes `7fa45eb349a1` + uv sync --frozen 可复现；Pi 0.87.1 + node:22 + RPC 冒烟通过；见 [实测记录](research/s01-target-verification.md)）。
+- [ ] Hermes 独立任务实例、工具白名单、关闭研究链路内置记忆/后台学习/会话检索（隔离键名已从官方文档确认，运行时验证待 S07 接入）。
+- [x] Pi 工具和 RPC 管理命令白名单依据；资源自动加载、技能及扩展固定为可信部署内容（命令全集与 flags 已固定于 [runtime-version-pinning](research/runtime-version-pinning.md)；wrapper 实现属 S08）。
+- [x] 在目标 Linux ECS 上执行真实 quant 依赖，验证 gVisor、Parquet、资源与网络限制（runsc 开销噪声级、mmap 正常、锁定配置生效、网络阻断；见 [实测记录](research/s01-target-verification.md)）。
+- [ ] 试用数据源（Tiingo），验证原始版本、源时间、退市/公司行为、许可与模型使用范围；待账号 token（能力核实见 [tiingo-capabilities](research/tiingo-capabilities.md)）。
+- [ ] 验证 LLM Gateway 的工具调用、辅助请求、取消、用量记录和并发限额（工具调用/流式/网关链路已通，火山需 Bearer 头；取消/用量/限额待 S02；见 [实测记录](research/s01-target-verification.md)）。
+- [ ] 用隔离测试库验证备份工具的本地 WAL 归档与恢复（OSS 已排除出 MVP 范围）。
 
 交付：固定版本清单、技术验证记录、供应商与授权决定、恢复样例及未解决问题。
 
