@@ -17,6 +17,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 PG_IMAGE = "postgres:16-alpine"
 
 ALL_TABLES = (
+    "snapshots, calendar_days, calendar_builds, "
     "price_observations, raw_objects, security_identities, securities, "
     "data_sources, budget_entries, events, attempts, jobs, runs, api_keys, tenants"
 )

@@ -52,3 +52,8 @@ class Settings(BaseSettings):
     tiingo_token: str = ""
     tiingo_base_url: str = "https://api.tiingo.com/tiingo"
     tiingo_min_request_interval_seconds: float = 1.0
+
+    # time-protocol §5: sealing must stop when the app clock drifts
+    # from the database clock beyond this threshold (final value to be
+    # fixed before the first campaign; measured on the target host).
+    max_clock_skew_seconds: float = 5.0

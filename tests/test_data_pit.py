@@ -120,7 +120,7 @@ async def test_backfill_does_not_change_old_asof_result(db_engine):
     # later: a full-range re-fetch that both CORRECTS the 08-10 close
     # and BACKFILLS 08-07 (new trade dates absent before)
     await asyncio_sleep()
-    await _ingest(
+    v2 = await _ingest(
         db_engine,
         {"AAPL": json.dumps([_row("2026-08-07", 313.33), _row("2026-08-10", 308.30)])},
         "AAPL", sec, start, end,
@@ -133,10 +133,12 @@ async def test_backfill_does_not_change_old_asof_result(db_engine):
     assert len(snapshot_again) == 1
     assert snapshot_again[0]["close"] == 308.26
 
-    # a NEW cutoff sees the backfill + correction
+    # a NEW cutoff sees the backfill + correction (as_of from the db
+    # clock via the ingest result; app now() can race the container
+    # clock in forward mode's future check)
     latest = await daily_bars_asof(
         db_engine, [sec], start, end,
-        as_of=datetime.now(timezone.utc), mode="forward",
+        as_of=v2.usable_at, mode="forward",
     )
     assert len(latest) == 2
     assert {b["trade_date"] for b in latest} == {"2026-08-07", "2026-08-10"}

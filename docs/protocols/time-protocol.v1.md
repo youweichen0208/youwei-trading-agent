@@ -2,7 +2,7 @@
 
 protocol_id：time-protocol-v1\
 登记日期：2026-09-27\
-状态：Q4 周末锚定规则已选择；日历、时区数据库版本和时钟实测待 S01/S04。
+状态：Q4 周末锚定规则已选择；日历规则已实测（2026-09-27：规则生成 NYSE 日历与 686 个真实 SPY 交易日双向零差异，含卡特哀悼日/Good Friday/提前收盘；见 [实施计划 S04b](../IMPLEMENTATION_PLAN.md)）；tzdb 包固定、NTP 偏差阈值目标机实测待 S09（阈值已入 Settings）。
 
 ## 1. 周批次时刻
 

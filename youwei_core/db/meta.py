@@ -11,6 +11,7 @@ import uuid
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     Column,
     Date,
@@ -19,6 +20,7 @@ from sqlalchemy import (
     Integer,
     MetaData,
     Numeric,
+    PrimaryKeyConstraint,
     Table,
     Text,
     TIMESTAMP,
@@ -282,4 +284,68 @@ price_observations = Table(
     CheckConstraint("quality IN ('ok', 'zero_volume')", name="quality_valid"),
     UniqueConstraint("raw_object_id", "trade_date", name="uq_obs_raw_date"),
     Index("ix_obs_pit", "security_id", "trade_date"),
+)
+
+# --- S04b: trading calendar + frozen snapshots ---------------------------
+
+# Versioned calendar builds: append-only registry of what the rules
+# produced (full canonical day list + hash). time-protocol §5: sealed
+# cases keep their planned calendar; manifests record version+hash.
+calendar_builds = Table(
+    "calendar_builds",
+    meta,
+    Column("version", Text, primary_key=True),
+    Column("venue", Text, nullable=False),
+    Column("year_start", Integer, nullable=False),
+    Column("year_end", Integer, nullable=False),
+    Column("rules_version", Text, nullable=False),
+    Column("content", Text, nullable=False),  # canonical JSON of all days
+    Column("content_sha256", Text, nullable=False),
+    Column("day_count", Integer, nullable=False),
+    Column("special_closures", JSONB, nullable=False, server_default="[]"),
+    Column("generated_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
+    CheckConstraint("content_sha256 ~ '^[0-9a-f]{64}$'", name="content_sha_format"),
+)
+
+# Materialized per-venue day index (rebuildable): one row per WEEKDAY
+# in the built range (trading and non-trading; weekends are implied
+# absent). A weekday without a row means the range was never built —
+# queries treat that as an error, never as a holiday guess.
+calendar_days = Table(
+    "calendar_days",
+    meta,
+    Column("venue", Text, nullable=False),
+    Column("date", Date, nullable=False),
+    Column("is_trading", Boolean, nullable=False),
+    Column("early_close", Boolean, nullable=False, server_default="false"),
+    Column("note", Text, nullable=True),  # holiday name / closure reason
+    Column("build_version", Text, ForeignKey("calendar_builds.version"), nullable=False),
+    PrimaryKeyConstraint("venue", "date"),
+    CheckConstraint("is_trading OR NOT early_close", name="early_implies_trading"),
+    Index("ix_calendar_trading", "venue", "date", "is_trading"),
+)
+
+# Frozen evidence snapshots (architecture section 4): a materialized,
+# content-addressed selection of PIT data plus its manifest. Content
+# is stored inline in MVP; the hash contract survives a later move to
+# object storage. Append-only: no updates, no deletes; identical
+# (kind, query, content) re-freezes return the existing snapshot.
+snapshots = Table(
+    "snapshots",
+    meta,
+    Column("id", UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    Column("kind", Text, nullable=False),  # e.g. 'daily_bars'
+    Column("query", JSONB, nullable=False),
+    Column("query_sha256", Text, nullable=False),
+    Column("as_of", TIMESTAMP(timezone=True), nullable=False),
+    Column("mode", Text, nullable=False),
+    Column("manifest", JSONB, nullable=False),
+    Column("content", Text, nullable=False),  # canonical JSON
+    Column("content_sha256", Text, nullable=False),
+    Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
+    Column("created_by_attempt", UUID(as_uuid=True), nullable=True),
+    CheckConstraint("mode IN ('forward', 'historical_source')", name="mode_valid"),
+    CheckConstraint("content_sha256 ~ '^[0-9a-f]{64}$'", name="content_sha_format"),
+    UniqueConstraint("kind", "query_sha256", "content_sha256", name="uq_snapshots_query_content"),
+    Index("ix_snapshots_kind", "kind", "created_at"),
 )
