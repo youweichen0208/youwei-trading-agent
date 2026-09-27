@@ -1,0 +1,153 @@
+{
+  "schema_version": 1,
+  "registration_id": "s00-20260927-v1",
+  "decision_date": "2026-09-27",
+  "status": "draft_pending_q5_q7",
+  "usage": {
+    "audience": "self_or_controlled_internal",
+    "public_service": false,
+    "automated_live_trading": false,
+    "external_investment_advice": false
+  },
+  "sampling": {
+    "frame": "sp500_members_at_panel_registration",
+    "unit": "permanent_security_id",
+    "stratification_level": "gics_sector",
+    "n": 20,
+    "sampler_version": "sector-stratified-hash-v1",
+    "normalization_version": "sampling-json-v1",
+    "seed": "20260927",
+    "seed_origin": "implementation_default_fixed_before_sampling",
+    "panel_policy": "fixed_no_replacement_across_weekly_campaigns",
+    "frame_as_of": null,
+    "frame_snapshot_ref": null,
+    "gics_snapshot_ref": null,
+    "frame_hash": null,
+    "selected_security_ids": null,
+    "selected_list_hash": null
+  },
+  "target": {
+    "horizons_td": [
+      1,
+      20,
+      60
+    ],
+    "primary_horizon_td": 20,
+    "exploratory_horizons_td": [
+      1,
+      60
+    ],
+    "benchmark_policy_id": "spy-total-return-v1",
+    "benchmark_ticker": "SPY",
+    "benchmark_security_id": null,
+    "excess_return": "asset_total_return_minus_benchmark_total_return",
+    "dividend_reinvestment": "ex_date_close_for_entitled_holdings",
+    "cash_takeover_reinvestment": "cash_zero_interest_until_target_exit",
+    "halt_policy": {
+      "status": "pending_user_confirmation",
+      "requested": "shift_entry_and_exit_on_resumption",
+      "proposed": "fixed_window_wait_only_for_original_timestamp_data",
+      "exit_data_wait_sessions_proposed": 5
+    }
+  },
+  "time": {
+    "business_timezone": "America/New_York",
+    "storage_timezone": "UTC",
+    "cutoff_weekday": "Saturday",
+    "cutoff_local_time": "06:00:00",
+    "entry_rule": "next_regular_session_open_after_cutoff",
+    "deadline_minutes_before_entry": 15,
+    "exit_rule": "regular_close_of_horizon_session_including_entry_as_d1",
+    "calendar_policy": "versioned_nyse_regular_sessions_with_listing_market_checks",
+    "calendar_version": null,
+    "tzdb_version": null,
+    "first_campaign_cutoff": null
+  },
+  "sources": {
+    "phase_1a": {
+      "enabled_sources": [
+        "baseline",
+        "quant_model"
+      ],
+      "fallback": "none",
+      "llm_adjusted": {
+        "source_status": "unavailable",
+        "reason": "not_enabled"
+      }
+    },
+    "phase_1b": {
+      "enabled_sources": [
+        "baseline",
+        "quant_model",
+        "llm_adjusted"
+      ],
+      "llm_failure_fallback": "valid_quant_prediction_same_case_release_before_deadline",
+      "quant_unavailable_fallback": "none"
+    }
+  },
+  "evaluation": {
+    "primary_metric": "paired_brier_quant_minus_baseline",
+    "primary_horizon_td": 20,
+    "case_weighting": "equal_within_scored_batch",
+    "batch_weighting": "equal",
+    "scope": "fixed_registered_panel_scored_subset_with_full_coverage_disclosure",
+    "uncertainty_method": {
+      "status": "pending_user_confirmation",
+      "requested": "one_day_block_bootstrap",
+      "proposed": "consecutive_weekly_blocks_with_ex_ante_parameters_and_early_descriptive_only",
+      "alternative": "descriptive_only_in_v1",
+      "block_length": null,
+      "minimum_batches": null,
+      "replicates": null,
+      "seed": null
+    },
+    "batch_report": "after_horizon_outcomes_classified",
+    "monthly_report": {
+      "schedule_default": "first_regular_session_of_next_month_06:00_America_New_York",
+      "information_cutoff": "previous_calendar_month_end",
+      "cohort_grouping": "campaign_cutoff_month",
+      "late_labels": "new_report_revision"
+    }
+  },
+  "governance": {
+    "approver_role": "human_project_owner",
+    "approver_principal_id": null,
+    "release_id": null,
+    "release_content_hash": null,
+    "approved_at": null,
+    "trial_registry": "../trials/registry.md",
+    "trial_count": 0,
+    "git_is_absolute_immutability": false,
+    "remote_branch_protection_configured": false,
+    "external_worm_anchor_configured": false
+  },
+  "formal_campaign_allowed": false,
+  "blocking_items": [
+    "q5_halt_policy",
+    "q7_uncertainty_policy",
+    "authorized_pit_frame_and_gics_snapshots",
+    "actual_panel_and_hash",
+    "calendar_tzdb_and_security_ids",
+    "model_and_training_manifests",
+    "runtime_budget_permissions_and_recovery_acceptance",
+    "human_approval_of_actual_release_hash"
+  ],
+  "protocol_files": [
+    {
+      "path": "target-spec.v1.md",
+      "sha256": "fc9a24803e7a993425c94472f0c27ff434c93c8d1f62983586c4028f142d215c"
+    },
+    {
+      "path": "time-protocol.v1.md",
+      "sha256": "9b1613cfba6ee1d4f8438457858f0f56cc090e93134b8b4e70a758ad78d6ab19"
+    },
+    {
+      "path": "campaign-policy.v1.md",
+      "sha256": "b16b4ac398070033d85fc59502436e7a76461ce546a835e9be78687987d39126"
+    },
+    {
+      "path": "known-answer-cases.v1.md",
+      "sha256": "8d8d78fa6a684e0c69adff6c24e5dfd914d53adfb2b4e2a252cc229431433d37"
+    }
+  ]
+}
