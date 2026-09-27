@@ -2,12 +2,23 @@
   "schema_version": 1,
   "registration_id": "s00-20260927-v1",
   "decision_date": "2026-09-27",
-  "status": "draft_pending_q5_q7",
+  "confirmed_date": "2026-09-27",
+  "status": "confirmed_pending_s01_dependencies",
   "usage": {
     "audience": "self_or_controlled_internal",
     "public_service": false,
     "automated_live_trading": false,
     "external_investment_advice": false
+  },
+  "hierarchy": {
+    "levels": [
+      "campaign",
+      "batch",
+      "forecast_case"
+    ],
+    "campaign": "pre_registered_multi_week_plan_fixing_panel_target_sources_frequency_observation_period_primary_metric_and_release",
+    "batch": "weekly_instance_per_decision_cutoff_holding_concrete_cutoff_deadline_entry_session_and_planned_cases",
+    "phase_1b_llm_enablement": "new_campaign_with_new_release"
   },
   "sampling": {
     "frame": "sp500_members_at_panel_registration",
@@ -18,7 +29,7 @@
     "normalization_version": "sampling-json-v1",
     "seed": "20260927",
     "seed_origin": "implementation_default_fixed_before_sampling",
-    "panel_policy": "fixed_no_replacement_across_weekly_campaigns",
+    "panel_policy": "fixed_no_replacement_across_weekly_batches",
     "frame_as_of": null,
     "frame_snapshot_ref": null,
     "gics_snapshot_ref": null,
@@ -44,10 +55,16 @@
     "dividend_reinvestment": "ex_date_close_for_entitled_holdings",
     "cash_takeover_reinvestment": "cash_zero_interest_until_target_exit",
     "halt_policy": {
-      "status": "pending_user_confirmation",
-      "requested": "shift_entry_and_exit_on_resumption",
-      "proposed": "fixed_window_wait_only_for_original_timestamp_data",
-      "exit_data_wait_sessions_proposed": 5
+      "policy": "fixed_window_confirmed",
+      "unscorable": "no_valid_price_formed_at_original_entry_session",
+      "grace_period": {
+        "starts_at": "original_planned_exit_at",
+        "max_subsequent_trading_sessions": 5,
+        "scope": "entry_price_exit_price_and_corporate_actions",
+        "on_expiry": "unresolved"
+      },
+      "late_data_backfill": "append_outcome_revision",
+      "resumption_price_substitution": false
     }
   },
   "time": {
@@ -92,10 +109,9 @@
     "batch_weighting": "equal",
     "scope": "fixed_registered_panel_scored_subset_with_full_coverage_disclosure",
     "uncertainty_method": {
-      "status": "pending_user_confirmation",
-      "requested": "one_day_block_bootstrap",
-      "proposed": "consecutive_weekly_blocks_with_ex_ante_parameters_and_early_descriptive_only",
-      "alternative": "descriptive_only_in_v1",
+      "current": "descriptive_only",
+      "planned": "consecutive_weekly_block_bootstrap",
+      "activation": "ex_ante_parameter_registration_and_sample_requirements",
       "block_length": null,
       "minimum_batches": null,
       "replicates": null,
@@ -105,7 +121,7 @@
     "monthly_report": {
       "schedule_default": "first_regular_session_of_next_month_06:00_America_New_York",
       "information_cutoff": "previous_calendar_month_end",
-      "cohort_grouping": "campaign_cutoff_month",
+      "cohort_grouping": "batch_cutoff_month",
       "late_labels": "new_report_revision"
     }
   },
@@ -123,8 +139,6 @@
   },
   "formal_campaign_allowed": false,
   "blocking_items": [
-    "q5_halt_policy",
-    "q7_uncertainty_policy",
     "authorized_pit_frame_and_gics_snapshots",
     "actual_panel_and_hash",
     "calendar_tzdb_and_security_ids",
@@ -135,7 +149,7 @@
   "protocol_files": [
     {
       "path": "target-spec.v1.md",
-      "sha256": "fc9a24803e7a993425c94472f0c27ff434c93c8d1f62983586c4028f142d215c"
+      "sha256": "0181247fdac48b52d0c1ac7a13a6bb4827aeabfce3b3e88e1ffc71356eb573a4"
     },
     {
       "path": "time-protocol.v1.md",
@@ -143,11 +157,11 @@
     },
     {
       "path": "campaign-policy.v1.md",
-      "sha256": "b16b4ac398070033d85fc59502436e7a76461ce546a835e9be78687987d39126"
+      "sha256": "b91ab8da02918b644ecef0217c3010dd77ede61714b6ea56a3b4d055f11f1c61"
     },
     {
       "path": "known-answer-cases.v1.md",
-      "sha256": "8d8d78fa6a684e0c69adff6c24e5dfd914d53adfb2b4e2a252cc229431433d37"
+      "sha256": "9a0ed8fb005cf82094ac6de7bce69d9c1ebb235ea132a39073856668cdfa0e05"
     }
   ]
 }

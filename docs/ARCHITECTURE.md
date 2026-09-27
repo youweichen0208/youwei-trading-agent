@@ -7,7 +7,7 @@
 
 本文是当前架构设计依据。[实施计划](IMPLEMENTATION_PLAN.md)定义依赖顺序、交付物与验收条件；[文档索引](README.md)说明各文件用途。文档中“已合并”只表示设计已修订，不代表代码、部署或安全验收已经完成。
 
-S00 的具体选择登记于 [protocols/](protocols/README.md)：固定20证券样本、D1/D20/D60、D20主目标、SPY、周六06:00 ET截止及下一交易时段开盘入场。Q5 停牌窗口和 Q7 统计区间仍有待确认的修订；实际 PIT 快照、模型、日历和 release 批准尚未取得，不能创建正式 campaign。
+S00 的具体选择登记于 [protocols/](protocols/README.md)：固定20证券样本、D1/D20/D60、D20主目标、SPY、周六06:00 ET截止及下一交易时段开盘入场；固定目标窗口停牌政策与描述统计优先的区间方法已确认（2026-09-27）。实际 PIT 快照、模型、日历和 release 批准尚未取得，不能创建正式 campaign。
 
 ## 0. v0.2 → v0.3 修订摘要
 
@@ -191,7 +191,7 @@ return_convention / corporate_action_policy / missing_price_policy
 
 首版集合为1、20、60交易日；D1/D60仅作探索性切片。每周六06:00 America/New_York 冻结输入，deadline 为入场常规开盘前15分钟；普通周约有51小时15分钟调度窗口，DST和假日由日历解析。该窗口不替代单run预算与超时。详见 [time-protocol.v1](protocols/time-protocol.v1.md)。
 
-system campaign 提前固定入场与封存截止时间，必须满足：
+system campaign 登记时间规则；每个 Batch 在开始前解析并封存具体 cutoff、deadline 与入场时段，必须满足：
 
 ```text
 decision_cutoff <= sealed_at <= prediction_deadline < entry_at
@@ -214,8 +214,9 @@ expected_excess_return 不能单独确定 target_price：还缺 benchmark 预期
 | 表/对象 | 关键语义 |
 | --- | --- |
 | research_releases | prompt、角色/DAG、LLM、quant、特征、memory policy、工具、降级策略的不可变版本组合 |
-| campaigns | 事前登记总体、股票池快照、TargetSpec、enabled_sources、频率、预算、主指标、截止时间、缺失处理、生产 release 和可选 shadow release |
-| forecast_cases | 应当产生预测的证券 × horizon × 批次；失败也保留 |
+| campaigns | 事前登记的多周研究计划：总体、股票池快照、TargetSpec、enabled_sources、频率与时间协议、预算、主指标、缺失处理、生产 release 和可选 shadow release；不含具体批次时刻 |
+| forecast_batches | Campaign 内一个 decision_cutoff 对应的周实例：具体 cutoff、prediction_deadline、entry_session 与该批计划 case；Scheduler 按周创建，漏跑/跳过也保留 |
+| forecast_cases | 应当产生预测的批次内证券 × horizon（按 batch_id 归属）；失败也保留 |
 | run_attempts | 任务尝试、租约、错误、耗时、原始模型响应引用 |
 | forecast_commits | 对一个 case、一个 release 的 source 结果集进行原子封存 |
 | forecast_commit_events | 追加持久提交确认、及时性判定及依据，保留 uncertain/late 记录 |
@@ -229,7 +230,7 @@ expected_excess_return 不能单独确定 target_price：还缺 benchmark 预期
 
 已登记政策：Phase 1A 不回退，任一来源失败记 unavailable；Phase 1B 的 LLM 失败/超时仅在同 case 有有效 quant 输出时回退 quant，且必须在 deadline 前完成。两阶段都不通过事后补写改善 coverage。
 
-Phase 1A 尚未接入 Hermes 时，llm_adjusted 位置固定为 unavailable，reason=not_enabled；只能评估 baseline/quant，不计为 LLM 参与的三组对照。Phase 1B 从新的预登记批次开始启用 LLM，禁止回补既有 case 的 LLM 预测。
+Phase 1A 尚未接入 Hermes 时，llm_adjusted 位置固定为 unavailable，reason=not_enabled；只能评估 baseline/quant，不计为 LLM 参与的三组对照。Phase 1B 从新的预登记 Campaign（含新 release）开始启用 LLM，禁止回补既有 case 的 LLM 预测，也不能仅在原 Campaign 的下一批次改变来源。
 
 每个 campaign 在开始前登记 enabled_sources；not_enabled 表示未计划运行，不计为该来源的执行失败。来源 coverage 的分母是该来源事前计划参与的 case 集合，同时始终报告 campaign 的全量 case 数、来源启用情况与排除原因。
 
@@ -287,7 +288,7 @@ Phase 1A 的主问题是同一预登记 case 集上的 quant_model 相对 baseli
 - 计算每个 case 的成对损失差，而不是比较不同样本集合的两个均值；
 - 报告 coverage、失败、迟到、回退率及成本；成功子样本的结论限定在该子样本；
 - 分别评估实际降级政策的端到端表现与成功产生的原始 LLM 输出；
-- 重叠 horizon 和同日股票的相关性都需处理；每周 D20 预测不能以1日独立块假定无重叠。Q7 的按周区块或先仅描述方案在协议中待确认，确认和满足样本条件前不输出推断性区间；
+- 重叠 horizon 和同日股票的相关性都需处理；每周 D20 预测不能以1日独立块假定无重叠。Q7 已确认：v1 先仅描述统计，跨批区间用连续周批次区块自举，参数与样本条件事前登记后启用，此前不输出推断性区间；
 - 概率评分改进不能直接等同于可交易收益。PnL 需要独立、预登记的持仓与成本规则。
 
 不能为 unavailable 或 unresolved 随意构造概率/标签以凑齐评分。campaign coverage 使用预登记 case 全集，来源 coverage 使用该来源事前计划参与的 case 集合；损失指标注明实际可评分子集及其选择规则。缺失严重时只报告运行质量与描述统计，不据此声称预测有增量。异常价格、停牌、退市等不能通过事后删样本修饰结论。

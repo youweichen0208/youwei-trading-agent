@@ -3,7 +3,7 @@
 日期：2026-09-27\
 设计依据：[ARCHITECTURE.md](ARCHITECTURE.md)\
 问题来源：[v0.2 评审](ARCHITECTURE_REVIEW_v0.2.md)\
-状态：S00 协议部分登记完成，Q5/Q7 待确认；S01–S11 工程任务均待实施、待验收。
+状态：S00 协议已确认定稿（2026-09-27）；S01–S11 工程任务均待实施、待验收。
 
 ## 1. 执行规则
 
@@ -33,14 +33,14 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 ### S00 — 固定目标、时间和评估协议（Phase 0）
 
 - [x] 记录使用范围、登记日 S&P 500 PIT 总体、GICS Sector 分层固定种子抽样20证券、SPY、D20 主目标与每周频率。
-- [ ] 固定 TargetSpec 版本：算术超额总收益、D1/D20/D60、正常交易时段、日历、分红、并购、停牌/退市及缺失处理（Q5 待确认）。
+- [x] 固定 TargetSpec 版本：算术超额总收益、D1/D20/D60、正常交易时段、日历、分红、并购、停牌/退市及缺失处理（Q5 固定目标窗口已确认）。
 - [x] 定义周六06:00 ET cutoff、封存检查/提交确认、入场前15分钟 deadline、entry/exit 及服务器时钟要求。
-- [ ] 固定 campaign/case/source/release 的关系、enabled_sources、缺失与回退政策、主指标和评估时点；来源未启用不计为执行失败。
+- [x] 固定 campaign/batch/case/source/release 的层级关系、enabled_sources、缺失与回退政策、主指标和评估时点；来源未启用不计为执行失败。
 - [x] 定义最小 research release、人类所有者批准、trial 追加约定与 Git/外部锚定的保护范围；具体批准记录待实际 release 生成。
 
 登记文件：[S00 协议索引](protocols/README.md)、[目标协议](protocols/target-spec.v1.md)、[时间协议](protocols/time-protocol.v1.md)、[批次政策](protocols/campaign-policy.v1.md)、[已知答案](protocols/known-answer-cases.v1.md)、[机器可读登记](protocols/s00-registration.v1.json)、[Trial Registry](trials/registry.md)。Git 仓库已初始化。
 
-剩余决策：Q5 停牌时固定目标或顺延目标；Q7 按周区块方案或本版仅描述统计。实际名单/数据/日历/模型引用在 S01/S04/S06 取得，不虚构 hash 或提前批准。S00 当前不是已完成状态。
+剩余决策：无。Q5 固定目标窗口、Q7 先描述统计后连续周批次区块自举、Q9 Campaign/Batch 两层结构均已确认（2026-09-27）。实际名单/数据/日历/模型引用在 S01/S04/S06 取得，不虚构 hash 或提前批准。
 
 交付：版本化协议、字段契约和已知答案用例；具体默认值须记入配置，不由 Agent 在运行中决定。
 
@@ -218,13 +218,18 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 
 ## 4. 完成记录
 
-### S00 登记进度（2026-09-27）
+### S00 完成记录（2026-09-27）
 
-- 负责人：项目所有者确认用途与政策；Agent 维护协议文档，不具备 release 批准权。
-- 状态：进行中，等待 Q5/Q7 修订选择。
-- 实现引用：本页 S00 所列协议与登记文件；尚无运行时实现。
-- 已验证：合成抽样配额与重排一致性、DST换算、总收益与Brier算术。
-- 待验证：具体停牌/区间政策、真实 PIT 数据与日历版本、生产任务/安全/备份；这些结果不计为模型效果 trial。
+```text
+任务：S00 固定目标、时间和评估协议
+负责人：项目所有者（Q1–Q9 决策与确认）；Agent（协议编写与核对，无批准权）
+状态：已完成（协议登记层面；工程实现与部署验收归属 S01+）
+实现引用：docs/protocols/（target-spec.v1、time-protocol.v1、campaign-policy.v1、known-answer-cases.v1、s00-registration.v1.json）；CONTEXT.md；ARCHITECTURE §5–6 的 Campaign/Batch 同步
+固定配置/版本：target-spec-v1、time-protocol-v1、campaign-policy-v1、sampling-json-v1、seed=20260927、N=20、horizon={D1,D20,D60} 主 D20、SPY、周六 06:00 ET cutoff、Phase 1A sources={baseline, quant_model} 无回退
+验证命令或报告：known-answer-cases.v1 K01–K11；K01 经独立实现复算，配额、选中名单与 hash 一致
+验收时间与结果：2026-09-27 协议定稿。跨开盘、节假日/提前收盘、拆分分红、停牌退市、LLM 未启用/超时均有明确处理；模型版本与证券集合保持待登记，formal_campaign_allowed=false
+剩余限制：PIT 总体/GICS 快照、真实名单与 hash、日历/tzdb、SPY 永久 ID、模型与 training manifest、预算/权限/恢复验收、具体 release hash 的人工批准均为 S01+ 阻断项
+```
 
 执行时为每个 Sxx 增补以下记录；没有证据的任务保持未完成。
 
