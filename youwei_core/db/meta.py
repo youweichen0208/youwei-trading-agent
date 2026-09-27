@@ -55,6 +55,23 @@ tenants = Table(
     Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
 )
 
+# API keys: bearer credentials mapping a principal to a tenant.
+# Raw tokens are shown once at creation; only the sha256 hash is
+# stored. Admin keys (role='admin') manage tenants and keys.
+api_keys = Table(
+    "api_keys",
+    meta,
+    Column("id", UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    Column("tenant_id", UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False),
+    Column("name", Text, nullable=False),
+    Column("role", Text, nullable=False, server_default="tenant"),
+    Column("token_hash", Text, nullable=False, unique=True),
+    Column("token_prefix", Text, nullable=False),
+    Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
+    Column("revoked_at", TIMESTAMP(timezone=True), nullable=True),
+    CheckConstraint("role IN ('tenant', 'admin')", name="role_valid"),
+)
+
 runs = Table(
     "runs",
     meta,

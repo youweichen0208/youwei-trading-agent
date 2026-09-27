@@ -26,6 +26,9 @@ class ClaimedJob:
     kind: str
     payload: dict
     lease_expires_at: datetime
+    # signed by the worker loop (not by the DB claim): binds this exact
+    # (job, attempt, tenant) with scopes and an expiry <= the lease
+    capability_token: str | None = None
 
 
 def _lease_expiry(lease_ttl: float) -> datetime:
@@ -378,6 +381,52 @@ async def fail_attempt(
                 )
             )
         return "applied"
+
+
+async def abandon_attempt(
+    engine: AsyncEngine,
+    job_id: uuid.UUID,
+    attempt_no: int,
+) -> str:
+    """Mark a running attempt cancelled after its job was cancelled
+    mid-flight (watchdog cancelled the handler). The job stays in its
+    cancelled state; open budget reservations remain pending
+    reconciliation (unknown cost)."""
+    async with engine.begin() as conn:
+        job = (
+            await conn.execute(
+                select(jobs).where(jobs.c.id == job_id).with_for_update()
+            )
+        ).mappings().first()
+        if job is None:
+            return "unknown-job"
+        attempt = (
+            await conn.execute(
+                select(attempts)
+                .where(attempts.c.job_id == job_id, attempts.c.attempt_no == attempt_no)
+                .with_for_update()
+            )
+        ).mappings().first()
+        if attempt is None:
+            return "unknown-attempt"
+        if attempt.status != "running":
+            return attempt.status  # already terminal; nothing to abandon
+
+        await conn.execute(
+            update(attempts)
+            .where(attempts.c.id == attempt.id)
+            .values(status="cancelled", finished_at=func.now())
+        )
+        await conn.execute(
+            events.insert().values(
+                tenant_id=job.tenant_id,
+                run_id=job.run_id,
+                job_id=job_id,
+                event_type="job.abandoned",
+                payload={"attempt_no": attempt_no, "reason": "cancelled_midflight"},
+            )
+        )
+        return "cancelled"
 
 
 async def _maybe_finish_run(conn, run_id: uuid.UUID) -> None:

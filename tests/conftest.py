@@ -16,7 +16,7 @@ from httpx import ASGITransport, AsyncClient
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PG_IMAGE = "postgres:16-alpine"
 
-ALL_TABLES = "budget_entries, events, attempts, jobs, runs, tenants"
+ALL_TABLES = "budget_entries, events, attempts, jobs, runs, api_keys, tenants"
 
 
 def _docker() -> str:
@@ -92,16 +92,26 @@ async def clean_tables(pg_url):
         await engine.dispose()
 
 
+ADMIN_TEST_KEY = "ywa-admin-test-key-do-not-use"
+
+
 @pytest_asyncio.fixture
 async def client(pg_url):
     from youwei_core.api.app import create_app
     from youwei_core.config import Settings
 
-    app = create_app(Settings(database_url=pg_url))
+    app = create_app(
+        Settings(database_url=pg_url, admin_api_key=ADMIN_TEST_KEY)
+    )
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as c:
         yield c
     await app.state.engine.dispose()
+
+
+@pytest_asyncio.fixture
+def admin_headers() -> dict:
+    return {"Authorization": f"Bearer {ADMIN_TEST_KEY}"}
 
 
 @pytest_asyncio.fixture
@@ -120,11 +130,21 @@ def tenant_id() -> uuid.UUID:
     return uuid.uuid4()
 
 
-@pytest.fixture
-def tenant_headers(tenant_id) -> dict:
-    return {"X-Tenant-Id": str(tenant_id)}
+@pytest_asyncio.fixture
+async def tenant_headers(db_engine, tenant_id) -> dict:
+    """Real API key for a fresh tenant (S02b auth)."""
+    from youwei_core.auth.service import create_api_key, create_tenant
+
+    await create_tenant(db_engine, f"tenant-{tenant_id}", tenant_id=tenant_id)
+    _, raw = await create_api_key(db_engine, tenant_id, "test")
+    return {"Authorization": f"Bearer {raw}"}
 
 
-@pytest.fixture
-def other_tenant_headers() -> dict:
-    return {"X-Tenant-Id": str(uuid.uuid4())}
+@pytest_asyncio.fixture
+async def other_tenant_headers(db_engine) -> dict:
+    from youwei_core.auth.service import create_api_key, create_tenant
+
+    tenant = uuid.uuid4()
+    await create_tenant(db_engine, f"tenant-{tenant}", tenant_id=tenant)
+    _, raw = await create_api_key(db_engine, tenant, "test-other")
+    return {"Authorization": f"Bearer {raw}"}

@@ -4,9 +4,11 @@ import uvicorn
 
 from youwei_core.api.app import create_app
 from youwei_core.config import Settings
+from youwei_core.logfmt import configure_logging
 
 
 def main() -> None:
+    configure_logging()
     settings = Settings()
     uvicorn.run(
         create_app(settings),

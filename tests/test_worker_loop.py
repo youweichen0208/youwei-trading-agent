@@ -1,9 +1,18 @@
-"""S02a: outbox publisher and the worker loop (composition root)."""
+"""S02a: outbox publisher and the worker loop (composition root).
+S02b: cancellation propagates from a cancelled run to the in-flight
+handler (watchdog cancels the handler task; the attempt lands
+'cancelled')."""
 
 import asyncio
 import uuid
 
-from youwei_core.jobs.service import JobSubmission, RunSubmission, get_run_view, submit_run
+from youwei_core.jobs.service import (
+    JobSubmission,
+    RunSubmission,
+    cancel_run,
+    get_run_view,
+    submit_run,
+)
 from youwei_core.jobs.outbox import publish_pending_events
 from youwei_core.worker.loop import WorkerLoop, noop_handler
 
@@ -73,3 +82,61 @@ async def test_publisher_marks_events_in_order(db_engine, tenant_id, client, ten
 
     # idempotent: nothing left to mark
     assert await publish_pending_events(db_engine) == 0
+
+
+async def test_cancel_propagates_to_running_handler(db_engine, tenant_id):
+    """Cancel a run while its handler is executing: the watchdog
+    cancels the handler task, the attempt lands 'cancelled', and the
+    handler never completes."""
+    from youwei_core.config import Settings
+    from youwei_core.db.meta import attempts, jobs
+    from sqlalchemy import select
+
+    run_id = await _make_run(db_engine, tenant_id)
+    settings = Settings(
+        database_url="unused",
+        heartbeat_interval_seconds=0.05,
+        lease_ttl_seconds=5.0,
+    )
+    handler_entered = asyncio.Event()
+
+    async def slow_handler(claimed):
+        handler_entered.set()
+        await asyncio.sleep(30)
+        return {"never": True}
+
+    loop = WorkerLoop(db_engine, handlers={"noop": slow_handler}, settings=settings)
+    run_task = asyncio.create_task(loop.run_once())
+
+    # wait until the attempt is running
+    for _ in range(100):
+        await asyncio.sleep(0.05)
+        async with db_engine.begin() as conn:
+            status = (
+                await conn.execute(select(attempts.c.status))
+            ).scalar_one_or_none()
+            job_status = (
+                await conn.execute(select(jobs.c.status))
+            ).scalar_one_or_none()
+        if status == "running" and job_status == "running":
+            break
+    else:
+        raise AssertionError("attempt never started")
+    assert await asyncio.wait_for(handler_entered.wait(), timeout=5)
+
+    # cancel the run mid-flight
+    await cancel_run(db_engine, tenant_id, run_id)
+
+    # the watchdog should cancel the handler; run_once returns
+    assert await asyncio.wait_for(run_task, timeout=10) is True
+
+    # attempt cancelled (not late/succeeded), handler never completed
+    async with db_engine.begin() as conn:
+        row = (
+            await conn.execute(select(attempts).order_by(attempts.c.attempt_no))
+        ).mappings().first()
+    assert row["status"] == "cancelled"
+    assert row["result"] is None
+
+    view = await get_run_view(db_engine, tenant_id, run_id)
+    assert view["status"] == "cancelled"

@@ -24,3 +24,11 @@ class Settings(BaseSettings):
     heartbeat_interval_seconds: float = 10.0
     worker_poll_interval_seconds: float = 0.2
     event_publish_interval_seconds: float = 1.0
+
+    # S02b: admin bootstrap key (operator-configured). When set, this
+    # bearer token manages tenants/api-keys and nothing else.
+    admin_api_key: str = ""
+
+    # S02b: HMAC secret for per-job capability tokens. Configure per
+    # deployment; a stable value keeps issued tokens valid across restarts.
+    capability_secret: str = "dev-insecure-capability-secret"

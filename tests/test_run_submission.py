@@ -70,5 +70,6 @@ async def test_submission_event_recorded(client, tenant_headers):
 
 
 async def test_missing_headers_rejected(client):
+    # S02b: no bearer credentials -> 401 (auth precedes validation)
     r = await client.post("/v1/runs", json=BODY)
-    assert r.status_code == 422
+    assert r.status_code == 401
