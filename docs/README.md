@@ -14,6 +14,7 @@
 | 2b | [Trial Registry](trials/registry.md) | 真实模型试验的追加登记载体，目前无试验 |
 | 3 | [v0.2 评审记录](ARCHITECTURE_REVIEW_v0.2.md) | 保存问题背景、反例与取舍，问题编号关联实施计划 |
 | 4 | [Hermes / Pi 运行时核实](research/hermes-pi-runtime-verification.md) | 官方能力、限制、来源及目标环境待验证项 |
+| 4a | [S01 研究文档](research/) | 运行时版本固定、Tiingo 能力、gVisor 量化栈、LLM Gateway 选型 |
 
 ## 文档使用规则
 
