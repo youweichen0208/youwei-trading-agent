@@ -1,0 +1,130 @@
+"""Test infrastructure: one disposable PostgreSQL container per session,
+migrated via the real Alembic path, truncated between tests."""
+
+import os
+import shutil
+import socket
+import subprocess
+import time
+import uuid
+from pathlib import Path
+
+import pytest
+import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+PG_IMAGE = "postgres:16-alpine"
+
+ALL_TABLES = "budget_entries, events, attempts, jobs, runs, tenants"
+
+
+def _docker() -> str:
+    for cand in (shutil.which("docker"), "/usr/local/bin/docker", "/opt/homebrew/bin/docker"):
+        if cand and Path(cand).exists():
+            return cand
+    pytest.skip("docker not available")
+
+
+def _free_port() -> int:
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+@pytest.fixture(scope="session")
+def pg_url():
+    docker = _docker()
+    port = _free_port()
+    name = f"youwei-test-pg-{uuid.uuid4().hex[:8]}"
+    subprocess.run(
+        [
+            docker, "run", "-d", "--rm", "--name", name,
+            "-e", "POSTGRES_USER=youwei",
+            "-e", "POSTGRES_PASSWORD=youwei",
+            "-e", "POSTGRES_DB=youwei",
+            "-p", f"{port}:5432",
+            PG_IMAGE,
+        ],
+        check=True,
+        capture_output=True,
+    )
+    url = f"postgresql+asyncpg://youwei:youwei@127.0.0.1:{port}/youwei"
+    try:
+        for _ in range(120):
+            r = subprocess.run(
+                [docker, "exec", name, "pg_isready", "-U", "youwei"],
+                capture_output=True,
+            )
+            if r.returncode == 0:
+                break
+            time.sleep(0.5)
+        else:
+            raise RuntimeError("postgres container never became ready")
+
+        # Apply the real migrations (not metadata.create_all): the test
+        # database proves migrations work on every run.
+        from alembic import command
+        from alembic.config import Config as AlembicConfig
+
+        cfg = AlembicConfig()
+        cfg.set_main_option("script_location", str(REPO_ROOT / "migrations"))
+        os.environ["YOUWEI_DATABASE_URL"] = url
+        command.upgrade(cfg, "head")
+        yield url
+    finally:
+        subprocess.run([docker, "rm", "-f", name], capture_output=True)
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def clean_tables(pg_url):
+    """Truncate all tables between tests: one container, fast isolation."""
+    from sqlalchemy import text
+
+    from youwei_core.db.engine import make_engine
+
+    engine = make_engine(pg_url, pool_size=1)
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(text(f"TRUNCATE TABLE {ALL_TABLES} RESTART IDENTITY CASCADE"))
+        yield
+    finally:
+        await engine.dispose()
+
+
+@pytest_asyncio.fixture
+async def client(pg_url):
+    from youwei_core.api.app import create_app
+    from youwei_core.config import Settings
+
+    app = create_app(Settings(database_url=pg_url))
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as c:
+        yield c
+    await app.state.engine.dispose()
+
+
+@pytest_asyncio.fixture
+async def db_engine(pg_url):
+    from youwei_core.db.engine import make_engine
+
+    engine = make_engine(pg_url)
+    try:
+        yield engine
+    finally:
+        await engine.dispose()
+
+
+@pytest.fixture
+def tenant_id() -> uuid.UUID:
+    return uuid.uuid4()
+
+
+@pytest.fixture
+def tenant_headers(tenant_id) -> dict:
+    return {"X-Tenant-Id": str(tenant_id)}
+
+
+@pytest.fixture
+def other_tenant_headers() -> dict:
+    return {"X-Tenant-Id": str(uuid.uuid4())}

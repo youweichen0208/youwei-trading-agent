@@ -1,0 +1,38 @@
+[project]
+name = "youwei-core"
+version = "0.1.0"
+description = "youwei trading agent v0.3 core: persistent jobs, budgets, events (S02a)"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "fastapi>=0.115,<0.116",
+    "uvicorn[standard]>=0.32,<0.34",
+    "sqlalchemy[asyncio]>=2.0.36,<2.1",
+    "asyncpg>=0.30,<0.31",
+    "alembic>=1.14,<1.16",
+    "pydantic>=2.10,<3",
+    "pydantic-settings>=2.7,<3",
+]
+
+[project.scripts]
+youwei-api = "youwei_core.api.main:main"
+youwei-worker = "youwei_core.worker.main:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3,<9",
+    "pytest-asyncio>=0.25,<1",
+    "httpx>=0.28,<0.29",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["youwei_core"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+testpaths = ["tests"]

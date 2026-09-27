@@ -231,6 +231,13 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 剩余限制：PIT 总体/GICS 快照、真实名单与 hash、日历/tzdb、SPY 永久 ID、模型与 training manifest、预算/权限/恢复验收、具体 release hash 的人工批准均为 S01+ 阻断项
 ```
 
+### S02a 进度（2026-09-27）
+
+- 状态：**S02a 已完成**（隔离开发环境验收；S02b 未开始）。
+- 交付：schema/迁移（tenants/runs/jobs/attempts/events/budget_entries）、幂等 run 提交 API（租户绑定 Idempotency-Key + payload hash）、claim/租约/心跳/fencing（attempt_no 为 fencing token）、租约过期 reaper（requeue/取消/终态语义）、取消与完成竞争规则（迟到完成保留但不 apply）、预算 reserve/settle/release + 待对账查询（并发预留原子限额、结算幂等、未知费用阻塞预算、迟到 attempt 费用照记）、事务 outbox（events 表同事务追加 + publisher）、worker 循环入口。
+- 验收：23 个测试覆盖七个场景（重复投递、崩溃恢复、租约过期、旧 Worker 迟到提交、取消/完成竞争、预算并发与重复结算、响应丢失重试）；TDD 过程修复三个真实缺陷（FastAPI 装饰器状态码覆盖幂等重放、取消未及运行中 job、过期租约迟到提交未被 fence）。
+- 待办：S02b（身份/能力令牌、取消传播、Gateway 验收、结构化日志、备份演练、告警）。
+
 执行时为每个 Sxx 增补以下记录；没有证据的任务保持未完成。
 
 ```text
