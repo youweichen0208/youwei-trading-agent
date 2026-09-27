@@ -228,6 +228,7 @@ expected_excess_return 不能单独确定 target_price：还缺 benchmark 预期
 | 表/对象 | 关键语义 |
 | --- | --- |
 | research_releases | prompt、角色/DAG、LLM、quant、特征、memory policy、工具、降级策略的不可变版本组合 |
+| training_manifests | 训练清单：固定特征集及依赖、逐模型预处理、标签成熟规则、拟合窗口、校准与内容 hash 的模型产物；release 引用（ref+hash），campaign 注册时验证解析与一致性 |
 | campaigns | 事前登记的多周研究计划：总体、股票池快照、TargetSpec、enabled_sources、频率与时间协议、预算、主指标、缺失处理、生产 release 和可选 shadow release；不含具体批次时刻 |
 | forecast_batches | Campaign 内一个 decision_cutoff 对应的周实例：具体 cutoff、prediction_deadline、entry_session 与该批计划 case；Scheduler 按周创建，漏跑/跳过也保留 |
 | forecast_cases | 应当产生预测的批次内证券 × horizon（按 batch_id 归属）；失败也保留 |

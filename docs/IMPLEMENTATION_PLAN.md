@@ -3,7 +3,7 @@
 日期：2026-09-27；结构优化更新：2026-09-28\
 设计依据：[ARCHITECTURE.md](ARCHITECTURE.md)\
 问题来源：[v0.2 评审](ARCHITECTURE_REVIEW_v0.2.md)\
-状态：S00 协议已确认定稿（2026-09-27）；S01 主体完成（Tiingo 字段级验证已实测；EOD 实盘观测随 S04 首次采集、生产套餐条款确认待购买时；网关取消/用量/限额待验收）；S02 已完成（隔离开发环境验收，2026-09-27）；S03 第一/二纵切片完成（沙箱执行、独立 Runner 与 HTTP 产物链路，2026-09-28；生产部署仍待验收）；S04 第一/二纵切片完成（PIT 数据基础、交易日历与冻结快照，2026-09-27）；S05 已完成四纵切片（封存核心、Outcome 回填、评估报告、归档与监控，2026-09-27）加 S05e 证据追溯收紧（2026-09-28）；S06 第一/二纵切片完成（前向预测管线，2026-09-27；供应商更正自动触发、月度汇总与报告门控，2026-09-28；正式 campaign 启动项仍阻断）；S03 剩余部署项与 S06 正式启动及 S07–S11 待实施、待验收。
+状态：S00 协议已确认定稿（2026-09-27）；S01 主体完成（Tiingo 字段级验证已实测；EOD 实盘观测随 S04 首次采集、生产套餐条款确认待购买时；网关取消/用量/限额待验收）；S02 已完成（隔离开发环境验收，2026-09-27）；S03 第一/二纵切片完成（沙箱执行、独立 Runner 与 HTTP 产物链路，2026-09-28；生产部署仍待验收）；S04 第一至三纵切片完成（PIT 数据基础、交易日历与冻结快照，2026-09-27；训练 manifest 登记，2026-09-28；独立退市真相源、派生特征与多源仍待补源决策）；S05 已完成四纵切片（封存核心、Outcome 回填、评估报告、归档与监控，2026-09-27）加 S05e 证据追溯收紧（2026-09-28）；S06 第一/二纵切片完成（前向预测管线，2026-09-27；供应商更正自动触发、月度汇总与报告门控，2026-09-28；正式 campaign 启动项仍阻断）；S03 剩余部署项与 S06 正式启动及 S07–S11 待实施、待验收。
 
 ## 1. 执行规则
 
@@ -97,7 +97,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 - [ ] 前向查询与 historical_source 重建分别标识；正式查询必须携带 Controller 时间与权限上下文。（进展：as_of + mode 双模式查询已落地；权限上下文待接入能力令牌）
 - [ ] Snapshot 固定查询、证券、源版本、原始对象、schema、文件 hash 与代码版本。（进展：daily_bars 快照冻结/读取/审计验证已落地，见 S04b 进度；日线快照 Runner 接入见 S03b，特征快照及 Hermes 接入待后续）
 - [ ] 派生特征保留依赖；不能用当前 consensus/IV/重述值替代缺失历史值。（待实施）
-- [ ] 训练 manifest 固定预处理、成熟标签、拟合窗口、校准与模型产物。（待实施）
+- [ ] 训练 manifest 固定预处理、成熟标签、拟合窗口、校准与模型产物。（已落地：training_manifests 只追加登记 + 结构校验（五项固定事实显式声明，none 需明说）+ 载具 manifest 已知答案（artifact hash 锁定 quant 模块字节）+ campaign 注册验证 ref/hash/特征集/模型版本一致性，见 S04c 进度；正式模型的 manifest 待模型选定后登记）
 
 交付：可冻结、可授权读取、可恢复的证据快照。
 
@@ -348,6 +348,13 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 - 交付：**pipeline 逐源证据引用**——quant 位置携带批次共享证据快照 id（unavailable 也携带：快照记录使其无法运行的数据缺失事实）；常量基线不消费证据、如实保持 NULL。**封存边界证据纪律**（围栏/窗口检查之后、写入之前；幂等重放不重复校验）：produced 的 quant_model/llm_adjusted 必须引用冻结证据（拒绝不可追溯输入）；引用的快照必须存在、mode=forward（historical_source 是重建非证据）且 as_of <= 该 case 截止时间（截止后冻结的证据不得入账）。**DB 级约束**——predictions 表 CHECK：produced 消耗型来源必须携带 evidence_snapshot_id（直接 INSERT 同样受限）。migration `b4c5d6e7f8a9`（含既有数据预检查查询；当前无生产数据，开发库迁移前需确认预检查为 0）。
 - 验收：5 个新测试（证据引用落地与基线诚实 NULL、无证据 produced 拒绝、截止后冻结证据拒绝、historical_source 证据拒绝、DB 约束反例+正例）；修复原空转断言（逐源真实断言）；归档对象引用恢复校验从 2 扩至 4（quant 证据快照纳入）；重放幂等保持（fixture 证据按 case 缓存，与真实管线同一快照语义一致）。迁移实测 upgrade/downgrade/upgrade、约束在位。`uv run --frozen pytest -q` → 234 通过。
 - 待办：Phase 1B llm_adjusted 启用时同一纪律自动生效（校验已覆盖）；fallback 位置的证据语义（引用 quant prediction）随 S07 设计。
+
+### S04c 进度（2026-09-28）
+
+- 状态：**S04 第三纵切片完成**（隔离开发环境验收；独立退市真相源与多源扩展仍待补源采购决策）。
+- 交付：**训练 manifest 登记**（`ledger/training.py` + `training_manifests` 表，append-only 触发器同 research_releases）——manifest 结构校验：至少一个特征集（逐特征 name/kind/definition/missing_policy，缺失政策显式）与一个模型（role/model_version/artifact{kind, ref, 64-hex sha} + 五项固定事实 preprocessing/fitting_window/calibration/label_maturation/feature_set，none 需明说不可默认）；模型 feature_set 必须解析到已声明特征集；登记幂等（同 id 同内容返原行）同 id 异内容冲突；内容 hash 自排斥且与键序无关。**载具 manifest 已知答案**（`vehicle_training_manifest`）：baseline-constant-v0 / quant-momentum-v0 的 artifact hash 锁定 quant/models.py 实际字节（改代码不改登记可被检测），特征集 momentum-20d-v0 含显式缺失政策（不足 21 根 bar → unavailable/insufficient_history，不伪造）。**campaign 注册接线**：release manifest 的 training_manifest_ref + sha256 必须解析到已登记内容，feature_set_version 必须为该 manifest 声明、baseline_version/quant_model_version 必须与其模型一致；无引用的 release 照旧注册（向后兼容）。migration `c5d6e7f8a9b0`。
+- 验收：6 个新测试（登记幂等/冲突、结构校验 11 组反例全部拒收且零落库、内容 hash 自排斥+键序无关、载具已知答案含 artifact hash 对照实际文件、append-only 触发器、campaign 接线 6 路径：有效/未知 ref/hash 不匹配/特征集未声明/模型版本不一致/缺 hash 字段）。迁移实测 upgrade/downgrade/upgrade、2 触发器在位。`uv run --frozen pytest -q` → 240 通过。
+- 待办：正式模型选定后登记其 manifest（Trial 登记与人工 release 批准归人）；载具 manifest 的正式登记（tm-vehicles-v0）随首个正式 release 起执行；派生特征（consensus/IV 等外部特征依赖）待补源后随特征集登记扩展。
 
 ```text
 任务：

@@ -42,6 +42,7 @@ from youwei_core.db.meta import (
     release_approvals,
     research_releases,
     securities,
+    training_manifests,
 )
 
 # campaign-policy §3 (Phase 1A)
@@ -267,6 +268,58 @@ def _validate_target_specs(target_specs: list[dict]) -> None:
         raise CampaignValidationError(f"missing target specs for horizons {sorted(missing)}")
 
 
+async def _validate_training_reference(conn, release_manifest: dict) -> None:
+    """Verify the release manifest's training-manifest reference against
+    registered content (campaign-policy §5: training_manifest_ref + hash)."""
+    ref = release_manifest.get("training_manifest_ref")
+    if ref is None:
+        return
+    sha = release_manifest.get("training_manifest_sha256")
+    if not isinstance(sha, str) or len(sha) != 64:
+        raise CampaignValidationError(
+            "training_manifest_ref requires training_manifest_sha256 "
+            "(64 hex chars, campaign-policy §5)"
+        )
+    tm = (
+        await conn.execute(
+            select(training_manifests).where(
+                training_manifests.c.manifest_id == ref
+            )
+        )
+    ).mappings().one_or_none()
+    if tm is None:
+        raise CampaignValidationError(
+            f"training manifest {ref!r} is not registered"
+        )
+    if tm.content_sha256 != sha:
+        raise CampaignValidationError(
+            f"training manifest {ref!r} content hash mismatch: release says "
+            f"{sha[:12]}, registered is {tm.content_sha256[:12]}"
+        )
+    declared_fs = {
+        fs.get("feature_set_version") for fs in tm.content.get("feature_sets", [])
+    }
+    fs = release_manifest.get("feature_set_version")
+    if fs is not None and fs not in declared_fs:
+        raise CampaignValidationError(
+            f"feature_set_version {fs!r} is not declared by training "
+            f"manifest {ref!r}"
+        )
+    versions = {
+        m.get("role"): m.get("model_version") for m in tm.content.get("models", [])
+    }
+    for rel_key, role in (
+        ("baseline_version", "baseline"),
+        ("quant_model_version", "quant_model"),
+    ):
+        declared = release_manifest.get(rel_key)
+        if declared is not None and versions.get(role) != declared:
+            raise CampaignValidationError(
+                f"{rel_key} {declared!r} does not match the training "
+                f"manifest's {role} model ({versions.get(role)!r})"
+            )
+
+
 async def register_campaign(
     engine: AsyncEngine,
     *,
@@ -363,6 +416,14 @@ async def register_campaign(
                 "hash; a campaign needs a human-approved release "
                 "(campaign-policy §5)"
             )
+
+        # campaign-policy §5: a release manifest referencing a training
+        # manifest must reference REGISTERED content — the ref+hash pair
+        # resolves, and the declared feature set and model versions are
+        # consistent with it. Releases without the reference register as
+        # before (the Phase 1A vehicles disclose their facts in their own
+        # registered manifest).
+        await _validate_training_reference(conn, release.manifest)
 
         # panel and benchmark must be real securities
         for sec_id in [str(benchmark_security_id)] + panel:

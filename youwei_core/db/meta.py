@@ -394,6 +394,24 @@ research_releases = Table(
     CheckConstraint("release_content_sha256 ~ '^[0-9a-f]{64}$'", name="content_sha_format"),
 )
 
+# Training manifests (S04, campaign-policy §5): FIX the feature sets
+# a model combination may consume (with explicit dependencies and
+# missing-data policies), per-model preprocessing, label maturation
+# rules, fitting window, calibration and model artifacts (content
+# hashed). A ResearchRelease references it (training_manifest_ref +
+# sha256) and campaign registration verifies the pair resolves to
+# registered content. Immutable registration like research_releases.
+training_manifests = Table(
+    "training_manifests",
+    meta,
+    Column("id", UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    Column("manifest_id", Text, nullable=False, unique=True),  # operator slug
+    Column("content", JSONB, nullable=False),
+    Column("content_sha256", Text, nullable=False),
+    Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
+    CheckConstraint("content_sha256 ~ '^[0-9a-f]{64}$'", name="content_sha_format"),
+)
+
 # Human approval of a release content hash. Unique per (release,
 # approver); campaign registration requires at least one approval
 # whose hash still matches the release row.
