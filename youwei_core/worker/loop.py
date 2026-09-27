@@ -21,6 +21,7 @@ from youwei_core.jobs.worker import (
     claim_next_job,
     complete_attempt,
     fail_attempt,
+    heartbeat as hb,
 )
 
 log = logging.getLogger("youwei.worker")
@@ -84,7 +85,11 @@ class WorkerLoop:
             result = await handler_task
         except asyncio.CancelledError:
             log.info("handler cancelled mid-flight for job %s", claimed.job_id)
-            await abandon_attempt(self.engine, claimed.job_id, claimed.attempt_no)
+            await self._record_confirmed_cancellation(claimed)
+            # A worker shutdown must leave run_forever, while cancellation of
+            # only the handler by our watchdog lets the worker claim again.
+            if asyncio.current_task().cancelling():
+                raise
             return True
         except Exception as exc:  # noqa: BLE001
             log.warning("handler failed for job %s: %s", claimed.job_id, exc)
@@ -94,6 +99,7 @@ class WorkerLoop:
             return True
         finally:
             watchdog.cancel()
+            await asyncio.gather(watchdog, return_exceptions=True)
 
         outcome = await complete_attempt(
             self.engine, claimed.job_id, claimed.attempt_no, result
@@ -104,6 +110,26 @@ class WorkerLoop:
                 claimed.job_id, claimed.attempt_no,
             )
         return True
+
+    async def _record_confirmed_cancellation(self, claimed: ClaimedJob) -> None:
+        """Only a cancelled job authorizes a terminal cancelled attempt.
+
+        Lease loss, worker shutdown, or unavailable storage leave the attempt
+        running so the normal lease reaper can recover the active job.
+        """
+        from sqlalchemy import select
+
+        from youwei_core.db.meta import jobs
+
+        try:
+            async with self.engine.begin() as conn:
+                status = (await conn.execute(
+                    select(jobs.c.status).where(jobs.c.id == claimed.job_id)
+                )).scalar_one_or_none()
+            if status == "cancelled":
+                await abandon_attempt(self.engine, claimed.job_id, claimed.attempt_no)
+        except Exception:
+            log.exception("cannot confirm job cancellation; leaving attempt for lease recovery")
 
     async def _watchdog_loop(
         self, claimed: ClaimedJob, worker_id: str, handler_task: asyncio.Task
@@ -117,12 +143,16 @@ class WorkerLoop:
 
         while True:
             await asyncio.sleep(self.settings.heartbeat_interval_seconds)
-            await hb(
-                self.engine,
-                claimed.attempt_id,
-                worker_id,
-                lease_ttl=self.settings.lease_ttl_seconds,
-            )
+            try:
+                alive = await hb(self.engine, claimed.attempt_id, worker_id,
+                                 lease_ttl=self.settings.lease_ttl_seconds)
+            except Exception:
+                log.exception("lease renewal failed; cancelling handler")
+                handler_task.cancel()
+                return
+            if not alive:
+                handler_task.cancel()
+                return
             async with self.engine.begin() as conn:
                 status = (
                     await conn.execute(
@@ -197,7 +227,7 @@ def main() -> None:
     from youwei_core.ledger.scheduler import scheduler_tick
     from youwei_core.logfmt import configure_logging
     from youwei_core.sandbox.handler import make_sandbox_handler
-    from youwei_core.sandbox.runner import SandboxConfig
+    from youwei_core.sandbox.client import RunnerClient
 
     configure_logging()
     settings = Settings()
@@ -211,30 +241,30 @@ def main() -> None:
         base_url=settings.tiingo_base_url,
         min_interval=settings.tiingo_min_request_interval_seconds,
     )
+    runner = RunnerClient(settings.runner_url) if settings.runner_url else None
+    handlers = {
+        "noop": noop_handler,
+        "data.tiingo_daily": make_tiingo_daily_handler(engine, tiingo),
+        "research.batch_predict": make_batch_predict_handler(engine),
+    }
+    if runner is not None:
+        handlers["sandbox.execute"] = make_sandbox_handler(engine, runner, secret=settings.runner_secret)
     loop = WorkerLoop(
         engine,
-        handlers={
-            "noop": noop_handler,
-            "data.tiingo_daily": make_tiingo_daily_handler(engine, tiingo),
-            "research.batch_predict": make_batch_predict_handler(engine),
-            "sandbox.execute": make_sandbox_handler(
-                engine,
-                SandboxConfig(
-                    image=settings.sandbox_image,
-                    runtime=settings.sandbox_runtime,
-                    memory=settings.sandbox_memory,
-                    timeout_seconds=settings.sandbox_timeout_seconds,
-                ),
-            ),
-        },
+        handlers=handlers,
         settings=settings,
         scheduler_fn=lambda: scheduler_tick(engine),
     )
-    try:
-        asyncio.run(loop.run_forever())
-    finally:
-        asyncio.run(engine.dispose())
-        asyncio.run(tiingo.aclose())
+    async def serve():
+        try:
+            await loop.run_forever()
+        finally:
+            if runner is not None:
+                await runner.aclose()
+            await tiingo.aclose()
+            await engine.dispose()
+
+    asyncio.run(serve())
 
 
 if __name__ == "__main__":

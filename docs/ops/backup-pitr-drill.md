@@ -28,7 +28,7 @@
 
 | 项 | 要求 |
 | --- | --- |
-| 归档 | `archive_mode=on`、`archive_command` 写入本地区备份目录（架构 §10：备份任务仅允许本地区备份桶）；目录权限归 postgres |
+| 归档 | `archive_mode=on`、`archive_command` 写入备份目录，目录权限归 postgres；MVP 不使用 OSS。本机目录用于恢复机制验证，独立故障域副本与保留策略随 S09 验收 |
 | RPO 上界 | `archive_timeout=60`；实际 RPO = archive_timeout + 归档延迟，架构目标 RPO ≤ 15 分钟 |
 | 监控 | `/v1/ops/status` 的 `wal_archive` 段（enabled / archived_count / failed_count / last_archived_age_seconds）与 `wal_archive_stale` 告警（阈值 `YOUWEI_ALERT_WAL_ARCHIVE_STALE_SECONDS`，默认 1800s；归档开启但从未成功即告警） |
 | 演练 | 目标机部署后重跑本脚本记录实测 RPO/RTO（架构目标核心 RTO ≤ 4 小时）；此后每次重大版本变更或至少每季度一次 |

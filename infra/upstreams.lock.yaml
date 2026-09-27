@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "format": "JSON syntax, valid YAML 1.2; validated by infra/validate_upstreams.py",
+  "components": {
+    "hermes": {
+      "enabled": false,
+      "source": {
+        "kind": "git",
+        "url": "https://github.com/NousResearch/hermes-agent",
+        "revision": "7fa45eb349a1a6f1eebc010b3fef0a9d996f386a"
+      },
+      "runtime": {"python": "3.14.7"},
+      "integration_status": "not_integrated",
+      "verification": {
+        "status": "smoke_only",
+        "evidence": {
+          "path": "docs/research/s01-target-verification.md",
+          "sha256": "f7052e9afc916e5cf305a165a4916df9515273e27327e06e7727a3b003e758c3"
+        }
+      },
+      "deployment": {"image": null, "bindings": []},
+      "notes": "Source installation was smoke-tested; S07 adapter, isolation, dependency/image build and deployment acceptance remain incomplete."
+    },
+    "pi": {
+      "enabled": false,
+      "source": {"kind": "npm", "package": "@earendil-works/pi-coding-agent", "version": "0.87.1"},
+      "runtime": {"node_requirement": ">=22.19.0", "node_exact": null},
+      "integration_status": "not_integrated",
+      "verification": {
+        "status": "smoke_only",
+        "evidence": {
+          "path": "docs/research/s01-target-verification.md",
+          "sha256": "f7052e9afc916e5cf305a165a4916df9515273e27327e06e7727a3b003e758c3"
+        }
+      },
+      "deployment": {"image": null, "bindings": []},
+      "notes": "RPC get_state smoke passed; S08 wrapper, package lock, exact Node/image digest and end-to-end authorization are not accepted."
+    },
+    "litellm": {
+      "enabled": false,
+      "source": {"kind": "pypi", "package": "litellm", "version": "1.102.1"},
+      "runtime": {"python_exact": null},
+      "integration_status": "not_integrated",
+      "verification": {
+        "status": "not_run",
+        "evidence": {
+          "path": "docs/research/llm-gateway-options.md",
+          "sha256": "b2cc39aea6288bba8aa968264e7d6633593240f3f5786b408bb79d50e07a8e0b"
+        }
+      },
+      "deployment": {"image": null, "bindings": []},
+      "notes": "Version is a documented candidate. Prior main-stable image smoke does not prove this exact package version or deployable digest."
+    },
+    "openwebui": {
+      "enabled": false,
+      "source": {"kind": "git", "url": "https://github.com/open-webui/open-webui", "revision": null},
+      "integration_status": "not_integrated",
+      "verification": {"status": "not_run", "evidence": null},
+      "deployment": {"image": null, "bindings": []},
+      "notes": "S09 integration candidate; no version, image or deployment has been selected."
+    },
+    "openviking": {
+      "enabled": false,
+      "source": {"kind": "git", "url": "https://github.com/volcengine/OpenViking", "revision": null},
+      "integration_status": "not_integrated",
+      "verification": {"status": "not_run", "evidence": null},
+      "deployment": {"image": null, "bindings": []},
+      "notes": "Optional derived retrieval layer; no version, image or deployment has been selected."
+    }
+  }
+}

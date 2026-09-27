@@ -12,6 +12,7 @@ dependencies = [
     "pydantic>=2.10,<3",
     "pydantic-settings>=2.7,<3",
     "httpx>=0.28,<0.29",
+    "youwei-contracts",
 ]
 
 [project.scripts]
@@ -20,6 +21,7 @@ youwei-worker = "youwei_core.worker.main:main"
 
 [dependency-groups]
 dev = [
+    "youwei-runner",
     "pytest>=8.3,<9",
     "pytest-asyncio>=0.25,<1",
     "httpx>=0.28,<0.29",
@@ -30,7 +32,11 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["youwei_core"]
+packages = ["youwei_core", "quant"]
+
+[tool.uv.sources]
+youwei-contracts = { path = "contracts", editable = true }
+youwei-runner = { path = "services/sandbox-runner", editable = true }
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

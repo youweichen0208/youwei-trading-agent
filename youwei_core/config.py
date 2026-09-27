@@ -59,10 +59,6 @@ class Settings(BaseSettings):
     # fixed before the first campaign; measured on the target host).
     max_clock_skew_seconds: float = 5.0
 
-    # S03: sandbox runner. The image reference is deployment config
-    # (pin by digest in production); jobs never choose it. runtime is
-    # gVisor (runsc) on the target host, default runtime in dev.
-    sandbox_image: str = "python:3.13-alpine"
-    sandbox_runtime: str = ""
-    sandbox_memory: str = "256m"
-    sandbox_timeout_seconds: float = 60.0
+    # Container policy and Docker permissions belong to the remote Runner.
+    runner_url: str = ""
+    runner_secret: str = ""

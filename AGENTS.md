@@ -14,6 +14,8 @@
 | 触发条件 | 必读内容 |
 | --- | --- |
 | 修改模块边界、工作流、提交或权限 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) 对应章节 |
+| 修改目录、包依赖或进程划分 | [REPOSITORY.md](docs/REPOSITORY.md)；保持单业务仓库、独立 Runner 与轻量 contracts |
+| 修改上游版本、镜像或发布配置 | [UPSTREAMS.md](docs/UPSTREAMS.md)、`infra/upstreams.lock.yaml` 与验证命令 |
 | 修改收益、交易日、截止时间、Campaign 或评分 | [协议索引](docs/protocols/README.md) 中的目标、时间、批次政策及已知答案用例 |
 | 修改协议参数或版本引用 | [s00-registration.v1.json](docs/protocols/s00-registration.v1.json) 与所引用协议；核对内容 hash |
 | 选择模型、特征、prompt 或研究规则 | [Trial Registry](docs/trials/registry.md)；比较前登记，保留失败和放弃的试验 |
@@ -24,12 +26,13 @@
 
 设计依据是架构文档，目标与评估语义以登记协议为准，工程状态查实施计划中的具体完成记录和实现证据。旧评审记录用于解释背景。运行命令、依赖和配置以当前代码及锁文件核对，不从早期目录示意推断功能已经存在。
 
-已知旧文档尚有未同步处：SG 实测为 DigitalOcean **4 vCPU / 7.8 GB**；原型已归档拆除；**OSS 已排除出 MVP 范围**，本地 WAL/PITR 演练不等于异地备份或独立 Ledger 归档完成。部署相关任务先读上述目标机和演练记录，处理受影响的旧假设，不能直接采用架构中的 8 vCPU / 32 GB、旧原型或 OSS 部署示意。
+SG 当前基线为 DigitalOcean **4 vCPU / 7.8 GB**；原型已归档拆除；**OSS 已排除出 MVP 范围**。历史记录中的原环境保留为验证背景；本地 WAL/PITR 演练不等于独立故障域备份或 Ledger 外部锚定完成。
 
 ## 代码与外部组件边界
 
 - **Core 使用 Python 3.13**：FastAPI、SQLAlchemy 2.0 Core、asyncpg、Alembic、Pydantic v2；依赖由 `pyproject.toml` 和 `uv.lock` 管理。API 与 Worker 共用 `youwei_core/`，分别运行。保持显式事务和模块化单包结构。
 - `api/` 处理 HTTP 与鉴权接线；`jobs/` 管理任务、租约和事件；`worker/` 负责执行循环；`budget/` 管理费用账本；`auth/` 管理身份与能力令牌；`data/` 管理供应商、证券、PIT 与快照；`llm/` 接网关；`ops/` 提供运行状态。新增能力优先进入对应模块。
+- `quant/` 是纯计算包；`contracts/src/youwei_contracts/` 是无数据库依赖的共享契约。Core 的 `sandbox/` 只做授权、HTTP 调用和受 fencing 保护的入库；Docker 执行只存在于 `services/sandbox-runner/`，有独立 `pyproject.toml` / `uv.lock`。保持 Core 运行依赖不含 Runner，Runner 不导入 Core；根 dev 组安装 Runner 仅供测试。
 - 确定性的 **Controller** 掌握任务状态、时间、预算、权限与最终提交。Hermes 组织研究并返回 Proposal，由 Controller 校验后提交。
 - **Hermes 使用独立的 Python 3.14 环境**，不能为了它升级 Core 解释器。Pi 使用独立 Node/TypeScript 运行时，通过受控 RPC 与 Extensions 接入；具体版本查固定记录。
 - 标准量化能力优先实现为经过测试的 Python 库，由受控执行入口调用。Pi 用于库尚未覆盖的探索，生成代码作为沙箱输入。
@@ -74,12 +77,14 @@ uv run --frozen pytest -q tests/test_worker.py
 uv run --frozen pytest -q
 ```
 
-- **测试需要可用的 Docker daemon**：`tests/conftest.py` 会创建一次性 PostgreSQL 容器，执行真实 Alembic 迁移，每个测试清表，结束后删除容器。当前自动 fixture 使所有测试依赖这套环境；缺 Docker 导致的 skip 不算通过。测试清表逻辑只能运行于一次性测试库。
+- **集成测试需要可用的 Docker daemon**：`tests/conftest.py` 创建一次性 PostgreSQL 容器，执行真实 Alembic 迁移，每个测试清表，结束后删除容器；Runner 集成测试另外启动本地 HTTP 子进程与受限容器。`tests/contracts/` 和 `tests/known_answers/` 覆盖清表 fixture，可独立运行且不需 PG。缺 Docker 导致的 skip 不算通过，清表逻辑只能运行于一次性测试库；通过 fixture 传测试配置，不直接导入名为 `conftest` 的模块。
 - 修改任务、预算、权限、PIT、迁移或收益计算时，按 TDD 逐个验收行为推进：先观察相应测试失败，再实现并通过。测试公共行为与反例，优先真实 PostgreSQL；供应商调用可用固定响应，真实收费调用单独验收。
 - 新增表或约束同步更新 `youwei_core/db/meta.py`、Alembic 迁移及测试清理表清单。已应用迁移通过新增 revision 演进。评估迁移的锁、数据兼容性和恢复方式，测试走实际升级路径。
 - 先运行受影响测试；修改共享 schema、fixture 或跨模块契约后运行完整测试集。纯文档修改检查引用、命令与内容一致性即可。检查工具以已配置项为准，不能报告未执行或不存在的检查通过。
 - 开发库迁移用 `uv run --frozen alembic upgrade head`；Alembic 直接读取导出的 `YOUWEI_DATABASE_URL`，不会自动加载 `.env`。先核对目标是自己的开发库。API 和 Worker 分别由 `uv run --frozen youwei-api`、`uv run --frozen youwei-worker` 启动，配置见 `youwei_core/config.py`。
 - 初始资源保持保守：重计算并发 1，API / Worker 小连接池、独立资源限额。根据目标机测量调整，LLM 金额预算单独配置。
+- Runner 独立安装验证：`uv sync --project services/sandbox-runner --frozen --no-dev`；其配置使用 `YOUWEI_RUNNER_*`，不加载 Core `.env`。默认生产模式强制沙箱镜像 digest 和 `runsc`，本机测试必须显式选择 development。`infra/compose/development.json` 是本地联调配置，不能视为生产验收。
+- 上游登记检查：`python3 infra/validate_upstreams.py --mode catalog`。正式发布按 UPSTREAMS 文档校验渲染后的 Compose、镜像 digest、验收证据与部署清单；catalog 通过不授予发布权限。
 
 ## 文档与交付
 

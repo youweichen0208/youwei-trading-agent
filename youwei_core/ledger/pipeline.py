@@ -20,13 +20,21 @@ registry without touching the sealing path.
 
 import json
 import uuid
+from dataclasses import asdict
 from datetime import timedelta
-from decimal import Decimal
 
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from quant.models import (
+    BASELINE_MODEL_VERSION,
+    MOMENTUM_MIN_BARS,
+    MOMENTUM_WINDOW,
+    QUANT_MODEL_VERSION,
+    predict_baseline as model_predict_baseline,
+    predict_quant as model_predict_quant,
+)
 from youwei_core.data.snapshots import freeze_daily_bars, read_snapshot
 from youwei_core.db.meta import (
     campaigns,
@@ -38,14 +46,9 @@ from youwei_core.jobs.worker import ClaimedJob
 from youwei_core.ledger.sealing import SealRequest, SourcePrediction, seal_commit
 
 PIPELINE_VERSION = "pipeline-v1"
-BASELINE_MODEL_VERSION = "baseline-constant-v0"
-QUANT_MODEL_VERSION = "quant-momentum-v0"
 
 # evidence window: calendar days of daily bars before the cutoff
 EVIDENCE_LOOKBACK_CALENDAR_DAYS = 90
-# quant vehicle: trailing close momentum over this many sessions
-MOMENTUM_WINDOW = 20
-MOMENTUM_MIN_BARS = MOMENTUM_WINDOW + 1
 
 
 class PredictError(Exception):
@@ -57,54 +60,19 @@ class BatchPredictPayload(BaseModel):
     release_id: str
 
 
-# --- model vehicles -----------------------------------------------------------
+# --- model result adapters ----------------------------------------------------
+# Preserve the existing SourcePrediction interface and version constant imports.
+# All model calculation lives in the dependency-free quant package.
 
 
 def predict_baseline(bars: list[dict]) -> SourcePrediction:
-    """Constant base-rate vehicle: no data dependence, always produced.
-    The formal baseline is a trial-registered model."""
-    return SourcePrediction(
-        source="baseline",
-        source_status="produced",
-        p_outperform=0.5,
-        expected_excess_return=0.0,
-        model_version=BASELINE_MODEL_VERSION,
-    )
-
-
-def _valid_bars(bars: list[dict]) -> list[dict]:
-    return [
-        b
-        for b in bars
-        if b.get("quality") == "ok" and Decimal(str(b["close"])) > 0
-    ]
+    """Adapt the constant vehicle's result for Ledger sealing."""
+    return SourcePrediction(**asdict(model_predict_baseline(bars)))
 
 
 def predict_quant(bars: list[dict] | None = None) -> SourcePrediction:
-    """Trailing-momentum vehicle: p = clip(0.5 + 20-session close
-    momentum). Insufficient history seals unavailable with the reason
-    — never a fabricated number."""
-    bars = _valid_bars(bars or [])
-    if len(bars) < MOMENTUM_MIN_BARS:
-        return SourcePrediction(
-            source="quant_model",
-            source_status="unavailable",
-            reason="insufficient_history",
-            model_version=QUANT_MODEL_VERSION,
-        )
-    window = bars[-MOMENTUM_WINDOW:]
-    first = Decimal(str(window[0]["close"]))
-    last = Decimal(str(window[-1]["close"]))
-    momentum = (last / first - 1).quantize(Decimal("0.0000000001"))
-    p = min(max(Decimal("0.5") + momentum, Decimal("0.05")), Decimal("0.95"))
-    expected = min(max(momentum, Decimal("-0.5")), Decimal("0.5"))
-    return SourcePrediction(
-        source="quant_model",
-        source_status="produced",
-        p_outperform=float(p),
-        expected_excess_return=float(expected),
-        model_version=QUANT_MODEL_VERSION,
-    )
+    """Adapt the frozen momentum vehicle's result for Ledger sealing."""
+    return SourcePrediction(**asdict(model_predict_quant(bars)))
 
 
 # registry: enabled source -> model implementation. Formal models

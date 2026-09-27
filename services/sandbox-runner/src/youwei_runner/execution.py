@@ -38,8 +38,11 @@ import stat
 import tarfile
 import time
 import uuid
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from youwei_contracts.sandbox import SandboxRequest, SnapshotBundle, ExecutionResult as WireResult
 
 
 def _docker_binary() -> str:
@@ -183,7 +186,7 @@ async def _run(cmd: list[str], *, timeout: float | None = None) -> tuple[int, st
     )
     try:
         out, err = await asyncio.wait_for(proc.communicate(), timeout=timeout)
-    except asyncio.TimeoutError:
+    except (asyncio.TimeoutError, asyncio.CancelledError):
         proc.kill()
         await proc.wait()
         raise
@@ -201,8 +204,18 @@ async def _run_bytes(cmd: list[str], *, timeout: float | None = None) -> tuple[i
         stderr=asyncio.subprocess.PIPE,
     )
     try:
-        out, err = await asyncio.wait_for(proc.communicate(), timeout=timeout)
-    except asyncio.TimeoutError:
+        async with asyncio.timeout(timeout):
+            out = await proc.stdout.read(70 * 1024 * 1024 + 1)
+            if len(out) > 70 * 1024 * 1024:
+                raise ArtifactValidationError("artifact stream over cap")
+            # read() may return a partial pipe chunk; bound the entire stream.
+            while chunk := await proc.stdout.read(65536):
+                out += chunk
+                if len(out) > 70 * 1024 * 1024:
+                    raise ArtifactValidationError("artifact stream over cap")
+            err = await proc.stderr.read(65536)
+            await proc.wait()
+    except (asyncio.TimeoutError, asyncio.CancelledError, ArtifactValidationError):
         proc.kill()
         await proc.wait()
         raise
@@ -259,6 +272,8 @@ async def run_sandbox(
 
     cmd = [
         docker, "run", "-d", "--name", container,
+        "--label", "youwei.runner=standalone-v1",
+        "--log-driver", "local", "--log-opt", "max-size=1m", "--log-opt", "max-file=2",
         "--network", "none",
         "--read-only",
         "--cap-drop", "ALL",
@@ -283,14 +298,13 @@ async def run_sandbox(
     cmd += [config.image, "sh", "-c", wrapper]
 
     started = time.monotonic()
-    code, out, err = await _run(cmd, timeout=60.0)
-    if code != 0:
-        raise SandboxExecutionError(f"docker run failed: {err.strip()[:500]}")
-
     exit_code: int | None = None
     timed_out = False
     oom = False
     try:
+        code, out, err = await _run(cmd, timeout=60.0)
+        if code != 0:
+            raise SandboxExecutionError(f"docker run failed: {err.strip()[:500]}")
         deadline = started + config.timeout_seconds
         while exit_code is None:
             if time.monotonic() >= deadline:
@@ -320,7 +334,7 @@ async def run_sandbox(
         # logs while the container is alive (script output; the
         # wrapper adds nothing to stdout)
         _, logs_out, logs_err = await _run(
-            [docker, "logs", container], timeout=30.0
+            [docker, "logs", "--tail", "1000", container], timeout=30.0
         )
         # stream /outputs out of the live tmpfs as a tar (docker cp
         # cannot see tmpfs contents); parsed and validated in memory
@@ -370,52 +384,53 @@ async def run_sandbox(
     )
 
 
-# --- snapshot spool -----------------------------------------------------------
+async def remove_orphaned_containers() -> None:
+    """One standalone Runner per Docker daemon; reclaim only its labeled jobs."""
+    docker = _docker_binary()
+    code, out, err = await _run(
+        [docker, "ps", "-aq", "--filter", "label=youwei.runner=standalone-v1"], timeout=15)
+    if code:
+        raise SandboxExecutionError("cannot reconcile runner containers")
+    for container in out.split():
+        code, _, _ = await _run([docker, "rm", "-f", container], timeout=30)
+        if code:
+            raise SandboxExecutionError("cannot remove orphaned runner container")
 
 
-async def materialize_snapshot(engine, snapshot_id, target: Path) -> dict:
-    """Write a frozen snapshot into the spool as content.json +
-    manifest.json, verifying hashes on write. The snapshot itself is
-    hash-verified on read; the spool re-verification catches
-    corruption between read and mount."""
-    from youwei_core.data.snapshots import read_snapshot
-
-    target = Path(target)
+def materialize_snapshot(snapshot: SnapshotBundle, target: Path) -> dict:
+    """Only already-authorized bytes enter the Runner; no database access."""
+    snapshot = SnapshotBundle.model_validate(snapshot.model_dump())
     snap_dir = target / "snapshot"
     snap_dir.mkdir(parents=True, exist_ok=True)
-    snap = await read_snapshot(engine, snapshot_id)  # verifies content hash
-
-    content_path = snap_dir / "content.json"
-    content_path.write_text(snap["content"], encoding="utf-8")
-    manifest = snap_dir / "manifest.json"
-    manifest.write_text(
-        json.dumps(snap["manifest"], sort_keys=True, separators=(",", ":"), ensure_ascii=False),
-        encoding="utf-8",
-    )
-    verify_spool(snap["manifest"]["content_sha256"], snap_dir)
-    return {
-        "snapshot_id": str(snapshot_id),
-        "content_sha256": snap["manifest"]["content_sha256"],
-        "files": ["snapshot/content.json", "snapshot/manifest.json"],
-    }
+    (snap_dir / "content.json").write_text(snapshot.content, encoding="utf-8")
+    (snap_dir / "manifest.json").write_text(json.dumps(snapshot.manifest, sort_keys=True), encoding="utf-8")
+    verify_spool(snapshot.manifest["content_sha256"], snap_dir)
+    return {"snapshot_id": str(snapshot.snapshot_id),
+            "content_sha256": snapshot.manifest["content_sha256"],
+            "files": ["snapshot/content.json", "snapshot/manifest.json"]}
 
 
 def verify_spool(expected_sha: str, snap_dir: Path) -> None:
-    """Recompute the content hash from the spooled bytes; raise
-    SpoolError on any mismatch."""
-    content_path = Path(snap_dir) / "content.json"
-    if not content_path.is_file():
-        raise SpoolError("spool content.json missing")
-    actual = hashlib.sha256(content_path.read_bytes()).hexdigest()
-    if actual != expected_sha:
-        raise SpoolError(
-            f"spool content hash mismatch: expected {expected_sha}, got {actual}"
-        )
+    path = snap_dir / "content.json"
+    if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != expected_sha:
+        raise SpoolError("spool content hash mismatch")
 
 
-def cleanup_spool(base: Path) -> None:
-    """Remove a spool directory tree (best effort; outputs were
-    validated before any host-side reading)."""
-    import shutil
+async def execute_request(request: SandboxRequest, settings) -> WireResult:
+    from dataclasses import asdict
 
-    shutil.rmtree(base, ignore_errors=True)
+    root = Path(settings.spool_root)
+    root.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="job-", dir=root) as spool:
+        inputs = Path(spool) / "inputs"
+        inputs.mkdir()
+        if request.snapshot is not None:
+            materialize_snapshot(request.snapshot, inputs)
+        (inputs / "job_script.py").write_text(request.script, encoding="utf-8")
+        result = await run_sandbox(
+            SandboxConfig(image=settings.image, runtime=settings.runtime,
+                          memory=settings.memory, timeout_seconds=settings.timeout_seconds,
+                          max_total_output_bytes=8 * 1024 * 1024,
+                          max_output_bytes=4 * 1024 * 1024, outputs_tmpfs_size="16m"),
+            inputs_dir=inputs, argv=request.argv, env=request.env)
+        return WireResult.model_validate(asdict(result))

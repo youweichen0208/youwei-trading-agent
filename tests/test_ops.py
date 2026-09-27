@@ -15,7 +15,6 @@ Alert thresholds come from Settings; count-based signals
 import asyncio
 import uuid
 
-from conftest import ADMIN_TEST_KEY
 from httpx import ASGITransport, AsyncClient
 
 from youwei_core.api.app import create_app
@@ -29,11 +28,11 @@ SUBMISSION = {
 }
 
 
-async def _strict_client(pg_url):
+async def _strict_client(pg_url, admin_key):
     """App whose age thresholds are all zero: any nonzero age alerts."""
     settings = Settings(
         database_url=pg_url,
-        admin_api_key=ADMIN_TEST_KEY,
+        admin_api_key=admin_key,
         alert_queue_backlog_age_seconds=0,
         alert_unpublished_events_age_seconds=0,
         alert_pending_reconciliation_age_seconds=0,
@@ -161,8 +160,8 @@ async def test_ops_status_reports_overdue_runs(client, admin_headers, db_engine,
 # --- threshold alerts (strict settings app) ------------------------------
 
 
-async def test_stale_ages_alert_under_strict_thresholds(pg_url, tenant_headers):
-    async for client in _strict_client(pg_url):
+async def test_stale_ages_alert_under_strict_thresholds(pg_url, tenant_headers, admin_headers):
+    async for client in _strict_client(pg_url, admin_headers["Authorization"].removeprefix("Bearer ")):
         r = await client.post(
             "/v1/runs",
             headers={**tenant_headers, "Idempotency-Key": "ops-strict"},
@@ -184,7 +183,7 @@ async def test_stale_ages_alert_under_strict_thresholds(pg_url, tenant_headers):
             await engine.dispose()
         await asyncio.sleep(0.2)  # let the rows age past the 0s thresholds
 
-        body = await _ops(client, {"Authorization": f"Bearer {ADMIN_TEST_KEY}"})
+        body = await _ops(client, admin_headers)
         assert body["status"] == "alert"
         assert "queue_backlog_stale" in body["alerts"]
         assert "unpublished_events_stale" in body["alerts"]

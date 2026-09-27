@@ -5,6 +5,7 @@ import os
 import shutil
 import socket
 import subprocess
+import sys
 import time
 import uuid
 from pathlib import Path
@@ -71,13 +72,14 @@ def pg_url():
 
         # Apply the real migrations (not metadata.create_all): the test
         # database proves migrations work on every run.
-        from alembic import command
-        from alembic.config import Config as AlembicConfig
-
-        cfg = AlembicConfig()
-        cfg.set_main_option("script_location", str(REPO_ROOT / "migrations"))
-        os.environ["YOUWEI_DATABASE_URL"] = url
-        command.upgrade(cfg, "head")
+        # Alembic's asyncio.run resets the calling thread's current loop. Run
+        # the real CLI out of process so preceding pure async contract tests
+        # cannot lose pytest's session loop when PG starts lazily afterwards.
+        subprocess.run(
+            [sys.executable, "-m", "alembic", "-c", str(REPO_ROOT / "alembic.ini"), "upgrade", "head"],
+            cwd=REPO_ROOT, env={**os.environ, "YOUWEI_DATABASE_URL": url}, check=True,
+            capture_output=True,
+        )
         yield url
     finally:
         subprocess.run([docker, "rm", "-f", name], capture_output=True)

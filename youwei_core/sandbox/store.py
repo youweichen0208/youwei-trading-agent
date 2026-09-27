@@ -1,6 +1,6 @@
 """Artifact storage with fencing (S03): the restricted upload path.
 
-The runner (in-process in MVP) stores validated artifacts through
+The Core receives validated artifacts from the remote Runner through
 this function only; it validates that the producing attempt is still
 the job's current running attempt before writing — a late or fenced
 worker's artifacts are recorded nowhere but its own result payload.
@@ -13,7 +13,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from youwei_core.db.meta import artifacts, attempts, events, jobs
-from youwei_core.sandbox.runner import CollectedArtifact
+from youwei_contracts.sandbox import Artifact
 
 
 class FencedArtifacts(Exception):
@@ -28,11 +28,13 @@ async def store_artifacts(
     job_id: uuid.UUID,
     attempt_id: uuid.UUID,
     attempt_no: int,
-    collected: list[CollectedArtifact],
+    collected: list[Artifact],
 ) -> list[uuid.UUID]:
     if not collected:
         return []
     async with engine.begin() as conn:
+        # Same lock order as job completion: job, then attempt.
+        await conn.execute(select(jobs.c.id).where(jobs.c.id == job_id).with_for_update())
         attempt = (
             await conn.execute(
                 select(
@@ -47,7 +49,10 @@ async def store_artifacts(
                 .where(
                     attempts.c.id == attempt_id,
                     attempts.c.attempt_no == attempt_no,
+                    jobs.c.id == job_id,
+                    jobs.c.run_id == run_id,
                 )
+                .with_for_update(of=attempts)
             )
         ).mappings().one_or_none()
         db_now = (await conn.execute(select(func.clock_timestamp()))).scalar_one()

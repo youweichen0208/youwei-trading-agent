@@ -30,7 +30,7 @@ from youwei_core.data.snapshots import freeze_daily_bars
 from youwei_core.jobs.service import RunSubmission, submit_run
 from youwei_core.jobs.worker import claim_next_job, complete_attempt, fail_attempt
 from youwei_core.sandbox.handler import make_sandbox_handler
-from youwei_core.sandbox.runner import (
+from youwei_runner.execution import (
     ArtifactValidationError,
     SandboxConfig,
     SandboxExecutionError,
@@ -40,6 +40,52 @@ from youwei_core.sandbox.runner import (
 )
 from youwei_core.sandbox.store import FencedArtifacts, get_artifact, store_artifacts
 from test_data_pit import _ingest, _row, _security
+
+RUNNER_SECRET = "test-runner-dedicated-secret-at-least-32"
+
+
+@pytest.fixture(scope="module")
+def remote_runner():
+    """Real HTTP subprocess with only Runner config; no Core/provider secrets."""
+    import os
+    import socket
+    import subprocess
+    import sys
+    import time
+    import urllib.request
+
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+    with tempfile.TemporaryDirectory(prefix="youwei-runner-http-") as spool:
+        env = {k: os.environ[k] for k in ("PATH", "HOME", "DOCKER_HOST", "DOCKER_CONTEXT") if k in os.environ}
+        env.update(YOUWEI_RUNNER_SECRET=RUNNER_SECRET, YOUWEI_RUNNER_DEVELOPMENT="true",
+                   YOUWEI_RUNNER_RUNTIME="", YOUWEI_RUNNER_SPOOL_ROOT=spool)
+        launch = ("import uvicorn; from youwei_runner.app import create_app; "
+                  "from youwei_runner.settings import RunnerSettings; "
+                  f"uvicorn.run(create_app(RunnerSettings()), host='127.0.0.1', port={port}, log_level='error')")
+        proc = subprocess.Popen([sys.executable, "-c", launch], env=env)
+        url = f"http://127.0.0.1:{port}"
+        try:
+            for _ in range(100):
+                if proc.poll() is not None:
+                    raise RuntimeError("Runner subprocess exited during startup")
+                try:
+                    with urllib.request.urlopen(url + "/healthz", timeout=0.2) as response:
+                        if response.status == 200:
+                            break
+                except OSError:
+                    time.sleep(0.05)
+            else:
+                raise RuntimeError("Runner did not start")
+            yield url
+        finally:
+            proc.terminate()
+            try:
+                proc.wait(timeout=15)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
 
 
 def _config(**overrides) -> SandboxConfig:
@@ -113,7 +159,7 @@ with open("/outputs/isolation.json", "w") as f:
 # --- execution + artifacts -----------------------------------------------------
 
 
-async def test_handler_materializes_snapshot_and_stores_artifacts(db_engine, tenant_id):
+async def test_handler_materializes_snapshot_and_stores_artifacts(db_engine, tenant_id, remote_runner):
     sec = await _security(db_engine)
     start, end = date(2026, 8, 1), date(2026, 8, 5)
     ingest = await _ingest(
@@ -139,8 +185,10 @@ json.dump({"n": len(bars), "last": closes[-1]}, open("/outputs/summary.json", "w
         tenant_id,
         {"script": script, "snapshot_id": str(snap.snapshot_id)},
     )
-    handler = make_sandbox_handler(db_engine, _config())
-    summary = await handler(claimed)
+    from youwei_core.sandbox.client import RunnerClient
+    async with RunnerClient(remote_runner) as runner_client:
+        handler = make_sandbox_handler(db_engine, runner_client, secret=RUNNER_SECRET)
+        summary = await handler(claimed)
     await complete_attempt(db_engine, claimed.job_id, claimed.attempt_no, summary)
 
     assert summary["exit_code"] == 0
@@ -168,12 +216,14 @@ json.dump({"n": len(bars), "last": closes[-1]}, open("/outputs/summary.json", "w
     assert ev == 1
 
 
-async def test_script_failure_is_a_result_not_an_infra_failure(db_engine, tenant_id):
+async def test_script_failure_is_a_result_not_an_infra_failure(db_engine, tenant_id, remote_runner):
     claimed = await _submit_and_claim(
         db_engine, tenant_id, {"script": "import sys; sys.exit(3)"}
     )
-    handler = make_sandbox_handler(db_engine, _config())
-    summary = await handler(claimed)
+    from youwei_core.sandbox.client import RunnerClient
+    async with RunnerClient(remote_runner) as runner_client:
+        handler = make_sandbox_handler(db_engine, runner_client, secret=RUNNER_SECRET)
+        summary = await handler(claimed)
     assert summary["exit_code"] == 3
     assert summary["artifacts"] == []
     await complete_attempt(db_engine, claimed.job_id, claimed.attempt_no, summary)
@@ -262,7 +312,10 @@ async def test_spool_hash_verification_detects_tampering(db_engine):
     )
     with tempfile.TemporaryDirectory() as tmp:
         target = Path(tmp)
-        info = await materialize_snapshot(db_engine, snap.snapshot_id, target)
+        from youwei_core.data.snapshots import read_snapshot
+        from youwei_contracts.sandbox import SnapshotBundle
+        frozen = await read_snapshot(db_engine, snap.snapshot_id)
+        info = materialize_snapshot(SnapshotBundle(snapshot_id=snap.snapshot_id, content=frozen["content"], manifest=frozen["manifest"]), target)
         assert info["content_sha256"] == snap.content_sha256
         verify_spool(snap.content_sha256, target / "snapshot")
 
@@ -279,12 +332,12 @@ async def test_artifact_storage_is_fenced(db_engine, tenant_id):
     # a newer attempt supersedes the first one
     await fail_attempt(db_engine, claimed.job_id, claimed.attempt_no, "retry")
 
-    from youwei_core.sandbox.runner import CollectedArtifact
+    from youwei_contracts.sandbox import Artifact as CollectedArtifact
 
     stale = [
         CollectedArtifact(
             path="x.json", extension=".json", size=2,
-            sha256="0" * 64, content="{}",
+            sha256=__import__("hashlib").sha256(b"{}").hexdigest(), content="{}",
         )
     ]
     with pytest.raises(FencedArtifacts):
@@ -306,7 +359,7 @@ async def test_artifacts_append_only(db_engine, tenant_id):
     claimed = await _submit_and_claim(
         db_engine, tenant_id, {"script": "pass"}, kind="sandbox.execute"
     )
-    from youwei_core.sandbox.runner import CollectedArtifact
+    from youwei_contracts.sandbox import Artifact as CollectedArtifact
 
     await store_artifacts(
         db_engine,
@@ -318,7 +371,7 @@ async def test_artifacts_append_only(db_engine, tenant_id):
         collected=[
             CollectedArtifact(
                 path="x.json", extension=".json", size=2,
-                sha256="0" * 64, content="{}",
+                sha256=__import__("hashlib").sha256(b"{}").hexdigest(), content="{}",
             )
         ],
     )
@@ -328,3 +381,70 @@ async def test_artifacts_append_only(db_engine, tenant_id):
     with pytest.raises(Exception, match="append-only"):
         async with db_engine.begin() as conn:
             await conn.execute(text("UPDATE artifacts SET path = 'y.json'"))
+
+
+async def test_worker_cancellation_reaches_independent_runner(db_engine, tenant_id, remote_runner):
+    import httpx
+    from datetime import timedelta
+    from youwei_contracts.capability import sign_capability
+    from youwei_contracts.sandbox import SandboxRequest, request_digest
+    from youwei_core.config import Settings
+    from youwei_core.jobs.service import cancel_run, get_run_view
+    from youwei_core.sandbox.client import RunnerClient
+    from youwei_core.worker.loop import WorkerLoop
+
+    payload = {"script": "import time; time.sleep(30)"}
+    run = await submit_run(db_engine, tenant_id,
+        RunSubmission(kind="sandbox.execute", total_budget_micros=0,
+                      jobs=[{"kind": "sandbox.execute", "payload": payload}]), str(uuid.uuid4()))
+    entered = asyncio.Event()
+    captured = {}
+    async with RunnerClient(remote_runner) as runner_client:
+        handler = make_sandbox_handler(db_engine, runner_client, secret=RUNNER_SECRET)
+        async def observe(claimed):
+            captured["job"] = claimed
+            entered.set()
+            return await handler(claimed)
+        loop = WorkerLoop(db_engine, handlers={"sandbox.execute": observe},
+                          settings=Settings(heartbeat_interval_seconds=0.1, lease_ttl_seconds=5))
+        task = asyncio.create_task(loop.run_once())
+        try:
+            await asyncio.wait_for(entered.wait(), 2)
+            claimed = captured["job"]
+            request = SandboxRequest(job_id=claimed.job_id, run_id=claimed.run_id,
+                tenant_id=tenant_id, attempt_id=claimed.attempt_id, attempt_no=claimed.attempt_no, **payload)
+            token = sign_capability(RUNNER_SECRET, job_id=claimed.job_id,
+                tenant_id=tenant_id, attempt_no=claimed.attempt_no,
+                scopes=("sandbox:execute", f"payload:{request_digest(request)}"),
+                exp=datetime.now(UTC) + timedelta(seconds=5))
+            async with httpx.AsyncClient(base_url=remote_runner) as http:
+                path = f"/v1/executions/{claimed.job_id}/{claimed.attempt_no}"
+                headers = {"Authorization": "Bearer " + token}
+                for _ in range(100):
+                    response = await http.get(path, headers=headers)
+                    if response.status_code == 200:
+                        break
+                    await asyncio.sleep(0.02)
+                assert response.status_code == 200
+                await cancel_run(db_engine, tenant_id, run.run_id)
+                assert await asyncio.wait_for(asyncio.shield(task), 4) is True
+                status = (await http.get(path, headers=headers)).json()
+                assert status["status"] == "cancelled"
+                assert (await get_run_view(db_engine, tenant_id, run.run_id))["status"] == "cancelled"
+        finally:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+
+
+async def test_snapshot_from_another_tenant_is_rejected_before_http(db_engine, tenant_id):
+    from youwei_core.sandbox.client import RunnerClient
+    from youwei_core.data.snapshots import freeze_daily_bars
+    owner = await _submit_and_claim(db_engine, uuid.uuid4(), {"script": "pass"})
+    snap = await freeze_daily_bars(db_engine, [], date(2026, 1, 1), date(2026, 1, 1),
+        as_of=datetime.now(UTC), mode="historical_source", created_by_attempt=owner.attempt_id)
+    intruder = await _submit_and_claim(db_engine, tenant_id,
+                                      {"script": "pass", "snapshot_id": str(snap.snapshot_id)})
+    async with RunnerClient("http://127.0.0.1:1") as runner_client:
+        handler = make_sandbox_handler(db_engine, runner_client, secret=RUNNER_SECRET)
+        with pytest.raises(FencedArtifacts, match="snapshot not authorized"):
+            await handler(intruder)

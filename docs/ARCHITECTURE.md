@@ -1,13 +1,13 @@
 # Hermes + Pi 美股研究平台技术架构 v0.3
 
-日期：2026-09-27（S00 参数登记更新）\
-状态：架构修订稿，评审修复已合并；工程实现与 ECS 验证待完成\
+日期：2026-09-28（仓库边界与现行部署约束同步）\
+状态：Core 已有开发环境纵向切片；独立部署、正式数据与完整 MVP 按实施计划逐项验收\
 输入：用户提供的 v0.2 架构；详细问题见 [v0.2 评审](ARCHITECTURE_REVIEW_v0.2.md)\
-适用范围：已确认自用或受控内部研究，不向公众提供服务、不自动交易、不对外提供投资建议；保留中国大陆入口与新加坡核心两台 ECS。范围扩大按第13节重新评估。
+适用范围：已确认自用或受控内部研究，不向公众提供服务、不自动交易、不对外提供投资建议；目标为中国大陆入口与新加坡核心。现有 SG 主机为 DigitalOcean 4 vCPU / 7.8 GB，国内入口尚待接入。范围扩大按第13节重新评估。
 
-本文是当前架构设计依据。[实施计划](IMPLEMENTATION_PLAN.md)定义依赖顺序、交付物与验收条件；[文档索引](README.md)说明各文件用途。文档中“已合并”只表示设计已修订，不代表代码、部署或安全验收已经完成。
+本文是当前架构设计依据。[实施计划](IMPLEMENTATION_PLAN.md)记录依赖顺序、交付物与实际验收；[仓库边界](REPOSITORY.md)说明代码职责、依赖环境和外部组件接入方式。架构要求不代表代码、部署或安全验收已经完成。
 
-S00 的具体选择登记于 [protocols/](protocols/README.md)：固定20证券样本、D1/D20/D60、D20主目标、SPY、周六06:00 ET截止及下一交易时段开盘入场；固定目标窗口停牌政策与描述统计优先的区间方法已确认（2026-09-27）。实际 PIT 快照、模型、日历和 release 批准尚未取得，不能创建正式 campaign。
+S00 的具体选择登记于 [protocols/](protocols/README.md)：固定20证券样本、D1/D20/D60、D20主目标、SPY、周六06:00 ET截止及下一交易时段开盘入场；固定目标窗口停牌政策与描述统计优先的区间方法已确认（2026-09-27）。开发实现已有日历、快照与模型管线；正式总体/GICS 来源、真实20证券名单、数据许可、训练与模型版本及 release 人工批准仍需按启动条件落实，不能由开发测试推导正式 campaign 已就绪。
 
 ## 0. v0.2 → v0.3 修订摘要
 
@@ -38,6 +38,8 @@ S00 的具体选择登记于 [protocols/](protocols/README.md)：固定20证券�
 | Hermes | 生成计划、组织研究、综合与反驳；输出 Proposal，由 Controller 校验并提交 |
 | Pi | 仅用于需要生成代码的探索；标准 event study / factor / model 走确定性任务 |
 | 模块组织 | Core API、Workflow、Ledger、Memory、Evaluation 共享代码库；按运行权限和资源需求部署 |
+| 计算与执行边界 | 纯 quant 计算独立于 Ledger；共享 contracts 不依赖数据库；Sandbox Runner 独立进程且无数据库及供应商凭证 |
+| 存储与归档 | MVP 使用 PostgreSQL 与受控本地文件；OSS 不在 MVP 范围；本地归档不提供独立防篡改或 WORM 保证 |
 | 队列 | MVP 使用 PostgreSQL 任务表、租约与事务 outbox；Redis 暂不承担正确性责任 |
 | 跨境通信 | 国内提交 + 主动拉取持久事件；回调在确有延迟需求后再加 |
 | 数据可见性 | 区分“当时公开”与“系统当时实际知道”；正式前向任务只用冻结输入 |
@@ -58,46 +60,56 @@ flowchart TD
     Edge -->|提交、轮询事件，mTLS| API[新加坡 Core API]
     API --> PG[(新加坡 PG：任务 / Ledger / Memory)]
     Controller[Core Worker：Workflow / Scheduler / Evaluation] --> PG
-    Controller -->|冻结输入、能力令牌| Agent[Agent Runtime：Hermes]
+    Controller -->|FrozenEvidence、能力令牌| Agent[Agent Runtime：Hermes，待接入]
     Agent -->|探索任务| Pi[Pi RPC 子进程]
-    Controller -->|标准量化任务| Runner[Sandbox Runner]
-    Pi -->|代码与快照引用| Runner
+    Agent -->|ResearchProposal| Controller
+    Pi -->|探索执行请求| Controller
+    Controller -->|HTTP：授权快照字节、hash、作业| Runner[独立 Sandbox Runner]
     Runner --> Box[gVisor：无网络 / 无密钥]
+    Runner -->|校验后的产物字节与清单| Controller
+    Controller -->|attempt fencing 后存储| PG
     Controller --> Data[Data Service]
     Agent -->|只读、受限查询| Data
     Data --> Provider[市场 / SEC / 新闻供应商]
     Data --> PG
-    Data --> OSS[(OSS：原始数据 / 快照)]
-    Data -->|内部流式读取快照| Runner
-    Runner -->|受限上传产物| API
+    PG --> Archive[本地 Ledger 导出 / WAL 归档]
     Agent --> LLM[LLM Gateway]
     Pi --> LLM
     LLM --> Models[模型供应商]
-    API --> Artifacts[(OSS：产物 / 独立 Ledger 归档桶)]
 ```
 
-国内最小部署：
+上图表示目标职责和信任边界；Agent Runtime、独立 Data Service 与国内入口的实际接入按实施计划推进。当前原始数据、冻结快照与受限小产物保存在 PostgreSQL；本地 Ledger 导出和 WAL 归档分别管理。大对象存储以后按容量和许可选择，MVP 不依赖 OSS。
 
-- nginx、Next.js、China API；
+国内目标部署：
+
+- nginx、Web、China API；Web 在 S09 评估 Open WebUI 接入或复用归档中的 Next.js 源码；
 - 独立小型 PostgreSQL：身份、租户成员关系、task mirror、提交 outbox；备份保存在境内；
 - Redis 仅在缓存或会话性能确有需要时添加。
 
-新加坡六个应用部署单元：
+新加坡按权限划分的目标部署单元：
 
 | 单元 | 职责及限制 |
 | --- | --- |
 | core-api | 私有入口、鉴权、任务与事件查询、受控提交、产物存取；API 内部包含 Ledger / Memory 的受限操作 |
-| core-worker | 同代码库的 Workflow / Scheduler / Evaluation 运行模式；按任务类别限并发，不运行生成代码 |
+| core-worker | 同代码库的 Workflow / Scheduler / Evaluation；授权并冻结沙箱输入，通过 HTTP 调用 Runner，重新校验租约并保存产物，不持有容器运行时权限 |
 | agent-runtime | Hermes 适配器及 Pi RPC 子进程；无数据库凭证、无供应商密钥、无运行时 socket |
-| data-service | 所有数据供应商适配、采集、版本化与快照；collector 是该模块的运行模式 |
-| llm-gateway | 模型出口、任务级预算预留、成本结算、模型路由与审计 |
-| sandbox-runner | 固定模板创建 gVisor 作业；隔离 agent runtime 与宿主运行时权限 |
+| data-service | 所有数据供应商适配、采集、版本化与快照；当前在 Core 数据模块实现，独立服务接线随权限隔离推进 |
+| llm-gateway | 模型出口、请求级限额与计费审计；Controller 持有跨角色、跨重试的 run 预算账本 |
+| sandbox-runner | 独立进程以固定模板创建 gVisor 作业；仅接收 Worker 授权并冻结的输入，不读业务数据库、不持有供应商密钥、不直接提交 Ledger 或保存业务产物 |
 
-另有 nginx、PostgreSQL、受控备份任务。六个部署单元不要求六个独立仓库。Python Core 与 TypeScript Pi 通过固定版本 RPC 契约连接。
+另有 nginx、PostgreSQL、受控备份任务。上述职责保留在一个业务仓库，按权限需要独立运行；MVP 不要求提前启动所有目标单元。Python Core 与 TypeScript Pi 通过版本化契约连接，外部 Agent 的业务接入仍属 S07/S08。
 
 较重的标准量化计算也在批处理沙箱执行，但使用已发布的 quant 镜像和固定入口，不调用 Pi 模型循环。轻量评分可在 core-worker 执行。
 
-本方案仍是单节点 Core，不承诺高可用。数据库、队列和 Agent 同机失效时依靠恢复，不以“Docker 自动重启”代替恢复能力。初期资源按现有 8 vCPU / 32 GB 假设压测，先限制一个重计算任务，不能仅据架构图承诺容量。
+本方案仍是单节点 Core，不承诺高可用。现有 SG 主机为 DigitalOcean 4 vCPU / 7.8 GB，见 [目标机记录](research/s01-target-verification.md)。先限制重计算并发为1，保留数据库资源，配置小连接池与每进程内存上限；实际容量和 RPO/RTO 在 S09 目标机验收。两台服务器的旧原型已归档并移除，原型的存在或曾运行成功不作为当前业务接入证据。
+
+### 2.1 仓库与依赖边界
+
+Core 保留一个业务包及一条迁移链，任务、租户、预算、PIT、Ledger 的事务归 Core 管理。本次将纯量化模型提取到 quant，只接收显式输入并返回计算结果；Ledger 负责案例、版本、封存与评估记录。收益算术当前仍在 Ledger 的 outcomes 模块，后续扩展时沿纯计算边界提取。
+
+共享 contracts 承载冻结输入、执行请求和产物清单等传输结构，不依赖 Core 数据库、HTTP 路由或供应商 SDK。Runner 使用独立依赖环境，只依赖这些结构和执行组件；Worker 保留数据库授权及有副作用的提交。具体包与验证入口见 [仓库边界](REPOSITORY.md)。
+
+Hermes、Pi、Open WebUI、OpenViking 默认使用官方固定版本，通过业务适配层接入；需要独立运行时的组件分别维护依赖锁。上游版本登记不代表已安装或已接入业务，只有上游配置/扩展无法满足必要改动时才维护可追踪的最小 fork。
 
 ## 3. 四个核心 Interface
 
@@ -129,6 +141,8 @@ Execution.cancel(job_id, attempt_token) -> cancellation_result
 ```
 
 标准 quant 与 Pi 生成代码共享执行约束。调用方不能指定任意镜像、宿主路径、挂载参数或网络模式。
+
+独立 Runner 的 HTTP 契约为 `POST /v1/executions`、`GET /v1/executions/{job_id}/{attempt_no}` 和同路径 `DELETE`。Core Worker 校验作业及快照授权，推送冻结内容和 hash；请求签名绑定 tenant、job、attempt、请求体 hash 及租约截止时间。Worker 持续轮询并按协议续租，Runner 在租约或执行时限到期后停止计算。Runner 返回经过边界校验的产物字节和清单，Worker 在当前 attempt 的 fencing 检查通过后保存业务产物。
 
 ### 3.4 封存
 
@@ -255,7 +269,9 @@ unique(case_id, revision)
 
 Ledger 对应用可验证且防止日常覆盖，不声称绝对防管理员篡改。应用不能 UPDATE / DELETE / TRUNCATE，迁移/owner 权限独立；受限提交接口防止任意 INSERT。哈希链需有 chain_id、单调序号、固定规范化方法和事务内链头锁。链头被外部归档之前仍存在信任窗口。
 
-归档使用独立 OSS Ledger 桶，与可删除原始资料、备份分开。每日归档封存记录、Outcome 更正及链头；需要更短的可篡改窗口时增加归档频率。BucketWorm 是桶级策略，不能只写“对 ledger-archive/ 目录开启 WORM”。锁定保留策略应在隔离测试桶验收后执行。[OSS 官方说明](https://www.alibabacloud.com/help/en/oss/user-guide/oss-retention-policies)
+MVP 导出本地 Ledger 归档，包含封存记录、Outcome 更正、报告与链头；导出文件和 manifest 可检查内容一致性。它们位于同一管理权限下时仍可被一起重写，因此内容 hash、本地追加约定和本地 Git 均不构成独立防篡改锚点，也不具备 WORM 保留保证。
+
+归档周期化、在独立控制的位置保存链头、验证引用数据恢复及明确保留权限，列入 S09 运维验收。OSS 不在 MVP 范围；未来是否采用对象存储或 WORM，按恢复目标、许可和成本单独选型，不能把本地导出标记成这些能力已完成。
 
 ## 7. Memory 与受控变更
 
@@ -309,6 +325,8 @@ Phase 1A 的主问题是同一预登记 case 集上的 quant_model 相对 baseli
 
 任务状态：queued -> running -> succeeded / failed / cancelled / expired。attempt 与业务 job 分开。
 
+PG 保存业务执行状态，Runner 中的执行状态仅为短期缓存。Runner 重启后无法恢复的执行由 Core 认定原 attempt 失败或过期，再用新 attempt 重试；不靠 Runner 缓存恢复业务，也不承诺外部计算只发生一次。
+
 PG 用短事务领取任务，原子更新 lease_owner、lease_expires_at 与递增 attempt_token；可用 FOR UPDATE SKIP LOCKED 降低消费者锁竞争。不能持有事务跨越 LLM 调用。[PostgreSQL 16 文档](https://www.postgresql.org/docs/16/sql-select.html)
 
 完成提交检查最新 attempt_token；租约过期的旧 Worker 即使返回成功也无权覆盖新尝试。崩溃后重试可能再次产生 LLM 成本，系统承诺业务提交幂等，不宣称外部调用恰好一次。
@@ -334,23 +352,25 @@ Hermes 与 Pi Extension 都是可信部署代码。只允许经审核、固定�
 
 权限由服务端认证主体决定；请求中的 tenant_id、scope、snapshot_id 不能自证权限。agent runtime 获得短期、限 job 的能力令牌，只能访问已批准的快照和操作。多用户接入前，对私有任务、产物、预测、Memory 开启 PG RLS 并测试；应用角色不能是 owner、superuser 或 BYPASSRLS。共享市场数据与 system 只读发布使用明确的策略。[PostgreSQL RLS](https://www.postgresql.org/docs/16/ddl-rowsecurity.html)
 
-按用途配置出口，而不是把所有出口都理解成外部 API：
+目标部署按用途配置出口；在独立 Data Service 等单元接入时逐项验收这些权限：
 
 | 主体 | 允许目标 |
 | --- | --- |
-| data-service | 数据供应商、原始数据与快照 OSS 桶 |
+| data-service | 已授权数据供应商及受控数据存储 |
 | llm-gateway | 已批准的模型供应商 |
-| core-api 的产物模块 | 本项目产物及归档 OSS 桶 |
-| 备份任务 | 本地区备份桶 |
+| Core 产物模块 | 本项目 PostgreSQL 产物存储；本地归档另由受控任务导出 |
+| 备份任务 | 本地区受控备份目录；独立恢复副本的传输按 S09 验收配置 |
 | agent-runtime / core-worker | 所需内部接口；不直接访问互联网 |
-| sandbox-runner | Data Service / Core API 的受限内部接口、本地运行时 socket；不直接访问互联网或 OSS |
+| sandbox-runner | 接收 Core Worker 的内部执行请求；仅访问本地运行时 socket，无数据库或供应商连接 |
 | sandbox | 无网络 |
 
 Docker network 提供分组；仅接入 egress network 不等于限制目标域名，还需宿主防火墙或受控出口实现目标限制。DB、运行时控制与 Agent 分网，避免所有主体共享一个可横向访问的 core 网络。
 
-Runner 创建的沙箱使用固定 image digest、非 root、只读根文件系统、cap-drop、no-new-privileges、CPU/memory/PID/磁盘/超时上限，无网络和密钥。quant 库从固定镜像提供。调用方只提交已授权 snapshot_id，Runner 自行解析为允许的只读挂载。
+Runner 创建的沙箱使用固定 image digest、非 root、只读根文件系统、cap-drop、no-new-privileges、CPU/memory/PID/磁盘/超时上限，无网络和密钥。quant 库从固定镜像提供。Core Worker 校验 snapshot 权限后读取冻结字节，Runner 校验 manifest 与内容 hash，再解析为自身管理的只读挂载。
 
-Runner 本身是具有受限内部凭证和宿主运行时权限的可信服务。Data Service 通过内部鉴权接口向 Runner 流式提供 manifest 与快照字节；Runner 校验 hash 后写入自身管理的固定 job spool，再只读挂载到沙箱。Runner 拒绝调用方指定下载 URL 或宿主路径。作业结束后，Runner 验证文件边界，经 Core API 的受限产物接口上传；Core API 校验、写 OSS 并返回不可变 manifest。复杂格式解析放在受限环境，避免扩张持 socket 的 Runner 代码。Controller 只接受已确认 manifest，不把沙箱自报的 OSS 路径当作成功。
+Runner 是持有宿主运行时权限的可信服务；仅持有验证内部执行请求所需的专用凭证，没有 Core 数据库、数据供应商或模型凭证。它验证 tenant/job/attempt、请求签名、能力范围和租约期限，将已校验输入写入固定 job spool；调用方不能指定下载 URL 或宿主路径。Core Worker 不持有运行时 socket。
+
+作业结束后，Runner 校验文件边界并返回产物，Core Worker 再验证结果归属、内容 hash 和当前 attempt，经过 fencing 后在同一受控业务路径保存产物与事件。租约失效后的返回不能获得正式产物引用。复杂格式解析放在受限环境，避免扩张持 socket 的 Runner 代码；沙箱自报路径或 manifest 本身不构成成功提交证明。
 
 gVisor 的保护受网络与挂载配置约束，不能写成“即使注入也无法外泄或破坏”。[gVisor 安全模型](https://gvisor.dev/docs/architecture_guide/security/)
 
@@ -364,17 +384,17 @@ PII 处理覆盖请求正文、上传附件、模型日志与错误堆栈，仅�
 
 预算以 run 为根，所有角色/Pi/重试共享同一账本。模型调用前原子预留保守估算费用，结束后结算；并发调用不能各自读取旧余额。同时限制输出 token、墙钟时间和重试次数，实际 provider 价格与计费规则必须验证。
 
-按 v0.2 示例，100 证券每周一次且每证券一个研究任务、每任务耗尽 2 美元上限，约 200 美元/周、867 美元/月，仅为算术预算示例；不含数据、ECS、存储、实验和用户会话。三个 horizon 若拆成独立任务，成本还会改变。
+按 v0.2 示例，100 证券每周一次且每证券一个研究任务、每任务耗尽 2 美元上限，约 200 美元/周、867 美元/月，仅为算术预算示例；不含数据、主机、存储、实验和用户会话。三个 horizon 若拆成独立任务，成本还会改变。
 
 MVP 在每次研究中共享行情/财务/新闻包，按需启用角色；一个综合角色附带固定反证步骤即可起步。增加并行角色须有引用质量、成本或延迟的对照收益。
 
-建议恢复目标作为待验收指标：数据库 RPO <= 15 分钟、核心 RTO <= 4 小时；WAL 连续归档与恢复演练证明后才能对外承诺。云盘快照只是补充。pgBackRest/WAL-G 与所选 OSS 端点、签名和版本兼容性在 Phase 0 实测，不以“S3 兼容”推断一定能恢复。
+建议恢复目标仍为待验收指标：数据库 RPO <= 15 分钟、核心 RTO <= 4 小时。已完成的 [本地 WAL/PITR 演练](ops/backup-pitr-drill.md)只证明小型隔离库的归档与时间点恢复机制；同一主机的备份无法覆盖主机或磁盘整体丢失。S09 需落实独立故障域中的恢复副本、目标容量下的恢复演练和告警，才能确认生产 RPO/RTO。云盘快照只是补充，OSS 不是本次 MVP 的依赖。
 
-身份备份留在境内。SG 备份在 SG；Ledger 归档与可按策略过期的备份分桶。监控 WAL 延迟、最后成功归档时间、磁盘水位、队列年龄、租约过期、预测 coverage 和预算拒绝。
+身份备份留在境内。SG 备份在 SG；Ledger 导出与可按策略过期的数据库备份分别管理目录、权限和保留政策。监控 WAL 延迟、最后成功归档时间、磁盘水位、队列年龄、租约过期、预测 coverage 和预算拒绝。
 
 ## 12. 实施顺序与硬验收
 
-详细任务与依赖见 [实施计划](IMPLEMENTATION_PLAN.md)。所有工程项初始状态为待实施；下表是阶段完成条件。人工批准从 Phase 1A 起存在，后续阶段扩充评估、审批界面与候选晋级流程。
+详细任务、已实现纵向切片与剩余依赖见 [实施计划](IMPLEMENTATION_PLAN.md)；下表是阶段完成条件，不以已存在的模块或本地测试代替整体验收。人工批准从 Phase 1A 起存在，后续阶段扩充评估、审批界面与候选晋级流程。
 
 | 阶段 | 交付 | 通过条件 |
 | --- | --- | --- |
@@ -392,7 +412,7 @@ MVP 在每次研究中共享行情/财务/新闻包，按需启用角色；一�
 4. 财报重述、ticker 复用、拆分/分红、停牌/退市：可追踪版本，结果按契约处理。
 5. LLM 超时集中在高波动证券：评估显示完整 cohort 的缺失与降级情况。
 6. 恶意文档、生成代码、恶意产物：无法扩大数据范围、执行宿主命令或绕过提交截止时间。
-7. 从 OSS 恢复 PG 与引用对象：可重新计算一个已封存评估报告并核对 hash。
+7. 从备份和受控归档恢复 PG 与引用内容：可重新计算一个已封存评估报告并核对 hash；分别记录本地恢复与独立故障域恢复的证据。
 
 工程完成与证明预测有效是两个不同的验收事项。20D/60D 标签需要真实交易日流逝；足够样本与多市场环境的结论可能更晚，不能由开发排期保证。
 
@@ -404,4 +424,4 @@ MVP 在每次研究中共享行情/财务/新闻包，按需启用角色；一�
 
 公开产品还需核对 AI 生成内容标识要求；“非投资建议”文字不代替资质、许可或其他义务。[生成合成内容标识办法](https://www.cac.gov.cn/2025-03/14/c_1743654684782215.htm)
 
-若确认完全自用且无国内入口需求，可进一步收敛为单新加坡私有部署；这是需由使用场景决定的可选版本，不改变本文两台 ECS 主方案。
+若确认完全自用且无国内入口需求，可进一步收敛为单新加坡私有部署；这是需由使用场景决定的可选版本，不改变本文国内入口与新加坡核心的目标分工。

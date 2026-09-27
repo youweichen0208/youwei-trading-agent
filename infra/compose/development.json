@@ -1,0 +1,108 @@
+{
+  "name": "youwei-development",
+  "services": {
+    "postgres": {
+      "image": "postgres:16-alpine",
+      "environment": {
+        "POSTGRES_USER": "youwei",
+        "POSTGRES_DB": "youwei",
+        "POSTGRES_PASSWORD": "${YOUWEI_POSTGRES_PASSWORD:?set a URL-safe development database password}"
+      },
+      "volumes": ["postgres_data:/var/lib/postgresql/data"],
+      "networks": ["core"],
+      "healthcheck": {
+        "test": ["CMD-SHELL", "pg_isready -U youwei -d youwei"],
+        "interval": "5s",
+        "timeout": "3s",
+        "retries": 20
+      },
+      "cpus": "1.0",
+      "mem_limit": "1g"
+    },
+    "core-api": {
+      "image": "youwei-core:development",
+      "build": {"context": "../..", "dockerfile": "infra/images/core.Dockerfile"},
+      "environment": {
+        "YOUWEI_DATABASE_URL": "postgresql+asyncpg://youwei:${YOUWEI_POSTGRES_PASSWORD:?set a URL-safe development database password}@postgres:5432/youwei",
+        "YOUWEI_ADMIN_API_KEY": "${YOUWEI_ADMIN_API_KEY:?set an admin bootstrap key}"
+      },
+      "ports": ["127.0.0.1:8000:8000"],
+      "networks": ["core", "edge"],
+      "depends_on": {"postgres": {"condition": "service_healthy"}},
+      "read_only": true,
+      "tmpfs": ["/tmp:rw,nosuid,noexec,size=32m"],
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "healthcheck": {
+        "test": ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2).read()"],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 5
+      },
+      "cpus": "0.5",
+      "mem_limit": "384m",
+      "pids_limit": 128
+    },
+    "core-worker": {
+      "image": "youwei-core:development",
+      "build": {"context": "../..", "dockerfile": "infra/images/core.Dockerfile"},
+      "command": ["youwei-worker"],
+      "environment": {
+        "YOUWEI_DATABASE_URL": "postgresql+asyncpg://youwei:${YOUWEI_POSTGRES_PASSWORD:?set a URL-safe development database password}@postgres:5432/youwei",
+        "YOUWEI_CAPABILITY_SECRET": "${YOUWEI_CAPABILITY_SECRET:?set the Core job capability signing secret}",
+        "YOUWEI_RUNNER_URL": "http://sandbox-runner:8091",
+        "YOUWEI_RUNNER_SECRET": "${YOUWEI_RUNNER_SECRET:?set a Runner signing secret of at least 32 characters}",
+        "YOUWEI_TIINGO_TOKEN": "${YOUWEI_TIINGO_TOKEN:-}"
+      },
+      "networks": ["core", "runner_control", "egress"],
+      "depends_on": {
+        "postgres": {"condition": "service_healthy"},
+        "sandbox-runner": {"condition": "service_healthy"}
+      },
+      "read_only": true,
+      "tmpfs": ["/tmp:rw,nosuid,noexec,size=32m"],
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "cpus": "1.0",
+      "mem_limit": "768m",
+      "pids_limit": 128
+    },
+    "sandbox-runner": {
+      "image": "youwei-runner:development",
+      "build": {"context": "../..", "dockerfile": "infra/images/runner.Dockerfile"},
+      "environment": {
+        "YOUWEI_RUNNER_SECRET": "${YOUWEI_RUNNER_SECRET:?set a Runner signing secret of at least 32 characters}",
+        "YOUWEI_RUNNER_DEVELOPMENT": "true",
+        "YOUWEI_RUNNER_RUNTIME": "",
+        "YOUWEI_RUNNER_IMAGE": "python:3.13-alpine",
+        "YOUWEI_RUNNER_SPOOL_ROOT": "${YOUWEI_RUNNER_SPOOL_DIR:?set an existing absolute host spool directory}"
+      },
+      "volumes": [
+        {"type": "bind", "source": "/var/run/docker.sock", "target": "/var/run/docker.sock", "bind": {"create_host_path": false}},
+        {"type": "bind", "source": "${YOUWEI_RUNNER_SPOOL_DIR:?set an existing absolute host spool directory}", "target": "${YOUWEI_RUNNER_SPOOL_DIR:?set an existing absolute host spool directory}", "bind": {"create_host_path": false}}
+      ],
+      "networks": ["runner_control"],
+      "read_only": true,
+      "tmpfs": ["/tmp:rw,nosuid,noexec,size=32m"],
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "healthcheck": {
+        "test": ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8091/healthz', timeout=2).read()"],
+        "interval": "5s",
+        "timeout": "3s",
+        "retries": 10
+      },
+      "cpus": "1.0",
+      "mem_limit": "512m",
+      "pids_limit": 128,
+      "stop_grace_period": "15s"
+    }
+  },
+  "networks": {
+    "edge": {},
+    "core": {"internal": true},
+    "runner_control": {"internal": true},
+    "egress": {}
+  },
+  "volumes": {"postgres_data": {}}
+}

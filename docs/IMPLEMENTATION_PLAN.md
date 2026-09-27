@@ -1,13 +1,15 @@
 # v0.3 修复与实施计划
 
-日期：2026-09-27\
+日期：2026-09-27；结构优化更新：2026-09-28\
 设计依据：[ARCHITECTURE.md](ARCHITECTURE.md)\
 问题来源：[v0.2 评审](ARCHITECTURE_REVIEW_v0.2.md)\
-状态：S00 协议已确认定稿（2026-09-27）；S01 主体完成（Tiingo 字段级验证已实测；EOD 实盘观测随 S04 首次采集、生产套餐条款确认待购买时；网关取消/用量/限额待验收）；S02 已完成（隔离开发环境验收，2026-09-27）；S03 第一纵切片完成（沙箱执行与产物链路，2026-09-27）；S04 第一/二纵切片完成（PIT 数据基础、交易日历与冻结快照，2026-09-27）；S05 已完成四纵切片（封存核心、Outcome 回填、评估报告、归档与监控，2026-09-27）；S06 第一纵切片完成（前向预测管线，2026-09-27；正式 campaign 启动项仍阻断）；S03 剩余部署项与 S06 正式启动及 S07–S11 待实施、待验收。
+状态：S00 协议已确认定稿（2026-09-27）；S01 主体完成（Tiingo 字段级验证已实测；EOD 实盘观测随 S04 首次采集、生产套餐条款确认待购买时；网关取消/用量/限额待验收）；S02 已完成（隔离开发环境验收，2026-09-27）；S03 第一/二纵切片完成（沙箱执行、独立 Runner 与 HTTP 产物链路，2026-09-28；生产部署仍待验收）；S04 第一/二纵切片完成（PIT 数据基础、交易日历与冻结快照，2026-09-27）；S05 已完成四纵切片（封存核心、Outcome 回填、评估报告、归档与监控，2026-09-27）；S06 第一纵切片完成（前向预测管线，2026-09-27；正式 campaign 启动项仍阻断）；S03 剩余部署项与 S06 正式启动及 S07–S11 待实施、待验收。
 
 ## 1. 执行规则
 
 每项任务记录负责人、实现引用、验证命令/报告与遗留问题，满足验收条件后再标为完成。文档编写完成不算工程完成。
+
+2026-09-28 的结构优化按 [仓库边界](REPOSITORY.md) 与 [上游管理](UPSTREAMS.md) 落地：继续单业务仓库；Core 保留原包与迁移链；quant 抽成纯计算包；共享 contracts 与独立 Runner 各有包边界，Runner 自有依赖锁。外部 Agent/UI/检索接入仍按 S07–S11 推进。本轮结果见下方 S03b 与结构优化记录，历史纵切片中的“进程内 Runner”描述保留为当时状态。
 
 依赖按以下顺序推进：
 
@@ -51,7 +53,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 - [x] 固定 Hermes、Pi、Python/Node、镜像与依赖版本；依据运行时核实验证实际接口（Hermes main `7fa45eb` + Python 3.14 + `uv sync --frozen` 可复现；Pi 0.87.1 + node:22 + RPC 冒烟通过；见 [实测记录](research/s01-target-verification.md)）。
 - [ ] Hermes 独立任务实例、工具白名单、关闭研究链路内置记忆/后台学习/会话检索（隔离键名已从官方文档确认，运行时验证待 S07 接入）。
 - [x] Pi 工具和 RPC 管理命令白名单依据；资源自动加载、技能及扩展固定为可信部署内容（命令全集与 flags 已固定于 [runtime-version-pinning](research/runtime-version-pinning.md)；wrapper 实现属 S08）。
-- [x] 在目标 Linux ECS 上执行真实 quant 依赖，验证 gVisor、Parquet、资源与网络限制（runsc 开销噪声级、mmap 正常、锁定配置生效、网络阻断；见 [实测记录](research/s01-target-verification.md)）。
+- [x] 在目标 SG Linux 主机上执行真实 quant 依赖，验证 gVisor、Parquet、资源与网络限制（runsc 开销噪声级、mmap 正常、锁定配置生效、网络阻断；见 [实测记录](research/s01-target-verification.md)）。
 - [x] 试用数据源（Tiingo），验证原始版本、源时间、退市/公司行为、许可与模型使用范围（2026-09-27 实测：字段全集、拆分精确、分红复权 ~1e-5 偏差→自算总收益维持、退市三形态含 SGEN 幽灵行/SIVB 缺失、SPY 正常；见 [tiingo-token-verification](research/tiingo-token-verification.md)。遗留：EOD 周五晚实盘观测随 S04 首次采集闭环；生产套餐 ToS 留存/LLM 条款于购买时浏览器确认——S04 正式快照前阻断项）。
 - [ ] 验证 LLM Gateway 的工具调用、辅助请求、取消、用量记录和并发限额（工具调用/流式/网关链路已通，火山需 Bearer 头；取消/用量/限额待 S02；见 [实测记录](research/s01-target-verification.md)）。
 - [x] 用隔离测试库验证备份工具的本地 WAL 归档与恢复（OSS 已排除出 MVP 范围）（[演练脚本](../ops/backup/pitr_drill.sh)、[记录](ops/backup-pitr-drill.md)：归档+基准备份+PITR 停点验证通过；容量级指标待目标机 S09 重测）。
@@ -66,7 +68,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 - [x] PG run/job/attempt/step/event/outbox 表，短事务领取、租约、心跳、递增 attempt_token（events 表兼作 outbox；步骤留痕以 attempt + events 承载，见 db/meta.py 设计说明）。
 - [x] 在每次有副作用的提交处校验 fencing token；服务重启后从已完成步骤恢复。
 - [x] Idempotency-Key 绑定租户及 payload hash；同键不同输入拒绝。
-- [x] 身份来自鉴权；按 job 签发能力令牌，限制快照、工具、租户和有效期（令牌机制与 scope 已落地；快照粒度 scope 待 S04 快照 ID 接入）。
+- [x] 身份来自鉴权；按 job 签发能力令牌，限制快照、工具、租户和有效期（令牌机制与 scope 已落地；Runner 的快照内容/hash 范围绑定已于 S03b 接入；Hermes 范围接线待 S07）。
 - [x] run 级原子费用预留、结算、最大尝试数、墙钟期限、取消传播和结构化日志（墙钟期限由 claim 路径 reaper 执行，超期 run 取消、在造 attempt 结果被 fence）。
 - [x] 从第一版设置备份、任务积压、磁盘、WAL、预算与错误告警（备份/PITR 演练、/v1/ops/status 队列积压/待对账预算/未发布事件/未收割过期租约/超期 run/WAL 归档延迟告警；磁盘水位为宿主层监控，随 S09 部署验收落实）。
 
@@ -76,12 +78,12 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 
 ### S03 — 打通受限计算与产物链路（Phase 1A；依赖 S02）
 
-- [ ] Runner 固定镜像 digest、命令模板、只读根目录、网络和资源限额。（已落地：镜像引用仅来自 Runner 配置（部署时 digest 固定），非 root、只读根、cap-drop、no-new-privileges、CPU/memory/PID 限额、无网络；见 S03a 进度）
-- [ ] Data Service 内部快照流 → Runner 固定 spool → hash 校验 → 沙箱只读挂载。（已落地：快照物化到 spool 并双重 hash 校验后只读挂载；独立 Data Service 流式接口归后续部署形态）
+- [ ] Runner 固定镜像 digest、命令模板、只读根目录、网络和资源限额。（S03b 生产模式在启动时拒绝非 digest 镜像或非 runsc；开发模式需显式选择。目标机 gVisor/资源验收仍待 S09）
+- [x] Worker 授权冻结快照 → 签名 HTTP 请求 → 独立 Runner 固定 spool → hash 校验 → 沙箱只读挂载。（MVP 小型 JSON 字节；大规模流式与二进制输入另行交付）
 - [ ] 标准 quant 使用已发布镜像入口，不启动 Pi Agent。（进展：sandbox.execute 从固定镜像执行作业脚本，不启动任何 Agent；Pi 接入归 S08）
-- [ ] Runner → Core API 受限上传 → OSS → 不可变 artifact manifest；每段校验 job/tenant 权限。（进展：进程内受限存储路径 + attempt fencing + 租户隔离读取；OSS 已排除 MVP，独立 Runner 部署时的 HTTP 受限接口归后续）
+- [x] Runner 经 HTTP 返回校验产物 → Worker 核对 job/attempt/hash → fencing 与事件同事务入库。（请求绑定 tenant/冻结内容/租约；跨租户作业快照拒绝。OSS 已排除 MVP）
 - [ ] 限制路径、文件类型/大小/数量；拒绝穿越、symlink/hardlink 和不安全反序列化；复杂解析在受限环境。（已落地：tar 流内存校验——白名单扩展、单文件/总量/数量上限、拒绝 symlink/hardlink/特殊文件/穿越/非 UTF-8，产物不落宿主磁盘）
-- [ ] 超时/取消终止计算，清理容器和临时文件，保留受控日志。（已落地：墙钟超时 + OOM 检测（exit 137/State.OOMKilled）、容器强制清理、日志截断；取消传播继承 S02 watchdog）
+- [x] 超时/取消终止计算，清理容器和临时文件，保留受控日志。（S03b：HTTP 取消、租约到期停止、清理完成前占用并发槽、日志轮转及有限回执缓存；强杀后的遗留容器在 Runner 下次启动回收，目标机恢复时限仍需 S09）
 
 交付：可信 Runner 与统一批处理执行 Interface。
 
@@ -93,7 +95,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 - [ ] 明确 source_available_at、ingested_time、usable_at、时间精度和质量等级。（进展：三时间戳 + 证据依据 + zero_volume 质量标记已落地）
 - [ ] Data Service 统一采集、源限速、授权标签、缓存与原始响应；collector 不重复实现供应商逻辑。（进展：Tiingo 采集器 + 限速 + 授权标签 + 原始响应存储已落地；多源扩展待后续）
 - [ ] 前向查询与 historical_source 重建分别标识；正式查询必须携带 Controller 时间与权限上下文。（进展：as_of + mode 双模式查询已落地；权限上下文待接入能力令牌）
-- [ ] Snapshot 固定查询、证券、源版本、原始对象、schema、文件 hash 与代码版本。（进展：daily_bars 快照冻结/读取/审计验证已落地，见 S04b 进度；特征快照与 Runner/Hermes 接入待后续）
+- [ ] Snapshot 固定查询、证券、源版本、原始对象、schema、文件 hash 与代码版本。（进展：daily_bars 快照冻结/读取/审计验证已落地，见 S04b 进度；日线快照 Runner 接入见 S03b，特征快照及 Hermes 接入待后续）
 - [ ] 派生特征保留依赖；不能用当前 consensus/IV/重述值替代缺失历史值。（待实施）
 - [ ] 训练 manifest 固定预处理、成熟标签、拟合窗口、校准与模型产物。（待实施）
 
@@ -109,7 +111,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 - [ ] 应用 UPDATE/DELETE/TRUNCATE 禁止；提交权限、链头锁、规范化行内容与链序号固定。（进展：DB 触发器 + 逐 campaign 哈希链 + 链校验器已落地；提交权限的 API 接线归 S06/S07，生产角色 revocation 随 S09 部署）
 - [ ] Outcome 按 case 回填，以 revision/supersedes 追加更正，禁止分叉和覆盖。（已落地：见 S05b 进度；退市/并购对价等公司行为终值仍限价格序列内的拆分分红，复杂事件走 unresolved+依据路径）
 - [ ] 最小 Evaluation 固定 case、commit、结果版本及评分代码；按预测类型计算 Brier、MSE/RMSE 等。（已落地：见 S05c 进度；月度汇总与区块自举区间明确不在此片，前者归 S06 调度、后者待参数登记）
-- [ ] 独立 Ledger 归档桶、保留策略、链校验、对象引用恢复与迟到/未确认监控。（已落地：OSS 已排除 MVP → 本地内容寻址归档导出（JSONL + manifest 含链头 hash，供链外锚定）；verify_archive 免库自证（文件 hash + 从归档行重算提交链 + outcome 链 + 报告 hash）；verify_against_db 对象引用恢复校验（FK 防删 + 快照/raw 对象完整性）与链分歧报告；归档目录追加式永不改写；迟到/未确认监控入 ops（见 S05d 进度））
+- [ ] 本地 Ledger 归档与链校验、对象引用恢复及迟到/未确认监控；独立控制的链头锚定与恢复副本仍需 S09。（已落地：OSS 已排除 MVP → 本地内容寻址归档导出（JSONL + manifest 含链头 hash，供链外锚定）；verify_archive 免库自证（文件 hash + 从归档行重算提交链 + outcome 链 + 报告 hash）；verify_against_db 对象引用恢复校验（FK 防删 + 快照/raw 对象完整性）与链分歧报告；归档目录追加式永不改写；迟到/未确认监控入 ops（见 S05d 进度））
 
 交付：可独立运行的预测封存、到期结果任务和可复算报告。
 
@@ -132,6 +134,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 首次真实批次成功封存、任务与数据检查通过后即可开展本项，不要求等待全部标签成熟；Phase 1A 的完整结果闭环仍需实际回填验收。
 
 - [ ] 将 Controller 的冻结计划/证据转换为 Hermes 输入；每个 run 独立上下文。
+- [ ] 在 `services/agent-runtime/` 建立独立 Hermes Python 3.14 环境，固定上游与依赖；实现 FrozenEvidence → ResearchProposal 契约及权限、取消、升级兼容性测试。
 - [ ] 先使用一个研究综合角色及固定反证步骤；按实际收益再扩展并行角色。
 - [ ] 研究引用可定位原文，warnings、缺失、量化依据、实际模型和成本完整输出。
 - [ ] Hermes 返回 Proposal；Controller 校验并封存，Agent 无权写 Ledger 或改变 Lesson。
@@ -145,6 +148,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 ### S08 — 接入一个 Pi 探索任务（Phase 1B；依赖 S03、S07）
 
 - [ ] 通过受控 RPC wrapper 运行 Pi，所有模型调用归到父 run 预算。
+- [ ] 在实际接入时创建 Pi Node 包与 `integrations/pi/` 适配/扩展；固定包版本和锁，以 RPC 契约测试验收升级。
 - [ ] 工具仅访问授权快照、受控 job 文件系统与 Sandbox Runner。
 - [ ] 固定 Job/Artifact 契约，覆盖取消、partial、timeout、warnings、代码与环境引用。
 - [ ] 选择一个 quant 库未覆盖的探索问题，生成代码后在沙箱执行。
@@ -161,10 +165,12 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 - [ ] CN 拉取持久事件，在本地事务更新镜像与 cursor；浏览器通过 SSE 收进度。
 - [ ] cursor 缺口/过期、跨境断线、请求超时能重新对账。
 - [ ] Web 展示数据截止、来源、三组状态、数据质量、成本及授权允许的产物。
+- [ ] 评估 Open WebUI 适配或复用归档 Next.js；界面只消费 Core 接口，固定上游版本并验证身份、任务与结果契约。
 - [ ] 多用户开放前完成 RLS、对象下载、cache/session 越权测试。
 - [ ] 真实数据恢复演练、资源压测与故障注入，记录实测 RPO/RTO。
+- [ ] 使用独立构建镜像、完整 digest 与目标机验收报告生成部署清单；运行 `infra/validate_upstreams.py --mode deployment` 并验证升级/回滚兼容性。
 
-交付：两台 ECS 上的可操作 MVP 与部署/恢复运行记录。
+交付：国内入口与 SG Core 主机上的可操作 MVP、部署与恢复运行记录；SG 当前基线为 DigitalOcean 4 vCPU / 7.8 GB。
 
 验收：断网不丢提交、不重复研究；无授权用户不能读取结果；预算耗尽和数据缺失可解释；MVP 完成不能代替“预测有效”的统计结论。
 
@@ -197,7 +203,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 
 ## 3. 评审问题到实施任务的映射
 
-以下全部已在设计文档合并，工程状态均为待实施/待验收。
+以下全部已在设计文档合并；工程状态查对应任务清单与完成记录，设计修复不代表全部部署验收已经完成。
 
 | 评审编号 | 修复主题 | 实施任务 |
 | --- | --- | --- |
@@ -313,9 +319,20 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 ### S05d 进度（2026-09-27）
 
 - 状态：**S05 第四纵切片完成，S05 四项任务全部落地**（隔离开发环境验收；正式前向运行归 S06）。
-- 交付：**Ledger 归档**（`youwei_core/ledger/archive.py`）——`export_campaign_archive`：campaign 完整 ledger 记录（commits/predictions/commit_events/outcome_revisions/evaluation_reports）导出为确定性 JSONL（规范排序 + 规范化序列化）+ manifest（逐文件内容 hash、行数、导出时链头 seq/hash、release 引用），时间戳子目录每次导出新建（追加式约定，永不改写）；manifest 链头 hash 为**链外锚定值**（本地历史可重写，锚定 hash 不可）；`verify_archive` **免数据库自证**：文件 hash、从归档行重算完整提交链（内容 hash 重算——篡改者同时修正文件 hash 仍会被内容重算识破）、outcome 修订链、报告内容 hash、manifest 链头一致；`verify_against_db`：对象引用恢复校验（引用快照存在且内容/raw 对象完整——DB 层 FK 已防删除被引快照，内容篡改由校验识破）+ 活库与归档链分歧报告（导出后新封存为预期 note）。**监控**：ops_snapshot 新增 ledger 节——`unconfirmed_past_deadline`（确认丢失，任意发生即告警 `ledger_unconfirmed_past_deadline`）、`late_confirmations`（合法记录态，仅披露）、`unheaded_overdue_outcomes`（exit 后 14 天无 outcome 头 → 调度器卡死告警 `ledger_outcomes_not_resolved`；14 天裕量安全覆盖假日拉伸的 5 交易日宽限期）。
+- 交付：**Ledger 归档**（`youwei_core/ledger/archive.py`）——`export_campaign_archive`：campaign 完整 ledger 记录（commits/predictions/commit_events/outcome_revisions/evaluation_reports）导出为确定性 JSONL（规范排序 + 规范化序列化）+ manifest（逐文件内容 hash、行数、导出时链头 seq/hash、release 引用），时间戳子目录每次导出新建（追加式约定，永不改写）；manifest 链头 hash 为**可提交外部锚定的值**（当前仅存于本地，文件和 hash 均可被同一管理员重写；尚未实现独立锚定）；`verify_archive` **免数据库自证**：文件 hash、从归档行重算完整提交链（内容 hash 重算——篡改者同时修正文件 hash 仍会被内容重算识破）、outcome 修订链、报告内容 hash、manifest 链头一致；`verify_against_db`：对象引用恢复校验（引用快照存在且内容/raw 对象完整——DB 层 FK 已防删除被引快照，内容篡改由校验识破）+ 活库与归档链分歧报告（导出后新封存为预期 note）。**监控**：ops_snapshot 新增 ledger 节——`unconfirmed_past_deadline`（确认丢失，任意发生即告警 `ledger_unconfirmed_past_deadline`）、`late_confirmations`（合法记录态，仅披露）、`unheaded_overdue_outcomes`（exit 后 14 天无 outcome 头 → 调度器卡死告警 `ledger_outcomes_not_resolved`；14 天裕量安全覆盖假日拉伸的 5 交易日宽限期）。
 - 验收：6 个新测试：导出→免库自证（链头/行数/双导出独立目录）、**双重篡改检测**（文件 hash 与内容 hash 重算两级）、链分歧 note + FK 防删 + 内容篡改识破、未知 campaign 拒绝、ops 干净态零告警 + 未确认过期告警 + 重放补确认后转为 late 披露、exit 过期无头告警。
 - 待办：链外锚定操作流程（人工将 manifest 链头 hash 记录到 Git/外部媒介，随首个正式 campaign 启动）；归档自动化调度（当前手动导出，随 S09 部署周期化）；归档恢复演练（从归档重建可读视图，S09 恢复演练范围）。
+
+### S03b 与仓库结构优化（2026-09-28）
+
+- 状态：**独立 Runner 与 HTTP 产物链路已完成开发环境验收**；单业务仓库、quant/contracts 边界、镜像与上游管理已落地。S03 的目标机 gVisor、已发布 quant 镜像和生产容量验收仍未完成。
+- 执行边界：Runner 从 `youwei_core/sandbox/runner.py` 提取到独立 `services/sandbox-runner/`，有独立依赖锁；Core 仅保留授权、HTTP 客户端和 fenced 入库。共享 `youwei-contracts` 绑定 tenant/job/attempt、请求内容 hash 与租约，传递冻结快照及受校验的文本产物。Runner 无 Core/数据库/供应商依赖；仅 Runner 镜像持有 Docker CLI，Core 不安装 Runner 运行依赖。
+- 故障与资源处理：HTTP 重复提交幂等、异内容冲突、租约到期停止、取消传播、跨租户快照拒绝、产物 hash/归属校验；清理完成前保留并发槽，限制请求/产物/缓存体积。修复 Worker 心跳数据库故障与进程退出的状态处理，保留租约恢复路径，避免任务卡在无法回收的状态。
+- 计算边界：baseline/quant 工程模型提取到 `quant/models.py`，不改变公式、窗口或版本；新增已知答案测试。收益解析仍在 Ledger，此次不改变目标协议、试验结果或 release 批准状态。
+- 上游与部署：新增 `infra/upstreams.lock.yaml`、catalog/deployment 校验器、Core/Runner 独立 Dockerfile 与本地开发 Compose。发布检查绑定精确镜像、渲染配置、验收报告及清单 hash；所有未接入上游保持 disabled。Hermes/Pi/Open WebUI/OpenViking 的正式接入和契约测试继续归 S07–S11。
+- 验证：`uv run --frozen pytest -q --tb=short --maxfail=3` → **216 passed**；Runner 独立锁安装通过；两个实际镜像构建及无网络依赖隔离检查通过。真实开发 Compose 的 API → Worker → HTTP Runner → 沙箱 → 产物/事件入库通过，临时资源已清理；修复了 API 只接 internal 网络时本机映射端口不可达的问题。命令、环境与范围见 [结构验证记录](ops/structure-verification.md)与 [Compose 联调记录](ops/runner-compose-smoke.md)。
+- 文档：同步 `AGENTS.md`、`CONTEXT.md`、架构、实施计划与文档索引；新增仓库边界和上游管理说明；统一 SG 4 vCPU / 7.8 GB、原型已归档、OSS 不在 MVP 的现状。
+- 剩余限制：本地 Docker 默认运行时的成功不替代目标 Linux/runsc 验收；生产镜像发布、资源压测、强杀后的恢复时限、备份故障域与告警仍归 S09。当前仅支持有界 JSON 输入与文本产物；二进制/流式传输和标准 quant 镜像入口待后续。正式 campaign 的数据授权、总体/GICS、模型 manifest 与人工 release 批准仍保持原阻断状态。
 
 ```text
 任务：

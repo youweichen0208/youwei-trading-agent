@@ -513,6 +513,17 @@ wheels = [
 ]
 
 [[package]]
+name = "youwei-contracts"
+version = "0.1.0"
+source = { editable = "contracts" }
+dependencies = [
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "pydantic", specifier = ">=2.10,<3" }]
+
+[[package]]
 name = "youwei-core"
 version = "0.1.0"
 source = { editable = "." }
@@ -525,6 +536,7 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "sqlalchemy", extra = ["asyncio"] },
     { name = "uvicorn", extra = ["standard"] },
+    { name = "youwei-contracts" },
 ]
 
 [package.dev-dependencies]
@@ -532,6 +544,7 @@ dev = [
     { name = "httpx" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
+    { name = "youwei-runner" },
 ]
 
 [package.metadata]
@@ -544,6 +557,7 @@ requires-dist = [
     { name = "pydantic-settings", specifier = ">=2.7,<3" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.36,<2.1" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32,<0.34" },
+    { name = "youwei-contracts", editable = "contracts" },
 ]
 
 [package.metadata.requires-dev]
@@ -551,4 +565,24 @@ dev = [
     { name = "httpx", specifier = ">=0.28,<0.29" },
     { name = "pytest", specifier = ">=8.3,<9" },
     { name = "pytest-asyncio", specifier = ">=0.25,<1" },
+    { name = "youwei-runner", editable = "services/sandbox-runner" },
+]
+
+[[package]]
+name = "youwei-runner"
+version = "0.1.0"
+source = { editable = "services/sandbox-runner" }
+dependencies = [
+    { name = "fastapi" },
+    { name = "pydantic-settings" },
+    { name = "uvicorn" },
+    { name = "youwei-contracts" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fastapi", specifier = ">=0.115,<0.116" },
+    { name = "pydantic-settings", specifier = ">=2.7,<3" },
+    { name = "uvicorn", specifier = ">=0.32,<0.34" },
+    { name = "youwei-contracts", editable = "contracts" },
 ]
