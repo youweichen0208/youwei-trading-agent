@@ -39,10 +39,12 @@ class WorkerLoop:
         *,
         handlers: dict[str, Handler],
         settings: Settings | None = None,
+        scheduler_fn: Callable[[], Awaitable] | None = None,
     ):
         self.engine = engine
         self.handlers = handlers
         self.settings = settings or Settings()
+        self.scheduler_fn = scheduler_fn
         self.worker_id = f"worker-{id(self):x}"
 
     async def run_once(self, *, worker_id: str | None = None) -> bool:
@@ -148,8 +150,14 @@ class WorkerLoop:
             )
 
     async def run_forever(self) -> None:
-        """Claim loop + outbox publisher. Runs until cancelled."""
+        """Claim loop + outbox publisher + scheduler tick. Runs until
+        cancelled."""
         publisher = asyncio.create_task(self._publisher_loop())
+        scheduler = (
+            asyncio.create_task(self._scheduler_loop())
+            if self.scheduler_fn is not None
+            else None
+        )
         try:
             while True:
                 ran = await self.run_once()
@@ -157,6 +165,20 @@ class WorkerLoop:
                     await asyncio.sleep(self.settings.worker_poll_interval_seconds)
         finally:
             publisher.cancel()
+            if scheduler is not None:
+                scheduler.cancel()
+
+    async def _scheduler_loop(self) -> None:
+        """Periodic Controller-side tick (batch planning, prediction
+        submission, outcome resolution, reports). Every step is
+        idempotent, so a crashed or overlapping tick is harmless;
+        errors never kill the worker."""
+        while True:
+            try:
+                await self.scheduler_fn()
+            except Exception:  # noqa: BLE001 — scheduler must never kill the worker
+                log.exception("scheduler tick failed; retrying")
+            await asyncio.sleep(self.settings.scheduler_interval_seconds)
 
     async def _publisher_loop(self) -> None:
         while True:
@@ -168,8 +190,11 @@ class WorkerLoop:
 
 
 def main() -> None:
-    """youwei-worker entrypoint: noop + data collection handlers."""
+    """youwei-worker entrypoint: noop + data collection + prediction
+    handlers, plus the scheduler tick."""
     from youwei_core.data.tiingo import TiingoClient, make_tiingo_daily_handler
+    from youwei_core.ledger.pipeline import make_batch_predict_handler
+    from youwei_core.ledger.scheduler import scheduler_tick
     from youwei_core.logfmt import configure_logging
 
     configure_logging()
@@ -189,8 +214,10 @@ def main() -> None:
         handlers={
             "noop": noop_handler,
             "data.tiingo_daily": make_tiingo_daily_handler(engine, tiingo),
+            "research.batch_predict": make_batch_predict_handler(engine),
         },
         settings=settings,
+        scheduler_fn=lambda: scheduler_tick(engine),
     )
     try:
         asyncio.run(loop.run_forever())

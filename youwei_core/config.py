@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     heartbeat_interval_seconds: float = 10.0
     worker_poll_interval_seconds: float = 0.2
     event_publish_interval_seconds: float = 1.0
+    scheduler_interval_seconds: float = 60.0
 
     # S02b: admin bootstrap key (operator-configured). When set, this
     # bearer token manages tenants/api-keys and nothing else.

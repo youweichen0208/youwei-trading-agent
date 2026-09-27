@@ -127,6 +127,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         except RunNotFound:
             raise HTTPException(status_code=404, detail="run not found") from None
 
+    # --- campaign status (tenant keys, read-only) --------------------------
+
+    @app.get("/v1/campaigns/{campaign_id}/status")
+    async def get_campaign_status(
+        campaign_id: UUID4,
+        request: Request,
+        tenant_id: Annotated[uuid.UUID, Depends(require_tenant)],
+    ):
+        from youwei_core.ledger.status import campaign_status
+
+        view = await campaign_status(request.app.state.engine, campaign_id)
+        if view is None or view["tenant_id"] != str(tenant_id):
+            # do not leak the existence of other tenants' campaigns
+            raise HTTPException(status_code=404, detail="campaign not found")
+        return view
+
     # --- ops endpoints (health & alerting) --------------------------------
 
     @app.get("/healthz")

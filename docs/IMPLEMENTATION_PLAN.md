@@ -3,7 +3,7 @@
 日期：2026-09-27\
 设计依据：[ARCHITECTURE.md](ARCHITECTURE.md)\
 问题来源：[v0.2 评审](ARCHITECTURE_REVIEW_v0.2.md)\
-状态：S00 协议已确认定稿（2026-09-27）；S01 主体完成（Tiingo 字段级验证已实测；EOD 实盘观测随 S04 首次采集、生产套餐条款确认待购买时；网关取消/用量/限额待验收）；S02 已完成（隔离开发环境验收，2026-09-27）；S04 第一/二纵切片完成（PIT 数据基础、交易日历与冻结快照，2026-09-27）；S05 第一/二/三纵切片完成（campaign 登记与封存核心、Outcome 版本化回填、最小评估报告，2026-09-27）；S03、S04/S05 剩余项与 S06–S11 待实施、待验收。
+状态：S00 协议已确认定稿（2026-09-27）；S01 主体完成（Tiingo 字段级验证已实测；EOD 实盘观测随 S04 首次采集、生产套餐条款确认待购买时；网关取消/用量/限额待验收）；S02 已完成（隔离开发环境验收，2026-09-27）；S04 第一/二纵切片完成（PIT 数据基础、交易日历与冻结快照，2026-09-27）；S05 第一/二/三纵切片完成（campaign 登记与封存核心、Outcome 版本化回填、最小评估报告，2026-09-27）；S06 第一纵切片完成（前向预测管线：调度/封存接线/状态查询，2026-09-27；正式 campaign 启动项仍阻断）；S03、S04/S05 剩余项与 S06 正式启动及 S07–S11 待实施、待验收。
 
 ## 1. 执行规则
 
@@ -117,11 +117,11 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 
 ### S06 — 开始 baseline/quant 前向运行（Phase 1A；依赖 S05）
 
-- [ ] 发布固定 baseline 与简单量化模型，登记训练与校准版本。
-- [ ] 人工批准初始 release，按已登记规则固定20证券 panel，事前登记每批60个 case（D1/D20/D60）。
-- [ ] llm_adjusted 保留 unavailable/not_enabled，不填充伪造 LLM 结果。
-- [ ] Scheduler 按周创建新批次，按交易日检查到期 Outcome。
-- [ ] 最小只读查询显示计划数、完成数、缺失、迟到、数据质量和评分适用范围。
+- [ ] 发布固定 baseline 与简单量化模型，登记训练与校准版本。（进展：管线载具 baseline-constant-v0 / quant-momentum-v0 已随 S06a 落地并全量披露；正式模型选择须 Trial 登记 + release 人工批准，待阻断项解除）
+- [ ] 人工批准初始 release，按已登记规则固定20证券 panel，事前登记每批60个 case。（阻断：S&P 500 PIT 总体/GICS 快照未取得、生产套餐 ToS 未确认、人工批准未发生；工程路径已就绪）
+- [ ] llm_adjusted 保留 unavailable/not_enabled，不填充伪造 LLM 结果。（管线已固定封存该位置，S06a 验收）
+- [ ] Scheduler 按周创建新批次，按交易日检查到期 Outcome。（已落地：见 S06a 进度）
+- [ ] 最小只读查询显示计划数、完成数、缺失、迟到、数据质量和评分适用范围。（已落地：campaign_status 服务 + 租户隔离 API，见 S06a 进度）
 
 交付：实际预测记录、定时任务及首批回填结果。
 
@@ -295,6 +295,13 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 - 交付：evaluation_reports 只追加版本链（unique(batch, horizon, version) + supersedes 恒指当前版本 + 首版无父 DB 约束；表纳入 append-only 触发器）；批双 horizon 报告生成器：门槛（该 horizon 全部 case 过计划 exit 且均有 outcome 头，否则 NotReady 列明 pending——数据等待由 resolver 宽限政策决定，报告不无限等待）；内容固定引用（case/commit/outcome revision 清单、release、scoring code version `scoring-v1`、内容 hash，无时间戳→同头重生成幂等）；主指标 d_i=(p_quant−y)²−(p_baseline−y)²干可配对子集（准时确认 + 双源 produced + resolved）半均值，配对均值 NA 不填 0；y=1(excess>0)、恰好 0 记 false；逐源 Brier/MSE/RMSE（各自可评分集，分母单独披露）；coverage 全量披露（planned/with_commit/on_time/pairable/outcome 状态分布/source 状态分布，逐 case exclusion 理由：no_commit/commit_late/commit_uncertain/*_not_produced/outcome_unresolved/outcome_unscorable）；更正→新报告版本追加，旧报告保留原引用与原指标；v1 仅描述统计，区间方法明确不启用。migration `e1f2a3b4c5d6`。
 - 验收：6 个新测试：六路径全覆盖场景（配对/仅 baseline/无 commit/迟到确认/unresolved/unscorable，手算 d=-0.07、Brier 0.23125/0.09、MSE/RMSE）、无配对→NA、零超额记 false（d 手算 -0.07）、NotReady 双门槛（未成熟/缺 outcome 头）与未知批次、幂等重生成+更正追加 v2（旧版引用不变）、append-only 触发器。迁移实测：upgrade/downgrade/upgrade、2 触发器。
 - 待办（S05 剩余）：Ledger 归档（OSS 已排除 MVP；本地归档导出+链外锚定+对象引用恢复）、迟到/未确认 commit 与 pending outcome 的监控接入 ops 告警；月度报告与调度器归 S06；Phase 1B fallback 位置的评估区分待 S07。
+
+### S06a 进度（2026-09-27）
+
+- 状态：**S06 第一纵切片完成**（隔离开发环境验收；正式 campaign 启动项仍阻断，见待办）。
+- 交付：**预测管线**——`research.batch_predict` job handler：批次级单一证据快照（全 panel+基准，cutoff 处 PIT forward 冻结，同一 manifest 共享）→ 模型注册表（baseline-constant-v0 常量 / quant-momentum-v0 二十日动量载具，历史不足 unavailable+insufficient_history，明确非正式模型）→ 逐 case 原子封存（Phase 1A llm 固定 unavailable/not_enabled；attempt fencing；逐 case 失败报告不静默丢弃；job 重试幂等）。**调度器 tick**——事前登记：每个活跃 campaign 始终预登记即将到来的周六 cutoff；漏周显式 backfill+batch.missed 事件保留分母；窗口内批次幂等提交恰好一个预测 run（idempotency key=batch）；到期 Outcome：exit 已过且无头或 unresolved 的 case 重解析（resolved 不自动重跑、unscorable 粘滞）；报告：完备 (batch, horizon) 幂等重生成；tick 全步骤幂等可重入，异常逐项记录不中断。**状态查询**——campaign_status 服务 + GET /v1/campaigns/{id}/status（租户隔离，不泄露存在性；计划/commit/准时/迟到/未确认/无 commit/outcome 状态/报告版本）；worker 接线（handler 注册 + scheduler 循环，Settings.scheduler_interval_seconds=60s，异常不杀 worker）。
+- 验收：8 个新测试：tick 预登记即将 cutoff 且幂等、漏两周补记（backfill+miss 事件+未来周正常）、窗口内恰好一个预测 run、handler 全 case 封存（共享单一证据快照、18 预测位置、flat 行情动量 0、重试 already_sealed）、无历史 quant unavailable、逐 case 失败不炸 job、tick 解析到期 Outcome 并生成 D20 报告（D1/D60 未成熟不生成）、状态视图全链路 + API 租户隔离（200/404/401）。
+- 待办（S06 剩余）：正式 campaign 启动项——S&P 500 PIT 总体/GICS 快照与真实 20 证券名单（依赖成分源）、生产套餐 ToS 确认、正式模型 Trial 登记 + release 人工批准、预算配置；月度汇总报告；已 resolved Outcome 的供应商更正自动触发（当前显式操作）；报告 tick 对历史批次全量重哈希的规模化优化。
 
 ```text
 任务：
