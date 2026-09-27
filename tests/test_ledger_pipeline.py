@@ -214,8 +214,14 @@ async def test_batch_predict_seals_all_cases_with_shared_evidence(db_engine, ten
             )
         ).mappings().all()
     assert len(rows) == 18
-    snapshots = {r.evidence_snapshot_id for r in rows}
-    assert len(snapshots) == 1  # ONE shared evidence snapshot for the batch
+    quant_snapshots = {r.evidence_snapshot_id for r in rows if r.source == "quant_model"}
+    assert len(quant_snapshots) == 1  # every quant position references the batch's ONE shared snapshot
+    assert all(
+        r.evidence_snapshot_id is None for r in rows if r.source == "baseline"
+    )  # the constant model consumed no evidence — no decorative reference
+    assert all(
+        r.evidence_snapshot_id is None for r in rows if r.source == "llm_adjusted"
+    )  # unavailable/not_enabled consumed nothing
     by_source = {}
     for r in rows:
         by_source.setdefault(r.source, []).append(r)
@@ -266,14 +272,17 @@ async def test_batch_predict_quant_unavailable_without_history(db_engine, tenant
         rows = (
             await conn.execute(
                 text(
-                    "SELECT source, source_status, reason FROM predictions "
-                    "WHERE source IN ('quant_model', 'llm_adjusted')"
+                    "SELECT source, source_status, reason, evidence_snapshot_id "
+                    "FROM predictions WHERE source IN ('quant_model', 'llm_adjusted')"
                 )
             )
         ).mappings().all()
     by_source = {r.source: r for r in rows}
     assert by_source["quant_model"].source_status == "unavailable"
     assert by_source["quant_model"].reason == "insufficient_history"
+    assert (
+        by_source["quant_model"].evidence_snapshot_id is not None
+    )  # the snapshot records the ABSENCE that made the model unable to run
     assert by_source["llm_adjusted"].reason == "not_enabled"
 
 

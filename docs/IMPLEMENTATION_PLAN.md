@@ -3,7 +3,7 @@
 日期：2026-09-27；结构优化更新：2026-09-28\
 设计依据：[ARCHITECTURE.md](ARCHITECTURE.md)\
 问题来源：[v0.2 评审](ARCHITECTURE_REVIEW_v0.2.md)\
-状态：S00 协议已确认定稿（2026-09-27）；S01 主体完成（Tiingo 字段级验证已实测；EOD 实盘观测随 S04 首次采集、生产套餐条款确认待购买时；网关取消/用量/限额待验收）；S02 已完成（隔离开发环境验收，2026-09-27）；S03 第一/二纵切片完成（沙箱执行、独立 Runner 与 HTTP 产物链路，2026-09-28；生产部署仍待验收）；S04 第一/二纵切片完成（PIT 数据基础、交易日历与冻结快照，2026-09-27）；S05 已完成四纵切片（封存核心、Outcome 回填、评估报告、归档与监控，2026-09-27）；S06 第一/二纵切片完成（前向预测管线，2026-09-27；供应商更正自动触发、月度汇总与报告门控，2026-09-28；正式 campaign 启动项仍阻断）；S03 剩余部署项与 S06 正式启动及 S07–S11 待实施、待验收。
+状态：S00 协议已确认定稿（2026-09-27）；S01 主体完成（Tiingo 字段级验证已实测；EOD 实盘观测随 S04 首次采集、生产套餐条款确认待购买时；网关取消/用量/限额待验收）；S02 已完成（隔离开发环境验收，2026-09-27）；S03 第一/二纵切片完成（沙箱执行、独立 Runner 与 HTTP 产物链路，2026-09-28；生产部署仍待验收）；S04 第一/二纵切片完成（PIT 数据基础、交易日历与冻结快照，2026-09-27）；S05 已完成四纵切片（封存核心、Outcome 回填、评估报告、归档与监控，2026-09-27）加 S05e 证据追溯收紧（2026-09-28）；S06 第一/二纵切片完成（前向预测管线，2026-09-27；供应商更正自动触发、月度汇总与报告门控，2026-09-28；正式 campaign 启动项仍阻断）；S03 剩余部署项与 S06 正式启动及 S07–S11 待实施、待验收。
 
 ## 1. 执行规则
 
@@ -106,7 +106,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 ### S05 — 实现 Ledger、结果更正与最小评分（Phase 1A；依赖 S02–S04）
 
 - [ ] 创建 campaign/case，原子封存一个 case/release 的三种 source 结果及引用。（进展：release/批准、campaign 登记、batch/case 规划与封存核心已落地，见 S05a 进度；正式查询 API 与 job 驱动接线归 S06）
-- [ ] 唯一约束、source 状态/空值、值域、输入 manifest 与 attempt 校验。（进展：唯一约束、值域、空值纪律与 attempt fencing 已落地；evidence 快照引用目前可选，produced 来源强制引用待 S06/S07）
+- [ ] 唯一约束、source 状态/空值、值域、输入 manifest 与 attempt 校验。（进展：唯一约束、值域、空值纪律与 attempt fencing 已落地；produced 来源的 evidence 快照强制引用与封存边界 PIT 纪律已随 S05e 落地）
 - [ ] 获取 case/chain 锁后重新检查实时钟与 deadline；持久提交确认与及时性判定追加留痕。（已落地：链头锁后 clock_timestamp 重检窗口，锁等待跨 deadline 拒绝；确认事件追加，未确认保守 uncertain）
 - [ ] 应用 UPDATE/DELETE/TRUNCATE 禁止；提交权限、链头锁、规范化行内容与链序号固定。（进展：DB 触发器 + 逐 campaign 哈希链 + 链校验器已落地；提交权限的 API 接线归 S06/S07，生产角色 revocation 随 S09 部署）
 - [ ] Outcome 按 case 回填，以 revision/supersedes 追加更正，禁止分叉和覆盖。（已落地：见 S05b 进度；退市/并购对价等公司行为终值仍限价格序列内的拆分分红，复杂事件走 unresolved+依据路径）
@@ -340,6 +340,14 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 - 交付：**供应商更正自动触发**——调度器扫描已 resolved 且 exit 已过的 case：候选 SQL（窗口内两证券存在 ingested/usable 晚于 head.recorded_at 且现已可用的观测）加精确证据比对（head 冻结快照的 (security, date, raw_object_id) 集合 vs 当前 PIT 选择），仅在证据确实变化时重解析并追加更正 revision（correction_reason 默认 data_revision）；无变化不重冻结不产生快照垃圾；unscorable 粘滞；窗口外新数据不触发。**月度汇总报告**（`ledger/monthly.py`）——`monthly_summary_reports` 只追加版本链（unique(campaign, month, version) + supersedes 恒指头 + 首版无父 + append-only 触发器）：按批次 cutoff 月份归属，批次等权聚合已登记批次 D20 点估计（手算验收 0 与 0.11 → 0.055）；无点估计批次（未成熟/无可配对 case/漏跑补记）NA 不稀释均值；披露证券数、计划批次数、可评分批次数、成熟标签数与逐批 D20 报告引用、case/commit/outcome head 引用、成熟/未成熟；调度默认固定为次月首个常规交易日 06:00 ET（假日顺延与 DST 已知答案验证：2026-09 → 10-01 10:00Z、2026-12 → 2027-01-04 11:00Z）；月末前 NotReady；后续成熟/更正追加新版本且旧版本引用不变；同状态幂等重生成。**tick 规模化门控**——`batch_report_input_state`/`monthly_report_input_state` 可变缓存表（显式非 ledger、无触发器）记录上次生成时的输入 digest（cases/heads/commits/confirmations/成熟向量 + 评分版本盐）：输入未变且报告存在则跳过重生成，历史批次不再每 tick 全量重哈希；NotReady 尝试同样记录 digest，解除阻塞的输入变化（head 出现、exit 到期）在后续 tick 重新触发。**归档**——月报表纳入 campaign 归档导出与免库自证（内容 hash 重算校验）。migration `a3b4c5d6e7f8`。
 - 验收：13 个新测试（pipeline 5：更正触发/无新数据不动且不重冻结/unscorable 粘滞/窗口外忽略/digest 门控一次重生成后复跳过；monthly 8：批次等权手算聚合、NA 不稀释、NotReady 与无批次月拒绝、due_at 假日+DST 已知答案、幂等+append-only、更正追加版本且旧版引用不变、tick 到期生成+门控复用）；归档导出与自证含月报。迁移实测：upgrade/downgrade/upgrade、月报表 2 触发器、状态表零触发器。`uv run --frozen pytest -q` → 229 通过。
 - 待办：正式 campaign 启动项不变（见 S06a）；Phase 1B fallback 位置的评估区分待 S07；区块自举参数登记待样本条件满足；月报查询 API 随 S09/S10 界面工作接入。
+
+### S05e 进度（2026-09-28）
+
+- 状态：**S05 追加切片完成**（隔离开发环境验收；填补 S05 遗留的 produced 证据强制引用，服务 S04 验收线“任何模型输入均能追溯到截止时间内的数据或冻结规则”）。
+- 背景：S06a 的 batch_predict 虽将证据快照记入 commit 的 input_manifest，但逐 prediction 的 evidence_snapshot_id 全为 NULL（原测试断言集合为 {None} 空转通过）——模型输入的逐源追溯实际缺失。
+- 交付：**pipeline 逐源证据引用**——quant 位置携带批次共享证据快照 id（unavailable 也携带：快照记录使其无法运行的数据缺失事实）；常量基线不消费证据、如实保持 NULL。**封存边界证据纪律**（围栏/窗口检查之后、写入之前；幂等重放不重复校验）：produced 的 quant_model/llm_adjusted 必须引用冻结证据（拒绝不可追溯输入）；引用的快照必须存在、mode=forward（historical_source 是重建非证据）且 as_of <= 该 case 截止时间（截止后冻结的证据不得入账）。**DB 级约束**——predictions 表 CHECK：produced 消耗型来源必须携带 evidence_snapshot_id（直接 INSERT 同样受限）。migration `b4c5d6e7f8a9`（含既有数据预检查查询；当前无生产数据，开发库迁移前需确认预检查为 0）。
+- 验收：5 个新测试（证据引用落地与基线诚实 NULL、无证据 produced 拒绝、截止后冻结证据拒绝、historical_source 证据拒绝、DB 约束反例+正例）；修复原空转断言（逐源真实断言）；归档对象引用恢复校验从 2 扩至 4（quant 证据快照纳入）；重放幂等保持（fixture 证据按 case 缓存，与真实管线同一快照语义一致）。迁移实测 upgrade/downgrade/upgrade、约束在位。`uv run --frozen pytest -q` → 234 通过。
+- 待办：Phase 1B llm_adjusted 启用时同一纪律自动生效（校验已覆盖）；fallback 位置的证据语义（引用 quant prediction）随 S07 设计。
 
 ```text
 任务：

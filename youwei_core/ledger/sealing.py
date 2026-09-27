@@ -51,6 +51,7 @@ from youwei_core.db.meta import (
     ledger_chains,
     predictions,
     research_releases,
+    snapshots,
 )
 from youwei_core.ledger.service import (
     GENESIS_HASH,
@@ -98,6 +99,11 @@ class CaseNotFound(SealError):
 
 class ReleaseMismatch(SealError):
     pass
+
+
+class EvidenceViolation(SealError):
+    """A referenced evidence snapshot breaks point-in-time discipline:
+    frozen after the case's decision cutoff, or not a forward view."""
 
 
 class SourcePrediction(BaseModel):
@@ -396,6 +402,55 @@ async def seal_commit(
                     f"{case.prediction_deadline_utc.isoformat()}; new predictions "
                     "are rejected after the deadline"
                 )
+
+            # evidence discipline, checked at the write boundary (after
+            # fencing and window checks — a fenced or late attempt is
+            # rejected regardless of its payload): produced positions
+            # of evidence-consuming models must reference the frozen
+            # snapshot they were computed from, and every referenced
+            # snapshot must be a forward view frozen at or before this
+            # case's decision cutoff (time-protocol §2; S04 acceptance:
+            # any model input traces to data frozen at or before the
+            # cutoff). Idempotent replays skip this — their content
+            # already passed here when first sealed.
+            for pred in request.sources:
+                if (
+                    pred.source in ("quant_model", "llm_adjusted")
+                    and pred.source_status == "produced"
+                    and pred.evidence_snapshot_id is None
+                ):
+                    raise SourceValidationError(
+                        f"{pred.source}: produced positions must reference the "
+                        "frozen evidence they were computed from (untraceable "
+                        "model inputs never enter the ledger)"
+                    )
+            for evidence_id in {
+                p.evidence_snapshot_id
+                for p in request.sources
+                if p.evidence_snapshot_id is not None
+            }:
+                snap = (
+                    await conn.execute(
+                        select(snapshots).where(snapshots.c.id == evidence_id)
+                    )
+                ).mappings().one_or_none()
+                if snap is None:
+                    raise EvidenceViolation(
+                        f"evidence snapshot {evidence_id} does not exist"
+                    )
+                if snap.mode != "forward":
+                    raise EvidenceViolation(
+                        f"evidence snapshot {evidence_id} is mode={snap.mode!r}; "
+                        "formal predictions may only consume forward views "
+                        "(historical_source is a reconstruction, never evidence)"
+                    )
+                if snap.as_of > case.decision_cutoff_utc:
+                    raise EvidenceViolation(
+                        f"evidence snapshot {evidence_id} was frozen at "
+                        f"{snap.as_of.isoformat()}, after the case cutoff "
+                        f"{case.decision_cutoff_utc.isoformat()}; post-cutoff "
+                        "evidence cannot enter the ledger"
+                    )
 
             chain_seq = chain.head_seq + 1
             content_sha = _content_hash(

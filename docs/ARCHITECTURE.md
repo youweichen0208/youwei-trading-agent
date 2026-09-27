@@ -249,7 +249,7 @@ Phase 1A 尚未接入 Hermes 时，llm_adjusted 位置固定为 unavailable，re
 
 每个 campaign 在开始前登记 enabled_sources；not_enabled 表示未计划运行，不计为该来源的执行失败。来源 coverage 的分母是该来源事前计划参与的 case 集合，同时始终报告 campaign 的全量 case 数、来源启用情况与排除原因。
 
-值域检查至少包括 0 <= p_outperform <= 1、有限数值、quantile 顺序、horizon 枚举、release 引用完整性；p 与 quantile 的明显矛盾也拒绝。v0.3 首先只输出概率与期望超额收益。
+值域检查至少包括 0 <= p_outperform <= 1、有限数值、quantile 顺序、horizon 枚举、release 引用完整性；p 与 quantile 的明显矛盾也拒绝。v0.3 首先只输出概率与期望超额收益。封存边界同时强制证据纪律：produced 的 quant/llm 位置必须引用其计算所用的冻结证据快照，且快照必须是 as_of 不晚于该 case 截止时间的前向视图（historical_source 是重建，不作正式证据）；不消费证据的常量基线如实不引用。
 
 Outcome 示意：
 

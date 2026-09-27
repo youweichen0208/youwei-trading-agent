@@ -21,7 +21,7 @@ Acceptance mapped from the plan (S05) and time-protocol §4:
 
 import asyncio
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 from sqlalchemy import text
@@ -29,11 +29,13 @@ from sqlalchemy import text
 from youwei_core.jobs.service import RunSubmission, submit_run
 from youwei_core.jobs.worker import claim_next_job
 from youwei_core.data.calendar import next_weekly_cutoff
+from youwei_core.data.snapshots import freeze_daily_bars
 from youwei_core.ledger.service import GENESIS_HASH, plan_batch
 from youwei_core.ledger.sealing import (
     CaseNotFound,
     ClockSkewExceeded,
     EarlySeal,
+    EvidenceViolation,
     FencedSeal,
     LateSeal,
     ReleaseMismatch,
@@ -129,12 +131,61 @@ async def _sealable_case(engine, tenant_id, *, window=(timedelta(hours=-1), time
     return ctx, case_id, plan
 
 
+_EVIDENCE_BY_CASE: dict[str, object] = {}
+
+
+async def _quant_evidence_for(engine, case_id):
+    """Freeze a minimal evidence snapshot that is PIT-safe for the
+    case, cached per case: a replay of the same case re-submits the
+    same sealed content, so it must reference the same evidence —
+    exactly the idempotent-replay semantics the real pipeline has
+    with its batch snapshot."""
+    key = str(case_id)
+    if key in _EVIDENCE_BY_CASE:
+        return _EVIDENCE_BY_CASE[key]
+    async with engine.begin() as conn:
+        row = (
+            await conn.execute(
+                text(
+                    "SELECT decision_cutoff_utc FROM forecast_cases WHERE id = :c"
+                ),
+                {"c": str(case_id)},
+            )
+        ).scalar_one_or_none()
+        if row is None:
+            return None  # let seal_commit raise the proper CaseNotFound
+        db_now = (await conn.execute(text("SELECT now()"))).scalar_one()
+    snap = await freeze_daily_bars(
+        engine,
+        [],
+        date(2026, 1, 5),
+        date(2026, 1, 9),
+        as_of=min(row, db_now),
+        mode="forward",
+    )
+    _EVIDENCE_BY_CASE[key] = snap.snapshot_id
+    return snap.snapshot_id
+
+
 async def _seal(engine, tenant_id, case_id, release_id="rel-test-v1", sources=None, **kwargs):
     claimed = await _attempt(engine, tenant_id)
+    sources = sources if sources is not None else _sources()
+    # the sealing contract requires produced positions of
+    # evidence-consuming models to reference frozen evidence; attach a
+    # minimal PIT-safe snapshot like the pipeline attaches the batch's
+    # shared one. Tests exercising the rejection path build their
+    # SealRequest directly instead.
+    evidence = await _quant_evidence_for(engine, case_id)
+    sources = [
+        s.model_copy(update={"evidence_snapshot_id": evidence})
+        if s.source == "quant_model" and s.evidence_snapshot_id is None
+        else s
+        for s in sources
+    ]
     request = SealRequest(
         case_id=case_id,
         release_id=release_id,
-        sources=sources if sources is not None else _sources(),
+        sources=sources,
         input_manifest={"code_version": "seal-test-v1"},
         attempt_id=claimed.attempt_id,
         attempt_no=claimed.attempt_no,
@@ -420,6 +471,173 @@ async def test_seal_value_range_validation(db_engine, tenant_id):
             await conn.execute(text("SELECT count(*) FROM forecast_commits"))
         ).scalar_one()
     assert n == 0
+
+
+# --- evidence discipline (S05e) --------------------------------------------------
+
+
+async def test_seal_records_evidence_reference(db_engine, tenant_id):
+    """Sealed quant positions carry the frozen evidence they were
+    computed from; the constant baseline consumed nothing and honestly
+    says so (no decorative reference)."""
+    _, case_id, _ = await _sealable_case(db_engine, tenant_id)
+    result, _ = await _seal(db_engine, tenant_id, case_id)
+
+    async with db_engine.begin() as conn:
+        rows = (
+            await conn.execute(
+                text(
+                    "SELECT source, evidence_snapshot_id FROM predictions "
+                    "WHERE commit_id = :c"
+                ),
+                {"c": str(result.commit_id)},
+            )
+        ).mappings().all()
+    by_source = {r["source"]: r["evidence_snapshot_id"] for r in rows}
+    assert by_source["quant_model"] is not None
+    assert by_source["baseline"] is None
+    assert by_source["llm_adjusted"] is None  # unavailable/not_enabled
+
+
+async def test_seal_rejects_produced_without_frozen_evidence(db_engine, tenant_id):
+    """Produced positions of evidence-consuming models without a
+    frozen-evidence reference are rejected: an untraceable model input
+    never enters the ledger (S04 acceptance: every model input traces
+    to data frozen at or before the cutoff)."""
+    _, case_id, _ = await _sealable_case(db_engine, tenant_id)
+    claimed = await _attempt(db_engine, tenant_id)
+    with pytest.raises(SourceValidationError, match="frozen evidence"):
+        await seal_commit(
+            db_engine,
+            SealRequest(
+                case_id=case_id,
+                release_id="rel-test-v1",
+                sources=_sources(),  # produced quant, no evidence reference
+                input_manifest={"code_version": "seal-test-v1"},
+                attempt_id=claimed.attempt_id,
+                attempt_no=claimed.attempt_no,
+            ),
+        )
+
+
+async def test_seal_rejects_evidence_frozen_after_cutoff(db_engine, tenant_id):
+    """Evidence frozen AFTER the case's decision cutoff leaks
+    post-cutoff knowledge and is rejected at the ledger boundary."""
+    _, case_id, _ = await _sealable_case(db_engine, tenant_id)  # cutoff = now - 1h
+    snap = await freeze_daily_bars(
+        db_engine,
+        [],
+        date(2026, 1, 5),
+        date(2026, 1, 9),
+        as_of=datetime.now(UTC) - timedelta(minutes=30),  # after the cutoff
+        mode="forward",
+    )
+    sources = _sources()
+    sources[1] = sources[1].model_copy(
+        update={"evidence_snapshot_id": snap.snapshot_id}
+    )
+    claimed = await _attempt(db_engine, tenant_id)
+    with pytest.raises(EvidenceViolation, match="after the case cutoff"):
+        await seal_commit(
+            db_engine,
+            SealRequest(
+                case_id=case_id,
+                release_id="rel-test-v1",
+                sources=sources,
+                input_manifest={"code_version": "seal-test-v1"},
+                attempt_id=claimed.attempt_id,
+                attempt_no=claimed.attempt_no,
+            ),
+        )
+
+
+async def test_seal_rejects_historical_source_evidence(db_engine, tenant_id):
+    """historical_source snapshots are reconstructions, never formal
+    evidence: a forward view is required even when the freeze time is
+    PIT-safe."""
+    _, case_id, _ = await _sealable_case(db_engine, tenant_id)  # cutoff = now - 1h
+    snap = await freeze_daily_bars(
+        db_engine,
+        [],
+        date(2026, 1, 5),
+        date(2026, 1, 9),
+        as_of=datetime.now(UTC) - timedelta(hours=2),  # before the cutoff
+        mode="historical_source",
+    )
+    sources = _sources()
+    sources[1] = sources[1].model_copy(
+        update={"evidence_snapshot_id": snap.snapshot_id}
+    )
+    claimed = await _attempt(db_engine, tenant_id)
+    with pytest.raises(EvidenceViolation, match="forward"):
+        await seal_commit(
+            db_engine,
+            SealRequest(
+                case_id=case_id,
+                release_id="rel-test-v1",
+                sources=sources,
+                input_manifest={"code_version": "seal-test-v1"},
+                attempt_id=claimed.attempt_id,
+                attempt_no=claimed.attempt_no,
+            ),
+        )
+
+
+async def test_produced_evidence_required_at_db_level(db_engine, tenant_id):
+    """The constraint also holds for direct inserts: a fabricated
+    commit (INSERT is allowed; only UPDATE/DELETE are blocked) hosting
+    a produced consuming-model prediction without evidence."""
+    from sqlalchemy.exc import IntegrityError
+
+    ctx, case_id, _ = await _sealable_case(db_engine, tenant_id)
+    async with db_engine.begin() as conn:
+        release_row = (
+            await conn.execute(
+                text("SELECT release_row_id FROM campaigns WHERE id = :c"),
+                {"c": str(ctx["campaign"].campaign_id)},
+            )
+        ).scalar_one()
+        commit_id = uuid.uuid4()
+        await conn.execute(
+            text(
+                "INSERT INTO forecast_commits (id, case_id, release_row_id, "
+                "chain_id, chain_seq, prev_hash, payload_sha256, content_sha256, "
+                "sealed_at, input_manifest) VALUES (:id, :case, :rel, "
+                "'test:evidence-check', 1, :prev, :ph, :ch, now(), '{}')"
+            ),
+            {
+                "id": str(commit_id),
+                "case": str(case_id),
+                "rel": str(release_row),
+                "prev": GENESIS_HASH,
+                "ph": "a" * 64,
+                "ch": "b" * 64,
+            },
+        )
+
+    with pytest.raises(IntegrityError):
+        async with db_engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "INSERT INTO predictions (id, commit_id, source, "
+                    "source_status, p_outperform) VALUES "
+                    "(:id, :c, 'quant_model', 'produced', 0.5)"
+                ),
+                {"id": str(uuid.uuid4()), "c": str(commit_id)},
+            )
+
+    # positive control: the same insert WITH evidence passes — the
+    # evidence constraint is the specific blocker
+    evidence = await _quant_evidence_for(db_engine, case_id)
+    async with db_engine.begin() as conn:
+        await conn.execute(
+            text(
+                "INSERT INTO predictions (id, commit_id, source, source_status, "
+                "p_outperform, evidence_snapshot_id) VALUES "
+                "(:id, :c, 'llm_adjusted', 'produced', 0.5, :e)"
+            ),
+            {"id": str(uuid.uuid4()), "c": str(commit_id), "e": str(evidence)},
+        )
 
 
 async def test_seal_rejects_wrong_release_and_unknown_case(db_engine, tenant_id):

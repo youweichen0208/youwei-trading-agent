@@ -177,9 +177,20 @@ async def run_batch_predictions(
     sealed, already, failures = 0, 0, []
     for case in cases:
         bars = bars_by_security.get(str(case.security_id), [])
+        quant = MODELS["quant_model"](bars=bars)
+        # the quant position consumed the batch's frozen evidence: the
+        # per-prediction reference makes the input traceable. Attached
+        # for unavailable results too — the snapshot records the
+        # absence that made the model unable to run. The constant
+        # baseline consumes no evidence and stays null (honest, not
+        # decorative).
+        if quant.evidence_snapshot_id is None:
+            quant = quant.model_copy(
+                update={"evidence_snapshot_id": snap.snapshot_id}
+            )
         sources = [
             MODELS["baseline"](bars),
-            MODELS["quant_model"](bars=bars),
+            quant,
             SourcePrediction(
                 source="llm_adjusted",
                 source_status="unavailable",

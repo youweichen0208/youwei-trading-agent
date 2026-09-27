@@ -108,7 +108,7 @@ async def test_export_and_self_verify(db_engine, tenant_id, tmp_path):
     # object references intact against the live database
     cross = await verify_against_db(db_engine, export_dir)
     assert cross["ok"], cross["issues"]
-    assert cross["snapshots_referenced"] == 2  # the two outcome snapshots
+    assert cross["snapshots_referenced"] == 4  # 2 outcome snapshots + the quant positions' 2 evidence snapshots
     assert not cross["notes"]
 
     # a second export writes a fresh directory (append-only by convention)

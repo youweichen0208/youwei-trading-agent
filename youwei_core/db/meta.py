@@ -555,6 +555,13 @@ predictions = Table(
         "source_status <> 'unavailable' OR (p_outperform IS NULL AND expected_excess_return IS NULL)",
         name="unavailable_has_no_values",
     ),
+    # evidence-consuming models cannot seal produced positions without
+    # the frozen snapshot they were computed from (S05e traceability)
+    CheckConstraint(
+        "source NOT IN ('quant_model', 'llm_adjusted') OR source_status <> 'produced' "
+        "OR evidence_snapshot_id IS NOT NULL",
+        name="produced_evidence_required",
+    ),
 )
 
 # Appended durable confirmations and timeliness judgments

@@ -38,7 +38,7 @@ from youwei_core.ledger.service import plan_batch
 from test_data_pit import asyncio_sleep
 from test_ledger_campaign import _build_calendar, _setup
 from test_ledger_outcomes import _ingest_window, _retarget_case, _window_dates
-from test_ledger_seal import _attempt, _shift_case_window
+from test_ledger_seal import _attempt, _quant_evidence_for, _shift_case_window
 
 ET = ZoneInfo("America/New_York")
 
@@ -96,6 +96,7 @@ async def _seal_with_quant(engine, tenant_id, case_id, p_quant):
                 p_outperform=p_quant,
                 expected_excess_return=0.0,
                 model_version="quant-momentum-v0",
+                evidence_snapshot_id=await _quant_evidence_for(engine, case_id),
             ),
             SourcePrediction(
                 source="llm_adjusted",
