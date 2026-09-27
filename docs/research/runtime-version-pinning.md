@@ -6,10 +6,10 @@
 
 | 项目 | 事实 | 来源 |
 | --- | --- | --- |
-| hermes 仓库状态 | main @ `7fa45eb349a1`（2026-09-27），当日仍有推送；无 release/tag 体系可依赖 | [GitHub API](https://api.github.com/repos/NousResearch/hermes-agent) |
-| Python 要求 | `requires-python = ">=3.11,<3.15"`；sg-prod 的 3.12.3 满足 | [pyproject.toml](https://github.com/NousResearch/hermes-agent/blob/main/pyproject.toml) |
+| hermes 仓库状态 | main @ `7fa45eb349a1a6f1eebc010b3fef0a9d996f386a`（2026-09-27）。官方 tag 体系存在（v2026.9.7 / v2026.9.21 / v2026.9.24，`git ls-remote --tags` 证实）；钉法：比较 tag 与 main 后固定完整 SHA。当前 3.14 支持尚未进入 tag（v2026.9.24 的上界仍是 `<3.14`），官方下个 tag 发布后可改钉 tag | [GitHub API](https://api.github.com/repos/NousResearch/hermes-agent) |
+| Python 要求 | main：`requires-python = ">=3.11,<3.15"`，仓库 `.python-version = 3.14`；pyproject 注释明示 **"we \*only\* support 3.14"**（保留 >=3.11 仅为让旧安装完成升级）。**镜像固定 Python 3.14**（实测 3.14.7）。注意 tag v2026.9.24 上界为 `<3.14` 且 `.python-version=3.11`——3.14 支持在 tag 之后合入 main | [pyproject.toml](https://github.com/NousResearch/hermes-agent/blob/main/pyproject.toml) |
 | 依赖管理 | uv + uv.lock：pyproject 注释明确改 pin 后需 `uv lock` 再生成；`[tool.uv]` 含 override 与 exclude-newer 隔离——固定 commit + `uv sync --frozen` 可复现 | 同上 |
-| 安装方式 | 无 wheel/sdist，仅源码安装（既有结论）；镜像内 = `git clone` + `git checkout <commit>` + `uv sync` | [运行时核实](hermes-pi-runtime-verification.md) |
+| 安装方式 | 无 wheel/sdist，仅源码安装（既有结论）；镜像内 = `git clone` + `git checkout <完整 SHA>` + `uv sync --frozen --python 3.14`（tag 的 `.python-version` 是 3.11，显式传 `--python` 最稳）。**已在 sg-prod 实测**：py3.14.7 + main `7fa45eb` 安装成功，`hermes --version` 正常，venv 141MB | [运行时核实](hermes-pi-runtime-verification.md) + [实测记录](s01-target-verification.md) |
 | 记忆隔离 | `memory.memory_enabled: false` + `memory.user_profile_enabled: false` 双关时：memory 工具从 schema 移除、system prompt 指引一并移除；外部 provider（`memory.provider`）**不受这两个开关影响**，需列入 `agent.disabled_toolsets` 才一并隐藏；`write_approval` 为独立写入审批键 | [memory.md](https://github.com/NousResearch/hermes-agent/blob/main/website/docs/user-guide/features/memory.md) |
 | 会话检索 | `session_search` 为独立工具；会话存 SQLite（`~/.hermes/state.db`，FTS5 全文检索） | 同上 |
 | 自定义 LLM | `provider: custom` + `base_url`（OpenAI 兼容协议），写入 config.yaml 持久化；官方列举 Ollama/vLLM/llama.cpp/SGLang/LocalAI | [FAQ](https://hermes-agent.nousresearch.com/docs/reference/faq) |
@@ -24,14 +24,12 @@
 
 ## 部署清单（建议）
 
-- sg-prod：Python 3.12 已有；**需安装 Node 22 LTS**（pi 要求 >=22.19）
-- hermes：固定 commit 的源码安装；`uv sync --frozen` 结果打入镜像层并缓存
-- pi：npm 固定版本（镜像内安装，digest 固定）
-- 协议接线：Hermes（OpenAI 兼容）与 Pi（anthropic-messages）都指向自建 LLM Gateway，见 [llm-gateway-options](llm-gateway-options.md)
+- Hermes 镜像：`python:3.14-slim`（固定 digest）；固定 commit `7fa45eb349a1a6f1eebc010b3fef0a9d996f386a` + `uv sync --frozen --python 3.14`
+- pi：npm 固定版本（镜像内安装，digest 固定），基础镜像 node:22
+- sg-prod 无需宿主机 Python/Node（容器化部署单元）
+- 协议接线：见 [llm-gateway-options](llm-gateway-options.md) 的候选方案比较
 
-## 待实测（sg-prod）
+## 待实测
 
-1. `uv sync --frozen` 在固定 commit 的可复现安装与镜像构建
-2. `AIAgent.chat()` / `run_conversation()` 的 `enabled_toolsets`、`skip_memory`、`skip_context_files` 在固定版本的确切签名（python-library.md 本次网络抓取受限；固定版本后从源码验证）
-3. Node 22 LTS 安装与 pi 0.87.1 / 0.84.2 选型
-4. 两者 Docker 镜像构建与 image digest 固定
+1. `AIAgent.chat()` / `run_conversation()` 的 `enabled_toolsets`、`skip_memory`、`skip_context_files` 在固定版本的确切签名（python-library.md 网络抓取受限；固定版本后从源码验证）
+2. pi 0.87.1 与 0.84.2 的选型；两者生产 Docker 镜像构建与 digest 固定

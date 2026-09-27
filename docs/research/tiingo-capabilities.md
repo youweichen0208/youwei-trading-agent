@@ -7,22 +7,23 @@
 | 端点 | 状态 |
 | --- | --- |
 | `/tiingo/daily/{ticker}/prices` | 存在（AAPL、SPY 路径均返回认证提示） |
-| `/tiingo/fundamentals/{ticker}/daily` | 存在 |
-| `/tiingo/daily/{ticker}/dividends` | **不存在**（404） |
-| `/tiingo/corporate-actions` | **不存在**（404） |
-| `/tiingo/news/{ticker}` | 不存在（news 为独立产品路由） |
-| 认证模型 | `token` 参数；无 token → `{"detail":"Please supply a token"}`；无效 → `{"detail":"Invalid token."}` |
+| `/tiingo/corporate-actions/{ticker}/distributions` | **存在**（独立分红端点） |
+| `/tiingo/corporate-actions/{ticker}/splits` | **存在**（独立拆分端点） |
+| `/tiingo/fundamentals/{ticker}/daily` | 存在（市值、PE 等日频指标） |
+| `/tiingo/fundamentals/meta?ticker={t}` | 存在（行业字段所在端点） |
+| `/tiingo/fundamentals/{ticker}/statements` | 存在 |
+| 认证模型 | `token` 参数；无 token → `Please supply a token`；无效 → `Invalid token.` |
 
-推论：公司行为**不在独立端点**，应在 dailyPrices 响应字段内（adjClose / divCash / splitFactor 一类）——待 token 验证字段名与口径。
+方法论记录：父路径（如 `/tiingo/corporate-actions`）404 **不能**证明子资源不存在——首版曾据此误判公司行为无独立端点，已按官方文档纠正。
 
 ## 需求对照与缺口
 
 | S00 需求 | Tiingo 能力 | 状态 |
 | --- | --- | --- |
 | 日线原始 OHLC | dailyPrices | 端点存在，字段待验证 |
-| 公司行为（除息日/金额/拆分） | 推测在 dailyPrices 字段 | **待 token 验证** |
+| 公司行为（除息日/金额/拆分） | 独立 distributions / splits 端点（官方存在） | Beta 状态、套餐权限、实际字段待账号验证；**不能假设个人 $30 套餐已包含**（[分红文档](https://www.tiingo.com/documentation/corporate-actions)、[拆分文档](https://www.tiingo.com/documentation/splits)） |
 | S&P 500 成员 PIT 历史 | 无此端点 | **缺口，需补源（见下）** |
-| GICS Sector 分类 | fundamentals（daily） | 待验证来源与是否 GICS |
+| GICS Sector 分类 | fundamentals/meta 的 sector/industry 官方定义**派生自 SIC**，非 GICS | **直接判定：不满足 GICS 要求**，无需购买后验证；GICS 必须独立来源（[官方字段定义](https://www.tiingo.com/documentation/fundamentals)） |
 | 退市/并购对价 | 未知 | 待 token 验证 |
 | SPY 总收益同口径 | 与股票同端点 | 路径存在，内容待验证 |
 
@@ -30,19 +31,22 @@
 
 ## 补充源：S&P 500 成分历史
 
-- **EODHD Indices Historical Constituents Data API**：官方页面确认覆盖 S&P 500 / 400 / 600 / 100 及 20 个行业指数，提供指数列表、成分明细、历史变更，JSON 格式；页面标价 $29.99/月。来源：[eodhd.com](https://eodhd.com/financial-apis/sp-and-dow-jones-indices-historical-constituents-data-api)
-- Wikipedia [List of S&P 500 companies](https://en.wikipedia.org/wiki/List_of_S%26P_500_companies)：现行成分表 + 变更记录段，可作交叉核对（本次已抓取成功）；PIT 严谨性不足，不作为正式采样源。
+- **EODHD Indices Historical Constituents Data API**：官方页面确认覆盖 S&P 500 / 400 / 600 / 100 及 20 个行业指数，提供指数列表、成分明细、历史变更，JSON 格式；页面标价 $29.99/月。**候选之一**（非“最小”选择）。来源：[eodhd.com](https://eodhd.com/financial-apis/sp-and-dow-jones-indices-historical-constituents-data-api)
+- **Sharadar Direct Prices（$9/月，5Y）**：已入库供应商初筛确认包含 sp500 成员数据，价格低于 EODHD；需按相同权限、PIT 质量与留存要求比较后定（[Sharadar 套餐](https://sharadar.com/subscribe)，详见 [us-data-vendor-selection](us-data-vendor-selection.md)）
+- Wikipedia [List of S&P 500 companies](https://en.wikipedia.org/wiki/List_of_S%26P_500_companies)：现行成分表 + 变更记录段，仅作交叉核对；PIT 严谨性不足，不作为正式采样源
+- S00 首要需求是**登记日的成分快照**（含版本/hash），补源比较以此为第一验收项
 
 ## 待账号验证（注册 Tiingo 后）
 
-1. dailyPrices 响应字段与调整口径（raw / adjClose / divCash / splitFactor 的确切定义）
-2. fundamentals 的 sector 字段来源、是否 GICS、粒度（Sector/Industry）
-3. 退市 ticker 的历史覆盖与末期数据可得性
-4. EOD 发布延迟：周五收盘数据在周六 06:00 ET cutoff 前是否稳定可用（协议可行性关键）
-5. 定价 tier、请求/频率限额、ticker 数上限（官网 SPA，浏览器确认：[tiingo.com/pricing](https://www.tiingo.com/pricing)）
-6. Terms of Use 对缓存、留存、转发给 LLM 供应商的授权约束
-7. SPY / ETF 是否计入标准 ticker 配额
+1. dailyPrices 响应字段与调整口径（raw / adjClose 的确切定义）
+2. corporate-actions distributions / splits 的 Beta 状态、套餐权限与字段（除息日、宣告日、金额、拆分比例）
+3. fundamentals/meta 的 sector/industry 具体取值（SIC 派生已确认非 GICS）
+4. 退市 ticker 的历史覆盖与末期数据可得性
+5. EOD 发布延迟：周五收盘数据在周六 06:00 ET cutoff 前是否稳定可用（协议可行性关键）
+6. 定价 tier、请求/频率限额、ticker 数上限；公司行为端点是否额外计费（官网 SPA，浏览器确认：[tiingo.com/pricing](https://www.tiingo.com/pricing)）
+7. Terms of Use 对缓存、留存、转发给 LLM 供应商的授权约束
+8. SPY / ETF 是否计入标准 ticker 配额
 
 ## 结论
 
-Tiingo 可作主行情源（原始 OHLC + 公司行为自行计算符合协议口径）；**S&P 500 成分 PIT 快照与 GICS 分类是缺口**，EODHD constituents API（$29.99/月）为当前最小付费候选。正式采用前需注册账号完成上列字段级验证，并确认授权条款覆盖"数据经 LLM Gateway 发送给模型供应商"的使用方式（架构 §10 要求）。
+Tiingo 可作主行情源（原始 OHLC + 独立公司行为端点自行计算总收益，符合协议口径）；**S&P 500 成分 PIT 快照是缺口**（EODHD $29.99/月与 Sharadar $9/月为候选，按相同权限与质量要求比较）；**GICS 分类直接判定不满足**（Tiingo 行业字段为 SIC 派生），需独立来源。正式采用前需注册账号完成上列字段级验证，并确认授权条款覆盖“数据经 LLM Gateway 发送给模型供应商”的使用方式（架构 §10 要求）。
