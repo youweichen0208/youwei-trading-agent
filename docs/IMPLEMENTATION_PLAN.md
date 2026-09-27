@@ -3,7 +3,7 @@
 日期：2026-09-27\
 设计依据：[ARCHITECTURE.md](ARCHITECTURE.md)\
 问题来源：[v0.2 评审](ARCHITECTURE_REVIEW_v0.2.md)\
-状态：S00 协议已确认定稿（2026-09-27）；S01 主体完成（Tiingo 字段级验证已实测；EOD 实盘观测随 S04 首次采集、生产套餐条款确认待购买时；网关取消/用量/限额待验收）；S02 已完成（隔离开发环境验收，2026-09-27）；S04 第一/二纵切片完成（PIT 数据基础、交易日历与冻结快照，2026-09-27）；S05 第一纵切片完成（campaign 登记与封存核心，2026-09-27）；S03、S04/S05 剩余项与 S06–S11 待实施、待验收。
+状态：S00 协议已确认定稿（2026-09-27）；S01 主体完成（Tiingo 字段级验证已实测；EOD 实盘观测随 S04 首次采集、生产套餐条款确认待购买时；网关取消/用量/限额待验收）；S02 已完成（隔离开发环境验收，2026-09-27）；S04 第一/二纵切片完成（PIT 数据基础、交易日历与冻结快照，2026-09-27）；S05 第一/二纵切片完成（campaign 登记与封存核心、Outcome 版本化回填，2026-09-27）；S03、S04/S05 剩余项与 S06–S11 待实施、待验收。
 
 ## 1. 执行规则
 
@@ -107,7 +107,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 - [ ] 唯一约束、source 状态/空值、值域、输入 manifest 与 attempt 校验。（进展：唯一约束、值域、空值纪律与 attempt fencing 已落地；evidence 快照引用目前可选，produced 来源强制引用待 S06/S07）
 - [ ] 获取 case/chain 锁后重新检查实时钟与 deadline；持久提交确认与及时性判定追加留痕。（已落地：链头锁后 clock_timestamp 重检窗口，锁等待跨 deadline 拒绝；确认事件追加，未确认保守 uncertain）
 - [ ] 应用 UPDATE/DELETE/TRUNCATE 禁止；提交权限、链头锁、规范化行内容与链序号固定。（进展：DB 触发器 + 逐 campaign 哈希链 + 链校验器已落地；提交权限的 API 接线归 S06/S07，生产角色 revocation 随 S09 部署）
-- [ ] Outcome 按 case 回填，以 revision/supersedes 追加更正，禁止分叉和覆盖。（待实施）
+- [ ] Outcome 按 case 回填，以 revision/supersedes 追加更正，禁止分叉和覆盖。（已落地：见 S05b 进度；退市/并购对价等公司行为终值仍限价格序列内的拆分分红，复杂事件走 unresolved+依据路径）
 - [ ] 最小 Evaluation 固定 case、commit、结果版本及评分代码；按预测类型计算 Brier、MSE/RMSE 等。（待实施）
 - [ ] 独立 Ledger 归档桶、保留策略、链校验、对象引用恢复与迟到/未确认监控。（待实施）
 
@@ -280,7 +280,14 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 - 状态：**S05 第一纵切片完成**（隔离开发环境验收；切片范围见下，S05 整体未完成）。
 - 交付：**登记层**——research release 不可变登记（规范化 manifest 内容 hash，排除自身与批准记录）+ 人类批准记录（campaign 注册强制校验批准 hash 匹配；Agent 只记录不批准）、campaign 事前登记（Phase 1A 强制 enabled_sources={baseline, quant_model} + 无回退；panel/benchmark 存在性校验；同键同内容幂等）、批次规划（周六 06:00 ET cutoff 经版本化日历解析 deadline/entry/exit，case 实例窗口封存；过去 cutoff 必须显式 backfilled_plan 补记漏周，保留在分母）、漏跑事实追加事件。**封存核心**——逐 campaign 哈希链（链头行事务内 FOR UPDATE 锁、单调序号、规范化行内容含 predictions、prev_hash 链接、verify_chain 从存储行重算全部内容 hash）；seal 短事务：链锁后 clock_timestamp() 重检窗口（早干 cutoff 拒绝、跨 deadline 拒绝不回填、锁等待跨 deadline 同样拒绝）+ attempt fencing（attempt_no/状态/租约/租户）+ 三位置原子插入（Phase 1A llm_adjusted 固定 unavailable/not_enabled；enabled 来源失败可 unavailable+reason；值域 0≤p≤1、有限数值、unavailable 无值、fallback 拒绝）；及时性：第二短事务追加 durable_confirmation（自身 clock_timestamp 判定 on_time/late，部分唯一索引保证至多一条），封存与确认之间崩溃 → 未确认，过 deadline 保守 uncertain，重放补确认但不升级已判定；同 (case, release) 幂等重放返回原 commit、不同业务内容冲突。**不可变性**：8 张 ledger 表 BEFORE UPDATE/DELETE/TRUNCATE 触发器（youwei.ledger_mutation 会话变量为运维/测试逃生阀）；migration `c9d0e1f2a3b4`。
 - 验收：24 个新测试：release 幂等/冲突/批准强制、campaign 校验与幂等、2026-09-26 已知答案批次窗口（D20=10-23、D60=12-21、DST）、过去 cutoff 补记、触发器拒绝 UPDATE/DELETE/TRUNCATE、封存原子性与事件、窗口违规、**锁等待跨 deadline 拒绝**（双连接实测）、stale attempt 与跨租户 fencing、幂等重放与冲突、确认崩溃窗口→uncertain→重放补 late 不升级、值域反例 8 组、时钟偏差停机、链链接与篡改检测。迁移实测：upgrade/downgrade/upgrade、16 触发器、部分唯一索引。
-- 待办（S05 剩余）：Outcome 版本化回填与追加更正、最小评估报告、Ledger 归档与迟到/未确认监控；evidence 快照强制引用与 seal 的 API/worker 接线归 S06；生产环境应用角色 revocation 随 S09 部署（当前触发器对 owner 同样生效，但 owner 可绕过，与“不声称绝对防篡改”一致）。
+- 待办（S05 剩余）：最小评估报告、Ledger 归档与迟到/未确认监控；evidence 快照强制引用与 seal 的 API/worker 接线归 S06；生产环境应用角色 revocation 随 S09 部署（当前触发器对 owner 同样生效，但 owner 可绕过，与“不声称绝对防篡改”一致）。
+
+### S05b 进度（2026-09-27）
+
+- 状态：**S05 第二纵切片完成**（隔离开发环境验收；切片范围见下，S05 整体未完成）。
+- 交付：outcome_revisions 只追加版本链（unique(case_id, revision) + supersedes 恒指当前头 + case 行锁串行化，禁分叉禁覆盖；DB 级约束：resolved ⟺ 三收益非空、revision 1 ⟺ 无父；表纳入 append-only 触发器）；收益计算 resolver `total-return-v1`（入场开盘→出场收盘，入场日计 D1；除息日收盘再投资——入场日除息无权、出场日除息仍计入；拆分先于分红调 units；与基准同口径；全部量化到 1e-10）；解析流程：DB 时钟 PIT forward 视图 → 完整性检查（窗口内每个交易日两证券均有 quality-ok 有效 bar，zero_volume 幽灵行不算有效价）→ 冻结快照并从快照内容计算（存储数字可从引用快照重算）→ 追加 revision；宽限期内缺失 → pending 不写；过期仍缺 → unresolved 附缺失清单与依据；unscorable 为证据驱动的市场事实（reason+evidence 必填，resolve 不得静默改写）；迟到数据/供应商更正 → 新 revision 追加（correction_reason，默认 data_revision），旧版本不变；幂等：同状态+同快照内容+同值 → 返回原头；verify_outcome_chains 结构化链校验（编号连续 + supersedes 线性）。migration `d0e1f2a3b4c5`。另修复：decimal_str 规范化（Decimal 零的 str 不稳定，会破坏内容 hash 重算），sealing/outcomes 统一使用。
+- 验收：15 个新测试：分红总收益手算对照（0.21/0.01/0.20）、D1 同日入出、除息边界（入场日不计/出场日计入）、拆分、pending 不写、宽限期后 unresolved 附缺失、zero_volume 无效价、迟到数据补齐→resolved rev2、供应商更正→新值 rev2 旧版不变、幂等重解析、未成熟拒绝、unscorable 证据必填且粘滞、DB 约束反例、append-only 触发器、链篡改检测（自引用 supersedes 被验证器发现；置 NULL 路径被 DB 约束直接拒绝）。迁移实测：upgrade/downgrade/upgrade、2 触发器。
+- 待办（S05 剩余）：最小 Evaluation（固定 case/commit/outcome 版本与评分代码，Brier/MSE）、Ledger 归档与迟到/未确认监控；退市/并购复杂对价终值仍走 unresolved+依据路径（依赖 S04 独立退市真相源）；调度器驱动归 S06。
 
 ```text
 任务：

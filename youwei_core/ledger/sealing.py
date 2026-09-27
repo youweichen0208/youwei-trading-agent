@@ -55,6 +55,7 @@ from youwei_core.db.meta import (
 from youwei_core.ledger.service import (
     GENESIS_HASH,
     PHASE1A_ENABLED_SOURCES,
+    decimal_str,
     sha256_hex,
 )
 
@@ -153,8 +154,8 @@ def _prediction_entry(pred: SourcePrediction) -> dict:
         "source": pred.source,
         "source_status": pred.source_status,
         "reason": pred.reason,
-        "p_outperform": None if p is None else str(p),
-        "expected_excess_return": None if e is None else str(e),
+        "p_outperform": None if p is None else decimal_str(p),
+        "expected_excess_return": None if e is None else decimal_str(e),
         "evidence_snapshot_id": (
             None if pred.evidence_snapshot_id is None else str(pred.evidence_snapshot_id)
         ),
@@ -613,9 +614,9 @@ async def commit_status(engine: AsyncEngine, commit_id: uuid.UUID) -> dict:
                 "source": p.source,
                 "source_status": p.source_status,
                 "reason": p.reason,
-                "p_outperform": None if p.p_outperform is None else str(p.p_outperform),
+                "p_outperform": None if p.p_outperform is None else decimal_str(p.p_outperform),
                 "expected_excess_return": (
-                    None if p.expected_excess_return is None else str(p.expected_excess_return)
+                    None if p.expected_excess_return is None else decimal_str(p.expected_excess_return)
                 ),
             }
             for p in preds
@@ -683,9 +684,9 @@ async def verify_chain(engine: AsyncEngine, chain_id: str) -> dict:
                     "source": p.source,
                     "source_status": p.source_status,
                     "reason": p.reason,
-                    "p_outperform": None if p.p_outperform is None else str(p.p_outperform),
+                    "p_outperform": None if p.p_outperform is None else decimal_str(p.p_outperform),
                     "expected_excess_return": (
-                        None if p.expected_excess_return is None else str(p.expected_excess_return)
+                        None if p.expected_excess_return is None else decimal_str(p.expected_excess_return)
                     ),
                     "evidence_snapshot_id": (
                         None if p.evidence_snapshot_id is None else str(p.evidence_snapshot_id)

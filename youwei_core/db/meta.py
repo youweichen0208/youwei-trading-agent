@@ -60,6 +60,10 @@ PREDICTION_SOURCES = ("baseline", "quant_model", "llm_adjusted")
 SOURCE_STATUSES = ("produced", "fallback", "unavailable")
 HORIZONS_TD = (1, 20, 60)
 
+# target-spec §5: status assignments are themselves versioned —
+# later evidence appends a new revision, it never edits an old one.
+OUTCOME_STATUSES = ("resolved", "unresolved", "unscorable")
+
 # Append-only enforcement (architecture section 6: the application
 # cannot UPDATE/DELETE/TRUNCATE ledger records) lives in the Alembic
 # migration as BEFORE UPDATE/DELETE/TRUNCATE triggers raising unless
@@ -565,4 +569,41 @@ forecast_commit_events = Table(
         unique=True,
         postgresql_where=text("event_type = 'durable_confirmation'"),
     ),
+)
+
+# Append-only outcome revisions per case (architecture section 6,
+# Outcome示意): unique (case_id, revision); each revision supersedes
+# the previous head under the case lock — no forks, no overwrites.
+# resolved rows carry all three returns; unresolved/unscorable rows
+# carry none (never a fabricated number). The referenced frozen
+# snapshot is exactly what the resolver computed from.
+outcome_revisions = Table(
+    "outcome_revisions",
+    meta,
+    Column("id", UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    Column("case_id", UUID(as_uuid=True), ForeignKey("forecast_cases.id"), nullable=False),
+    Column("revision", Integer, nullable=False),
+    Column("supersedes_outcome_id", UUID(as_uuid=True), ForeignKey("outcome_revisions.id"), nullable=True),
+    Column("status", Text, nullable=False),
+    Column("recorded_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
+    Column("entry_at_utc", TIMESTAMP(timezone=True), nullable=False),
+    Column("exit_at_utc", TIMESTAMP(timezone=True), nullable=False),
+    Column("asset_return", Numeric(20, 10), nullable=True),
+    Column("benchmark_return", Numeric(20, 10), nullable=True),
+    Column("excess_return", Numeric(20, 10), nullable=True),
+    Column("prices_and_actions_snapshot_id", UUID(as_uuid=True), ForeignKey("snapshots.id"), nullable=True),
+    Column("resolver_version", Text, nullable=False),
+    Column("correction_reason", Text, nullable=True),
+    Column("basis", JSONB, nullable=False, server_default="{}"),
+    UniqueConstraint("case_id", "revision", name="uq_outcomes_case_revision"),
+    CheckConstraint("status IN ('resolved', 'unresolved', 'unscorable')", name="status_valid"),
+    CheckConstraint(
+        "(status = 'resolved') = (asset_return IS NOT NULL AND benchmark_return IS NOT NULL AND excess_return IS NOT NULL)",
+        name="resolved_iff_values",
+    ),
+    CheckConstraint(
+        "(revision = 1) = (supersedes_outcome_id IS NULL)",
+        name="first_revision_no_parent",
+    ),
+    Index("ix_outcomes_case", "case_id", "revision"),
 )

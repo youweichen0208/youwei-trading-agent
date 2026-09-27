@@ -92,6 +92,14 @@ def sha256_hex(obj) -> str:
     return hashlib.sha256(canonical_json(obj).encode("utf-8")).hexdigest()
 
 
+def decimal_str(value) -> str:
+    """Canonical fixed-point string for a quantized Decimal.
+    str(Decimal) is not stable for zero ('0E-10' vs '0.0000000000'),
+    which would break hash recomputation; format() always renders the
+    full scale."""
+    return format(value, "f")
+
+
 # --- releases ---------------------------------------------------------------
 
 
