@@ -3,7 +3,7 @@
 日期：2026-09-27；结构优化更新：2026-09-28\
 设计依据：[ARCHITECTURE.md](ARCHITECTURE.md)\
 问题来源：[v0.2 评审](ARCHITECTURE_REVIEW_v0.2.md)\
-状态：S00 协议已确认定稿（2026-09-27）；S01 主体完成（Tiingo 字段级验证已实测；EOD 实盘观测随 S04 首次采集、生产套餐条款确认待购买时；网关取消/用量/限额待验收）；S02 已完成（隔离开发环境验收，2026-09-27）；S03 第一/二纵切片完成（沙箱执行、独立 Runner 与 HTTP 产物链路，2026-09-28；生产部署仍待验收）；S04 第一/二纵切片完成（PIT 数据基础、交易日历与冻结快照，2026-09-27）；S05 已完成四纵切片（封存核心、Outcome 回填、评估报告、归档与监控，2026-09-27）；S06 第一纵切片完成（前向预测管线，2026-09-27；正式 campaign 启动项仍阻断）；S03 剩余部署项与 S06 正式启动及 S07–S11 待实施、待验收。
+状态：S00 协议已确认定稿（2026-09-27）；S01 主体完成（Tiingo 字段级验证已实测；EOD 实盘观测随 S04 首次采集、生产套餐条款确认待购买时；网关取消/用量/限额待验收）；S02 已完成（隔离开发环境验收，2026-09-27）；S03 第一/二纵切片完成（沙箱执行、独立 Runner 与 HTTP 产物链路，2026-09-28；生产部署仍待验收）；S04 第一/二纵切片完成（PIT 数据基础、交易日历与冻结快照，2026-09-27）；S05 已完成四纵切片（封存核心、Outcome 回填、评估报告、归档与监控，2026-09-27）；S06 第一/二纵切片完成（前向预测管线，2026-09-27；供应商更正自动触发、月度汇总与报告门控，2026-09-28；正式 campaign 启动项仍阻断）；S03 剩余部署项与 S06 正式启动及 S07–S11 待实施、待验收。
 
 ## 1. 执行规则
 
@@ -122,7 +122,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 - [ ] 发布固定 baseline 与简单量化模型，登记训练与校准版本。（进展：管线载具 baseline-constant-v0 / quant-momentum-v0 已随 S06a 落地并全量披露；正式模型选择须 Trial 登记 + release 人工批准，待阻断项解除）
 - [ ] 人工批准初始 release，按已登记规则固定20证券 panel，事前登记每批60个 case。（阻断：S&P 500 PIT 总体/GICS 快照未取得、生产套餐 ToS 未确认、人工批准未发生；工程路径已就绪）
 - [ ] llm_adjusted 保留 unavailable/not_enabled，不填充伪造 LLM 结果。（管线已固定封存该位置，S06a 验收）
-- [ ] Scheduler 按周创建新批次，按交易日检查到期 Outcome。（已落地：见 S06a 进度）
+- [ ] Scheduler 按周创建新批次，按交易日检查到期 Outcome。（已落地：见 S06a/S06b 进度；已 resolved Outcome 的供应商更正自动触发已于 S06b 落地）
 - [ ] 最小只读查询显示计划数、完成数、缺失、迟到、数据质量和评分适用范围。（已落地：campaign_status 服务 + 租户隔离 API，见 S06a 进度）
 
 交付：实际预测记录、定时任务及首批回填结果。
@@ -307,7 +307,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 - 状态：**S06 第一纵切片完成**（隔离开发环境验收；正式 campaign 启动项仍阻断，见待办）。
 - 交付：**预测管线**——`research.batch_predict` job handler：批次级单一证据快照（全 panel+基准，cutoff 处 PIT forward 冻结，同一 manifest 共享）→ 模型注册表（baseline-constant-v0 常量 / quant-momentum-v0 二十日动量载具，历史不足 unavailable+insufficient_history，明确非正式模型）→ 逐 case 原子封存（Phase 1A llm 固定 unavailable/not_enabled；attempt fencing；逐 case 失败报告不静默丢弃；job 重试幂等）。**调度器 tick**——事前登记：每个活跃 campaign 始终预登记即将到来的周六 cutoff；漏周显式 backfill+batch.missed 事件保留分母；窗口内批次幂等提交恰好一个预测 run（idempotency key=batch）；到期 Outcome：exit 已过且无头或 unresolved 的 case 重解析（resolved 不自动重跑、unscorable 粘滞）；报告：完备 (batch, horizon) 幂等重生成；tick 全步骤幂等可重入，异常逐项记录不中断。**状态查询**——campaign_status 服务 + GET /v1/campaigns/{id}/status（租户隔离，不泄露存在性；计划/commit/准时/迟到/未确认/无 commit/outcome 状态/报告版本）；worker 接线（handler 注册 + scheduler 循环，Settings.scheduler_interval_seconds=60s，异常不杀 worker）。
 - 验收：8 个新测试：tick 预登记即将 cutoff 且幂等、漏两周补记（backfill+miss 事件+未来周正常）、窗口内恰好一个预测 run、handler 全 case 封存（共享单一证据快照、18 预测位置、flat 行情动量 0、重试 already_sealed）、无历史 quant unavailable、逐 case 失败不炸 job、tick 解析到期 Outcome 并生成 D20 报告（D1/D60 未成熟不生成）、状态视图全链路 + API 租户隔离（200/404/401）。
-- 待办（S06 剩余）：正式 campaign 启动项——S&P 500 PIT 总体/GICS 快照与真实 20 证券名单（依赖成分源）、生产套餐 ToS 确认、正式模型 Trial 登记 + release 人工批准、预算配置；月度汇总报告；已 resolved Outcome 的供应商更正自动触发（当前显式操作）；报告 tick 对历史批次全量重哈希的规模化优化。
+- 待办（S06 剩余）：正式 campaign 启动项——S&P 500 PIT 总体/GICS 快照与真实 20 证券名单（依赖成分源）、生产套餐 ToS 确认、正式模型 Trial 登记 + release 人工批准、预算配置；月度汇总、更正自动触发与报告 tick 规模化门控已随 S06b 落地。
 
 ### S03a 进度（2026-09-27）
 
@@ -333,6 +333,13 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 - 验证：`uv run --frozen pytest -q --tb=short --maxfail=3` → **216 passed**；Runner 独立锁安装通过；两个实际镜像构建及无网络依赖隔离检查通过。真实开发 Compose 的 API → Worker → HTTP Runner → 沙箱 → 产物/事件入库通过，临时资源已清理；修复了 API 只接 internal 网络时本机映射端口不可达的问题。命令、环境与范围见 [结构验证记录](ops/structure-verification.md)与 [Compose 联调记录](ops/runner-compose-smoke.md)。
 - 文档：同步 `AGENTS.md`、`CONTEXT.md`、架构、实施计划与文档索引；新增仓库边界和上游管理说明；统一 SG 4 vCPU / 7.8 GB、原型已归档、OSS 不在 MVP 的现状。
 - 剩余限制：本地 Docker 默认运行时的成功不替代目标 Linux/runsc 验收；生产镜像发布、资源压测、强杀后的恢复时限、备份故障域与告警仍归 S09。当前仅支持有界 JSON 输入与文本产物；二进制/流式传输和标准 quant 镜像入口待后续。正式 campaign 的数据授权、总体/GICS、模型 manifest 与人工 release 批准仍保持原阻断状态。
+
+### S06b 进度（2026-09-28）
+
+- 状态：**S06 第二纵切片完成**（隔离开发环境验收；正式 campaign 启动项仍阻断，见 S06a 待办）。
+- 交付：**供应商更正自动触发**——调度器扫描已 resolved 且 exit 已过的 case：候选 SQL（窗口内两证券存在 ingested/usable 晚于 head.recorded_at 且现已可用的观测）加精确证据比对（head 冻结快照的 (security, date, raw_object_id) 集合 vs 当前 PIT 选择），仅在证据确实变化时重解析并追加更正 revision（correction_reason 默认 data_revision）；无变化不重冻结不产生快照垃圾；unscorable 粘滞；窗口外新数据不触发。**月度汇总报告**（`ledger/monthly.py`）——`monthly_summary_reports` 只追加版本链（unique(campaign, month, version) + supersedes 恒指头 + 首版无父 + append-only 触发器）：按批次 cutoff 月份归属，批次等权聚合已登记批次 D20 点估计（手算验收 0 与 0.11 → 0.055）；无点估计批次（未成熟/无可配对 case/漏跑补记）NA 不稀释均值；披露证券数、计划批次数、可评分批次数、成熟标签数与逐批 D20 报告引用、case/commit/outcome head 引用、成熟/未成熟；调度默认固定为次月首个常规交易日 06:00 ET（假日顺延与 DST 已知答案验证：2026-09 → 10-01 10:00Z、2026-12 → 2027-01-04 11:00Z）；月末前 NotReady；后续成熟/更正追加新版本且旧版本引用不变；同状态幂等重生成。**tick 规模化门控**——`batch_report_input_state`/`monthly_report_input_state` 可变缓存表（显式非 ledger、无触发器）记录上次生成时的输入 digest（cases/heads/commits/confirmations/成熟向量 + 评分版本盐）：输入未变且报告存在则跳过重生成，历史批次不再每 tick 全量重哈希；NotReady 尝试同样记录 digest，解除阻塞的输入变化（head 出现、exit 到期）在后续 tick 重新触发。**归档**——月报表纳入 campaign 归档导出与免库自证（内容 hash 重算校验）。migration `a3b4c5d6e7f8`。
+- 验收：13 个新测试（pipeline 5：更正触发/无新数据不动且不重冻结/unscorable 粘滞/窗口外忽略/digest 门控一次重生成后复跳过；monthly 8：批次等权手算聚合、NA 不稀释、NotReady 与无批次月拒绝、due_at 假日+DST 已知答案、幂等+append-only、更正追加版本且旧版引用不变、tick 到期生成+门控复用）；归档导出与自证含月报。迁移实测：upgrade/downgrade/upgrade、月报表 2 触发器、状态表零触发器。`uv run --frozen pytest -q` → 229 通过。
+- 待办：正式 campaign 启动项不变（见 S06a）；Phase 1B fallback 位置的评估区分待 S07；区块自举参数登记待样本条件满足；月报查询 API 随 S09/S10 界面工作接入。
 
 ```text
 任务：

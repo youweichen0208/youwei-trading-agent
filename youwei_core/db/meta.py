@@ -672,3 +672,63 @@ artifacts = Table(
     Index("ix_artifacts_job", "job_id"),
     Index("ix_artifacts_tenant", "tenant_id"),
 )
+
+# Monthly summary reports (campaign-policy §4.2): batch-equal-weighted
+# aggregation of the registered batch D20 point estimates, attributed
+# by each batch's cutoff month. Versions append as labels mature or
+# get corrected (the scheduled v1 lands on the first regular trading
+# day of the next month at 06:00 ET, data cutoff the previous natural
+# month end); old versions keep their original references. The report
+# fixes the batch-report versions it aggregates plus the month's
+# case/commit/outcome-head references.
+monthly_summary_reports = Table(
+    "monthly_summary_reports",
+    meta,
+    Column("id", UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    Column("campaign_id", UUID(as_uuid=True), ForeignKey("campaigns.id"), nullable=False),
+    # first day of the attribution month
+    Column("month", Date, nullable=False),
+    Column("report_version", Integer, nullable=False),
+    Column("supersedes_report_id", UUID(as_uuid=True), ForeignKey("monthly_summary_reports.id"), nullable=True),
+    Column("release_row_id", UUID(as_uuid=True), ForeignKey("research_releases.id"), nullable=False),
+    # the scoring version of the batch reports being aggregated
+    Column("scoring_code_version", Text, nullable=False),
+    Column("monthly_code_version", Text, nullable=False),
+    Column("content", JSONB, nullable=False),
+    Column("content_sha256", Text, nullable=False),
+    Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
+    UniqueConstraint("campaign_id", "month", "report_version", name="uq_monthly_campaign_month_version"),
+    CheckConstraint("content_sha256 ~ '^[0-9a-f]{64}$'", name="content_sha_format"),
+    CheckConstraint(
+        "(report_version = 1) = (supersedes_report_id IS NULL)",
+        name="first_version_no_parent",
+    ),
+    CheckConstraint("EXTRACT(DAY FROM month) = 1", name="month_first_day"),
+    Index("ix_monthly_reports_campaign", "campaign_id", "month", "report_version"),
+)
+
+# Regeneration-gating cache: the inputs digest each batch's reports
+# were last generated from (cases, outcome heads, commits, durable
+# confirmations, maturity). NOT a ledger record — derived, mutable,
+# safe to truncate and rebuild; the reports themselves stay
+# append-only in evaluation_reports.
+batch_report_input_state = Table(
+    "batch_report_input_state",
+    meta,
+    Column("batch_id", UUID(as_uuid=True), ForeignKey("forecast_batches.id"), primary_key=True),
+    Column("inputs_sha256", Text, nullable=False),
+    Column("updated_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
+    CheckConstraint("inputs_sha256 ~ '^[0-9a-f]{64}$'", name="inputs_sha_format"),
+)
+
+# Same gating cache for monthly summaries: keyed by (campaign, month).
+monthly_report_input_state = Table(
+    "monthly_report_input_state",
+    meta,
+    Column("campaign_id", UUID(as_uuid=True), ForeignKey("campaigns.id"), primary_key=True),
+    Column("month", Date, nullable=False, primary_key=True),
+    Column("inputs_sha256", Text, nullable=False),
+    Column("updated_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
+    CheckConstraint("inputs_sha256 ~ '^[0-9a-f]{64}$'", name="inputs_sha_format"),
+    CheckConstraint("EXTRACT(DAY FROM month) = 1", name="month_first_day"),
+)

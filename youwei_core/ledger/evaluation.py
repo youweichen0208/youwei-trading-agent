@@ -473,6 +473,111 @@ async def generate_batch_report(
 # --- queries ------------------------------------------------------------------
 
 
+async def batch_input_digests(
+    engine: AsyncEngine, batch_ids: list, db_now
+) -> dict:
+    """Per-batch digest of every report-content input: each case with
+    its horizon, outcome head (id + revision), commit and durable
+    confirmation, plus the maturity vector — exits passing is a time
+    input, not a data input, so it belongs in the gate. Salted with
+    the scoring code version so a code bump forces regeneration.
+
+    The scheduler tick stores this in batch_report_input_state and
+    skips regenerating (batch, horizon) reports whose inputs are
+    unchanged; the digest is a cache key, not a ledger record."""
+    if not batch_ids:
+        return {}
+    async with engine.begin() as conn:
+        case_rows = (
+            (
+                await conn.execute(
+                    select(
+                        forecast_cases.c.id,
+                        forecast_cases.c.batch_id,
+                        forecast_cases.c.horizon_td,
+                        forecast_cases.c.exit_at_utc,
+                    )
+                    .where(forecast_cases.c.batch_id.in_(batch_ids))
+                    .order_by(forecast_cases.c.id)
+                )
+            )
+            .mappings()
+            .all()
+        )
+        case_ids = [c.id for c in case_rows]
+        head_rows = (
+            (
+                await conn.execute(
+                    select(
+                        outcome_revisions.c.case_id,
+                        outcome_revisions.c.id,
+                        outcome_revisions.c.revision,
+                    )
+                    .where(outcome_revisions.c.case_id.in_(case_ids))
+                    .prefix_with("DISTINCT ON (case_id)", dialect="postgresql")
+                    .order_by(
+                        outcome_revisions.c.case_id,
+                        outcome_revisions.c.revision.desc(),
+                    )
+                )
+            )
+            .mappings()
+            .all()
+        )
+        heads_by_case = {h.case_id: h for h in head_rows}
+        commit_rows = (
+            (
+                await conn.execute(
+                    select(
+                        forecast_commits.c.case_id, forecast_commits.c.id
+                    ).where(forecast_commits.c.case_id.in_(case_ids))
+                )
+            )
+            .mappings()
+            .all()
+        )
+        commit_by_case = {cm.case_id: cm for cm in commit_rows}
+        commit_ids = [c.id for c in commit_rows]
+        confirm_rows = (
+            (
+                await conn.execute(
+                    select(forecast_commit_events.c.commit_id).where(
+                        forecast_commit_events.c.commit_id.in_(commit_ids),
+                        forecast_commit_events.c.event_type == "durable_confirmation",
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        confirmed = set(confirm_rows)
+
+    rows_by_batch: dict = {}
+    for c in case_rows:
+        head = heads_by_case.get(c.id)
+        commit = commit_by_case.get(c.id)
+        rows_by_batch.setdefault(c.batch_id, []).append(
+            [
+                str(c.id),
+                c.horizon_td,
+                None if head is None else str(head.id),
+                None if head is None else head.revision,
+                None if commit is None else str(commit.id),
+                None if (commit is None or commit.id not in confirmed) else "confirmed",
+                c.exit_at_utc <= db_now,
+            ]
+        )
+    return {
+        batch_id: sha256_hex(
+            {
+                "scoring_code_version": SCORING_CODE_VERSION,
+                "cases": rows,
+            }
+        )
+        for batch_id, rows in rows_by_batch.items()
+    }
+
+
 async def latest_report(
     engine: AsyncEngine, batch_id: uuid.UUID, horizon_td: int
 ) -> dict | None:

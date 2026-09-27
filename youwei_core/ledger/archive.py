@@ -41,6 +41,7 @@ from youwei_core.db.meta import (
     forecast_cases,
     forecast_commit_events,
     forecast_commits,
+    monthly_summary_reports,
     outcome_revisions,
     predictions,
     research_releases,
@@ -198,6 +199,20 @@ async def export_campaign_archive(
             .mappings()
             .all()
         )
+        monthly_rows = (
+            (
+                await conn.execute(
+                    select(monthly_summary_reports)
+                    .where(monthly_summary_reports.c.campaign_id == campaign_id)
+                    .order_by(
+                        monthly_summary_reports.c.month,
+                        monthly_summary_reports.c.report_version,
+                    )
+                )
+            )
+            .mappings()
+            .all()
+        )
 
     files = {}
     for name, rows in (
@@ -206,6 +221,7 @@ async def export_campaign_archive(
         ("commit_events.jsonl", event_rows),
         ("outcome_revisions.jsonl", outcome_rows),
         ("evaluation_reports.jsonl", report_rows),
+        ("monthly_summary_reports.jsonl", monthly_rows),
     ):
         count, sha = _write_jsonl(export_dir / name, rows)
         files[name] = {"rows": count, "sha256": sha}
@@ -335,7 +351,7 @@ def verify_archive(export_dir: Path) -> dict:
                 )
             prev_id = rev["id"]
 
-    # report content hashes
+    # report content hashes (batch reports and monthly summaries)
     for report in data.get("evaluation_reports.jsonl", []):
         actual = hashlib.sha256(
             canonical_json(report["content"]).encode("utf-8")
@@ -343,6 +359,14 @@ def verify_archive(export_dir: Path) -> dict:
         if actual != report["content_sha256"]:
             issues.append(
                 f"archive report content hash mismatch: {report['id']}"
+            )
+    for report in data.get("monthly_summary_reports.jsonl", []):
+        actual = hashlib.sha256(
+            canonical_json(report["content"]).encode("utf-8")
+        ).hexdigest()
+        if actual != report["content_sha256"]:
+            issues.append(
+                f"archive monthly report content hash mismatch: {report['id']}"
             )
 
     return {

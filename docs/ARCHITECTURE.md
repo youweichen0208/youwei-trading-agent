@@ -237,6 +237,7 @@ expected_excess_return 不能单独确定 target_price：还缺 benchmark 预期
 | predictions | 三个 source 的输出及实际状态、来源版本、证据与封存引用 |
 | outcome_revisions | 结果的只追加版本、更正理由和前一版本引用 |
 | evaluation_reports | 固定 case 集、outcome revision 集、评分程序和 release 的报告 |
+| monthly_summary_reports | 月度汇总（campaign-policy §4.2）：按批次 cutoff 月份归属、批次等权聚合已登记的 D20 点估计；版本随标签成熟与更正追加，NA 不以 0 填充 |
 
 一个证券 × 一个 horizon × 一个 release 通常对应 baseline / quant_model / llm_adjusted 三个结果；三个 horizon 是九个结果，不能仅以 run_id 配对。forecast_commits 唯一约束为 (case_id, release_id)，predictions 唯一约束为 (commit_id, source)。未来 champion/challenger 共享 case 与 Outcome，分别绑定不同 release；候选清单在运行前登记。
 
@@ -265,7 +266,7 @@ resolver_version / correction_reason
 unique(case_id, revision)
 ```
 
-修订链由受控写入操作串行校验，禁止同一前序分叉；当前结果是派生视图。一次真实收益供同一 case 的三种 source 及事前登记的不同 release 共用。Brier、MSE/RMSE 和分位数评分在评估层计算；修正结果后生成新评估报告，旧报告保持原引用。
+修订链由受控写入操作串行校验，禁止同一前序分叉；当前结果是派生视图。一次真实收益供同一 case 的三种 source 及事前登记的不同 release 共用。Brier、MSE/RMSE 和分位数评分在评估层计算；修正结果后生成新评估报告，旧报告保持原引用。已 resolved 窗口的供应商数据更正由调度器扫描检测：候选查询（窗口内新观测版本）加与 head 冻结快照的精确证据比对（security、date、raw object 版本），仅在证据确实变化时重解析并追加更正版本；unscorable 是市场事实，保持粘滞。批次与月度报告的重生成由输入 digest 门控（缓存状态表，非 ledger），历史批次不随 tick 全量重哈希。
 
 Ledger 对应用可验证且防止日常覆盖，不声称绝对防管理员篡改。应用不能 UPDATE / DELETE / TRUNCATE，迁移/owner 权限独立；受限提交接口防止任意 INSERT。哈希链需有 chain_id、单调序号、固定规范化方法和事务内链头锁。链头被外部归档之前仍存在信任窗口。
 

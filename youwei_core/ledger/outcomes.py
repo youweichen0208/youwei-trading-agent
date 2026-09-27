@@ -487,6 +487,56 @@ async def _append_revision(
 # --- queries ------------------------------------------------------------------
 
 
+async def outcome_evidence_changed(engine: AsyncEngine, case_id: uuid.UUID) -> bool:
+    """Would the resolver see different evidence NOW? Compares the
+    head revision's frozen snapshot — the exact bars and raw-object
+    versions it computed from — against the current PIT selection for
+    the same window. True means a re-resolution would freeze different
+    evidence (a vendor correction or a late-arriving version); false
+    means re-resolving would re-freeze identical content, so the tick
+    skips it and appends nothing. Prices are not compared directly:
+    a new raw-object version is the registered signal of a data
+    revision even when values coincide."""
+    async with engine.begin() as conn:
+        case = (
+            await conn.execute(
+                select(forecast_cases).where(forecast_cases.c.id == case_id)
+            )
+        ).mappings().one_or_none()
+        if case is None:
+            raise CaseNotFound(str(case_id))
+        head = (
+            await conn.execute(
+                select(outcome_revisions)
+                .where(outcome_revisions.c.case_id == case_id)
+                .order_by(outcome_revisions.c.revision.desc())
+                .limit(1)
+            )
+        ).mappings().first()
+        db_now = (await conn.execute(select(func.now()))).scalar_one()
+    if head is None or head.prices_and_actions_snapshot_id is None:
+        return True  # nothing frozen to compare against: re-resolve
+
+    snap = await read_snapshot(engine, head.prices_and_actions_snapshot_id)
+    frozen = {
+        (b["security_id"], b["trade_date"], b["provenance"]["raw_object_id"])
+        for b in json.loads(snap["content"])
+    }
+    current = await daily_bars_asof(
+        engine,
+        [case.security_id, case.benchmark_security_id],
+        case.entry_at_utc.date(),
+        case.exit_at_utc.date(),
+        as_of=db_now,
+        mode="forward",
+    )
+    current_ids = {
+        (b["security_id"], b["trade_date"], b["provenance"]["raw_object_id"])
+        for b in current
+    }
+    return frozen != current_ids
+
+
 async def current_outcome(engine: AsyncEngine, case_id: uuid.UUID) -> dict | None:
     """The head revision of a case (derived view)."""
     async with engine.begin() as conn:

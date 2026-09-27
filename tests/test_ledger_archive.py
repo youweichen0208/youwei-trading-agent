@@ -33,11 +33,13 @@ from youwei_core.ledger.archive import (
     verify_archive,
 )
 from youwei_core.ledger.evaluation import generate_batch_report
+from youwei_core.ledger.monthly import generate_monthly_report
 from youwei_core.ledger.outcomes import resolve_outcome
 from youwei_core.ledger.service import plan_batch
 from youwei_core.data.calendar import next_weekly_cutoff
 from youwei_core.ops.service import evaluate_alerts, ops_snapshot
 from test_ledger_campaign import _setup
+from test_ledger_monthly import _pick_past_month
 from test_ledger_outcomes import _ingest_window, _retarget_case, _window_dates
 from test_ledger_seal import _seal, _shift_case_window, _sources
 
@@ -73,6 +75,19 @@ async def _archived_scenario(engine, tenant_id, *, n_panel=2):
 async def test_export_and_self_verify(db_engine, tenant_id, tmp_path):
     ctx, plan, d20 = await _archived_scenario(db_engine, tenant_id)
 
+    # a past-month planned batch + its monthly summary join the ledger
+    # record (campaign-policy §4.2: missed weeks stay in the
+    # denominator; the summary discloses them as NA)
+    month, cutoffs = _pick_past_month()
+    await plan_batch(
+        db_engine,
+        ctx["campaign"].campaign_id,
+        decision_cutoff=cutoffs[0],
+        backfilled_plan=True,
+    )
+    monthly = await generate_monthly_report(db_engine, ctx["campaign"].campaign_id, month)
+    assert monthly.created
+
     manifest = await export_campaign_archive(
         db_engine, ctx["campaign"].campaign_id, tmp_path
     )
@@ -81,6 +96,7 @@ async def test_export_and_self_verify(db_engine, tenant_id, tmp_path):
     assert manifest["files"]["predictions.jsonl"]["rows"] == 6
     assert manifest["files"]["outcome_revisions.jsonl"]["rows"] == 2
     assert manifest["files"]["evaluation_reports.jsonl"]["rows"] == 1
+    assert manifest["files"]["monthly_summary_reports.jsonl"]["rows"] == 1
     export_dir = Path(manifest["export_dir"])
     assert (export_dir / "manifest.json").is_file()
 

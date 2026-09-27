@@ -25,11 +25,13 @@ from sqlalchemy import text
 from youwei_core.data.calendar import next_weekly_cutoff
 from youwei_core.jobs.service import JobSubmission, RunSubmission, submit_run
 from youwei_core.jobs.worker import claim_next_job, complete_attempt, fail_attempt
-from youwei_core.ledger.outcomes import current_outcome
+from youwei_core.ledger.evaluation import latest_report
+from youwei_core.ledger.outcomes import current_outcome, record_unscorable
 from youwei_core.ledger.pipeline import make_batch_predict_handler
 from youwei_core.ledger.scheduler import scheduler_tick
 from youwei_core.ledger.service import plan_batch
 from youwei_core.ledger.status import campaign_status
+from test_data_pit import asyncio_sleep
 from test_ledger_campaign import _setup
 from test_ledger_outcomes import _ingest_window, _retarget_case, _window_dates
 from test_ledger_seal import _shift_case_window
@@ -354,6 +356,161 @@ async def test_tick_resolves_outcomes_and_generates_reports(db_engine, tenant_id
     assert view["totals"]["batches"] == 2
     empty = next(b for b in view["batches"] if b["batch_id"] != str(batch_id))
     assert empty["no_commit"] == 3  # planned but never run: visible, not hidden
+
+
+# --- vendor corrections to resolved outcomes ------------------------------------
+
+
+async def _drive_resolved_d20(engine, tenant_id):
+    """A planned batch with sealed predictions whose D20 case is
+    retargeted to a past window and resolved by a tick."""
+    ctx = await _setup(engine, tenant_id, n_panel=1)
+    await scheduler_tick(engine)  # plans the coming batch
+    async with engine.begin() as conn:
+        batch_id = (
+            await conn.execute(
+                text("SELECT id FROM forecast_batches WHERE campaign_id = :c"),
+                {"c": str(ctx["campaign"].campaign_id)},
+            )
+        ).scalar_one()
+        case_ids = (
+            await conn.execute(
+                text("SELECT id FROM forecast_cases WHERE batch_id = :b ORDER BY horizon_td"),
+                {"b": str(batch_id)},
+            )
+        ).scalars().all()
+
+    _, _, dates = await _window_dates(engine, exit_sessions_back=1, span=35)
+    await _ingest_window(engine, "S0", ctx["panel"][0], dates)
+    await _ingest_window(
+        engine, "SPY", ctx["benchmark"], dates, default={"open": 500.0, "close": 500.0}
+    )
+    await _open_batch(engine, batch_id, case_ids)
+    summary, _ = await _run_predict_job(engine, tenant_id, batch_id)
+    assert summary["sealed"] == 3
+
+    entry_date, exit_date, _ = await _window_dates(engine, exit_sessions_back=10, span=20)
+    await _retarget_case(engine, case_ids[1], entry_date, exit_date)
+    tick = await scheduler_tick(engine)
+    assert tick["outcomes_attempted"] >= 1
+    head = await current_outcome(engine, case_ids[1])
+    assert head["status"] == "resolved" and head["revision"] == 1
+    return ctx, batch_id, case_ids, dates, exit_date
+
+
+async def test_tick_revises_resolved_outcome_on_vendor_correction(db_engine, tenant_id):
+    ctx, batch_id, case_ids, dates, _ = await _drive_resolved_d20(db_engine, tenant_id)
+    head1 = await current_outcome(db_engine, case_ids[1])
+    assert head1["excess_return"] == "0.0000000000"  # both legs flat
+
+    # a vendor correction: the same window re-published with different closes
+    await asyncio_sleep()
+    await _ingest_window(
+        db_engine, "S0", ctx["panel"][0], dates, default={"open": 100.0, "close": 101.0}
+    )
+
+    tick = await scheduler_tick(db_engine)
+    assert tick["outcomes_corrected"] == 1
+    head2 = await current_outcome(db_engine, case_ids[1])
+    assert head2["revision"] == 2
+    assert head2["status"] == "resolved"
+    assert head2["correction_reason"] == "data_revision"
+    assert head2["excess_return"] != head1["excess_return"]  # re-computed
+
+    # the batch report follows the corrected head as a new version
+    report = await latest_report(db_engine, batch_id, 20)
+    assert report["report_version"] == 2
+    assert report["content"]["cases"][0]["outcome"]["revision"] == 2
+
+
+async def test_tick_leaves_resolved_outcome_alone_without_new_data(db_engine, tenant_id):
+    ctx, batch_id, case_ids, dates, _ = await _drive_resolved_d20(db_engine, tenant_id)
+    async with db_engine.begin() as conn:
+        snaps_before = (
+            await conn.execute(text("SELECT count(*) FROM snapshots"))
+        ).scalar_one()
+
+    tick = await scheduler_tick(db_engine)
+    assert tick["outcomes_corrected"] == 0
+    head = await current_outcome(db_engine, case_ids[1])
+    assert head["revision"] == 1  # no revision, ...
+
+    async with db_engine.begin() as conn:
+        snaps_after = (
+            await conn.execute(text("SELECT count(*) FROM snapshots"))
+        ).scalar_one()
+    assert snaps_after == snaps_before  # ... and no re-freeze without a data change
+
+
+async def test_tick_unscorable_stays_sticky_under_data_change(db_engine, tenant_id):
+    ctx, batch_id, case_ids, dates, _ = await _drive_resolved_d20(db_engine, tenant_id)
+    # the D1 case, retargeted to a past window, is recorded unscorable
+    entry_date, exit_date, _ = await _window_dates(db_engine, exit_sessions_back=5, span=5)
+    await _retarget_case(db_engine, case_ids[0], entry_date, exit_date)
+    await record_unscorable(
+        db_engine, case_ids[0],
+        reason="no_valid_entry_price", evidence_ref="halt-notice",
+    )
+
+    # a correction lands inside BOTH windows
+    await asyncio_sleep()
+    await _ingest_window(
+        db_engine, "S0", ctx["panel"][0], dates, default={"open": 100.0, "close": 102.0}
+    )
+
+    tick = await scheduler_tick(db_engine)
+    assert tick["outcomes_corrected"] == 1  # the resolved D20 case is revised
+    head_d1 = await current_outcome(db_engine, case_ids[0])
+    assert head_d1["status"] == "unscorable"
+    assert head_d1["revision"] == 1  # the market fact stays sticky
+
+
+async def test_tick_ignores_new_data_outside_the_window(db_engine, tenant_id):
+    ctx, batch_id, case_ids, dates, exit_date = await _drive_resolved_d20(db_engine, tenant_id)
+    # new bars AFTER the D20 exit are not part of its evidence
+    after = [d for d in dates if d > exit_date]
+    assert after
+    await asyncio_sleep()
+    await _ingest_window(
+        db_engine, "S0", ctx["panel"][0], after, default={"open": 100.0, "close": 150.0}
+    )
+
+    tick = await scheduler_tick(db_engine)
+    assert tick["outcomes_corrected"] == 0
+    head = await current_outcome(db_engine, case_ids[1])
+    assert head["revision"] == 1
+
+
+async def test_tick_skips_unchanged_report_rehashes(db_engine, tenant_id):
+    """The tick's report step is digest-gated: history is not fully
+    re-hashed every tick; an input change re-triggers exactly once."""
+    ctx, batch_id, case_ids, dates, _ = await _drive_resolved_d20(db_engine, tenant_id)
+
+    tick = await scheduler_tick(db_engine)
+    assert tick["reports_skipped"] >= 1  # the unchanged D20 report
+    assert not tick["reports_generated"]
+    report1 = await latest_report(db_engine, batch_id, 20)
+    assert report1["report_version"] == 1
+
+    # a correction changes the inputs -> one regeneration, then gated again
+    await asyncio_sleep()
+    await _ingest_window(
+        db_engine, "S0", ctx["panel"][0], dates, default={"open": 100.0, "close": 101.0}
+    )
+    tick2 = await scheduler_tick(db_engine)
+    assert tick2["outcomes_corrected"] == 1
+    assert any(
+        r["batch_id"] == str(batch_id) and r["horizon_td"] == 20
+        for r in tick2["reports_generated"]
+    )
+    report2 = await latest_report(db_engine, batch_id, 20)
+    assert report2["report_version"] == 2
+
+    tick3 = await scheduler_tick(db_engine)
+    assert tick3["reports_skipped"] >= 1
+    assert not tick3["reports_generated"]
+    report3 = await latest_report(db_engine, batch_id, 20)
+    assert report3["report_version"] == 2  # no further versions
 
 
 # --- API ----------------------------------------------------------------------------
