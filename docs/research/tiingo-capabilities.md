@@ -36,17 +36,17 @@
 - Wikipedia [List of S&P 500 companies](https://en.wikipedia.org/wiki/List_of_S%26P_500_companies)：现行成分表 + 变更记录段，仅作交叉核对；PIT 严谨性不足，不作为正式采样源
 - S00 首要需求是**登记日的成分快照**（含版本/hash），补源比较以此为第一验收项
 
-## 待账号验证（注册 Tiingo 后）
+## 待账号验证（已于 2026-09-27 实测，结果见 [tiingo-token-verification](tiingo-token-verification.md)）
 
-1. dailyPrices 响应字段与调整口径（raw / adjClose 的确切定义）
-2. corporate-actions distributions / splits 的 Beta 状态、套餐权限与字段（除息日、宣告日、金额、拆分比例）
-3. fundamentals/meta 的 sector/industry 具体取值（SIC 派生已确认非 GICS）
-4. 退市 ticker 的历史覆盖与末期数据可得性
-5. EOD 发布延迟：周五收盘数据在周六 06:00 ET cutoff 前是否稳定可用（协议可行性关键）
-6. 定价 tier、请求/频率限额、ticker 数上限；公司行为端点是否额外计费（官网 SPA，浏览器确认：[tiingo.com/pricing](https://www.tiingo.com/pricing)）
-7. Terms of Use 对缓存、留存、转发给 LLM 供应商的授权约束
-8. SPY / ETF 是否计入标准 ticker 配额
+1. ~~dailyPrices 响应字段与调整口径~~ → 字段全集在；拆分精确，分红复权 ~1e-5 偏差（内部股息 0.2697 vs 展示 0.27），adjClose 仅作容差交叉核对
+2. ~~corporate-actions distributions / splits 套餐权限与字段~~ → 当前（evaluation）套餐 403；日线内嵌 divCash/splitFactor 替代
+3. ~~fundamentals/meta 的 sector/industry 取值~~ → `tickers=` 复数参数下可用（AAPL: Technology/SIC 3571）；SIC 派生确认；inactive ticker 不可用
+4. ~~退市 ticker 覆盖~~ → 三形态：干净保留（ATVI/TWTR）、幽灵行（SGEN：冻结价 volume=0、endDate 误导）、完全缺失（SIVB 404）；isActive 是可靠标志
+5. ~~EOD 发布延迟~~ → 初步证据支持（周五数据在；dailyLastUpdated 周五 22:15 ET）；待下次周五晚→周六 06:00 ET 实盘观测定案
+6. ~~定价 tier、限额、ticker 数上限~~ → evaluation 确认；无 rate-limit 头；精确配额需网页控制台
+7. ~~Terms of Use 授权约束~~ → SPA 不可程序化读取；付费套餐购买时浏览器确认（用户任务）
+8. ~~SPY / ETF 配额~~ → 同端点正常返回
 
 ## 结论
 
-Tiingo 可作主行情源（原始 OHLC + 独立公司行为端点自行计算总收益，符合协议口径）；**S&P 500 成分 PIT 快照是缺口**（EODHD $29.99/月与 Sharadar $9/月为候选，按相同权限与质量要求比较）；**GICS 分类直接判定不满足**（Tiingo 行业字段为 SIC 派生），需独立来源。正式采用前需注册账号完成上列字段级验证，并确认授权条款覆盖“数据经 LLM Gateway 发送给模型供应商”的使用方式（架构 §10 要求）。
+Tiingo 可作主行情源（原始 OHLC + 独立公司行为端点自行计算总收益，符合协议口径）；**S&P 500 成分 PIT 快照是缺口**（EODHD $29.99/月与 Sharadar $9/月为候选，按相同权限与质量要求比较）；**GICS 分类直接判定不满足**（Tiingo 行业字段为 SIC 派生），需独立来源。正式采用前需完成字段级验证（**已干 2026-09-27，见上**），并确认授权条款覆盖“数据经 LLM Gateway 发送给模型供应商”的使用方式（架构 §10 要求）——后者待付费套餐购买时浏览器确认。

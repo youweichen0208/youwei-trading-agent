@@ -52,7 +52,7 @@
 
 | 事项 | 状态 | 归属 |
 | --- | --- | --- |
-| Tiingo 试用（字段级验证、EOD 延迟、许可） | 待注册账号/token | 用户 → S01 收尾 |
+| Tiingo 试用（字段级验证、EOD 延迟、许可） | **字段级验证已完成 2026-09-27**（[tiingo-token-verification](tiingo-token-verification.md)：字段全集、拆分精确、分红复权 ~1e-5 偏差、退市三形态含 SGEN 幽灵行、SPY 正常）；EOD 实盘观测待下次周五；生产套餐 ToS 确认待购买时 | 用户（套餐/条款）→ S04 首次采集 |
 | Hermes memory 隔离键运行时验证 | 键名已从官方文档确认 | S07 接入时 |
 | LiteLLM 接线方案比较 + 取消/用量/限额 + fail-closed | 配置已留存 | S02 |
 | 备份演练（OSS 已排除出 MVP） | 改为本地 WAL 归档 + 恢复演练 | S02 |
