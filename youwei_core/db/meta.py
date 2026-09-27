@@ -64,6 +64,9 @@ HORIZONS_TD = (1, 20, 60)
 # later evidence appends a new revision, it never edits an old one.
 OUTCOME_STATUSES = ("resolved", "unresolved", "unscorable")
 
+# campaign-policy §4: the registered primary horizon.
+PRIMARY_HORIZON_TD = 20
+
 # Append-only enforcement (architecture section 6: the application
 # cannot UPDATE/DELETE/TRUNCATE ledger records) lives in the Alembic
 # migration as BEFORE UPDATE/DELETE/TRUNCATE triggers raising unless
@@ -606,4 +609,34 @@ outcome_revisions = Table(
         name="first_revision_no_parent",
     ),
     Index("ix_outcomes_case", "case_id", "revision"),
+)
+
+# Batch x horizon evaluation reports (architecture section 6,
+# campaign-policy §4): the report FIXES the case set, the commit and
+# outcome-revision references it scored, the release and the scoring
+# code version. Corrections append new versions (supersedes chain);
+# old reports keep their original references. Content is canonical
+# JSON with a content hash: identical heads regenerate identically.
+evaluation_reports = Table(
+    "evaluation_reports",
+    meta,
+    Column("id", UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    Column("batch_id", UUID(as_uuid=True), ForeignKey("forecast_batches.id"), nullable=False),
+    Column("campaign_id", UUID(as_uuid=True), ForeignKey("campaigns.id"), nullable=False),
+    Column("horizon_td", Integer, nullable=False),
+    Column("report_version", Integer, nullable=False),
+    Column("supersedes_report_id", UUID(as_uuid=True), ForeignKey("evaluation_reports.id"), nullable=True),
+    Column("release_row_id", UUID(as_uuid=True), ForeignKey("research_releases.id"), nullable=False),
+    Column("scoring_code_version", Text, nullable=False),
+    Column("content", JSONB, nullable=False),
+    Column("content_sha256", Text, nullable=False),
+    Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
+    UniqueConstraint("batch_id", "horizon_td", "report_version", name="uq_eval_batch_horizon_version"),
+    CheckConstraint("horizon_td IN (1, 20, 60)", name="horizon_valid"),
+    CheckConstraint("content_sha256 ~ '^[0-9a-f]{64}$'", name="content_sha_format"),
+    CheckConstraint(
+        "(report_version = 1) = (supersedes_report_id IS NULL)",
+        name="first_version_no_parent",
+    ),
+    Index("ix_eval_reports_batch", "batch_id", "horizon_td", "report_version"),
 )
