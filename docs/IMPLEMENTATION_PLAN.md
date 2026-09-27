@@ -3,7 +3,7 @@
 日期：2026-09-27\
 设计依据：[ARCHITECTURE.md](ARCHITECTURE.md)\
 问题来源：[v0.2 评审](ARCHITECTURE_REVIEW_v0.2.md)\
-状态：S00 协议已确认定稿（2026-09-27）；S01 主体完成（Tiingo 字段级验证已实测；EOD 实盘观测随 S04 首次采集、生产套餐条款确认待购买时；网关取消/用量/限额待验收）；S02 已完成（隔离开发环境验收，2026-09-27）；S04 第一/二纵切片完成（PIT 数据基础、交易日历与冻结快照，2026-09-27）；S05 第一/二/三纵切片完成（campaign 登记与封存核心、Outcome 版本化回填、最小评估报告，2026-09-27）；S06 第一纵切片完成（前向预测管线：调度/封存接线/状态查询，2026-09-27；正式 campaign 启动项仍阻断）；S03、S04/S05 剩余项与 S06 正式启动及 S07–S11 待实施、待验收。
+状态：S00 协议已确认定稿（2026-09-27）；S01 主体完成（Tiingo 字段级验证已实测；EOD 实盘观测随 S04 首次采集、生产套餐条款确认待购买时；网关取消/用量/限额待验收）；S02 已完成（隔离开发环境验收，2026-09-27）；S03 第一纵切片完成（沙箱执行与产物链路，2026-09-27）；S04 第一/二纵切片完成（PIT 数据基础、交易日历与冻结快照，2026-09-27）；S05 第一/二/三纵切片完成（campaign 登记与封存核心、Outcome 版本化回填、最小评估报告，2026-09-27）；S06 第一纵切片完成（前向预测管线：调度/封存接线/状态查询，2026-09-27；正式 campaign 启动项仍阻断）；S03 剩余部署项与 S06 正式启动及 S07–S11 待实施、待验收。
 
 ## 1. 执行规则
 
@@ -76,12 +76,12 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 
 ### S03 — 打通受限计算与产物链路（Phase 1A；依赖 S02）
 
-- [ ] Runner 固定镜像 digest、命令模板、只读根目录、网络和资源限额。
-- [ ] Data Service 内部快照流 → Runner 固定 spool → hash 校验 → 沙箱只读挂载。
-- [ ] 标准 quant 使用已发布镜像入口，不启动 Pi Agent。
-- [ ] Runner → Core API 受限上传 → OSS → 不可变 artifact manifest；每段校验 job/tenant 权限。
-- [ ] 限制路径、文件类型/大小/数量；拒绝穿越、symlink/hardlink 和不安全反序列化；复杂解析在受限环境。
-- [ ] 超时/取消终止计算，清理容器和临时文件，保留受控日志。
+- [ ] Runner 固定镜像 digest、命令模板、只读根目录、网络和资源限额。（已落地：镜像引用仅来自 Runner 配置（部署时 digest 固定），非 root、只读根、cap-drop、no-new-privileges、CPU/memory/PID 限额、无网络；见 S03a 进度）
+- [ ] Data Service 内部快照流 → Runner 固定 spool → hash 校验 → 沙箱只读挂载。（已落地：快照物化到 spool 并双重 hash 校验后只读挂载；独立 Data Service 流式接口归后续部署形态）
+- [ ] 标准 quant 使用已发布镜像入口，不启动 Pi Agent。（进展：sandbox.execute 从固定镜像执行作业脚本，不启动任何 Agent；Pi 接入归 S08）
+- [ ] Runner → Core API 受限上传 → OSS → 不可变 artifact manifest；每段校验 job/tenant 权限。（进展：进程内受限存储路径 + attempt fencing + 租户隔离读取；OSS 已排除 MVP，独立 Runner 部署时的 HTTP 受限接口归后续）
+- [ ] 限制路径、文件类型/大小/数量；拒绝穿越、symlink/hardlink 和不安全反序列化；复杂解析在受限环境。（已落地：tar 流内存校验——白名单扩展、单文件/总量/数量上限、拒绝 symlink/hardlink/特殊文件/穿越/非 UTF-8，产物不落宿主磁盘）
+- [ ] 超时/取消终止计算，清理容器和临时文件，保留受控日志。（已落地：墙钟超时 + OOM 检测（exit 137/State.OOMKilled）、容器强制清理、日志截断；取消传播继承 S02 watchdog）
 
 交付：可信 Runner 与统一批处理执行 Interface。
 
@@ -302,6 +302,13 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 - 交付：**预测管线**——`research.batch_predict` job handler：批次级单一证据快照（全 panel+基准，cutoff 处 PIT forward 冻结，同一 manifest 共享）→ 模型注册表（baseline-constant-v0 常量 / quant-momentum-v0 二十日动量载具，历史不足 unavailable+insufficient_history，明确非正式模型）→ 逐 case 原子封存（Phase 1A llm 固定 unavailable/not_enabled；attempt fencing；逐 case 失败报告不静默丢弃；job 重试幂等）。**调度器 tick**——事前登记：每个活跃 campaign 始终预登记即将到来的周六 cutoff；漏周显式 backfill+batch.missed 事件保留分母；窗口内批次幂等提交恰好一个预测 run（idempotency key=batch）；到期 Outcome：exit 已过且无头或 unresolved 的 case 重解析（resolved 不自动重跑、unscorable 粘滞）；报告：完备 (batch, horizon) 幂等重生成；tick 全步骤幂等可重入，异常逐项记录不中断。**状态查询**——campaign_status 服务 + GET /v1/campaigns/{id}/status（租户隔离，不泄露存在性；计划/commit/准时/迟到/未确认/无 commit/outcome 状态/报告版本）；worker 接线（handler 注册 + scheduler 循环，Settings.scheduler_interval_seconds=60s，异常不杀 worker）。
 - 验收：8 个新测试：tick 预登记即将 cutoff 且幂等、漏两周补记（backfill+miss 事件+未来周正常）、窗口内恰好一个预测 run、handler 全 case 封存（共享单一证据快照、18 预测位置、flat 行情动量 0、重试 already_sealed）、无历史 quant unavailable、逐 case 失败不炸 job、tick 解析到期 Outcome 并生成 D20 报告（D1/D60 未成熟不生成）、状态视图全链路 + API 租户隔离（200/404/401）。
 - 待办（S06 剩余）：正式 campaign 启动项——S&P 500 PIT 总体/GICS 快照与真实 20 证券名单（依赖成分源）、生产套餐 ToS 确认、正式模型 Trial 登记 + release 人工批准、预算配置；月度汇总报告；已 resolved Outcome 的供应商更正自动触发（当前显式操作）；报告 tick 对历史批次全量重哈希的规模化优化。
+
+### S03a 进度（2026-09-27）
+
+- 状态：**S03 第一纵切片完成**（隔离开发环境验收；部署形态与 runsc 实测见待办）。
+- 交付：**沙箱 Runner**（`youwei_core/sandbox/`）——隔离契约全部由 Runner 强制，调用方仅提供不可信文本（script/argv/env）+ snapshot_id，不能指定镜像/挂载/网络/宿主路径：固定镜像（仅 Runner 配置，部署时 digest 固定）、非 root（65534）、只读根、cap-drop ALL、no-new-privileges、CPU/memory/PID 限额、`--network none`、容器仅获显式 per-job 环境变量；输入（物化快照 + 脚本）只读挂载。**输出链路**：产物写入 size-capped tmpfs（磁盘满风险被 tmpfs 硬性约束，宿主无可写路径）；容器 detached 运行，可信 wrapper 写完成标记，`docker exec tar` 流式导出后**内存内 tar 校验**（白名单扩展、单文件/总量/数量上限、拒绝 symlink/hardlink/特殊成员/绝对路径/穿越/非 UTF-8）——产物从不落宿主磁盘；实测发现 `docker cp` 不可见 tmpfs 内容，故改用 tar 流。**生命周期**：墙钟超时杀死并清理容器、OOM 检测（exit 137 / State.OOMKilled）、日志截断（64KB）；脚本自身非零退出是结果而非基础设施故障。**产物存储**：`artifacts` 表（append-only 触发器）+ attempt fencing 受限存储路径（迟到/跨租 Worker 产物拒收）+ 租户隔离读取；spool 物化双重 hash 校验（读取时 + 写入后，篡改检测）。**接线**：`sandbox.execute` handler 注册入 worker（Settings：sandbox_image/runtime/memory/timeout）；migration `f2a3b4c5d6e7`。
+- 验收：11 个新测试（实测容器）：隔离契约（网络阻断/只读根/非 root/宿主环境变量不泄露）、快照物化→脚本读取→产物入库全链路（hash/attempt 绑定/事件）、脚本失败是结果、argv shell-quoting 安全、symlink 拒绝、扩展/大小/UTF-8 三类反例、超时杀死且容器无残留、OOM 检测、spool 篡改检测、存储 fencing、append-only 触发器。迁移实测：upgrade/downgrade/upgrade、2 触发器。
+- 待办（S03 剩余）：Runner 独立部署形态（当前 in-process 于 worker）与 Data Service 流式接口（当前直读 DB 快照）；目标机 runsc 运行时实测（S01 已验环境，需接线验证）；Parquet 等二进制产物类型扩展；定量镜像入口与 quant 库发布（S06 正式模型时）；磁盘水位监控随 S09。
 
 ```text
 任务：

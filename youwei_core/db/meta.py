@@ -67,6 +67,10 @@ OUTCOME_STATUSES = ("resolved", "unresolved", "unscorable")
 # campaign-policy §4: the registered primary horizon.
 PRIMARY_HORIZON_TD = 20
 
+# S03: validated artifact kinds are text formats only in MVP; the
+# content hash survives a later move to object storage.
+ARTIFACT_EXTENSIONS = (".json", ".csv", ".txt", ".md")
+
 # Append-only enforcement (architecture section 6: the application
 # cannot UPDATE/DELETE/TRUNCATE ledger records) lives in the Alembic
 # migration as BEFORE UPDATE/DELETE/TRUNCATE triggers raising unless
@@ -639,4 +643,32 @@ evaluation_reports = Table(
         name="first_version_no_parent",
     ),
     Index("ix_eval_reports_batch", "batch_id", "horizon_td", "report_version"),
+)
+
+# Sandbox execution artifacts (architecture §10): outputs of untrusted
+# code, validated before storage — whitelist extensions, size/count
+# caps, no symlinks/hardlinks/traversal, hashed, bound to the fenced
+# attempt that produced them. Content is inline text in MVP; the hash
+# contract survives a later move to object storage. Append-only.
+artifacts = Table(
+    "artifacts",
+    meta,
+    Column("id", UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    Column("tenant_id", UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False),
+    Column("run_id", UUID(as_uuid=True), nullable=False),
+    Column("job_id", UUID(as_uuid=True), nullable=False),
+    Column("attempt_id", UUID(as_uuid=True), nullable=False),
+    Column("attempt_no", Integer, nullable=False),
+    # relative POSIX path inside the sandbox /outputs
+    Column("path", Text, nullable=False),
+    Column("extension", Text, nullable=False),
+    Column("size_bytes", BigInteger, nullable=False),
+    Column("content_sha256", Text, nullable=False),
+    Column("content", Text, nullable=False),
+    Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
+    UniqueConstraint("job_id", "attempt_no", "path", name="uq_artifacts_job_attempt_path"),
+    CheckConstraint("content_sha256 ~ '^[0-9a-f]{64}$'", name="content_sha_format"),
+    CheckConstraint("size_bytes >= 0", name="size_nonneg"),
+    Index("ix_artifacts_job", "job_id"),
+    Index("ix_artifacts_tenant", "tenant_id"),
 )

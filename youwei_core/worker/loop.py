@@ -191,11 +191,13 @@ class WorkerLoop:
 
 def main() -> None:
     """youwei-worker entrypoint: noop + data collection + prediction
-    handlers, plus the scheduler tick."""
+    + sandbox handlers, plus the scheduler tick."""
     from youwei_core.data.tiingo import TiingoClient, make_tiingo_daily_handler
     from youwei_core.ledger.pipeline import make_batch_predict_handler
     from youwei_core.ledger.scheduler import scheduler_tick
     from youwei_core.logfmt import configure_logging
+    from youwei_core.sandbox.handler import make_sandbox_handler
+    from youwei_core.sandbox.runner import SandboxConfig
 
     configure_logging()
     settings = Settings()
@@ -215,6 +217,15 @@ def main() -> None:
             "noop": noop_handler,
             "data.tiingo_daily": make_tiingo_daily_handler(engine, tiingo),
             "research.batch_predict": make_batch_predict_handler(engine),
+            "sandbox.execute": make_sandbox_handler(
+                engine,
+                SandboxConfig(
+                    image=settings.sandbox_image,
+                    runtime=settings.sandbox_runtime,
+                    memory=settings.sandbox_memory,
+                    timeout_seconds=settings.sandbox_timeout_seconds,
+                ),
+            ),
         },
         settings=settings,
         scheduler_fn=lambda: scheduler_tick(engine),
