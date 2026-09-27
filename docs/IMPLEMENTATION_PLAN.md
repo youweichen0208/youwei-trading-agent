@@ -89,13 +89,13 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 
 ### S04 — 建立 PIT 数据与冻结证据（Phase 1A；依赖 S02，可与 S03 并行）
 
-- [ ] 证券永久 ID、标识历史、交易日历、公司行为、退市、市场/财务源版本。
-- [ ] 明确 source_available_at、ingested_time、usable_at、时间精度和质量等级。
-- [ ] Data Service 统一采集、源限速、授权标签、缓存与原始响应；collector 不重复实现供应商逻辑。
-- [ ] 前向查询与 historical_source 重建分别标识；正式查询必须携带 Controller 时间与权限上下文。
-- [ ] Snapshot 固定查询、证券、源版本、原始对象、schema、文件 hash 与代码版本。
-- [ ] 派生特征保留依赖；不能用当前 consensus/IV/重述值替代缺失历史值。
-- [ ] 训练 manifest 固定预处理、成熟标签、拟合窗口、校准与模型产物。
+- [ ] 证券永久 ID、标识历史、交易日历、公司行为、退市、市场/财务源版本。（进展：永久 ID + 标识历史 + 退市标志已落地，见 S04a 进度；交易日历、独立退市真相源待后续）
+- [ ] 明确 source_available_at、ingested_time、usable_at、时间精度和质量等级。（进展：三时间戳 + 证据依据 + zero_volume 质量标记已落地）
+- [ ] Data Service 统一采集、源限速、授权标签、缓存与原始响应；collector 不重复实现供应商逻辑。（进展：Tiingo 采集器 + 限速 + 授权标签 + 原始响应存储已落地；多源扩展待后续）
+- [ ] 前向查询与 historical_source 重建分别标识；正式查询必须携带 Controller 时间与权限上下文。（进展：as_of + mode 双模式查询已落地；权限上下文待接入能力令牌）
+- [ ] Snapshot 固定查询、证券、源版本、原始对象、schema、文件 hash 与代码版本。（待实施）
+- [ ] 派生特征保留依赖；不能用当前 consensus/IV/重述值替代缺失历史值。（待实施）
+- [ ] 训练 manifest 固定预处理、成熟标签、拟合窗口、校准与模型产物。（待实施）
 
 交付：可冻结、可授权读取、可恢复的证据快照。
 
@@ -258,6 +258,14 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 ```
 
 执行时为每个 Sxx 增补以下记录；没有证据的任务保持未完成。
+
+### S04a 进度（2026-09-27）
+
+- 状态：**S04 第一纵切片完成**（隔离开发环境验收；切片范围见下，S04 整体未完成）。
+- 交付：证券主数据（永久 ID + 标识有效期，as-of 解析含 ticker 复用/歧义处理）、Tiingo EOD 采集器（限速客户端 + 严格解析 + 原始响应不可变存储 + 内容级去重）、价格观测表（版本 = raw_object_id；volume=0 幽灵行标记 zero_volume）、PIT 查询（as_of + mode 双模式：forward 拒绝未来时间、historical_source 显式标记）、`data.tiingo_daily` job handler 接入 S02 worker（重试/租约/围栏语义自动继承）；migration `a1c2e3f4b5d6`。
+- 验收：26 个新测试覆盖：回补不改变旧 as-of 结果（S04 核心验收项）、更正产生新版本且 PIT 正确选版、无源时间时保守处理（usable_at 管辖、依据入档）、SGEN 幽灵行标记、同内容去重、限速间隔、worker handler 端到端。
+- 实测：真 token 冒烟（一次性容器 + 迁移 + AAPL/SPY 真实采集 + PIT 查询 + 去重），AAPL 周五收盘 341.07 与早前直接探测一致。
+- 待办（S04 剩余）：交易日历、独立退市真相源、Snapshot 冻结与 manifest、派生特征依赖、训练 manifest、多源接入与正式查询权限上下文；生产套餐 ToS 确认后才能作正式快照源。
 
 ```text
 任务：

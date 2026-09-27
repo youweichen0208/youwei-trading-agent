@@ -16,7 +16,10 @@ from httpx import ASGITransport, AsyncClient
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PG_IMAGE = "postgres:16-alpine"
 
-ALL_TABLES = "budget_entries, events, attempts, jobs, runs, api_keys, tenants"
+ALL_TABLES = (
+    "price_observations, raw_objects, security_identities, securities, "
+    "data_sources, budget_entries, events, attempts, jobs, runs, api_keys, tenants"
+)
 
 
 def _docker() -> str:

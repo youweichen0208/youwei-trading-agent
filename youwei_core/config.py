@@ -5,7 +5,12 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    model_config = {"env_prefix": "YOUWEI_"}
+    model_config = {
+        "env_prefix": "YOUWEI_",
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "extra": "ignore",
+    }
 
     database_url: str = "postgresql+asyncpg://youwei:youwei@localhost:5432/youwei"
 
@@ -40,3 +45,10 @@ class Settings(BaseSettings):
     alert_unpublished_events_age_seconds: float = 60.0
     alert_pending_reconciliation_age_seconds: float = 3600.0
     alert_wal_archive_stale_seconds: float = 1800.0
+
+    # S04: Tiingo collection (token lives in the gitignored .env).
+    # The evaluation tier's exact quota is not exposed via headers;
+    # 1 req/s is the conservative default until measured.
+    tiingo_token: str = ""
+    tiingo_base_url: str = "https://api.tiingo.com/tiingo"
+    tiingo_min_request_interval_seconds: float = 1.0

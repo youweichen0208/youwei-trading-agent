@@ -168,7 +168,8 @@ class WorkerLoop:
 
 
 def main() -> None:
-    """youwei-worker entrypoint."""
+    """youwei-worker entrypoint: noop + data collection handlers."""
+    from youwei_core.data.tiingo import TiingoClient, make_tiingo_daily_handler
     from youwei_core.logfmt import configure_logging
 
     configure_logging()
@@ -178,11 +179,24 @@ def main() -> None:
         pool_size=settings.worker_pool_size,
         max_overflow=settings.worker_max_overflow,
     )
-    loop = WorkerLoop(engine, handlers={"noop": noop_handler}, settings=settings)
+    tiingo = TiingoClient(
+        settings.tiingo_token,
+        base_url=settings.tiingo_base_url,
+        min_interval=settings.tiingo_min_request_interval_seconds,
+    )
+    loop = WorkerLoop(
+        engine,
+        handlers={
+            "noop": noop_handler,
+            "data.tiingo_daily": make_tiingo_daily_handler(engine, tiingo),
+        },
+        settings=settings,
+    )
     try:
         asyncio.run(loop.run_forever())
     finally:
         asyncio.run(engine.dispose())
+        asyncio.run(tiingo.aclose())
 
 
 if __name__ == "__main__":
