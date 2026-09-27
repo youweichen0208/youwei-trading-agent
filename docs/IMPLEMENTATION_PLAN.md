@@ -3,7 +3,7 @@
 日期：2026-09-27\
 设计依据：[ARCHITECTURE.md](ARCHITECTURE.md)\
 问题来源：[v0.2 评审](ARCHITECTURE_REVIEW_v0.2.md)\
-状态：S00 协议已确认定稿（2026-09-27）；S01 主体完成（Tiingo 字段级验证已实测；EOD 实盘观测随 S04 首次采集、生产套餐条款确认待购买时；网关取消/用量/限额待验收）；S02 已完成（隔离开发环境验收，2026-09-27）；S03–S11 待实施、待验收。
+状态：S00 协议已确认定稿（2026-09-27）；S01 主体完成（Tiingo 字段级验证已实测；EOD 实盘观测随 S04 首次采集、生产套餐条款确认待购买时；网关取消/用量/限额待验收）；S02 已完成（隔离开发环境验收，2026-09-27）；S04 第一/二纵切片完成（PIT 数据基础、交易日历与冻结快照，2026-09-27）；S05 第一纵切片完成（campaign 登记与封存核心，2026-09-27）；S03、S04/S05 剩余项与 S06–S11 待实施、待验收。
 
 ## 1. 执行规则
 
@@ -103,13 +103,13 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 
 ### S05 — 实现 Ledger、结果更正与最小评分（Phase 1A；依赖 S02–S04）
 
-- [ ] 创建 campaign/case，原子封存一个 case/release 的三种 source 结果及引用。
-- [ ] 唯一约束、source 状态/空值、值域、输入 manifest 与 attempt 校验。
-- [ ] 获取 case/chain 锁后重新检查实时钟与 deadline；持久提交确认与及时性判定追加留痕。
-- [ ] 应用 UPDATE/DELETE/TRUNCATE 禁止；提交权限、链头锁、规范化行内容与链序号固定。
-- [ ] Outcome 按 case 回填，以 revision/supersedes 追加更正，禁止分叉和覆盖。
-- [ ] 最小 Evaluation 固定 case、commit、结果版本及评分代码；按预测类型计算 Brier、MSE/RMSE 等。
-- [ ] 独立 Ledger 归档桶、保留策略、链校验、对象引用恢复与迟到/未确认监控。
+- [ ] 创建 campaign/case，原子封存一个 case/release 的三种 source 结果及引用。（进展：release/批准、campaign 登记、batch/case 规划与封存核心已落地，见 S05a 进度；正式查询 API 与 job 驱动接线归 S06）
+- [ ] 唯一约束、source 状态/空值、值域、输入 manifest 与 attempt 校验。（进展：唯一约束、值域、空值纪律与 attempt fencing 已落地；evidence 快照引用目前可选，produced 来源强制引用待 S06/S07）
+- [ ] 获取 case/chain 锁后重新检查实时钟与 deadline；持久提交确认与及时性判定追加留痕。（已落地：链头锁后 clock_timestamp 重检窗口，锁等待跨 deadline 拒绝；确认事件追加，未确认保守 uncertain）
+- [ ] 应用 UPDATE/DELETE/TRUNCATE 禁止；提交权限、链头锁、规范化行内容与链序号固定。（进展：DB 触发器 + 逐 campaign 哈希链 + 链校验器已落地；提交权限的 API 接线归 S06/S07，生产角色 revocation 随 S09 部署）
+- [ ] Outcome 按 case 回填，以 revision/supersedes 追加更正，禁止分叉和覆盖。（待实施）
+- [ ] 最小 Evaluation 固定 case、commit、结果版本及评分代码；按预测类型计算 Brier、MSE/RMSE 等。（待实施）
+- [ ] 独立 Ledger 归档桶、保留策略、链校验、对象引用恢复与迟到/未确认监控。（待实施）
 
 交付：可独立运行的预测封存、到期结果任务和可复算报告。
 
@@ -274,6 +274,13 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 - 验收：27 个新测试：假日规则对照已知交易所事实（2020/2021/2022/2025/2026 具体日期）、DST 边界（EDT 13:30 UTC vs EST 14:30 UTC）、D20/D60 手算对照、cutoff 校验、快照不可变（更正后重冻结旧 as_of 字节级一致）、篡改检测。
 - **实测（日历）**：规则日历 2020-2027 构建后，与真实 SPY 2024-01-01..2026-09-25 全部 686 个交易日交叉验证——**双向零差异**（无休市日 bar、无缺 bar 交易日；含 2025-01-09 卡特哀悼日、三年 Good Friday、2025-12-24/2026-11-27 提前收盘）；批次解析：2026-09-26 cutoff→入场 09-28 09:30 EDT、D20=10-23、D60=12-21。
 - 待办：tzdb 包固定与 NTP 阈值目标机实测（S09）；快照与能力令牌 scope 接线归 S03/S07。
+
+### S05a 进度（2026-09-27）
+
+- 状态：**S05 第一纵切片完成**（隔离开发环境验收；切片范围见下，S05 整体未完成）。
+- 交付：**登记层**——research release 不可变登记（规范化 manifest 内容 hash，排除自身与批准记录）+ 人类批准记录（campaign 注册强制校验批准 hash 匹配；Agent 只记录不批准）、campaign 事前登记（Phase 1A 强制 enabled_sources={baseline, quant_model} + 无回退；panel/benchmark 存在性校验；同键同内容幂等）、批次规划（周六 06:00 ET cutoff 经版本化日历解析 deadline/entry/exit，case 实例窗口封存；过去 cutoff 必须显式 backfilled_plan 补记漏周，保留在分母）、漏跑事实追加事件。**封存核心**——逐 campaign 哈希链（链头行事务内 FOR UPDATE 锁、单调序号、规范化行内容含 predictions、prev_hash 链接、verify_chain 从存储行重算全部内容 hash）；seal 短事务：链锁后 clock_timestamp() 重检窗口（早干 cutoff 拒绝、跨 deadline 拒绝不回填、锁等待跨 deadline 同样拒绝）+ attempt fencing（attempt_no/状态/租约/租户）+ 三位置原子插入（Phase 1A llm_adjusted 固定 unavailable/not_enabled；enabled 来源失败可 unavailable+reason；值域 0≤p≤1、有限数值、unavailable 无值、fallback 拒绝）；及时性：第二短事务追加 durable_confirmation（自身 clock_timestamp 判定 on_time/late，部分唯一索引保证至多一条），封存与确认之间崩溃 → 未确认，过 deadline 保守 uncertain，重放补确认但不升级已判定；同 (case, release) 幂等重放返回原 commit、不同业务内容冲突。**不可变性**：8 张 ledger 表 BEFORE UPDATE/DELETE/TRUNCATE 触发器（youwei.ledger_mutation 会话变量为运维/测试逃生阀）；migration `c9d0e1f2a3b4`。
+- 验收：24 个新测试：release 幂等/冲突/批准强制、campaign 校验与幂等、2026-09-26 已知答案批次窗口（D20=10-23、D60=12-21、DST）、过去 cutoff 补记、触发器拒绝 UPDATE/DELETE/TRUNCATE、封存原子性与事件、窗口违规、**锁等待跨 deadline 拒绝**（双连接实测）、stale attempt 与跨租户 fencing、幂等重放与冲突、确认崩溃窗口→uncertain→重放补 late 不升级、值域反例 8 组、时钟偏差停机、链链接与篡改检测。迁移实测：upgrade/downgrade/upgrade、16 触发器、部分唯一索引。
+- 待办（S05 剩余）：Outcome 版本化回填与追加更正、最小评估报告、Ledger 归档与迟到/未确认监控；evidence 快照强制引用与 seal 的 API/worker 接线归 S06；生产环境应用角色 revocation 随 S09 部署（当前触发器对 owner 同样生效，但 owner 可绕过，与“不声称绝对防篡改”一致）。
 
 ```text
 任务：

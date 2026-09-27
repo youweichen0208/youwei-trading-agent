@@ -26,6 +26,7 @@ from sqlalchemy import (
     TIMESTAMP,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
@@ -50,6 +51,21 @@ ATTEMPT_STATUSES = (
     "late",
 )
 BUDGET_ENTRY_TYPES = ("reserve", "release", "settle", "adjust")
+
+# --- S05: campaign registration & forecast ledger ------------------------
+
+# campaign-policy §3: Phase 1A has no fallback; a failed enabled
+# source is sealed as unavailable + reason.
+PREDICTION_SOURCES = ("baseline", "quant_model", "llm_adjusted")
+SOURCE_STATUSES = ("produced", "fallback", "unavailable")
+HORIZONS_TD = (1, 20, 60)
+
+# Append-only enforcement (architecture section 6: the application
+# cannot UPDATE/DELETE/TRUNCATE ledger records) lives in the Alembic
+# migration as BEFORE UPDATE/DELETE/TRUNCATE triggers raising unless
+# the session sets youwei.ledger_mutation='on' (ops/test escape
+# hatch). meta.py cannot express triggers; the real migrations are
+# exercised by every test run.
 
 tenants = Table(
     "tenants",
@@ -348,4 +364,205 @@ snapshots = Table(
     CheckConstraint("content_sha256 ~ '^[0-9a-f]{64}$'", name="content_sha_format"),
     UniqueConstraint("kind", "query_sha256", "content_sha256", name="uq_snapshots_query_content"),
     Index("ix_snapshots_kind", "kind", "created_at"),
+)
+
+# --- S05: research releases, campaigns, batches, cases, ledger -----------
+
+# Immutable research release manifests (campaign-policy §5). The
+# content hash covers the canonical manifest excluding itself and the
+# approval records. Human approval is recorded separately; the Agent
+# never is the approving principal.
+research_releases = Table(
+    "research_releases",
+    meta,
+    Column("id", UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    Column("release_id", Text, nullable=False, unique=True),  # operator slug
+    Column("manifest", JSONB, nullable=False),
+    Column("release_content_sha256", Text, nullable=False),
+    Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
+    CheckConstraint("release_content_sha256 ~ '^[0-9a-f]{64}$'", name="content_sha_format"),
+)
+
+# Human approval of a release content hash. Unique per (release,
+# approver); campaign registration requires at least one approval
+# whose hash still matches the release row.
+release_approvals = Table(
+    "release_approvals",
+    meta,
+    Column("id", UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    Column("release_row_id", UUID(as_uuid=True), ForeignKey("research_releases.id"), nullable=False),
+    Column("approver_principal_id", Text, nullable=False),
+    Column("approved_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
+    Column("release_content_sha256", Text, nullable=False),
+    Column("scope", Text, nullable=False),
+    Column("basis", Text, nullable=True),
+    Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
+    UniqueConstraint("release_row_id", "approver_principal_id", name="uq_approvals_release_approver"),
+)
+
+# Pre-registered multi-week research plan (campaign-policy §2.3):
+# fixes panel, target specs, enabled sources, frequency and release.
+# Immutable after creation; lifecycle facts (closure) are events.
+campaigns = Table(
+    "campaigns",
+    meta,
+    Column("id", UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    Column("tenant_id", UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False),
+    Column("campaign_key", Text, nullable=False),
+    Column("release_row_id", UUID(as_uuid=True), ForeignKey("research_releases.id"), nullable=False),
+    # [{horizon_td, target_spec_id, content_sha256}] covering 1/20/60
+    Column("target_specs", JSONB, nullable=False),
+    Column("time_protocol_ref", Text, nullable=False),
+    Column("time_protocol_sha256", Text, nullable=False),
+    Column("benchmark_security_id", UUID(as_uuid=True), ForeignKey("securities.id"), nullable=False),
+    # ordered list of permanent security ids (the fixed panel)
+    Column("panel_security_ids", JSONB, nullable=False),
+    Column("panel_manifest", JSONB, nullable=False),
+    Column("enabled_sources", JSONB, nullable=False),
+    Column("fallback_policy", Text, nullable=False),
+    Column("primary_metric", Text, nullable=False),
+    Column("status", Text, nullable=False, server_default="active"),
+    Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
+    UniqueConstraint("tenant_id", "campaign_key", name="uq_campaigns_tenant_key"),
+    CheckConstraint("time_protocol_sha256 ~ '^[0-9a-f]{64}$'", name="time_sha_format"),
+)
+
+# One decision_cutoff's weekly instance (time-protocol §1). Planned
+# times are sealed here before the batch starts; a cutoff already in
+# the past may only be planned as an explicit backfilled record of a
+# missed week (backfilled_plan=true).
+forecast_batches = Table(
+    "forecast_batches",
+    meta,
+    Column("id", UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    Column("campaign_id", UUID(as_uuid=True), ForeignKey("campaigns.id"), nullable=False),
+    Column("decision_cutoff_utc", TIMESTAMP(timezone=True), nullable=False),
+    Column("prediction_deadline_utc", TIMESTAMP(timezone=True), nullable=False),
+    Column("entry_date", Date, nullable=False),
+    Column("entry_at_utc", TIMESTAMP(timezone=True), nullable=False),
+    # full BatchTimes manifest incl. calendar version/hash and tzdb
+    Column("batch_manifest", JSONB, nullable=False),
+    Column("backfilled_plan", Boolean, nullable=False, server_default="false"),
+    Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
+    UniqueConstraint("campaign_id", "decision_cutoff_utc", name="uq_batches_campaign_cutoff"),
+    Index("ix_batches_campaign", "campaign_id", "decision_cutoff_utc"),
+)
+
+# The planned prediction question: batch x security x horizon with
+# sealed instance windows (architecture section 5). Cases stay in the
+# coverage denominator whether they fail, are missed or go unscorable.
+forecast_cases = Table(
+    "forecast_cases",
+    meta,
+    Column("id", UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    Column("batch_id", UUID(as_uuid=True), ForeignKey("forecast_batches.id"), nullable=False),
+    Column("campaign_id", UUID(as_uuid=True), ForeignKey("campaigns.id"), nullable=False),
+    Column("security_id", UUID(as_uuid=True), ForeignKey("securities.id"), nullable=False),
+    Column("benchmark_security_id", UUID(as_uuid=True), nullable=False),
+    Column("horizon_td", Integer, nullable=False),
+    Column("target_spec_id", Text, nullable=False),
+    Column("target_spec_sha256", Text, nullable=False),
+    Column("decision_cutoff_utc", TIMESTAMP(timezone=True), nullable=False),
+    Column("prediction_deadline_utc", TIMESTAMP(timezone=True), nullable=False),
+    Column("entry_at_utc", TIMESTAMP(timezone=True), nullable=False),
+    Column("exit_at_utc", TIMESTAMP(timezone=True), nullable=False),
+    Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
+    UniqueConstraint("batch_id", "security_id", "horizon_td", name="uq_cases_batch_sec_horizon"),
+    CheckConstraint("horizon_td IN (1, 20, 60)", name="horizon_valid"),
+    CheckConstraint("target_spec_sha256 ~ '^[0-9a-f]{64}$'", name="spec_sha_format"),
+    Index("ix_cases_campaign", "campaign_id"),
+)
+
+# Hash-chain head per campaign; the row the sealing transaction
+# locks (FOR UPDATE) to serialize commits and advance the chain.
+# Mutable by design: it is lock state, not a ledger record.
+ledger_chains = Table(
+    "ledger_chains",
+    meta,
+    Column("chain_id", Text, primary_key=True),  # f"campaign:{campaign_id}"
+    Column("head_seq", BigInteger, nullable=False, server_default="0"),
+    Column("head_hash", Text, nullable=False),
+    Column("updated_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
+)
+
+# Atomic seal of one case's three source positions for one release
+# (architecture section 3.4). sealed_at is clock_timestamp() read
+# after the chain lock; timeliness is NOT a mutable column — durable
+# confirmations append to forecast_commit_events and the current
+# judgment is derived (unconfirmed -> uncertain once past deadline).
+forecast_commits = Table(
+    "forecast_commits",
+    meta,
+    Column("id", UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    Column("case_id", UUID(as_uuid=True), ForeignKey("forecast_cases.id"), nullable=False),
+    Column("release_row_id", UUID(as_uuid=True), ForeignKey("research_releases.id"), nullable=False),
+    Column("chain_id", Text, nullable=False),
+    Column("chain_seq", BigInteger, nullable=False),
+    Column("prev_hash", Text, nullable=False),
+    # payload hash: idempotency over business content (no chain/time
+    # fields); content hash: full chained record hash
+    Column("payload_sha256", Text, nullable=False),
+    Column("content_sha256", Text, nullable=False),
+    Column("sealed_at", TIMESTAMP(timezone=True), nullable=False),
+    Column("attempt_id", UUID(as_uuid=True), nullable=True),
+    Column("attempt_no", Integer, nullable=True),
+    Column("input_manifest", JSONB, nullable=False),
+    Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
+    UniqueConstraint("case_id", "release_row_id", name="uq_commits_case_release"),
+    UniqueConstraint("chain_id", "chain_seq", name="uq_commits_chain_seq"),
+    CheckConstraint("content_sha256 ~ '^[0-9a-f]{64}$'", name="content_sha_format"),
+    CheckConstraint("payload_sha256 ~ '^[0-9a-f]{64}$'", name="payload_sha_format"),
+    Index("ix_commits_case", "case_id"),
+)
+
+# The three source positions of one commit (campaign-policy §3):
+# produced / fallback / unavailable with value-range discipline —
+# unavailable carries NULL values + reason, never a fake probability.
+predictions = Table(
+    "predictions",
+    meta,
+    Column("id", UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    Column("commit_id", UUID(as_uuid=True), ForeignKey("forecast_commits.id"), nullable=False),
+    Column("source", Text, nullable=False),
+    Column("source_status", Text, nullable=False),
+    Column("reason", Text, nullable=True),
+    Column("p_outperform", Numeric(11, 10), nullable=True),
+    Column("expected_excess_return", Numeric(20, 10), nullable=True),
+    Column("evidence_snapshot_id", UUID(as_uuid=True), ForeignKey("snapshots.id"), nullable=True),
+    Column("model_version", Text, nullable=True),
+    Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
+    UniqueConstraint("commit_id", "source", name="uq_predictions_commit_source"),
+    CheckConstraint("source IN ('baseline', 'quant_model', 'llm_adjusted')", name="source_valid"),
+    CheckConstraint(
+        "source_status IN ('produced', 'fallback', 'unavailable')", name="status_valid"
+    ),
+    CheckConstraint("p_outperform IS NULL OR (p_outperform >= 0 AND p_outperform <= 1)", name="p_range"),
+    CheckConstraint(
+        "source_status = 'unavailable' OR p_outperform IS NOT NULL", name="produced_has_p"
+    ),
+    CheckConstraint(
+        "source_status <> 'unavailable' OR (p_outperform IS NULL AND expected_excess_return IS NULL)",
+        name="unavailable_has_no_values",
+    ),
+)
+
+# Appended durable confirmations and timeliness judgments
+# (time-protocol §4). At most one durable_confirmation per commit
+# (partial unique index); a commit without one is unconfirmed, and
+# conservatively uncertain once its deadline has passed.
+forecast_commit_events = Table(
+    "forecast_commit_events",
+    meta,
+    Column("id", UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    Column("commit_id", UUID(as_uuid=True), ForeignKey("forecast_commits.id"), nullable=False),
+    Column("event_type", Text, nullable=False),
+    Column("occurred_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
+    Column("payload", JSONB, nullable=False, server_default="{}"),
+    Index("ix_commit_events_commit", "commit_id", "occurred_at"),
+    Index(
+        "uq_commit_events_confirmation",
+        "commit_id",
+        unique=True,
+        postgresql_where=text("event_type = 'durable_confirmation'"),
+    ),
 )

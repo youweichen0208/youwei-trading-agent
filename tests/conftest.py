@@ -17,6 +17,8 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 PG_IMAGE = "postgres:16-alpine"
 
 ALL_TABLES = (
+    "forecast_commit_events, predictions, forecast_commits, ledger_chains, "
+    "forecast_cases, forecast_batches, campaigns, release_approvals, research_releases, "
     "snapshots, calendar_days, calendar_builds, "
     "price_observations, raw_objects, security_identities, securities, "
     "data_sources, budget_entries, events, attempts, jobs, runs, api_keys, tenants"
@@ -90,6 +92,10 @@ async def clean_tables(pg_url):
     engine = make_engine(pg_url, pool_size=1)
     try:
         async with engine.begin() as conn:
+            # ledger tables are append-only at the DB level; the ops
+            # escape hatch (youwei.ledger_mutation) is only for test
+            # cleanup and operator recovery
+            await conn.execute(text("SET LOCAL youwei.ledger_mutation = 'on'"))
             await conn.execute(text(f"TRUNCATE TABLE {ALL_TABLES} RESTART IDENTITY CASCADE"))
         yield
     finally:
