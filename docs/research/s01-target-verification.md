@@ -3,6 +3,8 @@
 日期：2026-09-27。环境：`sg-prod`（DigitalOcean droplet，Ubuntu 24.04.3，kernel 6.8，4C / 7.8G，Docker 29.5.2，cgroup v2/systemd）。
 既有部署：`/opt/youwei-trading-agent` 原型栈（quant / data-service / redis / postgres:17，全部 `unless-stopped`）。测试全程未修改该栈；期间一次 dockerd 重启后全部容器自动恢复 healthy。
 
+**原型拆除（2026-09-27 稍后，项目所有者决定）**：为避免与 v0.3 新实现混淆，两台服务器上的原型已全部移除——sg-prod（8 容器含 Created 状态的 web/api/worker、3 卷、网络、全部本地/CR/GHCR 镜像、/opt 目录）与 aliyun-akshare（akshare 容器、全部镜像、/opt 目录）。删除前归档：sg-prod `/root/prototype-archive-2026-09-27/`（source.tar.gz 1.7M、db-dumpall.sql.gz 99K、pgdata-raw.tar.gz 13M、quant-state.tar.gz，含 SHA256SUMS）；aliyun `/root/prototype-archive-2026-09-27/source-aliyun.tar.gz`。注：`compose down` 因缺 env 失败，改用 docker 原生命令清除；原型的 Next.js web 源码在归档中保留，S09 评估复用时从归档取。
+
 测试工件留在服务器 `~/s01-verify/`（bench 脚本、Dockerfile、litellm 配置；`volc_key.txt`/`master_key.txt` 权限 600）。镜像 `s01-quant-bench`（595MB）与 `ghcr.io/berriai/litellm:main-stable`（1.65GB）保留复用。
 
 ## 1. gVisor 沙箱与量化栈 ✅
