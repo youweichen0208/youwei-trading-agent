@@ -446,15 +446,18 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
 
 ### S07g 进度（2026-09-28）
 
-- 状态：**Phase 1B 封存政策与 pipeline proposal seam 完成本地验收**。`_validate_sources`/`register_campaign`/pipeline 的纯逻辑部分实现并离线测试；需 PG 的 `register_campaign` DB 测试（含 `test_ledger_campaign` 更新）待 Docker 环境验证。
+- 状态：**Phase 1B 封存政策与 pipeline proposal seam 完成本地+SG 验收**。纯逻辑离线测试通过，且 DB 级端到端测试已在 sg-prod（Docker + 真实 PG + Alembic）验证通过。
 - 交付：
   - `youwei_core/ledger/service.py`：新增 `PHASE1B_ENABLED_SOURCES=("baseline","quant_model","llm_adjusted")` 与 `PHASE1B_FALLBACK_POLICY="phase1b-llm-from-quant"`；`register_campaign` 从「仅 Phase 1A」改为「Phase 1A 或 Phase 1B」（Phase 1B 要求 fallback_policy 匹配 `phase1b-llm-from-quant`，否则拒绝）。
   - `youwei_core/ledger/sealing.py`：`_validate_sources` 的 enabled 校验改为接受 Phase 1A 或 Phase 1B（其余 source 集合拒绝）；fallback 分支改用 `PHASE1B_FALLBACK_POLICY` 常量（去魔法字符串）；Phase 1A 下 `llm_adjusted` 仍固定 unavailable/not_enabled（不变）。
   - `youwei_core/ledger/controller.py`：`PHASE1B_FALLBACK_POLICY` 改为从 `service` 导入（去重复定义）。
   - `youwei_core/ledger/pipeline.py`：`run_batch_predictions` 加 `llm_adjusted_provider` 可选参数（默认 `_phase1a_llm_adjusted` 保持 unavailable/not_enabled）；新增 `make_phase1b_llm_adjusted_provider(fetch_proposal)`（proposal 获取经进程边界由调用方提供，None/异常映射为 unavailable，其余走 `apply_phase1b_fallback`）。
-  - `tests/test_ledger_campaign.py`：原「拒绝 Phase 1B sources」断言改为「Phase 1B sources + Phase 1A fallback 不匹配被拒绝」（需 PG，未本机验证）。
-- 验收：`tests/pure/test_phase1b.py` 9 个测试（三源 produced 接受、fallback 政策匹配接受、Phase 1A policy 拒绝 fallback、非法 source 集合拒绝、Phase 1A 仍固定 not_enabled、`_phase1a_llm_adjusted`、proposal 映射 produced、fallback 复制 quant、runtime 异常→unavailable）全部通过；`tests/pure/` 全量 17 passed、contracts 52 passed 无回归；所有 ledger 模块 import 正常。
-- 剩余限制：`register_campaign` Phase 1B 正向注册与 `seal_commit` 三源 Phase 1B 封存的 DB 级端到端测试需 Docker（本机无）；Controller 实际接收 proposal 的进程边界（job/HTTP/子进程）、真实证据快照授权、取消/权限/升级兼容性测试仍待后续；Phase 1B 正式启用仍需新 Campaign + 人工批准 release + 数据源 LLM 转发授权 + 非零预算。
+  - `tests/test_ledger_campaign.py`：原「拒绝 Phase 1B sources」断言改为「Phase 1B sources + Phase 1A fallback 不匹配被拒绝」。
+  - `tests/test_ledger_phase1b.py`（新）：Phase 1B DB 级端到端测试。
+- 验收：
+  - 纯逻辑（本机/SG 无 DB）：`tests/pure/test_phase1b.py` 9 个测试全通过；`tests/pure/` 全量 17 passed、contracts 52 passed 无回归；所有 ledger 模块 import 正常。
+  - **DB 级（sg-prod，Docker 29.5.2 + postgres:16-alpine + 真实 Alembic）**：`tests/test_ledger_phase1b.py` 3 个测试全通过（Phase 1B campaign 注册含 fallback_policy、llm_adjusted produced 三源封存、llm_adjusted fallback 复制 quant 封存）；`test_ledger_campaign.py` 12 passed（含更新后的 Phase 1B 断言）、`test_ledger_seal.py` 17 passed（Phase 1A 封存无回归）、`test_ledger_pipeline.py` 13 passed（无回归）。
+- 剩余限制：Controller 实际接收 proposal 的进程边界（job/HTTP/子进程）、真实证据快照授权、取消/权限/升级兼容性测试仍待后续；Phase 1B 正式启用仍需新 Campaign + 人工批准 release + 数据源 LLM 转发授权 + 非零预算。
 
 ```text
 任务：
