@@ -49,6 +49,13 @@ from youwei_core.db.meta import (
 PHASE1A_ENABLED_SOURCES = ("baseline", "quant_model")
 PHASE1A_FALLBACK_POLICY = "phase1a-none"
 
+# campaign-policy §3 (Phase 1B): llm_adjusted enabled with a quant fallback
+# for LLM failure/timeout. Enabling still requires a new Campaign + a
+# human-approved release; these constants register the policy the sealing
+# path already knows how to enforce.
+PHASE1B_ENABLED_SOURCES = ("baseline", "quant_model", "llm_adjusted")
+PHASE1B_FALLBACK_POLICY = "phase1b-llm-from-quant"
+
 GENESIS_HASH = hashlib.sha256(b"youwei-ledger-genesis-v1").hexdigest()
 
 
@@ -337,18 +344,27 @@ async def register_campaign(
     primary_metric: str = "d20_paired_brier_delta",
 ) -> CampaignRecord:
     """Pre-register a campaign. Phase 1A policy: enabled sources are
-    exactly baseline + quant_model, no fallback, and the referenced
-    release must carry a matching human approval."""
+    exactly baseline + quant_model, no fallback. Phase 1B policy:
+    baseline + quant_model + llm_adjusted with the quant fallback. The
+    referenced release must carry a matching human approval."""
     _validate_target_specs(target_specs)
-    if set(enabled_sources) != set(PHASE1A_ENABLED_SOURCES):
+    enabled = set(enabled_sources)
+    if enabled == set(PHASE1A_ENABLED_SOURCES):
+        if fallback_policy != PHASE1A_FALLBACK_POLICY:
+            raise CampaignValidationError(
+                f"Phase 1A fallback_policy must be {PHASE1A_FALLBACK_POLICY!r}"
+            )
+    elif enabled == set(PHASE1B_ENABLED_SOURCES):
+        if fallback_policy != PHASE1B_FALLBACK_POLICY:
+            raise CampaignValidationError(
+                f"Phase 1B fallback_policy must be {PHASE1B_FALLBACK_POLICY!r}"
+            )
+    else:
         raise CampaignValidationError(
-            "Phase 1A enabled_sources must be exactly "
-            f"{list(PHASE1A_ENABLED_SOURCES)} (campaign-policy §3); "
+            "enabled_sources must be exactly Phase 1A "
+            f"{list(PHASE1A_ENABLED_SOURCES)} or Phase 1B "
+            f"{list(PHASE1B_ENABLED_SOURCES)} (campaign-policy §3); "
             f"got {sorted(enabled_sources)}"
-        )
-    if fallback_policy != PHASE1A_FALLBACK_POLICY:
-        raise CampaignValidationError(
-            f"Phase 1A fallback_policy must be {PHASE1A_FALLBACK_POLICY!r}"
         )
     if not panel_security_ids:
         raise CampaignValidationError("panel_security_ids must be non-empty")

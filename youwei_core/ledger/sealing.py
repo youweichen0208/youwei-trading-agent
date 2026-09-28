@@ -56,6 +56,8 @@ from youwei_core.db.meta import (
 from youwei_core.ledger.service import (
     GENESIS_HASH,
     PHASE1A_ENABLED_SOURCES,
+    PHASE1B_ENABLED_SOURCES,
+    PHASE1B_FALLBACK_POLICY,
     decimal_str,
     sha256_hex,
 )
@@ -172,12 +174,12 @@ def _prediction_entry(pred: SourcePrediction) -> dict:
 def _validate_sources(sources: list[SourcePrediction], campaign) -> list[dict]:
     """campaign-policy §3 value discipline. Returns canonical entries."""
     enabled = set(campaign.enabled_sources)
-    if enabled != set(PHASE1A_ENABLED_SOURCES):
-        # Phase 1A is the only registered policy; anything else is a
-        # registration the ledger does not know how to enforce yet.
+    if enabled not in (set(PHASE1A_ENABLED_SOURCES), set(PHASE1B_ENABLED_SOURCES)):
+        # Only Phase 1A and Phase 1B policies are registered; anything else
+        # is a registration the ledger does not know how to enforce yet.
         raise SourceValidationError(
             f"campaign enabled_sources {sorted(enabled)} have no registered "
-            "sealing policy (Phase 1A only)"
+            "sealing policy (Phase 1A or Phase 1B only)"
         )
 
     by_source = {}
@@ -215,7 +217,7 @@ def _validate_sources(sources: list[SourcePrediction], campaign) -> list[dict]:
             _decimal(pred.expected_excess_return, "expected_excess_return")
 
         if pred.source_status == "fallback":
-            if campaign.fallback_policy != "phase1b-llm-from-quant":
+            if campaign.fallback_policy != PHASE1B_FALLBACK_POLICY:
                 raise SourceValidationError(
                     f"{source}: fallback is not allowed by policy "
                     f"{campaign.fallback_policy!r} (Phase 1A has no fallback)"

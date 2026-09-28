@@ -200,7 +200,7 @@ async def test_campaign_rejects_phase1b_sources_and_bad_panels(db_engine, tenant
     panel = [await _security(db_engine, ticker="S0")]
     await _release(db_engine)
 
-    with pytest.raises(CampaignValidationError, match="enabled_sources"):
+    with pytest.raises(CampaignValidationError, match="fallback_policy"):
         await register_campaign(
             db_engine,
             tenant_id=tenant_id,
@@ -212,7 +212,9 @@ async def test_campaign_rejects_phase1b_sources_and_bad_panels(db_engine, tenant
             benchmark_security_id=benchmark,
             panel_security_ids=[str(panel[0])],
             panel_manifest={},
+            # Phase 1B sources but Phase 1A fallback -> mismatch
             enabled_sources=["baseline", "quant_model", "llm_adjusted"],
+            fallback_policy="phase1a-none",
         )
 
     with pytest.raises(CampaignValidationError, match="unknown security"):

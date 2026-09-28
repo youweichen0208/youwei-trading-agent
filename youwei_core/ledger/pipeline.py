@@ -43,6 +43,7 @@ from youwei_core.db.meta import (
     research_releases,
 )
 from youwei_core.jobs.worker import ClaimedJob
+from youwei_core.ledger.controller import apply_phase1b_fallback
 from youwei_core.ledger.sealing import SealRequest, SourcePrediction, seal_commit
 
 PIPELINE_VERSION = "pipeline-v1"
@@ -84,6 +85,61 @@ MODELS = {
 }
 
 
+# --- llm_adjusted provider (Phase 1B seam) -----------------------------------
+# The llm_adjusted position is fixed at unavailable/not_enabled in Phase 1A.
+# In Phase 1B it comes from a Hermes ResearchProposal. Because the
+# agent-runtime is a separate Python 3.14 process, the proposal is fetched
+# across a process boundary by the caller; this module only maps a proposal
+# (or its absence) into the sealable SourcePrediction position.
+
+
+async def _phase1a_llm_adjusted(case, bars, quant, evidence_snapshot_id) -> SourcePrediction:
+    """Phase 1A: llm_adjusted is fixed unavailable with reason=not_enabled."""
+    return SourcePrediction(
+        source="llm_adjusted",
+        source_status="unavailable",
+        reason="not_enabled",
+    )
+
+
+def make_phase1b_llm_adjusted_provider(fetch_proposal):
+    """Build an llm_adjusted provider from a proposal fetcher.
+
+    ``fetch_proposal`` is an async callable ``(case, bars) ->
+    ResearchProposal | None``. ``None`` means no proposal was produced
+    (e.g. the agent runtime was unavailable), which maps to unavailable
+    with a reason. Otherwise the proposal is mapped through the Phase 1B
+    fallback decision (controller.apply_phase1b_fallback) against the
+    quant position.
+    """
+
+    async def provider(case, bars, quant, evidence_snapshot_id) -> SourcePrediction:
+        try:
+            proposal = await fetch_proposal(case, bars)
+        except Exception as exc:  # noqa: BLE001 — LLM/runtime failure -> unavailable
+            return SourcePrediction(
+                source="llm_adjusted",
+                source_status="unavailable",
+                reason=f"agent_runtime_error: {type(exc).__name__}",
+                evidence_snapshot_id=evidence_snapshot_id,
+            )
+        if proposal is None:
+            return SourcePrediction(
+                source="llm_adjusted",
+                source_status="unavailable",
+                reason="agent_runtime_unavailable",
+                evidence_snapshot_id=evidence_snapshot_id,
+            )
+        reception = apply_phase1b_fallback(
+            proposal,
+            quant_prediction=quant,
+            evidence_snapshot_id=evidence_snapshot_id,
+        )
+        return reception.prediction
+
+    return provider
+
+
 # --- batch prediction ---------------------------------------------------------
 
 
@@ -104,11 +160,18 @@ async def run_batch_predictions(
     claimed: ClaimedJob,
     batch_id: uuid.UUID,
     release_id: str,
+    *,
+    llm_adjusted_provider=None,
 ) -> dict:
     """Produce and seal every case of a batch from one frozen evidence
     snapshot. Per-case failures (e.g. a case whose deadline already
     passed) are reported in the summary, never silently dropped; the
-    job itself only fails on infrastructure errors."""
+    job itself only fails on infrastructure errors.
+
+    ``llm_adjusted_provider`` is an async callable
+    ``(case, bars, quant, evidence_snapshot_id) -> SourcePrediction``.
+    When None (Phase 1A), the llm_adjusted position is fixed at
+    unavailable/not_enabled."""
     async with engine.begin() as conn:
         batch = (
             await conn.execute(
@@ -188,14 +251,15 @@ async def run_batch_predictions(
             quant = quant.model_copy(
                 update={"evidence_snapshot_id": snap.snapshot_id}
             )
+        llm_adjusted = await (
+            _phase1a_llm_adjusted(case, bars, quant, snap.snapshot_id)
+            if llm_adjusted_provider is None
+            else llm_adjusted_provider(case, bars, quant, snap.snapshot_id)
+        )
         sources = [
             MODELS["baseline"](bars),
             quant,
-            SourcePrediction(
-                source="llm_adjusted",
-                source_status="unavailable",
-                reason="not_enabled",
-            ),
+            llm_adjusted,
         ]
         request = SealRequest(
             case_id=case.id,

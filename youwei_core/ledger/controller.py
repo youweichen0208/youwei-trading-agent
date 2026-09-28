@@ -23,11 +23,7 @@ from dataclasses import dataclass
 
 from youwei_contracts.research import ResearchProposal
 from youwei_core.ledger.sealing import SourcePrediction
-
-# campaign-policy §3 Phase 1B fallback policy (already registered in the
-# protocol; enabling it still requires a new Campaign + human-approved
-# release, which this module does NOT do).
-PHASE1B_FALLBACK_POLICY = "phase1b-llm-from-quant"
+from youwei_core.ledger.service import PHASE1B_FALLBACK_POLICY
 
 
 class ProposalReceptionError(Exception):
