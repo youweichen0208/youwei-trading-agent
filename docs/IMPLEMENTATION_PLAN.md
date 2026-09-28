@@ -436,6 +436,14 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
 - 验证：按 TDD 观察到解析函数缺失、错快照/负索引误通过、返回值修改冻结输入、Runtime 返回未校验引用等失败，再逐项实现。Core：`uv run --frozen pytest -q --tb=short --maxfail=3` → **301 passed in 85.23s**；Agent Runtime 自有3.14环境：`uv run --frozen pytest -q` → **16 passed**；指定该包 pytest 配置并隔离 Core fixture 后，3.14研究契约 → **32 passed**。测试只替换外部 Hermes SDK，简报/解析/引用校验使用真实本地实现，无真实模型费用。
 - 下一步：Controller 受控接收 Proposal、冻结证据授权与 `SourcePrediction` 封存可继续做离线工程验证；候选角色/prompt/反证步骤可以准备，比较前登记 Trial，正式生效仍需具体 release 的人类批准。真实网关调用、预算与取消计费、工具授权及目标机部署单独验收。
 
+### S07f 进度（2026-09-28）
+
+- 状态：**Controller 离线接收与封存映射完成本地验收**。纯逻辑、无 DB/网关/真实模型；实际 `seal_commit` 接线（fencing/window/attempt）与 Phase 1B campaign 注册仍待后续。
+- 交付：`youwei_core/ledger/controller.py`——`proposal_to_llm_adjusted(proposal, evidence_snapshot_id) -> SourcePrediction`（produced/unavailable 两种状态映射；`evidence_snapshot_id` 由 Controller 从自身冻结快照提供，不信 proposal 的引用；produced 记录 `model.model_version` 归因）；`apply_phase1b_fallback(proposal, quant_prediction, ...) -> ProposalReception`（campaign-policy §3 Phase 1B 回退：LLM unavailable 且 quant produced → 复制 quant 输出标 `fallback`，保留 LLM 失败 reason + `fallback_from`/`fallback_reason`；quant 也无有效输出 → 保持 unavailable；produced 直接通过；`phase1b-llm-from-quant` 外的政策拒绝）。新增 `PHASE1B_FALLBACK_POLICY` 常量。
+- 架构定位：映射放 Core（掌握封存/fencing/预算/快照身份），agent-runtime（独立 3.14 包）不 import Core；proposal 跨进程边界接收后在此映射，再走既有 `seal_commit` 的 fencing/window/evidence 路径。
+- 验收：`tests/pure/test_controller.py` 8 个测试（produced 映射、unavailable 映射、produced 无 model 契约层拒绝、produced 不 fallback、LLM unavailable→quant fallback、quant 无效→保持 unavailable、未知 fallback 政策拒绝、政策常量核对）全部通过；`tests/pure/` 为免 PG 目录（自有 conftest 覆盖根 PG fixture）。`uv run --frozen pytest tests/pure/ -q` → 8 passed；contracts 52 passed 无回归。
+- 剩余限制：`register_campaign` 与 `sealing._validate_sources` 仍只认 Phase 1A（Phase 1B 政策实现属后续切片，需新 Campaign + release 人工批准才启用）；Controller 实际接收 proposal 的进程边界（job/HTTP/子进程）、真实证据快照授权、`proposal → SealRequest` 三源封存的端到端接线、取消/权限/升级兼容性测试均待后续；候选 prompt/角色登记与批准归人。
+
 ```text
 任务：
 负责人：
