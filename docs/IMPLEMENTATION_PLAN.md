@@ -3,7 +3,7 @@
 日期：2026-09-27；结构优化更新：2026-09-28\
 设计依据：[ARCHITECTURE.md](ARCHITECTURE.md)\
 问题来源：[v0.2 评审](ARCHITECTURE_REVIEW_v0.2.md)\
-状态：S00 协议已确认定稿（2026-09-27）；S01 主体完成（Tiingo 字段级验证已实测；EOD 实盘观测随 S04 首次采集、生产套餐条款确认待购买时；网关取消/用量/限额待验收）；S02 已完成（隔离开发环境验收，2026-09-27）；S03 第一/二纵切片完成（沙箱执行、独立 Runner 与 HTTP 产物链路，2026-09-28；生产部署仍待验收）；S04 第一至三纵切片完成（PIT 数据基础、交易日历与冻结快照，2026-09-27；训练 manifest 登记，2026-09-28；独立退市真相源、派生特征与多源仍待补源决策）；S05 已完成四纵切片（封存核心、Outcome 回填、评估报告、归档与监控，2026-09-27）加 S05e 证据追溯收紧（2026-09-28）；S06 第一/二纵切片完成（前向预测管线，2026-09-27；供应商更正自动触发、月度汇总与报告门控，2026-09-28；正式 campaign 启动项仍阻断）；S03 剩余部署项与 S06 正式启动及 S07–S11 待实施、待验收。
+状态：S00 协议已确认定稿（2026-09-27）；S01 主体完成（Tiingo 字段级验证已实测；EOD 实盘观测随 S04 首次采集、生产套餐条款确认待购买时；网关取消/用量/限额待验收）；S02 已完成（隔离开发环境验收，2026-09-27）；S03 第一/二纵切片完成（沙箱执行、独立 Runner 与 HTTP 产物链路，2026-09-28；生产部署仍待验收）；S04 第一至三纵切片完成（PIT 数据基础、交易日历与冻结快照，2026-09-27；训练 manifest 登记，2026-09-28；独立退市真相源、派生特征与多源仍待补源决策）；S05 已完成四纵切片（封存核心、Outcome 回填、评估报告、归档与监控，2026-09-27）加 S05e 证据追溯收紧（2026-09-28）；S06 第一/二纵切片完成（前向预测管线，2026-09-27；供应商更正自动触发、月度汇总与报告门控，2026-09-28；正式 campaign 启动项仍阻断）；S03 剩余部署项与 S06 正式启动及 S07 后续切片（工具授权、预算归集、镜像部署）与 S08–S11 待实施、待验收。
 
 ## 1. 执行规则
 
@@ -458,6 +458,21 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
   - 纯逻辑（本机/SG 无 DB）：`tests/pure/test_phase1b.py` 9 个测试全通过；`tests/pure/` 全量 17 passed、contracts 52 passed 无回归；所有 ledger 模块 import 正常。
   - **DB 级（sg-prod，Docker 29.5.2 + postgres:16-alpine + 真实 Alembic）**：`tests/test_ledger_phase1b.py` 3 个测试全通过（Phase 1B campaign 注册含 fallback_policy、llm_adjusted produced 三源封存、llm_adjusted fallback 复制 quant 封存）；`test_ledger_campaign.py` 12 passed（含更新后的 Phase 1B 断言）、`test_ledger_seal.py` 17 passed（Phase 1A 封存无回归）、`test_ledger_pipeline.py` 13 passed（无回归）。
 - 剩余限制：Controller 实际接收 proposal 的进程边界（job/HTTP/子进程）、真实证据快照授权、取消/权限/升级兼容性测试仍待后续；Phase 1B 正式启用仍需新 Campaign + 人工批准 release + 数据源 LLM 转发授权 + 非零预算。
+
+### S07h 进度（2026-09-28）
+
+- 状态：**Controller 到 agent-runtime 的进程边界接线完成本地+SG 验收**。Controller 现在会为 Phase 1B 批次把冻结证据经子进程送往 agent-runtime，取回 ResearchProposal 并封存 produced 的 llm_adjusted；纯逻辑与 DB 级端到端测试均通过。
+- 交付：
+  - `youwei_core/ledger/evidence.py`：`build_frozen_evidence` / `build_case_plan`——把 Controller 已冻结的快照（`read_snapshot` 结果）+ 计划 case 行 + 批次 manifest 组装成 `research-v1` 的 `FrozenEvidence`；非 forward 快照拒收；contracts 的 `EvidenceSnapshot` 在构造时重验内容 hash。
+  - `youwei_core/ledger/agent_client.py`：Controller 侧子进程客户端——`encode_request`/`decode_result`（单行 JSON stdin/stdout 编解码，结果重新 `ResearchProposal.model_validate`）、`run_agent_research`（注入 process_factory 的 async seam，超时 kill 子进程）、`build_process_factory`（绑定 command/env）。
+  - `youwei_core/ledger/pipeline.py`：`AgentRuntimeConfig` dataclass（research_config/process_factory/timeout）；`make_phase1b_llm_fetcher`（绑定 run_id/tenant_id/snapshot/batch_manifest/capability_token，返回 `fetch_proposal(case,bars)`，并在取回后独立重验 proposal 的 run_id/case_id 绑定）；`run_batch_predictions` 在 campaign 启用 `llm_adjusted` 且提供了 agent_runtime 时经该 fetcher 构造 provider，否则仍封存 unavailable（不伪造 LLM 值）。
+  - `youwei_core/worker/loop.py` + `youwei_core/config.py`：`_build_agent_runtime(settings)` 组装 `AgentRuntimeConfig`（`agent_runtime_enabled`/`agent_runtime_command`/`agent_runtime_pythonpath`/`agent_runtime_timeout_seconds` + `agent_llm_*`），传给 `make_batch_predict_handler`；能力令牌沿用 worker loop 在 claim 时已签的 per-job 令牌（scope 含 `llm_call`）。
+  - `services/agent-runtime/src/youwei_agent_runtime/invoke.py` + `main.py`：agent-runtime 侧子进程入口 `research-once`——stdin 读一行 JSON（capability_token + FrozenEvidence + config），`verify_capability`（scope `llm_call` + tenant 绑定）后调 `run_research`，stdout 单行输出 `{ok, proposal}` 或 `{ok:false, error}`；能力密钥经环境变量传入，不进命令行/请求体。
+- 验证：
+  - 纯逻辑（本机 3.13）：`tests/pure/test_evidence_agent_client.py` 7 个测试通过（FrozenEvidence 组装、非 forward 拒收、篡改拒收、编解码往返、假子进程驱动 fetcher 取回 proposal、子进程失败抛错）；`tests/pure/` 全量 24 passed、`tests/contracts/` 52 passed 无回归。
+  - agent-runtime（本机 3.14）：`services/agent-runtime/tests/test_invoke.py` 6 个测试通过（合法能力取回 proposal、跨租户拒收、缺 scope 拒收、坏签名拒收、非 JSON 拒收、结果/错误编解码）；`services/agent-runtime` 全量 22 passed。
+  - **DB 级（sg-prod，Docker 29.5.2 + postgres:16-alpine + 真实 Alembic）**：`tests/test_ledger_phase1b.py` 4 个测试通过（新增 `test_phase1b_pipeline_seals_produced_llm_via_agent_runtime`——Phase 1B campaign 经 `run_batch_predictions(agent_runtime=...)` 用假子进程 fetcher 取回 produced proposal 并三源封存，llm_adjusted 落 produced）；`test_ledger_pipeline.py`/`test_ledger_seal.py`/`test_ledger_campaign.py` 共 42 passed 无回归。
+- 剩余限制：agent-runtime 子进程的真实 Hermes `AIAgent` 调用仍需 LLM 网关 + 非零预算（Phase 1B 启用）；预算账本对 Hermes 内部网关调用的成本归集仍是后续切片（本片只取回 proposal，不记账）；平台研究工具（snapshot_manifest/quant_run/...）注册与服务端授权未实现；取消/权限/升级兼容性测试、独立 Docker 镜像构建与 digest 固定归后续；sg-prod 的 Hermes venv 缺 pydantic（youwei-contracts 依赖），正式 agent-runtime 部署环境随 S09 镜像切片补齐。Phase 1B 正式启用仍依赖新 Campaign + 人工批准 release + 数据源 LLM 转发授权。
 
 ```text
 任务：
