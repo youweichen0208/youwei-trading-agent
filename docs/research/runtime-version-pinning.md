@@ -31,5 +31,15 @@
 
 ## 待实测
 
-1. `AIAgent.chat()` / `run_conversation()` 的 `enabled_toolsets`、`skip_memory`、`skip_context_files` 在固定版本的确切签名（python-library.md 网络抓取受限；固定版本后从源码验证）
+1. ~~`AIAgent.chat()` / `run_conversation()` 的 `enabled_toolsets`、`skip_memory`、`skip_context_files` 在固定版本的确切签名（python-library.md 网络抓取受限；固定版本后从源码验证）~~ **已在 commit `7fa45eb` 上实测确认（2026-09-28）**：`AIAgent.__init__` 位于 `run_agent.py`，显式含 `enabled_toolsets`、`disabled_toolsets`、`skip_memory`、`skip_context_files`、`skip_background_review`、`provider`、`base_url`、`api_key`、`api_mode`、`model`、`platform`、`session_id`、`gateway_session_key`、`iteration_budget`、`run_budget_seconds` 等参数；`chat(message, stream_callback=None) -> str`（`agent/turn_facade.py` 的 `TurnFacadeMixin`），内部返回 `run_conversation(...)["final_response"]`。构造逻辑经 `agent.agent_init.init_agent` 转发。
 2. pi 0.87.1 与 0.84.2 的选型；两者生产 Docker 镜像构建与 digest 固定
+
+## 记忆/工具隔离键运行时验证（2026-09-28）
+
+在 sg-prod 上以固定 commit `7fa45eb` 构造 `AIAgent(provider="custom", skip_memory=True, skip_context_files=True, skip_background_review=True, enabled_toolsets=[], disabled_toolsets=[])`（不调用 LLM），实测隔离键**实际生效**：
+
+- `_memory_store = None`、`_memory_enabled = False`、`_user_profile_enabled = False`（内置 MEMORY.md / USER.md 不加载）
+- `valid_tool_names = []`（无任何工具加载，终端/文件/浏览器/web/session_search 全部不可达；构造日志明示 "No tools selected / No tools loaded"）
+- `skip_context_files = True`、`skip_background_review = True`（上下文文件与后台复盘关闭）
+
+结论：`enabled_toolsets=[]`（空列表，非 None）是研究角色的正确隔离面——Hermes 内置工具集全关，仅后续注册的平台工具（snapshot_manifest / quant_run / sandbox_submit / sandbox_status / artifact_read）可被调用，且每个都经服务端按 run 能力令牌授权。此验证对应 `services/agent-runtime/src/youwei_agent_runtime/adapter.py` 的 `ISOLATION_KWARGS`。

@@ -392,6 +392,38 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
 
 本轮验证：抽样已知答案 **8 passed**；本轮未改 v1 文件字节，v2 的全部协议引用 hash 已核对。另发现 `0401fd4` 曾更新时间协议状态行却未同步 v1 登记 hash；时间规则未变，v2 已记录可恢复的原提交及前后 hash，不将历史引用问题报为通过。检查文档链接与差异格式；未运行真实供应商请求、未写正式数据库、未登记 panel 或启动 campaign。后续工程实现与测试通过后再逐项勾选。
 
+### S07a 进度（2026-09-28）
+
+- 状态：**S07 第一纵切片完成（环境搭建与 API 签名钉定）**；Hermes 研究规划/契约/权限接线仍待后续切片，正式启用依赖 S06 首次真实批次封存验收。
+- 交付：`services/agent-runtime/` 独立包骨架（`youwei-agent-runtime`，Python 3.14，无 Core/Ledger/DB/供应商密钥依赖）；SG（sg-prod 168.144.39.34）上重建固定 Hermes 环境——`~/s01-verify/hermes314/`（S01 测试 clone，HEAD=`7fa45eb...`）原 `.venv` 软链接指向已删除的 `/usr/local/bin/python3.14`，用 uv 重装 Python 3.14.7 后 `uv sync --frozen --python 3.14`（Hermes 自己的 `uv.lock`）重建成功；`hermes --version` → `Hermes Agent v0.21.5+3129.g7fa45eb (2026.9.24)`，Python 3.14.7，venv 142MB。
+- **关键架构结论**：Hermes **不可 pip 安装**（无 wheel/sdist；官方仅支持源码/editable、Docker、Nix，`uv sync` 触发 “Building wheels or sdists for hermes-agent is not supported”）。因此 `youwei-agent-runtime` 不把 `hermes-agent` 列为 pip 依赖，而是作为独立 checkout + 独立 venv 的外部运行时；适配层在运行时经 `PYTHONPATH` 指向其 `agent/` 包（实测 `import agent` 成功，无 `hermes_agent` 顶层包）或以子进程调用。已在 `pyproject.toml` 以注释明确此边界。
+- **API 签名钉定（解决 runtime-version-pinning 待实测 1）**：`AIAgent.__init__`（`run_agent.py`）显式含 `enabled_toolsets`、`disabled_toolsets`、`skip_memory`、`skip_context_files`、`skip_background_review`、`provider`、`base_url`、`api_key`、`api_mode`、`model`、`platform`、`session_id`、`gateway_session_key`、`iteration_budget`、`run_budget_seconds` 等；`chat(message, stream_callback=None) -> str`（`agent/turn_facade.py` TurnFacadeMixin），内部 `run_conversation(...)["final_response"]`；构造经 `agent.agent_init.init_agent` 转发。
+- 验证：SG 上 `hermes --version` 输出正确；`import agent` 成功；`.venv/bin/python --version` = 3.14.7；HEAD=`7fa45eb...`。
+- 剩余限制：`services/agent-runtime` 骨架尚未在 SG 建立独立 venv（当前仅确认 Hermes 环境）；FrozenEvidence→ResearchProposal 契约、记忆隔离键运行时验证、研究工具白名单、Controller 校验封存、取消/权限/升级兼容性测试、独立 Docker 镜像构建与 digest 固定均归 S07 后续切片。本机 GitHub 网络不通，后续 Hermes 相关构建一律在 SG 执行。
+
+### S07b 进度（2026-09-28）
+
+- 状态：**S07 第二纵切片完成（FrozenEvidence→ResearchProposal 契约）**；Hermes Adapter 实现、Controller 接线、隔离验证仍待后续切片。
+- 交付：`contracts/src/youwei_contracts/research.py`（`research-v1` 契约，无 DB/上游 SDK 依赖）——`FrozenEvidence`（`CasePlan` + `EvidenceSnapshot` + `target_policy_sha256` + `batch_manifest`；`EvidenceSnapshot` 强制 `content_sha256 == sha256(canonical_json(content))` 且 `mode` 仅 `forward`）；`ResearchProposal`（仅 `llm_adjusted` 位置，`source_status ∈ {produced, unavailable}`，produced 强制两值+attributable model，unavailable 强制 reason 且禁值，`p_outperform ∈ [0,1]`，`references`/`warnings`/`missing`/`quantitative_basis`/`model.cost_estimate`）+ `proposal_digest`。值域纪律与 `sealing.py SourcePrediction` 对齐（`SOURCE_STATUSES=(produced, fallback, unavailable)`，Hermes 不提出 fallback——那是 Controller 的 `phase1b-llm-from-quant` 降级政策）。
+- 验收：`tests/contracts/test_research.py` 7 个新测试（hash 校验/篡改拒绝/extra 拒绝/produced 双值+model/unavailable reason+禁值/值域/digest 稳定）全部通过；`tests/contracts/` 全量 27 passed（原 20 + 新增 7）；`from youwei_contracts.research import ...` 在 Core 环境（3.13）与 agent-runtime 环境（3.14）均可导入。
+- 剩余限制：Hermes Adapter（`AIAgent` 封装 + 记忆隔离键运行时验证 + 研究工具白名单）、Controller 端 `proposal → SourcePrediction` 封存接线、取消/权限/升级兼容性测试、独立 Docker 镜像构建与 digest 固定均归 S07 后续切片；`llm_adjusted` 从 `unavailable/not_enabled` 转为 `produced` 需 Phase 1B 启用（依赖 S06 首次真实批次封存验收 + 数据源 LLM 转发授权）。
+
+### S07c 进度（2026-09-28）
+
+- 状态：**S07 第三纵切片完成（adapter 确定性层 + 隔离键运行时验证）**；真实 `AIAgent` 研究调用、平台工具注册、Controller 接线仍待后续切片。
+- 交付：`services/agent-runtime/src/youwei_agent_runtime/adapter.py`（无 Hermes 导入、仅依赖 `youwei-contracts` 的纯逻辑层）——`ISOLATION_KWARGS`（`skip_memory=True`/`skip_context_files=True`/`skip_background_review=True`/`enabled_toolsets=[]` 空白名单）、`RESEARCH_TOOLS`（平台研究工具白名单：snapshot_manifest/quant_run/sandbox_submit/sandbox_status/artifact_read，非 Hermes 内置工具集）、`build_research_brief`（FrozenEvidence→确定性研究简报，仅含冻结事实，禁止伪造）、`proposal_from_payload`（proposal 值域纪律边界）。`agent-runtime` 加 `youwei-contracts` 路径依赖 + `pytest` dev 组 + 自有 `[tool.pytest.ini_options]`。
+- **隔离键运行时验证（解决 runtime-version-pinning 记忆隔离键待办）**：sg-prod 上以固定 commit `7fa45eb` 构造 `AIAgent(skip_memory=True, enabled_toolsets=[], skip_context_files=True, skip_background_review=True)`（不调用 LLM），实测 `_memory_store=None`、`_memory_enabled=False`、`_user_profile_enabled=False`、`valid_tool_names=[]`、`skip_context_files=True`、`skip_background_review=True`；构造日志明示 "No tools selected / No tools loaded"。确认 `enabled_toolsets=[]`（空列表非 None）是研究角色正确隔离面。
+- 验收：`services/agent-runtime/tests/test_adapter.py` 6 个测试（隔离配置固化、brief 确定性、brief 仅冻结事实、零 bar 不伪造、proposal 构造/值域拒绝）全部通过，`uv run --frozen pytest -q`（agent-runtime 自有 3.14 环境）→ 6 passed。
+- 剩余限制：真实 `AIAgent` 研究调用需 LLM 网关 + 预算（Phase 1B 启用，非零预算）；平台研究工具（snapshot_manifest 等）的注册与服务端授权尚未实现（需确认 Hermes 自定义工具注册机制 `ctx.register_tool`）；Controller 端 `proposal → SourcePrediction` 封存接线、取消/权限/升级兼容性测试、独立 Docker 镜像构建与 digest 固定均归 S07 后续切片。
+
+### S07d 进度（2026-09-28）
+
+- 状态：**S07 第四纵切片完成（零成本端到端冒烟）**；真实网关调用、平台工具注册、Controller 接线仍待后续切片。
+- 交付：`services/agent-runtime/src/youwei_agent_runtime/runtime.py`（Hermes 运行时桥）——`ResearchConfig`（`base_url`/`api_key`/`model`/`provider=custom`/`max_iterations`/`run_budget_seconds`）、`make_agent`（构造隔离 `AIAgent`，应用 `ISOLATION_KWARGS`）、`parse_proposal`（解析模型文本响应为合法 `ResearchProposal`，容忍 markdown fence/嵌入 JSON）、`run_research`（`asyncio.to_thread` 包装同步 `chat()`，端到端 seam）；`services/agent-runtime/smoke/mock_gateway.py` + `smoke_e2e.py`（可复现零成本冒烟资产，路径经环境变量 `HERMES_CHECKOUT`/`CONTRACTS_SRC`/`AGENT_RUNTIME_SRC` 配置）。
+- **关键实测发现**：Hermes `chat()` 默认走 SSE 流式（实际 HTTP 请求含 `stream=true` + `stream_options`，与 request dump 里被剥离的 body 不同）；mock 必须返回 `text/event-stream` 而非普通 JSON，否则报 "empty response stream" 重试后失败。
+- 验收：`services/agent-runtime/tests/test_runtime.py` 5 个测试（parse_proposal 纯逻辑：普通 JSON/markdown fence/嵌入对象/值域拒绝/非 JSON 拒绝）通过，`uv run --frozen pytest -q`（3.14）→ 11 passed（6 adapter + 5 runtime）；sg-prod 上零成本端到端冒烟全链路跑通——隔离键生效（`memory store: None`、`valid tools: []`）→ 简报确定性生成 → `chat()` 流式调用 mock 1 次完成 → 解析出 `source_status=produced`/`p_outperform=0.6`/`model`/`references` 的合法 `ResearchProposal`，输出 `SMOKE OK`。
+- 剩余限制：真实 LLM 调用需网关 + 非零预算（Phase 1B）；平台研究工具注册与服务端授权未实现（`ctx.register_tool` 机制待确认）；Controller 端 `proposal → SourcePrediction` 封存接线、取消/权限/升级兼容性测试、独立 Docker 镜像构建与 digest 固定均归 S07 后续切片。
+
 ```text
 任务：
 负责人：
