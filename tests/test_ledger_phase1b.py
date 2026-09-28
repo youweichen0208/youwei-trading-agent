@@ -19,6 +19,7 @@ from youwei_core.data.calendar import build_calendar, next_weekly_cutoff
 from youwei_core.data.snapshots import freeze_daily_bars
 from youwei_core.jobs.service import RunSubmission, submit_run
 from youwei_core.jobs.worker import claim_next_job
+from youwei_core.ledger.pipeline import AgentRuntimeConfig, run_batch_predictions
 from youwei_core.ledger.service import (
     approve_release,
     plan_batch,
@@ -191,3 +192,124 @@ async def test_phase1b_seals_fallback_copied_from_quant(db_engine, tenant_id):
     assert llm["source_status"] == "fallback"
     assert llm["p_outperform"] == "0.4000000000"
     assert llm["reason"] == "timeout"
+
+
+# --- S07h: pipeline-level Phase 1B with the agent-runtime subprocess fetcher ---
+
+
+async def _phase1b_batch(engine, tenant_id):
+    """Register + plan a Phase 1B campaign, open the batch's window,
+    and return (ctx, batch_id, case_ids)."""
+    ctx = await _phase1b_setup(engine, tenant_id)
+    plan = await plan_batch(
+        engine, ctx["campaign"].campaign_id,
+        decision_cutoff=next_weekly_cutoff(datetime.now(UTC)),
+    )
+    batch_id = plan.batch_id
+    case_ids = plan.case_ids
+    async with engine.begin() as conn:
+        db_now = (await conn.execute(text("SELECT now()"))).scalar_one()
+        c = db_now - timedelta(minutes=5)
+        d = db_now + timedelta(hours=1)
+        await conn.execute(text("SET LOCAL youwei.ledger_mutation = 'on'"))
+        await conn.execute(
+            text(
+                "UPDATE forecast_batches SET decision_cutoff_utc = :c, "
+                "prediction_deadline_utc = :d WHERE id = :b"
+            ),
+            {"c": c, "d": d, "b": str(batch_id)},
+        )
+        for cid in case_ids:
+            await conn.execute(
+                text(
+                    "UPDATE forecast_cases SET decision_cutoff_utc = :c, "
+                    "prediction_deadline_utc = :d WHERE id = :id"
+                ),
+                {"c": c, "d": d, "id": str(cid)},
+            )
+    return ctx, batch_id, case_ids
+
+
+class _EchoProcess:
+    """A fake agent-runtime subprocess: parse the evidence bundle from
+    stdin and answer with a produced proposal bound to that case."""
+
+    def __init__(self):
+        self.returncode = 0
+        self.received = None
+
+    async def communicate(self, data: bytes):
+        self.received = data
+        import json as _json
+
+        request = _json.loads(data)
+        case = request["evidence"]["case"]
+        run_id = request["evidence"]["run_id"]
+        proposal = {
+            "contract_version": "research-v1",
+            "run_id": run_id,
+            "case_id": case["case_id"],
+            "source_status": "produced",
+            "p_outperform": 0.6,
+            "expected_excess_return": 0.02,
+            "references": [],
+            "warnings": [],
+            "missing": [],
+            "quantitative_basis": None,
+            "model": {"model_version": "llm-v1", "provider": "test", "cost_estimate": {}},
+        }
+        result = _json.dumps({"ok": True, "proposal": proposal}, sort_keys=True)
+        return result.encode(), b""
+
+    def kill(self):
+        pass
+
+    async def wait(self):
+        return 0
+
+
+async def test_phase1b_pipeline_seals_produced_llm_via_agent_runtime(db_engine, tenant_id):
+    ctx, batch_id, case_ids = await _phase1b_batch(db_engine, tenant_id)
+
+    await submit_run(
+        db_engine,
+        tenant_id,
+        RunSubmission(
+            kind="research.batch_predict",
+            total_budget_micros=0,
+            jobs=[{"kind": "research.batch_predict", "payload": {}, "max_attempts": 1}],
+        ),
+        idempotency_key=f"s07h-{uuid.uuid4()}",
+    )
+    claimed = await claim_next_job(db_engine, "test-worker")
+    claimed.capability_token = "ywc_test"  # signed by the worker loop in production
+
+    async def process_factory():
+        return _EchoProcess()
+
+    agent_runtime = AgentRuntimeConfig(
+        research_config={"base_url": "x", "api_key": "k", "model": "m"},
+        process_factory=process_factory,
+        timeout_seconds=30.0,
+    )
+
+    summary = await run_batch_predictions(
+        db_engine, claimed, batch_id, "rel-phase1b-v1", agent_runtime=agent_runtime
+    )
+    assert summary["sealed"] == len(case_ids)
+    assert summary["failed"] == []
+
+    from youwei_core.ledger.sealing import commit_status
+
+    async with db_engine.begin() as conn:
+        commits = (
+            await conn.execute(
+                text("SELECT id FROM forecast_commits WHERE case_id = :c"),
+                {"c": str(case_ids[0])},
+            )
+        ).scalars().all()
+    status = await commit_status(db_engine, commits[0])
+    by_source = {p["source"]: p for p in status["predictions"]}
+    assert by_source["llm_adjusted"]["source_status"] == "produced"
+    assert by_source["llm_adjusted"]["p_outperform"] == "0.6000000000"
+

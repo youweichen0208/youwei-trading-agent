@@ -223,7 +223,10 @@ def main() -> None:
     """youwei-worker entrypoint: noop + data collection + prediction
     + sandbox handlers, plus the scheduler tick."""
     from youwei_core.data.tiingo import TiingoClient, make_tiingo_daily_handler
-    from youwei_core.ledger.pipeline import make_batch_predict_handler
+    from youwei_core.ledger.pipeline import (
+        AgentRuntimeConfig,
+        make_batch_predict_handler,
+    )
     from youwei_core.ledger.scheduler import scheduler_tick
     from youwei_core.logfmt import configure_logging
     from youwei_core.sandbox.handler import make_sandbox_handler
@@ -242,10 +245,14 @@ def main() -> None:
         min_interval=settings.tiingo_min_request_interval_seconds,
     )
     runner = RunnerClient(settings.runner_url) if settings.runner_url else None
+
+    agent_runtime = _build_agent_runtime(settings)
     handlers = {
         "noop": noop_handler,
         "data.tiingo_daily": make_tiingo_daily_handler(engine, tiingo),
-        "research.batch_predict": make_batch_predict_handler(engine),
+        "research.batch_predict": make_batch_predict_handler(
+            engine, agent_runtime=agent_runtime
+        ),
     }
     if runner is not None:
         handlers["sandbox.execute"] = make_sandbox_handler(engine, runner, secret=settings.runner_secret)
@@ -265,6 +272,30 @@ def main() -> None:
             await engine.dispose()
 
     asyncio.run(serve())
+
+
+def _build_agent_runtime(settings: Settings) -> AgentRuntimeConfig | None:
+    """Assemble the agent-runtime subprocess wiring from Settings, or
+    None when the agent runtime is disabled (Phase 1A / no LLM budget)."""
+    from youwei_core.ledger.agent_client import build_process_factory
+
+    if not settings.agent_runtime_enabled:
+        return None
+    command = settings.agent_runtime_command.split()
+    if not command:
+        return None
+    env = {}
+    if settings.agent_runtime_pythonpath:
+        env["PYTHONPATH"] = settings.agent_runtime_pythonpath
+    return AgentRuntimeConfig(
+        research_config={
+            "base_url": settings.agent_llm_base_url,
+            "api_key": settings.agent_llm_api_key,
+            "model": settings.agent_llm_model,
+        },
+        process_factory=build_process_factory(command, env),
+        timeout_seconds=settings.agent_runtime_timeout_seconds,
+    )
 
 
 if __name__ == "__main__":

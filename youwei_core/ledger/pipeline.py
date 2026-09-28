@@ -20,8 +20,9 @@ registry without touching the sealing path.
 
 import json
 import uuid
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from datetime import timedelta
+from typing import Awaitable, Callable
 
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -43,7 +44,13 @@ from youwei_core.db.meta import (
     research_releases,
 )
 from youwei_core.jobs.worker import ClaimedJob
+from youwei_core.ledger.agent_client import (
+    AgentRuntimeError,
+    ResearchInvocation,
+    run_agent_research,
+)
 from youwei_core.ledger.controller import apply_phase1b_fallback
+from youwei_core.ledger.evidence import build_frozen_evidence
 from youwei_core.ledger.sealing import SealRequest, SourcePrediction, seal_commit
 
 PIPELINE_VERSION = "pipeline-v1"
@@ -140,16 +147,81 @@ def make_phase1b_llm_adjusted_provider(fetch_proposal):
     return provider
 
 
+# --- agent-runtime subprocess fetch (S07h) -----------------------------------
+# The Phase 1B llm_adjusted position comes from Hermes, reached through the
+# agent-runtime subprocess boundary. This factory binds the per-batch frozen
+# evidence plus the Controller's capability token and gateway config into a
+# ``fetch_proposal(case, bars) -> ResearchProposal`` for the provider above.
+
+
+@dataclass(frozen=True)
+class AgentRuntimeConfig:
+    """Controller-side wiring to reach the agent-runtime subprocess."""
+
+    research_config: dict  # runtime.ResearchConfig kwargs
+    process_factory: Callable[[], Awaitable]
+    timeout_seconds: float
+
+
+def make_phase1b_llm_fetcher(
+    *,
+    run_id: uuid.UUID,
+    tenant_id: uuid.UUID,
+    snapshot: dict,
+    batch_manifest: dict,
+    capability_token: str,
+    agent_runtime: AgentRuntimeConfig,
+):
+    """Build a fetch_proposal for the batch's frozen evidence.
+
+    Each case shares the batch's single frozen snapshot (S06a); only the
+    case plan differs. The Controller assembles the FrozenEvidence bundle
+    (its own snapshot + case plan + batch manifest) and sends it across the
+    subprocess boundary with the per-job capability token (signed by the
+    worker loop when it claimed the job).
+    """
+
+    async def fetch_proposal(case, bars):
+        evidence = build_frozen_evidence(
+            run_id=run_id,
+            tenant_id=tenant_id,
+            case=case,
+            snapshot=snapshot,
+            batch_manifest=batch_manifest,
+        )
+        invocation = ResearchInvocation(
+            capability_token=capability_token,
+            evidence=evidence,
+            config=agent_runtime.research_config,
+        )
+        proposal = await run_agent_research(
+            invocation,
+            process_factory=agent_runtime.process_factory,
+            timeout_seconds=agent_runtime.timeout_seconds,
+        )
+        # Controller-side binding check (defense in depth): the proposal must
+        # answer the exact case this bundle was sent for — never trust the
+        # wire's run_id/case_id blindly.
+        if proposal.run_id != run_id or proposal.case_id != case["id"]:
+            raise AgentRuntimeError(
+                "proposal run_id/case_id does not match the frozen evidence"
+            )
+        return proposal
+
+    return fetch_proposal
+
+
 # --- batch prediction ---------------------------------------------------------
 
 
-def make_batch_predict_handler(engine: AsyncEngine):
+def make_batch_predict_handler(engine: AsyncEngine, *, agent_runtime: AgentRuntimeConfig | None = None):
     """Build the `research.batch_predict` job handler."""
 
     async def handle_batch_predict(claimed: ClaimedJob) -> dict:
         payload = BatchPredictPayload.model_validate(claimed.payload)
         return await run_batch_predictions(
-            engine, claimed, payload.batch_id, payload.release_id
+            engine, claimed, payload.batch_id, payload.release_id,
+            agent_runtime=agent_runtime,
         )
 
     return handle_batch_predict
@@ -162,6 +234,7 @@ async def run_batch_predictions(
     release_id: str,
     *,
     llm_adjusted_provider=None,
+    agent_runtime: AgentRuntimeConfig | None = None,
 ) -> dict:
     """Produce and seal every case of a batch from one frozen evidence
     snapshot. Per-case failures (e.g. a case whose deadline already
@@ -171,7 +244,11 @@ async def run_batch_predictions(
     ``llm_adjusted_provider`` is an async callable
     ``(case, bars, quant, evidence_snapshot_id) -> SourcePrediction``.
     When None (Phase 1A), the llm_adjusted position is fixed at
-    unavailable/not_enabled."""
+    unavailable/not_enabled. When the campaign is Phase 1B and
+    ``agent_runtime`` is provided, the provider is built from the
+    agent-runtime subprocess fetcher (S07h); otherwise a Phase 1B
+    campaign with no agent-runtime wiring still seals llm_adjusted as
+    unavailable (agent_runtime_unavailable) — never a fake LLM value."""
     async with engine.begin() as conn:
         batch = (
             await conn.execute(
@@ -237,6 +314,24 @@ async def run_batch_predictions(
     for bars in bars_by_security.values():
         bars.sort(key=lambda b: b["trade_date"])
 
+    # Resolve the llm_adjusted provider for this batch. Phase 1A keeps the
+    # position fixed unavailable/not_enabled. A Phase 1B campaign (llm_adjusted
+    # enabled) with agent-runtime wiring fetches a proposal across the
+    # subprocess boundary; without wiring it still seals unavailable — never a
+    # fabricated LLM value.
+    provider = llm_adjusted_provider
+    if provider is None and "llm_adjusted" in campaign.enabled_sources:
+        if agent_runtime is not None and claimed.capability_token is not None:
+            fetch = make_phase1b_llm_fetcher(
+                run_id=claimed.run_id,
+                tenant_id=claimed.tenant_id,
+                snapshot=frozen,
+                batch_manifest=batch.batch_manifest,
+                capability_token=claimed.capability_token,
+                agent_runtime=agent_runtime,
+            )
+            provider = make_phase1b_llm_adjusted_provider(fetch)
+
     sealed, already, failures = 0, 0, []
     for case in cases:
         bars = bars_by_security.get(str(case.security_id), [])
@@ -253,8 +348,8 @@ async def run_batch_predictions(
             )
         llm_adjusted = await (
             _phase1a_llm_adjusted(case, bars, quant, snap.snapshot_id)
-            if llm_adjusted_provider is None
-            else llm_adjusted_provider(case, bars, quant, snap.snapshot_id)
+            if provider is None
+            else provider(case, bars, quant, snap.snapshot_id)
         )
         sources = [
             MODELS["baseline"](bars),

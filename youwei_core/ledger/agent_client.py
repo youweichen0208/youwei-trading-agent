@@ -1,0 +1,127 @@
+"""Controller-side agent-runtime subprocess client (S07h).
+
+The Controller (Core worker) calls the agent-runtime — a separate Python 3.14
+process with no database or supplier credentials — for one ``llm_adjusted``
+research turn. The boundary is a short-lived subprocess: one JSON request on
+stdin, one JSON result on stdout. This module is the Controller's half.
+
+It stays split so the codec is pure (testable without spawning a process) and
+the subprocess execution is a thin async seam. Budget accounting for the
+actual gateway cost is a later slice (the gateway is reached by Hermes inside
+the agent-runtime process, not through Core's GatewayClient); this slice only
+gets a validated proposal back across the boundary for sealing.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import uuid
+from dataclasses import dataclass
+
+from youwei_contracts.research import FrozenEvidence, ResearchProposal
+
+
+class AgentRuntimeError(Exception):
+    """The agent-runtime could not produce a proposal (spawn failure,
+    non-zero exit, malformed result, or a rejected capability)."""
+
+
+@dataclass(frozen=True)
+class ResearchInvocation:
+    """Everything the Controller sends across the boundary for one case."""
+
+    capability_token: str
+    evidence: FrozenEvidence
+    config: dict  # runtime.ResearchConfig kwargs (base_url/api_key/model/...)
+
+
+def encode_request(invocation: ResearchInvocation) -> str:
+    """Serialize one research request line for the agent-runtime's stdin."""
+    return json.dumps(
+        {
+            "capability_token": invocation.capability_token,
+            "evidence": invocation.evidence.model_dump(mode="json"),
+            "config": invocation.config,
+        },
+        sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+    )
+
+
+def decode_result(raw: str) -> ResearchProposal:
+    """Parse the agent-runtime's single-line result into a proposal.
+
+    A non-``ok`` result raises AgentRuntimeError carrying the runtime's error;
+    a produced proposal is re-validated here (defense in depth — the runtime
+    already validated, but the Controller never trusts the wire blindly).
+    """
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise AgentRuntimeError(f"agent-runtime returned non-JSON: {raw[:200]}") from exc
+    if not isinstance(payload, dict):
+        raise AgentRuntimeError("agent-runtime result is not a JSON object")
+    if not payload.get("ok"):
+        raise AgentRuntimeError(f"agent-runtime error: {payload.get('error')}")
+    proposal = payload.get("proposal")
+    if proposal is None:
+        raise AgentRuntimeError("agent-runtime result missing proposal")
+    return ResearchProposal.model_validate(proposal)
+
+
+async def run_agent_research(
+    invocation: ResearchInvocation,
+    *,
+    process_factory,
+    timeout_seconds: float,
+) -> ResearchProposal:
+    """Run one research turn in the agent-runtime subprocess.
+
+    ``process_factory`` is an async callable ``(cmd, env) -> process``
+    compatible with ``asyncio.create_subprocess_exec``'s return
+    (stdin/stdout pipes). It is injected so the codec + timeout + error
+    handling are testable without a real Hermes checkout.
+    """
+    proc = await process_factory()
+    try:
+        stdout, stderr = await asyncio.wait_for(
+            proc.communicate(encode_request(invocation).encode("utf-8")),
+            timeout=timeout_seconds,
+        )
+    except asyncio.TimeoutError:
+        proc.kill()
+        await proc.wait()
+        raise AgentRuntimeError(
+            f"agent-runtime research turn exceeded {timeout_seconds}s"
+        ) from None
+
+    if proc.returncode != 0:
+        tail = (stderr or b"").decode("utf-8", "replace")[-500:]
+        raise AgentRuntimeError(
+            f"agent-runtime exited {proc.returncode}: {tail}"
+        )
+    return decode_result(stdout.decode("utf-8"))
+
+
+def build_process_factory(
+    command: list[str],
+    env: dict,
+    *,
+    cwd: str | None = None,
+):
+    """Return a process factory that spawns the agent-runtime command with
+    the given env (PYTHONPATH pointing at the Hermes checkout, the venv
+    interpreter, etc.). Bound here so run_agent_research stays seam-clean."""
+    full_env = {**env}
+
+    async def _spawn():
+        return await asyncio.create_subprocess_exec(
+            *command,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env=full_env,
+            cwd=cwd,
+        )
+
+    return _spawn

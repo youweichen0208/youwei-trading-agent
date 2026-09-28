@@ -62,3 +62,18 @@ class Settings(BaseSettings):
     # Container policy and Docker permissions belong to the remote Runner.
     runner_url: str = ""
     runner_secret: str = ""
+
+    # S07: agent-runtime subprocess (Hermes research). The command is the
+    # full argv for `youwei-agent-runtime research-once` (venv python + main
+    # module + subcommand), split on whitespace. PYTHONPATH carries the pinned
+    # Hermes checkout so the adapter can import it. Disabled by default; only
+    # a Phase 1B campaign with a non-zero LLM budget enables it.
+    agent_runtime_enabled: bool = False
+    agent_runtime_command: str = ""  # e.g. ".../python -m youwei_agent_runtime.main research-once"
+    agent_runtime_pythonpath: str = ""  # colon-separated; Hermes checkout dir
+    agent_runtime_timeout_seconds: float = 300.0
+    # gateway/model wiring for the research turn (reached by Hermes inside
+    # the agent-runtime process, NOT through Core's GatewayClient)
+    agent_llm_base_url: str = ""
+    agent_llm_api_key: str = ""
+    agent_llm_model: str = ""
