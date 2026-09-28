@@ -19,7 +19,7 @@
         }
       },
       "deployment": {"image": null, "bindings": []},
-      "notes": "Source installation was smoke-tested; S07 adapter, isolation, dependency/image build and deployment acceptance remain incomplete."
+      "notes": "Source installation smoke-tested. S07 adapter, isolation keys, research-v1 contract and offline/no-cost smoke are complete (see docs/IMPLEMENTATION_PLAN.md S07a-g); production integration, gateway wiring, image digest and deployment acceptance remain for S09."
     },
     "pi": {
       "enabled": false,
