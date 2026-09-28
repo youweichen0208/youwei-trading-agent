@@ -66,7 +66,7 @@ Runner 的状态只作短期执行缓存，PostgreSQL 是业务状态权威。Ru
 
 | 组件 | 本仓库负责的接入 | 当前边界 |
 | --- | --- | --- |
-| Hermes | 固定证据、研究权限与预算输入；接收 ResearchProposal 后交 Controller 校验 | 上游安装验证与业务接入分别记录；S07 适配器尚未实现，使用独立 Python 3.14 环境 |
+| Hermes | 固定证据、研究权限与预算输入；接收 ResearchProposal 后交 Controller 校验 | 已有独立 Python 3.14 适配与 Runtime 桥、冻结行引用预检；真实网关、平台工具授权与 Controller 封存接线仍待验收 |
 | Pi | 受控 RPC、工具/扩展允许列表、将探索代码提交到执行链路 | S08 业务接入尚未实现，使用独立 Node/TypeScript 依赖环境 |
 | Open WebUI | 作为可选界面消费 Core 身份、持久任务和研究结果接口 | S09 评估；不把其原生会话或执行状态作为 Core 权威 |
 | OpenViking | 可选长文档派生检索适配器 | 尚未接入；事实与批准的研究记忆仍由 Core 管理 |

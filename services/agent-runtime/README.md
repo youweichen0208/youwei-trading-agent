@@ -3,7 +3,7 @@
 独立 Hermes 研究运行时。Python 3.14，不依赖 Core / Ledger / 数据库 / 供应商密钥。
 
 - 输入：Controller 冻结的计划与证据（FrozenEvidence）。
-- 输出：ResearchProposal，由 Controller 校验后封存；Agent 无权写 Ledger 或改动 Lesson。
+- 输出：ResearchProposal，`run_research` 返回前校验引用定位；Controller 的接收与封存接线仍待实现，Agent 无权写 Ledger 或改动 Lesson。
 - 隔离：关闭内置 memory / user_profile / session_search / 后台复盘，研究工具白名单。
 - Hermes 上游以完整 commit SHA 固定（见 `infra/upstreams.lock.yaml`、`docs/UPSTREAMS.md`）。
 
@@ -14,6 +14,20 @@ uv sync --project services/agent-runtime --frozen --python 3.14
 ```
 
 Hermes 为源码安装，固定 commit 见锁文件与上游登记。
+
+## 本地引用验收
+
+在 `services/agent-runtime/` 目录运行（`uv --project` 不会自动改变 pytest 工作目录）：
+
+```bash
+uv run --frozen pytest -q
+uv run --frozen pytest -q -c pyproject.toml --confcutdir ../../tests/contracts \
+    ../../tests/contracts/test_research.py ../../tests/contracts/test_research_references.py
+```
+
+前者测试简报、wire 解析和 Runtime 返回路径（外部 Hermes SDK 用测试替身）；后者在 Python 3.14 下复跑共享研究契约。不会调用真实模型或访问数据库。
+
+简报按冻结数组原始顺序提供 JSON 行及 `snapshot:<uuid>/rows/<index>` 定位符。`run_research` 使用共享 `validate_proposal_references` 拒绝无效引用；直接调用 `parse_proposal` 仅完成格式和值域检查。冻结数组内容 hash、原位置、快照 ID 和 run/case 一起约束解析，具体边界见 [契约说明](../../contracts/README.md)。这不替代 Controller 端的租户授权、证据选择和封存验收。
 
 ## 无成本冒烟（SG 上）
 

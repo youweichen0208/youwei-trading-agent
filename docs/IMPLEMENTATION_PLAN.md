@@ -133,10 +133,12 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 
 首次真实批次成功封存、任务与数据检查通过后即可开展本项，不要求等待全部标签成熟；Phase 1A 的完整结果闭环仍需实际回填验收。
 
+该条件约束正式 Phase 1B 运行；契约、Controller 接线、候选研究角色/prompt/反证步骤及离线测试可提前准备。用于选择 prompt/模型的比较在 Trial 中事前登记，实际用于正式研究须绑定具体 release 并由人类批准；不把“不得自行批准”解释为“不得编写候选”。真实网关、费用和权限未验收时，测试替身的结果只记工程验证。
+
 - [ ] 将 Controller 的冻结计划/证据转换为 Hermes 输入；每个 run 独立上下文。
 - [ ] 在 `services/agent-runtime/` 建立独立 Hermes Python 3.14 环境，固定上游与依赖；实现 FrozenEvidence → ResearchProposal 契约及权限、取消、升级兼容性测试。
 - [ ] 先使用一个研究综合角色及固定反证步骤；按实际收益再扩展并行角色。
-- [ ] 研究引用可定位原文，warnings、缺失、量化依据、实际模型和成本完整输出。
+- [ ] 研究引用可定位原文，warnings、缺失、量化依据、实际模型和成本完整输出。（S07e 已实现冻结快照行解析及 Runtime 预检；新闻/SEC 原文定位、Controller 接收与真实成本仍待后续）
 - [ ] Hermes 返回 Proposal；Controller 校验并封存，Agent 无权写 Ledger 或改变 Lesson。
 - [ ] prompt 回归验证结构、引用、权限与成本，记录新的 release。
 - [ ] 从新 campaign 启用 llm_adjusted；按预登记政策记录失败/回退，不回补历史 LLM 预测。
@@ -423,6 +425,16 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
 - **关键实测发现**：Hermes `chat()` 默认走 SSE 流式（实际 HTTP 请求含 `stream=true` + `stream_options`，与 request dump 里被剥离的 body 不同）；mock 必须返回 `text/event-stream` 而非普通 JSON，否则报 "empty response stream" 重试后失败。
 - 验收：`services/agent-runtime/tests/test_runtime.py` 5 个测试（parse_proposal 纯逻辑：普通 JSON/markdown fence/嵌入对象/值域拒绝/非 JSON 拒绝）通过，`uv run --frozen pytest -q`（3.14）→ 11 passed（6 adapter + 5 runtime）；sg-prod 上零成本端到端冒烟全链路跑通——隔离键生效（`memory store: None`、`valid tools: []`）→ 简报确定性生成 → `chat()` 流式调用 mock 1 次完成 → 解析出 `source_status=produced`/`p_outperform=0.6`/`model`/`references` 的合法 `ResearchProposal`，输出 `SMOKE OK`。
 - 剩余限制：真实 LLM 调用需网关 + 非零预算（Phase 1B）；平台研究工具注册与服务端授权未实现（`ctx.register_tool` 机制待确认）；Controller 端 `proposal → SourcePrediction` 封存接线、取消/权限/升级兼容性测试、独立 Docker 镜像构建与 digest 固定均归 S07 后续切片。
+
+### S07e 进度（2026-09-28）
+
+- 状态：**冻结证据行引用解析与 Runtime 消费完成本地验收**。检查确认 Core 尚无 Proposal 接收入口，因此本片接入已有 `run_research` 返回路径；Controller 和 Ledger 接线保持待办。
+- 契约实现：`resolve_reference(evidence, reference) -> dict` 使用严格的 `snapshot:<snapshot_id>/rows/<index>`，按冻结 content 原始零基位置解析；拒绝自由文本、旧 `row-0` 占位符、外部 URL、错快照、越界、负数/前导零/非 ASCII 索引及非 evidence 类型；解析前重验内容 hash，返回深拷贝。`evidence_row_locator` 为调用方生成同一格式，`validate_proposal_references` 额外检查 run/case 并解析引用列表。
+- 实际消费：简报原来只有行情摘要，本片补充完整冻结行及对应定位符，保留完整 batch 快照与原始行序；`run_research` 在返回前调用引用校验。`parse_proposal` 保持 wire/值域解码职责，直接调用它不代表引用已经验证。冒烟 mock 从实际请求复制定位符，冒烟脚本增加引用验证，未重跑 SG Hermes 冒烟。
+- 边界：输入依赖可信调用方已经授权的 FrozenEvidence，不新增数据库、租户授权或隐含的证券过滤；引用存在不证明论断成立，也未改变最少引用数量或论断覆盖政策。memory/code/model 类型因无对应授权解析器，在本校验入口拒绝。未来 Controller 必须独立重验绑定证据，继续执行租约、截止、预算及 release 检查。
+- 依赖修复：共享 contracts 原声明只支持3.13，与已建立的3.14 Agent Runtime 矛盾；现支持 `>=3.13,<3.15`，Core/Runner 仍3.13，Agent Runtime 仍3.14。三个环境重新 lock/sync 成功，依赖版本与锁文件字节不变，实际安装元数据及导入已核对。
+- 验证：按 TDD 观察到解析函数缺失、错快照/负索引误通过、返回值修改冻结输入、Runtime 返回未校验引用等失败，再逐项实现。Core：`uv run --frozen pytest -q --tb=short --maxfail=3` → **301 passed in 85.23s**；Agent Runtime 自有3.14环境：`uv run --frozen pytest -q` → **16 passed**；指定该包 pytest 配置并隔离 Core fixture 后，3.14研究契约 → **32 passed**。测试只替换外部 Hermes SDK，简报/解析/引用校验使用真实本地实现，无真实模型费用。
+- 下一步：Controller 受控接收 Proposal、冻结证据授权与 `SourcePrediction` 封存可继续做离线工程验证；候选角色/prompt/反证步骤可以准备，比较前登记 Trial，正式生效仍需具体 release 的人类批准。真实网关调用、预算与取消计费、工具授权及目标机部署单独验收。
 
 ```text
 任务：
