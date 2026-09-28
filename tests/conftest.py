@@ -22,7 +22,7 @@ ALL_TABLES = (
     "artifacts, evaluation_reports, outcome_revisions, forecast_commit_events, "
     "predictions, forecast_commits, ledger_chains, forecast_cases, "
     "forecast_batches, campaigns, release_approvals, training_manifests, "
-    "research_releases, "
+    "research_releases, panel_registrations, "
     "snapshots, calendar_days, calendar_builds, "
     "price_observations, raw_objects, security_identities, securities, "
     "data_sources, budget_entries, events, attempts, jobs, runs, api_keys, tenants"

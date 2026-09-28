@@ -307,7 +307,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 - 状态：**S06 第一纵切片完成**（隔离开发环境验收；正式 campaign 启动项仍阻断，见待办）。
 - 交付：**预测管线**——`research.batch_predict` job handler：批次级单一证据快照（全 panel+基准，cutoff 处 PIT forward 冻结，同一 manifest 共享）→ 模型注册表（baseline-constant-v0 常量 / quant-momentum-v0 二十日动量载具，历史不足 unavailable+insufficient_history，明确非正式模型）→ 逐 case 原子封存（Phase 1A llm 固定 unavailable/not_enabled；attempt fencing；逐 case 失败报告不静默丢弃；job 重试幂等）。**调度器 tick**——事前登记：每个活跃 campaign 始终预登记即将到来的周六 cutoff；漏周显式 backfill+batch.missed 事件保留分母；窗口内批次幂等提交恰好一个预测 run（idempotency key=batch）；到期 Outcome：exit 已过且无头或 unresolved 的 case 重解析（resolved 不自动重跑、unscorable 粘滞）；报告：完备 (batch, horizon) 幂等重生成；tick 全步骤幂等可重入，异常逐项记录不中断。**状态查询**——campaign_status 服务 + GET /v1/campaigns/{id}/status（租户隔离，不泄露存在性；计划/commit/准时/迟到/未确认/无 commit/outcome 状态/报告版本）；worker 接线（handler 注册 + scheduler 循环，Settings.scheduler_interval_seconds=60s，异常不杀 worker）。
 - 验收：8 个新测试：tick 预登记即将 cutoff 且幂等、漏两周补记（backfill+miss 事件+未来周正常）、窗口内恰好一个预测 run、handler 全 case 封存（共享单一证据快照、18 预测位置、flat 行情动量 0、重试 already_sealed）、无历史 quant unavailable、逐 case 失败不炸 job、tick 解析到期 Outcome 并生成 D20 报告（D1/D60 未成熟不生成）、状态视图全链路 + API 租户隔离（200/404/401）。
-- 待办（S06 剩余）：正式 campaign 启动项——S&P 500 PIT 总体/GICS 快照与真实 20 证券名单（依赖成分源）、生产套餐 ToS 确认、正式模型 Trial 登记 + release 人工批准、预算配置；月度汇总、更正自动触发与报告 tick 规模化门控已随 S06b 落地。
+- 待办（S06 剩余，2026-09-28复核）：采集/抽样已随 S06d 跑通，分类方案 (a) 的候选 v2 与正式登记收尾见 S06e；仍需完整映射/源证据恢复及登记校验、生产数据许可确认、正式模型与 manifest 固定、实际 release 人工批准、预算配置。模型/特征比较按 Trial 规则登记；月度汇总、更正触发及报告门控已随 S06b 落地。
 
 ### S03a 进度（2026-09-27）
 
@@ -358,17 +358,39 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 
 ### S06c 进度（2026-09-28）
 
-- 状态：**正式 campaign 启动准备的纯工程项完成**（抽样器；无需任何采购）。
+- 状态：**确定性抽样器的工程实现完成**（不代表正式 campaign 登记所需工程检查全部完成；后续复核见 S06e）。
 - 交付：`quant/sampling.py`——S00 登记算法 sampling-json-v1（sector-stratified-hash-v1，seed=20260927，N=20）的首个仓库内实现：总体规范化（仅 security_id + sector_code、按 security_id 升序、重复拒绝、缺 PIT sector code 停止登记不静默删除）；配额（每层 1 名 + (N_s-1)/(M-K) 先取整再余数降序、同余按 sector code 升序；M=K=20 零分母分支）；层内按 SHA256(compact_JSON([sampler_version, seed, frame_hash, sector_code, security_id])) 升序取座、同 hash 按 security_id；compact JSON 严格按登记规则（数组序固定、对象键字典序、无空格、UTF-8、无 BOM/换行）；选中名单升序 + selected_list_sha256；draw manifest（算法事实，源版本/映射由数据层补充）。
 - 验收：8 个新测试（**K01 已知答案全量复现**——配额 S01–S09×2/S10/S11×1、末两层选中 SEC-10-2/SEC-11-1、记录 hash 37421b62… 一次复算一致；行序不变性；compact JSON 规则；异余数分配手算对照 9/6/3/1/1；M=K=20 每层一名；M<20/缺分类/重复 id/K>20 四组拒绝；规范化只留协议字段；确定性 + manifest 形状）。纯计算无 PG 依赖。`uv run --frozen pytest -q` → 248 通过。
 - 待办：成分快照到手后的接线——EODHD 帧构建（ticker→永久 ID 映射 + sector 归属）→ select_sample → panel_manifest 登记；GICS 协议修订决策仍待用户选择。
 
 ### S06d 进度（2026-09-28）
 
-- 状态：**成分采集与 panel 抽样的工程侧完成**（真实数据端到端验收；正式 campaign 启动仍待预算/ToS/人工 release 批准，见 S06a 待办）。
+- 状态：**成分采集与 panel 抽样的开发链路完成**（真实数据冒烟通过；完整冻结登记包、映射恢复与登记闸门仍需 S06e 收尾，正式启动另需许可/预算/实际 release 批准）。
 - 交付：**EODHD 成分采集器**（`data/eodhd.py`）——Marketplace 端点 `/api/mp/unicornbay/spglobal/comp/GSPC.INDX`（非标准 `/api/fundamentals/`，已实测确认）；严格解析（General/Components/HistoricalTickerComponents；缺 Sector 拒收）；不可变 raw_object 存储（内容 hash 去重、source_available_at/basis 证据模型同 Tiingo）；数据源登记（slug `eodhd`）。**panel 构建**（`data/panel.py`）——ticker→永久 security_id 映射（已在主数据则解析复用、新成员则 create_security）；跨源 ticker 归一化（EODHD `BRK-B` → Tiingo 约定 `BRK.B`）；帧规范化（仅 security_id+sector_code、升序、frame_hash）；`draw_panel` 调登记抽样器；`build_panel_manifest`（抽样器事实 + frame_as_of/index/源版本/raw_object 引用/ticker 映射，stratification_level 由调用方显式固定——GICS 命名决策待定）。
 - 验收：10 个新测试（解析归一化与四组拒收、不可变存储去重、缺源时间 basis、caller_evidence basis（锁定 NOT NULL 回归）、HTTP 错误、ticker 归一化、帧映射/建证券/幂等、缺 sector 停抽、draw+manifest 形状）。**真实 token 端到端冒烟**（一次性容器）：采集 503 成分 + 822 历史成员 → 帧 11 板块（frame_sha256 `8e495fc7…`）→ seed 20260927 抽出 20 只（覆盖全部 11 板块，selected_list_sha256 `59ed17c5…`）。`uv run --frozen pytest -q` → 258 通过。
-- 待办：GICS 命名决策（`stratification_level` 标签：官方 gics_sector vs 声明 eodhd_sector 需协议修订）→ 定标签后正式登记 panel；历史成分的 security 映射（退市真相接入）与增量变更采集随后续；预算配置与人工 release 批准归人。
+- 待办更新：推荐 `eodhd_sector` 的候选协议已于 S06e 起草；更改标签本身不足以正式登记。先完成 S06e 的源证据、映射恢复与登记校验，再绑定真实 panel/release；历史成员映射及分类、完整退市真相源仍未验收。
+
+### S06e 分类方案与正式登记复核（2026-09-28）
+
+- 选择建议：**方案 (a)**，首版按 EODHD 实际返回的 Sector 分层，名称 `eodhd_sector`。它能提供本项目所需的供应商板块覆盖；不要求先采购官方 GICS，也不宣称11个板块与 GICS 的规则或证券归属等价。未来改用官方分类时创建新协议/panel/campaign/release，不改写历史。
+- 交付：候选 [campaign-policy.v2](protocols/campaign-policy.v2.md)及 [s00-registration.v2.json](protocols/s00-registration.v2.json)；同步领域术语、架构、协议索引和 EODHD 实测记录中的过强结论。v1及其 hash 保留。N=20、seed、配额算法、SPY、horizon、来源及评分规则保持原登记；候选文件不是 release 批准。
+- 已确认工程缺口：`data/panel.py` 新证券使用随机 UUID、标识有效期硬填1990；同库幂等测试不证明新库恢复同一名单。`build_panel_manifest` 未核对 raw/frame/sample/time，`register_campaign` 仅校验其为字典。现阶段不能写“剩余全部是人工项”。
+
+正式登记前的工程收尾：
+
+- [x] **证券映射及恢复**：按有证据的时点建立标识有效期（valid_from = frame_as_of，依据 observed_in_sp500_constituents_at_frame_as_of，不再硬填 1990）；冻结完整 security_id 映射与规范化 frame（panel_registrations 表，append-only、内容寻址）。清洁环境恢复原映射后复算，同一 frame/名单 hash 一致；重建随机 UUID 后重抽不是恢复路径（恢复用冻结 UUID 幂等重建，并检测 ticker 归属冲突）。
+- [x] **源与时间证据**：raw_object 保留原始内容/hash、observed_at/usable_at、来源缺失依据（S06d 采集器）；panel_registrations 冻结 frame_as_of/observed_at/usable_at/basis；登记闸门核对 frame_as_of 不得早于 usable_at（错时间拒绝）。分类快照以 Components[].Sector 原值冻结，不做 GICS 重命名/翻译/合并。
+- [x] **正式登记闸门**：`validate_panel_registration` 从源 raw_object 重解析→冻结映射→重建 frame→重抽样，逐项核对源内容 hash、映射 hash、frame hash、配额、选中名单 hash、时间一致性、协议 hash 与调用方 panel_security_ids；register_campaign 在 panel_manifest 声明 panel_registration_id 时强制校验（错源/错时间/错 frame/错名单/错标签均拒绝）。
+
+S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效期=frame_as_of 且零回溯、冻结→清洁恢复复算同 frame/名单 hash、恢复幂等、ticker 归属冲突检测、闸门正向、错源/错时间/错 frame/错名单/错标签五类拒绝、register_campaign 闸门三路径、append-only）。migration `d6e7f8a9b0c1`（upgrade/downgrade/upgrade、2 触发器）。`uv run --frozen pytest -q` → 269 通过。真实数据正式登记仍需：实际 panel 的完整冻结 + release hash 人工批准（本轮未执行）。
+
+许可和批准准备：
+
+- Phase 1A LLM 未启用，建议金额上限0并验证禁止模型调用；数据/主机预算另列。Phase 1B 才启用非零 LLM 预算。
+- Phase 1A 确认数据源的计算、留存/备份及终止订阅处理权限；发送数据给 LLM 的授权在 Phase 1B 首次转发前取得，不把这一未来能力误列为 Phase 1A 的调用失败。
+- 正式模型、training manifest、日历/tzdb、实际 panel 与政策引用准备完整后，生成具体 release hash 交项目所有者批准；Agent 不填写批准人、时间或放行标志。
+
+本轮验证：抽样已知答案 **8 passed**；本轮未改 v1 文件字节，v2 的全部协议引用 hash 已核对。另发现 `0401fd4` 曾更新时间协议状态行却未同步 v1 登记 hash；时间规则未变，v2 已记录可恢复的原提交及前后 hash，不将历史引用问题报为通过。检查文档链接与差异格式；未运行真实供应商请求、未写正式数据库、未登记 panel 或启动 campaign。后续工程实现与测试通过后再逐项勾选。
 
 ```text
 任务：

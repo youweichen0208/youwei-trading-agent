@@ -251,6 +251,43 @@ security_identities = Table(
     Index("ix_identities_lookup", "identifier_type", "identifier", "venue"),
 )
 
+# The frozen panel registration (S06, campaign-policy §2.1.1): the
+# complete evidence bundle that pins one panel draw — the source raw
+# object, observed/usable times, the full ticker->permanent-id mapping
+# (with evidence-based identity validity), the normalized frame, and
+# the sample (seed, quotas, selected ids and hashes). Append-only and
+# content-addressed: the same bundle dedups; nothing is ever edited.
+# Restore recreates the SAME permanent ids from this bundle; the
+# registration gate re-derives frame + sample from the source and
+# cross-checks every field before a campaign may use the panel.
+panel_registrations = Table(
+    "panel_registrations",
+    meta,
+    Column("id", UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    Column("index", Text, nullable=False),  # GSPC
+    Column("stratification_level", Text, nullable=False),  # eodhd_sector
+    Column("protocol_ref", Text, nullable=False),  # campaign-policy-v2
+    Column("protocol_sha256", Text, nullable=False),
+    Column("seed", Text, nullable=False),
+    Column("sample_size", Integer, nullable=False),
+    Column("source_raw_object_id", UUID(as_uuid=True), ForeignKey("raw_objects.id"), nullable=False),
+    Column("observed_at", TIMESTAMP(timezone=True), nullable=True),
+    Column("usable_at", TIMESTAMP(timezone=True), nullable=False),
+    Column("source_available_basis", Text, nullable=False),
+    Column("frame_as_of", Date, nullable=False),
+    Column("frame_sha256", Text, nullable=False),
+    Column("mapping", JSONB, nullable=False),  # [{ticker, exchange, security_id, valid_from, basis}]
+    Column("mapping_sha256", Text, nullable=False),
+    Column("quotas", JSONB, nullable=False),  # sector_code -> seats
+    Column("selected", JSONB, nullable=False),  # sorted security_id list
+    Column("selected_list_sha256", Text, nullable=False),
+    Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
+    UniqueConstraint("index", "frame_sha256", "mapping_sha256", name="uq_panel_registration"),
+    CheckConstraint("frame_sha256 ~ '^[0-9a-f]{64}$'", name="frame_sha_format"),
+    CheckConstraint("mapping_sha256 ~ '^[0-9a-f]{64}$'", name="mapping_sha_format"),
+    CheckConstraint("selected_list_sha256 ~ '^[0-9a-f]{64}$'", name="selected_sha_format"),
+)
+
 # Immutable raw vendor responses: the evidence layer. Every parsed
 # observation points back to exactly one raw object (its version).
 # Content-level dedup: re-receiving identical bytes for the same

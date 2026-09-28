@@ -360,6 +360,30 @@ async def register_campaign(
         raise CampaignValidationError("time_protocol_sha256 must be 64 hex chars")
 
     panel = [str(s) for s in panel_security_ids]
+
+    # campaign-policy §2.1.1: a panel drawn from a frozen registration
+    # must cross-check the source, mapping, frame, quotas, selection and
+    # the caller's panel_security_ids — a manifest that declares a
+    # registration but does not validate against it is rejected.
+    reg_id = panel_manifest.get("panel_registration_id")
+    if reg_id is not None:
+        from youwei_core.data.panel import validate_panel_registration
+
+        try:
+            gate = await validate_panel_registration(
+                engine, uuid.UUID(str(reg_id)), panel_security_ids=panel
+            )
+        except (ValueError, TypeError) as exc:
+            raise CampaignValidationError(
+                f"panel_registration_id {reg_id!r} is not a valid frozen "
+                f"registration: {exc}"
+            ) from None
+        if not gate["ok"]:
+            raise CampaignValidationError(
+                "panel registration failed cross-validation: "
+                + "; ".join(gate["issues"])
+            )
+
     payload = {
         "release_id": release_id,
         "target_specs": target_specs,

@@ -7,7 +7,7 @@
 
 本文是当前架构设计依据。[实施计划](IMPLEMENTATION_PLAN.md)记录依赖顺序、交付物与实际验收；[仓库边界](REPOSITORY.md)说明代码职责、依赖环境和外部组件接入方式。架构要求不代表代码、部署或安全验收已经完成。
 
-S00 的具体选择登记于 [protocols/](protocols/README.md)：固定20证券样本、D1/D20/D60、D20主目标、SPY、周六06:00 ET截止及下一交易时段开盘入场；固定目标窗口停牌政策与描述统计优先的区间方法已确认（2026-09-27）。开发实现已有日历、快照与模型管线；正式总体/GICS 来源、真实20证券名单、数据许可、训练与模型版本及 release 人工批准仍需按启动条件落实，不能由开发测试推导正式 campaign 已就绪。
+S00 的具体选择登记于 [protocols/](protocols/README.md)：固定20证券样本、D1/D20/D60、D20主目标、SPY、周六06:00 ET截止及下一交易时段开盘入场；固定目标窗口停牌政策与描述统计优先的区间方法已确认（2026-09-27）。EODHD 当前成员采集与抽样已通过开发验证；分类采用 `eodhd_sector` 的建议已写为候选 v2。完整 frame/证券映射恢复及正式登记交叉校验、数据许可、正式模型版本与 release 人工批准仍需落实，不能由冒烟推导正式 campaign 已就绪。
 
 ## 0. v0.2 → v0.3 修订摘要
 
@@ -47,9 +47,9 @@ S00 的具体选择登记于 [protocols/](protocols/README.md)：固定20证券�
 | 预测与结果 | 预测只追加；结果按 outcome revision 追加；评分在 Evaluation 派生 |
 | 记忆 | 内容版本和状态事件分别追加；正式预测只接受已批准的上下文版本 |
 | 进化 | 量化策略可历史验证；含 LLM 的改变必须前向 shadow；人工批准整套 research release |
-| MVP 范围 | 登记日 S&P 500 PIT 总体按 GICS Sector 分层固定种子抽样20证券；每周批次；D1/D20/D60、D20为主；SPY；一套简单量化模型 |
+| MVP 范围 | 登记日 S&P 500 总体，按声明分类分层固定种子抽样20证券；v1 登记 GICS，候选 v2 改用 eodhd_sector；每周批次；D1/D20/D60、D20为主；SPY；一套简单量化模型 |
 
-20只是管线验证的初始规模，不保证统计功效。样本跨周固定，退出指数、退市或缺数据不事后换股。总体快照、抽样层级/配额/种子和名单 hash 按 [campaign-policy.v1](protocols/campaign-policy.v1.md)登记；具体数据与模型待 S01/S04，批准人为项目所有者本人，批准记录绑定实际 release hash。
+20只是管线验证的初始规模，不保证统计功效。样本跨周固定，退出指数、退市或缺数据不事后换股。[campaign-policy.v1](protocols/campaign-policy.v1.md)及其 hash 保留；[候选 v2](protocols/campaign-policy.v2.md)明确供应商分类及源证据/映射/抽样的一致性要求。未来实际采用的版本必须绑定到人类批准的具体 release hash；11个供应商板块不证明与官方 GICS 等价。
 
 ## 2. 逻辑与部署
 

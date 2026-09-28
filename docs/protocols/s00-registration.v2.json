@@ -1,0 +1,212 @@
+{
+  "schema_version": 1,
+  "registration_id": "s00-amendment-20260928-v2",
+  "status": "candidate_for_next_human_approved_release",
+  "usage": {
+    "audience": "self_or_controlled_internal",
+    "public_service": false,
+    "automated_live_trading": false,
+    "external_investment_advice": false
+  },
+  "hierarchy": {
+    "levels": [
+      "campaign",
+      "batch",
+      "forecast_case"
+    ],
+    "campaign": "pre_registered_multi_week_plan_fixing_panel_target_sources_frequency_observation_period_primary_metric_and_release",
+    "batch": "weekly_instance_per_decision_cutoff_holding_concrete_cutoff_deadline_entry_session_and_planned_cases",
+    "phase_1b_llm_enablement": "new_campaign_with_new_release"
+  },
+  "sampling": {
+    "frame": "sp500_members_at_panel_registration",
+    "unit": "permanent_security_id",
+    "stratification_level": "eodhd_sector",
+    "n": 20,
+    "sampler_version": "sector-stratified-hash-v1",
+    "normalization_version": "sampling-json-v1",
+    "seed": "20260927",
+    "seed_origin": "implementation_default_fixed_before_sampling",
+    "panel_policy": "fixed_no_replacement_across_weekly_batches",
+    "frame_as_of": null,
+    "frame_snapshot_ref": null,
+    "frame_hash": null,
+    "selected_security_ids": null,
+    "selected_list_hash": null,
+    "classification_source": "eodhd:spglobal:Components[].Sector",
+    "classification_semantics": "vendor_observed_not_official_gics",
+    "classification_snapshot_ref": null,
+    "classification_snapshot_sha256": null,
+    "observed_at": null,
+    "usable_at": null,
+    "source_effective_at": null,
+    "raw_content_sha256": null,
+    "security_mapping_ref": null,
+    "security_mapping_sha256": null,
+    "frame_content_ref": null,
+    "panel_manifest_ref": null,
+    "panel_manifest_sha256": null,
+    "registration_validation_report_ref": null
+  },
+  "target": {
+    "horizons_td": [
+      1,
+      20,
+      60
+    ],
+    "primary_horizon_td": 20,
+    "exploratory_horizons_td": [
+      1,
+      60
+    ],
+    "benchmark_policy_id": "spy-total-return-v1",
+    "benchmark_ticker": "SPY",
+    "benchmark_security_id": null,
+    "excess_return": "asset_total_return_minus_benchmark_total_return",
+    "dividend_reinvestment": "ex_date_close_for_entitled_holdings",
+    "cash_takeover_reinvestment": "cash_zero_interest_until_target_exit",
+    "halt_policy": {
+      "policy": "fixed_window_confirmed",
+      "unscorable": "no_valid_price_formed_at_original_entry_session",
+      "grace_period": {
+        "starts_at": "original_planned_exit_at",
+        "max_subsequent_trading_sessions": 5,
+        "scope": "entry_price_exit_price_and_corporate_actions",
+        "on_expiry": "unresolved"
+      },
+      "late_data_backfill": "append_outcome_revision",
+      "resumption_price_substitution": false
+    }
+  },
+  "time": {
+    "business_timezone": "America/New_York",
+    "storage_timezone": "UTC",
+    "cutoff_weekday": "Saturday",
+    "cutoff_local_time": "06:00:00",
+    "entry_rule": "next_regular_session_open_after_cutoff",
+    "deadline_minutes_before_entry": 15,
+    "exit_rule": "regular_close_of_horizon_session_including_entry_as_d1",
+    "calendar_policy": "versioned_nyse_regular_sessions_with_listing_market_checks",
+    "calendar_version": null,
+    "tzdb_version": null,
+    "first_campaign_cutoff": null
+  },
+  "sources": {
+    "phase_1a": {
+      "enabled_sources": [
+        "baseline",
+        "quant_model"
+      ],
+      "fallback": "none",
+      "llm_adjusted": {
+        "source_status": "unavailable",
+        "reason": "not_enabled"
+      }
+    },
+    "phase_1b": {
+      "enabled_sources": [
+        "baseline",
+        "quant_model",
+        "llm_adjusted"
+      ],
+      "llm_failure_fallback": "valid_quant_prediction_same_case_release_before_deadline",
+      "quant_unavailable_fallback": "none"
+    }
+  },
+  "evaluation": {
+    "primary_metric": "paired_brier_quant_minus_baseline",
+    "primary_horizon_td": 20,
+    "case_weighting": "equal_within_scored_batch",
+    "batch_weighting": "equal",
+    "scope": "fixed_registered_panel_scored_subset_with_full_coverage_disclosure",
+    "uncertainty_method": {
+      "current": "descriptive_only",
+      "planned": "consecutive_weekly_block_bootstrap",
+      "activation": "ex_ante_parameter_registration_and_sample_requirements",
+      "block_length": null,
+      "minimum_batches": null,
+      "replicates": null,
+      "seed": null
+    },
+    "batch_report": "after_horizon_outcomes_classified",
+    "monthly_report": {
+      "schedule_default": "first_regular_session_of_next_month_06:00_America_New_York",
+      "information_cutoff": "previous_calendar_month_end",
+      "cohort_grouping": "batch_cutoff_month",
+      "late_labels": "new_report_revision"
+    }
+  },
+  "governance": {
+    "approver_role": "human_project_owner",
+    "approver_principal_id": null,
+    "release_id": null,
+    "release_content_hash": null,
+    "approved_at": null,
+    "trial_registry": "../trials/registry.md",
+    "trial_count": 0,
+    "git_is_absolute_immutability": false,
+    "remote_branch_protection_configured": false,
+    "external_worm_anchor_configured": false
+  },
+  "formal_campaign_allowed": false,
+  "blocking_items": [
+    "authorized_membership_and_observed_classification_evidence",
+    "frozen_security_mapping_with_supported_validity_and_restore_verification",
+    "panel_registration_cross_validation_of_protocol_source_frame_and_selected",
+    "actual_panel_and_complete_manifest_hashes",
+    "calendar_tzdb_and_security_ids",
+    "formal_model_and_training_manifests",
+    "runtime_budget_permissions_and_recovery_acceptance",
+    "human_approval_of_actual_release_hash"
+  ],
+  "protocol_files": [
+    {
+      "path": "target-spec.v1.md",
+      "sha256": "0181247fdac48b52d0c1ac7a13a6bb4827aeabfce3b3e88e1ffc71356eb573a4"
+    },
+    {
+      "path": "time-protocol.v1.md",
+      "sha256": "82d6b3473d8ce609f138e476d157c7032c3818753cd50c4b404ac568952cf8fe"
+    },
+    {
+      "path": "campaign-policy.v2.md",
+      "sha256": "609daa9a8b286702de87538b60fd3a3e31900ce5a7ac88295623fbc39bac840f"
+    },
+    {
+      "path": "known-answer-cases.v1.md",
+      "sha256": "9a0ed8fb005cf82094ac6de7bce69d9c1ebb235ea132a39073856668cdfa0e05"
+    }
+  ],
+  "prepared_date": "2026-09-28",
+  "based_on_registration": "s00-registration.v1.json",
+  "based_on_sha256": "81ea5c1c145f1e31356e0f4a040187f61656df726325efe1a0bc8e1544fa08b4",
+  "amendment": {
+    "option": "a",
+    "policy_ref": "campaign-policy.v2.md",
+    "scope": "explicit_vendor_sector_classification_and_panel_evidence_requirements",
+    "human_release_approval_granted": false
+  },
+  "budget_proposal": {
+    "phase_1a": {
+      "llm_enabled": false,
+      "llm_cost_cap_usd": 0
+    },
+    "data_and_hosting_budget": null,
+    "configured_and_verified": false
+  },
+  "phase_1b_gates": [
+    "llm_forwarding_authorization_for_each_data_source",
+    "llm_budget_and_gateway_acceptance",
+    "new_campaign_and_human_approved_release"
+  ],
+  "inherited_file_reconciliation": [
+    {
+      "path": "time-protocol.v1.md",
+      "v1_registered_sha256": "9b1613cfba6ee1d4f8438457858f0f56cc090e93134b8b4e70a758ad78d6ab19",
+      "v1_content_git_commit": "52df87f4772c38c60a37b383f1de4a5b849b7e17",
+      "current_sha256": "82d6b3473d8ce609f138e476d157c7032c3818753cd50c4b404ac568952cf8fe",
+      "reason": "0401fd4_updated_status_line_only_before_this_amendment; time_rules_unchanged",
+      "v1_registration_preserved": true
+    }
+  ]
+}

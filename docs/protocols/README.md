@@ -1,9 +1,9 @@
 # S00 协议登记
 
 登记日期：2026-09-27\
-状态：S00 协议已确认定稿（2026-09-27，Q1–Q9）；尚无正式 campaign、release 批准或供应商快照，formal_campaign_allowed=false。
+状态：v1 于2026-09-27确认；2026-09-28已起草供应商分类候选 v2。已有真实 EODHD 采集与抽样冒烟，正式 panel/具体 release 的批准和登记仍未完成，formal_campaign_allowed=false。
 
-本次登记依据项目所有者的 Q1–Q9 选择；Q5 固定窗口停牌政策、Q7 区间方法与 Q9 Campaign/Batch 层级已确认并入协议。实际数据、模型、日历与权限等 S01+ 依赖在各协议与登记 JSON 中标注为未就绪。
+v1 登记依据项目所有者的 Q1–Q9 选择；Q5 固定窗口停牌政策、Q7 区间方法与 Q9 Campaign/Batch 层级继续沿用。候选 v2 推荐方案 (a)：明示采用 `eodhd_sector`，不宣称与官方 GICS 等价。它是待绑定下一份实际 release 的准备材料，未替任何具体 release 生成批准记录。
 
 | 文件 | 内容 |
 | --- | --- |
@@ -12,9 +12,13 @@
 | [campaign-policy.v1.md](campaign-policy.v1.md) | 内部范围、总体、抽样、来源、评分、审批与 trial |
 | [known-answer-cases.v1.md](known-answer-cases.v1.md) | 协议反例与合成已知答案 |
 | [s00-registration.v1.json](s00-registration.v1.json) | 机器可读的已登记参数、阻断项和协议文件 hash |
+| [campaign-policy.v2.md](campaign-policy.v2.md) | 候选修订：供应商板块分类、首次前向时间证据、冻结映射和正式 panel 登记校验 |
+| [s00-registration.v2.json](s00-registration.v2.json) | 候选参数与文件 hash；正式引用保持空，formal_campaign_allowed=false |
 | [Trial Registry](../trials/registry.md) | 试验登记格式与追加约束 |
 
-v1 在草案状态可以修订并保留 Git 记录；一旦有 campaign 或批准记录绑定其内容 hash，后续变化创建新版本，不能覆盖旧语义。源数据、模型、日历、证券名单未就绪时保留空引用；禁止用示例 hash 或虚构批准时间填充。
+本轮保留 v1 文件及登记 hash，以新 v2 记录分类语义变化。一旦有 campaign 或批准记录绑定内容 hash，后续变化必须创建新版本；候选修订也要同步机器登记的文件 hash。实际引用未固定时保留空值，不能用一次性库冒烟的短 hash、示例名单或虚构批准时间填充。
+
+历史完整性注记：`0401fd4` 曾修改 `time-protocol.v1.md` 的进度状态行，导致当前文件 hash 与 v1 登记不一致；时间规则未改变。v1 登记的旧字节可从 `52df87f` 恢复，本轮不改写它。v2 引用当前文件的真实 hash，并在 `inherited_file_reconciliation` 保留完整历史提交与前后 hash；不能宣称 v1 的旧登记对当前全部文件仍然通过。
 
 批准人为项目所有者本人（人类用户），不是执行 Agent。当前消息确认使用范围与设计选择，不构成对未来尚未生成的 release hash 的上线批准。
 
@@ -23,11 +27,12 @@ v1 在草案状态可以修订并保留 Git 记录；一旦有 campaign 或批�
 | 项目 | 当前状态 |
 | --- | --- |
 | 使用范围、N=20、三种 horizon、周末锚定、Phase 1A 来源 | 按用户选择登记 |
-| GICS 层级、配额、具体种子、规范化方式 | 文档中给出确定性实现约定 |
+| 分类、配额、种子、规范化方式 | v1 原为 GICS；候选 v2 推荐 eodhd_sector；配额、种子和规范化算法保持原登记 |
 | Q5 停牌窗口、Q7 区间方法、Q9 Campaign/Batch 层级 | 已确认（2026-09-27） |
-| PIT 成员/GICS 快照、实际20证券名单、名单 hash | 待 S01/S04 数据与授权验证 |
-| NYSE 日历与 tzdb 版本、SPY 永久 ID | 待 S01/S04 固定 |
-| quant 模型、training manifest、release hash | 待实现并登记 |
-| 人工批准入库、归档与恢复 | 待 S02/S05/S06 实现并验收 |
+| 实际成员和分类、20证券 panel | S06d 采集/抽样冒烟通过；正式源时间、映射恢复、manifest 交叉校验与完整登记仍待收尾 |
+| NYSE 日历与 tzdb 版本、SPY 永久 ID | 已有开发实现；首份实际 release 仍须固定真实引用 |
+| quant 模型、training manifest、release hash | 已有载具 manifest 及登记机制；正式模型选择、实际登记与批准仍需落实 |
+| 批准入库、归档与恢复 | 已有开发验收；真实 release 批准、目标运行环境及恢复依据单独验收 |
+| 许可与预算 | Phase 1A 先确认数据计算/留存/备份许可并建议 LLM 上限0；LLM 数据转发授权与非零预算归 Phase 1B |
 
-这些协议允许继续准备 S01 的独立验证；所有阻断项解除前不得启动正式 campaign。
+开发准备可以继续推进。当前仍有工程校验待办，详见 [实施计划 S06e](../IMPLEMENTATION_PLAN.md#s06e-分类方案与正式登记复核2026-09-28)；所有正式运行前置条件解除前不得启动 campaign。
