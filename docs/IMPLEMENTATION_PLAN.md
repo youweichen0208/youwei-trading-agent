@@ -120,7 +120,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 ### S06 — 开始 baseline/quant 前向运行（Phase 1A；依赖 S05）
 
 - [ ] 发布固定 baseline 与简单量化模型，登记训练与校准版本。（进展：管线载具 baseline-constant-v0 / quant-momentum-v0 已随 S06a 落地并全量披露；正式模型选择须 Trial 登记 + release 人工批准，待阻断项解除）
-- [ ] 人工批准初始 release，按已登记规则固定20证券 panel，事前登记每批60个 case。（阻断：S&P 500 PIT 总体/GICS 快照未取得、生产套餐 ToS 未确认、人工批准未发生；工程路径已就绪——登记抽样算法 sector-stratified-hash-v1 已实现并通过 K01 已知答案复算，见 S06c）
+- [ ] 人工批准初始 release，按已登记规则固定20证券 panel，事前登记每批60个 case。（阻断：生产套餐 ToS 未确认、人工批准未发生；工程路径已就绪——抽样算法、成分采集器与 panel 构建已落地（见 S06c/S06d），真实数据已端到端抽出 20 只；GICS 命名标签待定）
 - [ ] llm_adjusted 保留 unavailable/not_enabled，不填充伪造 LLM 结果。（管线已固定封存该位置，S06a 验收）
 - [ ] Scheduler 按周创建新批次，按交易日检查到期 Outcome。（已落地：见 S06a/S06b 进度；已 resolved Outcome 的供应商更正自动触发已于 S06b 落地）
 - [ ] 最小只读查询显示计划数、完成数、缺失、迟到、数据质量和评分适用范围。（已落地：campaign_status 服务 + 租户隔离 API，见 S06a 进度）
@@ -362,6 +362,13 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 - 交付：`quant/sampling.py`——S00 登记算法 sampling-json-v1（sector-stratified-hash-v1，seed=20260927，N=20）的首个仓库内实现：总体规范化（仅 security_id + sector_code、按 security_id 升序、重复拒绝、缺 PIT sector code 停止登记不静默删除）；配额（每层 1 名 + (N_s-1)/(M-K) 先取整再余数降序、同余按 sector code 升序；M=K=20 零分母分支）；层内按 SHA256(compact_JSON([sampler_version, seed, frame_hash, sector_code, security_id])) 升序取座、同 hash 按 security_id；compact JSON 严格按登记规则（数组序固定、对象键字典序、无空格、UTF-8、无 BOM/换行）；选中名单升序 + selected_list_sha256；draw manifest（算法事实，源版本/映射由数据层补充）。
 - 验收：8 个新测试（**K01 已知答案全量复现**——配额 S01–S09×2/S10/S11×1、末两层选中 SEC-10-2/SEC-11-1、记录 hash 37421b62… 一次复算一致；行序不变性；compact JSON 规则；异余数分配手算对照 9/6/3/1/1；M=K=20 每层一名；M<20/缺分类/重复 id/K>20 四组拒绝；规范化只留协议字段；确定性 + manifest 形状）。纯计算无 PG 依赖。`uv run --frozen pytest -q` → 248 通过。
 - 待办：成分快照到手后的接线——EODHD 帧构建（ticker→永久 ID 映射 + sector 归属）→ select_sample → panel_manifest 登记；GICS 协议修订决策仍待用户选择。
+
+### S06d 进度（2026-09-28）
+
+- 状态：**成分采集与 panel 抽样的工程侧完成**（真实数据端到端验收；正式 campaign 启动仍待预算/ToS/人工 release 批准，见 S06a 待办）。
+- 交付：**EODHD 成分采集器**（`data/eodhd.py`）——Marketplace 端点 `/api/mp/unicornbay/spglobal/comp/GSPC.INDX`（非标准 `/api/fundamentals/`，已实测确认）；严格解析（General/Components/HistoricalTickerComponents；缺 Sector 拒收）；不可变 raw_object 存储（内容 hash 去重、source_available_at/basis 证据模型同 Tiingo）；数据源登记（slug `eodhd`）。**panel 构建**（`data/panel.py`）——ticker→永久 security_id 映射（已在主数据则解析复用、新成员则 create_security）；跨源 ticker 归一化（EODHD `BRK-B` → Tiingo 约定 `BRK.B`）；帧规范化（仅 security_id+sector_code、升序、frame_hash）；`draw_panel` 调登记抽样器；`build_panel_manifest`（抽样器事实 + frame_as_of/index/源版本/raw_object 引用/ticker 映射，stratification_level 由调用方显式固定——GICS 命名决策待定）。
+- 验收：10 个新测试（解析归一化与四组拒收、不可变存储去重、缺源时间 basis、caller_evidence basis（锁定 NOT NULL 回归）、HTTP 错误、ticker 归一化、帧映射/建证券/幂等、缺 sector 停抽、draw+manifest 形状）。**真实 token 端到端冒烟**（一次性容器）：采集 503 成分 + 822 历史成员 → 帧 11 板块（frame_sha256 `8e495fc7…`）→ seed 20260927 抽出 20 只（覆盖全部 11 板块，selected_list_sha256 `59ed17c5…`）。`uv run --frozen pytest -q` → 258 通过。
+- 待办：GICS 命名决策（`stratification_level` 标签：官方 gics_sector vs 声明 eodhd_sector 需协议修订）→ 定标签后正式登记 panel；历史成分的 security 映射（退市真相接入）与增量变更采集随后续；预算配置与人工 release 批准归人。
 
 ```text
 任务：
