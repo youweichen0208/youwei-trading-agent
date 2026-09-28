@@ -1,0 +1,38 @@
+[project]
+name = "youwei-agent-runtime"
+version = "0.1.0"
+description = "Hermes research runtime (S07). Independent Python 3.14 environment; no Core, Ledger, or database dependency."
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "pydantic>=2.10,<3",
+    "youwei-contracts",
+]
+
+[tool.uv.sources]
+youwei-contracts = { path = "../../contracts", editable = true }
+
+# Hermes is NOT a pip-installable dependency (no wheel/sdist; upstream only
+# supports source/editable, Docker, or Nix). It lives as an independent
+# checkout pinned at commit 7fa45eb... with its own Python 3.14 venv (see
+# infra/upstreams.lock.yaml). The adapter imports it via PYTHONPATH pointing
+# at that checkout's `agent/` package at run time, or invokes it as a
+# subprocess. Do not add `hermes-agent` to `dependencies`.
+
+
+[project.scripts]
+youwei-agent-runtime = "youwei_agent_runtime.main:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/youwei_agent_runtime"]
