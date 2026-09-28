@@ -18,7 +18,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import uuid
+from copy import deepcopy
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -102,8 +104,38 @@ class ResearchReference(WireModel):
     an approved, as_of-bound ResearchMemory entry. No free-text-only claims."""
 
     kind: Literal["evidence", "research_memory", "code", "model"]
-    locator: str  # e.g. snapshot row key, memory entry id, module+version, model id
+    locator: str  # evidence: snapshot:<uuid>/rows/<index>; other kinds need their own resolver
     note: str | None = None
+
+
+def evidence_row_locator(evidence: FrozenEvidence, row_index: int) -> str:
+    """Name a row at its original position in the frozen content array."""
+    if type(row_index) is not int or not 0 <= row_index < len(evidence.evidence.content):
+        raise ValueError("row index must be an existing nonnegative integer")
+    return f"snapshot:{evidence.evidence.snapshot_id}/rows/{row_index}"
+
+
+def resolve_reference(evidence: FrozenEvidence, reference: ResearchReference) -> dict:
+    """Return a detached row from the caller's already-authorized evidence.
+
+    Locators are ``snapshot:<snapshot_id>/rows/<zero-based index>`` into
+    the original, hash-bound content array, never a sorted or filtered view.
+    This performs no I/O and grants no database/tenant authorization.
+    """
+    if reference.kind != "evidence":
+        raise ValueError("unsupported reference kind; expected evidence")
+    match = re.fullmatch(
+        rf"snapshot:{evidence.evidence.snapshot_id}/rows/(0|[1-9][0-9]*)",
+        reference.locator,
+    )
+    if match is None:
+        raise ValueError("reference must name a canonical row in this snapshot")
+    row_index = int(match.group(1))
+    if row_index >= len(evidence.evidence.content):
+        raise ValueError("reference row does not exist in this snapshot")
+    # Nested JSON is mutable even after Pydantic deserialization.
+    evidence.evidence.verify_content_hash()
+    return deepcopy(evidence.evidence.content[row_index])
 
 
 class ResearchWarning(WireModel):
@@ -158,6 +190,24 @@ class ResearchProposal(WireModel):
             if self.reason is None:
                 raise ValueError("unavailable proposal requires a reason")
         return self
+
+
+def validate_proposal_references(
+    evidence: FrozenEvidence, proposal: ResearchProposal
+) -> list[dict]:
+    """Check question binding and resolve citations against trusted evidence.
+
+    Only snapshot evidence can be checked with this bundle. Other reference
+    kinds need a separately authorized resolver and are rejected here. This
+    checks cited locations, not whether the claims follow from those rows.
+    The Controller must still authorize the bundle and enforce its seal gates.
+    """
+    if proposal.run_id != evidence.run_id:
+        raise ValueError("proposal run_id does not match frozen evidence")
+    if proposal.case_id != evidence.case.case_id:
+        raise ValueError("proposal case_id does not match frozen evidence")
+    evidence.evidence.verify_content_hash()
+    return [resolve_reference(evidence, reference) for reference in proposal.references]
 
 
 def proposal_digest(proposal: ResearchProposal) -> str:
