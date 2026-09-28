@@ -7,6 +7,7 @@ object. Run this on the SG host (where the pinned Hermes checkout and Python
 """
 
 import json
+import re
 import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
@@ -16,13 +17,12 @@ PROPOSAL = {
     "source_status": "produced",
     "p_outperform": 0.6,
     "expected_excess_return": 0.02,
-    "references": [{"kind": "evidence", "locator": "row-0"}],
+    "references": [],  # filled from the actual request's frozen row locator
     "warnings": [],
     "missing": [],
     "quantitative_basis": "mock smoke test",
     "model": {"model_version": "mock-v0", "provider": "mock"},
 }
-CONTENT = json.dumps(PROPOSAL)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -30,6 +30,16 @@ class Handler(BaseHTTPRequestHandler):
         length = int(self.headers.get("content-length", 0))
         raw = self.rfile.read(length) if length else b""
         body = json.loads(raw) if raw else {}
+        locator = re.search(
+            r"snapshot:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/rows/(?:0|[1-9][0-9]*)",
+            json.dumps(body.get("messages", [])),
+        )
+        if locator is None:
+            self.send_error(400, "smoke request must provide a frozen row locator")
+            return
+        proposal = dict(PROPOSAL)
+        proposal["references"] = [{"kind": "evidence", "locator": locator.group()}]
+        content = json.dumps(proposal)
         with open(LOG, "a") as f:
             f.write(
                 json.dumps(
@@ -69,10 +79,10 @@ class Handler(BaseHTTPRequestHandler):
 
         # role chunk, then content split into pieces, then finish + usage
         self.wfile.write(chunk(role="assistant").encode())
-        self.wfile.write(chunk(delta_content=CONTENT[: len(CONTENT) // 2]).encode())
+        self.wfile.write(chunk(delta_content=content[: len(content) // 2]).encode())
         self.wfile.flush()
         time.sleep(0.05)
-        self.wfile.write(chunk(delta_content=CONTENT[len(CONTENT) // 2 :]).encode())
+        self.wfile.write(chunk(delta_content=content[len(content) // 2 :]).encode())
         self.wfile.write(
             chunk(
                 finish="stop",

@@ -14,7 +14,9 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
-from youwei_contracts.research import FrozenEvidence, ResearchProposal
+from youwei_contracts.research import (
+    FrozenEvidence, ResearchProposal, validate_proposal_references,
+)
 from youwei_agent_runtime.adapter import ISOLATION_KWARGS, build_research_brief
 
 
@@ -69,11 +71,12 @@ def make_agent(config: ResearchConfig, *, platform: str = "research"):
 
 
 def parse_proposal(raw: str, *, run_id, case_id) -> ResearchProposal:
-    """Parse Hermes's textual answer into a validated ResearchProposal.
+    """Decode Hermes's textual answer and check wire/value discipline only.
 
     The model is instructed (via the research brief) to return a JSON object
     matching the research-v1 proposal shape. This boundary enforces the wire
-    discipline declared in the contract; the Controller re-validates at seal.
+    discipline declared in the contract. Citation checking requires the
+    evidence bundle and is performed by run_research before returning.
     """
     # Tolerate markdown fences / surrounding prose in a best-effort way.
     text = raw.strip()
@@ -115,4 +118,6 @@ async def run_research(
     import asyncio
 
     raw = await asyncio.to_thread(agent.chat, brief)
-    return parse_proposal(raw, run_id=evidence.run_id, case_id=evidence.case.case_id)
+    proposal = parse_proposal(raw, run_id=evidence.run_id, case_id=evidence.case.case_id)
+    validate_proposal_references(evidence, proposal)
+    return proposal

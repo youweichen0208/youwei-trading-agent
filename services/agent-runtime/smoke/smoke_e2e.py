@@ -37,7 +37,7 @@ from youwei_agent_runtime.runtime import (  # noqa: E402
     make_agent,
     parse_proposal,
 )
-from youwei_contracts.research import FrozenEvidence  # noqa: E402
+from youwei_contracts.research import FrozenEvidence, validate_proposal_references  # noqa: E402
 
 
 def make_evidence() -> FrozenEvidence:
@@ -111,11 +111,13 @@ def main() -> None:
     proposal = parse_proposal(
         raw, run_id=evidence.run_id, case_id=evidence.case.case_id
     )
+    rows = validate_proposal_references(evidence, proposal)
     print("source_status:", proposal.source_status)
     print("p_outperform:", proposal.p_outperform)
     print("expected_excess_return:", proposal.expected_excess_return)
     print("model:", proposal.model)
     print("references:", proposal.references)
+    print("resolved evidence rows:", len(rows))
     print("\nSMOKE OK")
 
 

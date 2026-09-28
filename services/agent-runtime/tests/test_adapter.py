@@ -109,6 +109,28 @@ def test_brief_reports_zero_bars_without_fabricating():
     assert "bar count: 0" in brief
 
 
+def test_brief_publishes_exact_rows_with_resolvable_original_positions():
+    from youwei_contracts.research import ResearchReference, resolve_reference
+
+    sec = "00000000-0000-0000-0000-00000000000a"
+    own = _bars(sec)
+    other = _bars("00000000-0000-0000-0000-00000000000b", closes=(200.0,))
+    ev = _frozen(sec=sec, bars=[other[0], own[2], own[0], own[1]])
+    brief = build_research_brief(ev)
+    # Citeable rows use the original snapshot order, including other panel
+    # securities if present; the summary's sorting never renumbers them.
+    records = [json.loads(line) for line in brief.splitlines() if line.startswith('{"locator":')]
+    assert len(records) == 4
+    assert records[0]["locator"] == f"snapshot:{ev.evidence.snapshot_id}/rows/0"
+    assert records[0]["row"]["close"] == 200.0
+    assert records[1]["row"]["close"] == 102.0
+    assert records[3]["row"]["close"] == 101.0
+    for record in records:
+        assert resolve_reference(
+            ev, ResearchReference(kind="evidence", locator=record["locator"])
+        ) == record["row"]
+
+
 def test_proposal_from_payload_produces_valid_proposal():
     payload = {
         "source_status": "produced",
