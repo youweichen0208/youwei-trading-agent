@@ -474,6 +474,22 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
   - **DB 级（sg-prod，Docker 29.5.2 + postgres:16-alpine + 真实 Alembic）**：`tests/test_ledger_phase1b.py` 4 个测试通过（新增 `test_phase1b_pipeline_seals_produced_llm_via_agent_runtime`——Phase 1B campaign 经 `run_batch_predictions(agent_runtime=...)` 用假子进程 fetcher 取回 produced proposal 并三源封存，llm_adjusted 落 produced）；`test_ledger_pipeline.py`/`test_ledger_seal.py`/`test_ledger_campaign.py` 共 42 passed 无回归。
 - 剩余限制：agent-runtime 子进程的真实 Hermes `AIAgent` 调用仍需 LLM 网关 + 非零预算（Phase 1B 启用）；预算账本对 Hermes 内部网关调用的成本归集仍是后续切片（本片只取回 proposal，不记账）；平台研究工具（snapshot_manifest/quant_run/...）注册与服务端授权未实现；取消/权限/升级兼容性测试、独立 Docker 镜像构建与 digest 固定归后续；sg-prod 的 Hermes venv 缺 pydantic（youwei-contracts 依赖），正式 agent-runtime 部署环境随 S09 镜像切片补齐。Phase 1B 正式启用仍依赖新 Campaign + 人工批准 release + 数据源 LLM 转发授权。
 
+### S07i 进度（2026-09-28）
+
+- 状态：**平台研究工具（snapshot_manifest）纯逻辑层 + runtime 接入完成本地验收**。首个平台工具 `snapshot_manifest` 的 schema/handler/授权模型落地，run_research 在回合内把 Controller 能力令牌塞进 contextvar 供工具 re-verify；真实 Hermes `tools.registry` 直连注册路径已在 sg-prod 源码核实（注册 API 钉定），SG 运行时注册留待 S09 镜像切片。
+- 交付：
+  - `services/agent-runtime/src/youwei_agent_runtime/tools.py`（新，纯逻辑、无 Hermes 导入）——`RESEARCH_TOOLSET="youwei-research"`、`TOOL_REQUIRED_SCOPE="llm_call"`、`ToolContext`（evidence + capability_token/secret）、`set/reset/current_tool_context` contextvar、`require_scope`（对已验令牌 re-verify 签名/过期/scope，防御纵深）、`snapshot_manifest_schema`/`snapshot_manifest_handler`（报告冻结证据 manifest：snapshot_id/kind/as_of/mode/content_sha256/row_count/schema/coverage/sources，重验 content hash，不读活数据）、`RESEARCH_TOOL_DEFINITIONS` + `register_research_tools(ctx)`（PluginContext 路径）。
+  - `services/agent-runtime/src/youwei_agent_runtime/runtime.py`：`_register_research_tools()`（直连 `from tools.registry import registry` + `registry.register(...)`，deferred import 保纯逻辑面仍可导入）；`run_research` 增加可选 `capability_token`/`capability_secret`，回合内 `set_tool_context` 并在 finally 复位。
+  - `services/agent-runtime/src/youwei_agent_runtime/invoke.py`：`honor_request` 把已验的 capability token/secret 原样转发给 `run_research`（工具 handler 可据此 re-verify）。
+  - `services/agent-runtime/src/youwei_agent_runtime/main.py`：`research-once` 在 honor 前进程级调用一次 `_register_research_tools()`。
+  - `services/agent-runtime/src/youwei_agent_runtime/adapter.py`：`ISOLATION_KWARGS` 的 `enabled_toolsets` 由 `[]` 改为 `[RESEARCH_TOOLSET]`（仅平台工具集，仍关全部 Hermes 内置工具集）；注释同步。
+- 验证：
+  - agent-runtime（本机 3.14）：`tests/test_tools.py` 12 个测试（context 缺失拒绝、set/reset、scope 有效/缺失/坏签名/过期、handler 报 manifest、row_count 回退 len(content)、篡改拒收、缺 scope 拒收、schema 形状、definitions 注册表）；`tests/test_invoke.py` 增 capability 转发断言；`tests/test_runtime.py` 增回合内 context 可读 + 回合后清理；`services/agent-runtime` 全量 **37 passed**。
+  - **sg-prod 只读核实**：`tools/registry.py` 第 1015 行 `registry = ToolRegistry()`、第 666 行 `register(name, toolset, schema, handler, check_fn=None, requires_env=None, is_async=False, description="", emoji="", max_result_size_chars=None, dynamic_schema_overrides=None, override=False, scope=None)`、第 843 行 `get_definitions`（`{...schema, "name": entry.name}`）、第 888 行 `dispatch`（sync `handler(args, **kwargs)`，str 返回合法）；`from tools.registry import registry`（非 `from tools import registry`）确认。详见 runtime-version-pinning.md「平台工具直连注册路径核实」。
+  - **SG 实测（真实 Hermes，零成本）**：Hermes venv 已补齐 pydantic 2.13.4，同步 S07i 源码后——`_register_research_tools()` 注册生效（`registry.get_entry("snapshot_manifest")` toolset=`youwei-research`，构造日志 `Enabled toolset 'youwei-research': snapshot_manifest`、`Final tool selection (1 tools): snapshot_manifest`）；handler 授权正反两面通过（无 context 拒绝、合法 `llm_call` scope 返回 manifest、`snapshot_read` scope 拒绝）；`smoke_e2e.py` 全链路 `SMOKE OK`（mock 提取真实 locator、proposal 解析 + 引用校验通过、`resolved evidence rows: 1`）。详见 runtime-version-pinning.md「SG 实测」。
+  - **Tool Search 渐进披露（记录）**：Hermes `tools.tool_search` 默认把 plugin 工具折叠到 `tool_call`/`tool_describe`/`tool_search` 桥后，故 `agent.valid_tool_names` 显示桥工具而非 `snapshot_manifest`；不影响注册与 handler 授权（dispatch 路径不变），是否关闭 tool_search 让工具直接暴露归真实 LLM 调用切片评估。
+- 剩余限制：`quant_run`/`sandbox_submit`/`sandbox_status`/`artifact_read` 四个平台工具未实现（adapter 的 `RESEARCH_TOOLS` 白名单已列名，后续切片逐个落地，每个 handler 同样按 run 能力令牌授权）；预算账本对 Hermes 内部网关调用成本归集、取消/权限/升级兼容性测试、独立 Docker 镜像构建与 digest 固定归后续；Phase 1B 正式启用依赖新 Campaign + 人工批准 release + 数据源 LLM 转发授权。
+
 ```text
 任务：
 负责人：

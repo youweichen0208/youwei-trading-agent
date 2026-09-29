@@ -53,3 +53,22 @@
 - 因此平台研究工具的正确接入形态是：实现一个 Hermes plugin，`toolset="youwei-research"`（或类似名），在 agent-runtime 进程内注册 `snapshot_manifest` / `quant_run` / `sandbox_submit` / `sandbox_status` / `artifact_read`；`ISOLATION_KWARGS` 改为 `enabled_toolsets=["youwei-research"]`（不再是空列表）。每个 handler 必须经服务端按 run 能力令牌授权（agent-runtime 无 DB 凭证，授权回调 Controller），不能因本地可读到 FrozenEvidence 就放行任意读取。
 
 此核实解答了 S07c「需确认 Hermes 自定义工具注册机制 `ctx.register_tool`」的遗留项；`ctx.register_tool` 的 `ctx` 即 plugin 的 `PluginContext`。
+
+## 平台工具直连注册路径核实（S07i，2026-09-28）
+
+agent-runtime 作为独立子进程（`research-once`）运行，不经过 Hermes 的 plugin 发现流程（`discover_plugins()`），因此不能走 `PluginContext.register_tool`，而是直接驱动全局 `tools.registry`。在 sg-prod 固定 commit `7fa45eb` 上核实其确切接口：
+
+- 模块级单例在 `tools/registry.py` 第 1015 行 `registry = ToolRegistry()`；`tools/__init__.py` 是 side-effect free，**不** re-export `registry`，正确导入是 `from tools.registry import registry`（不是 `from tools import registry`）。
+- `ToolRegistry.register(name, toolset, schema, handler, check_fn=None, requires_env=None, is_async=False, description="", emoji="", max_result_size_chars=None, dynamic_schema_overrides=None, override=False, scope=None)`（第 666 行）：非 plugin 调用方 `owner=None`、`scope=None` 即进程全局 map；同 toolset 重复注册会覆盖（幂等），跨 toolset 同名 shadow 被拒（除非 `override=True`）。
+- `get_definitions(tool_names, quiet)`（第 843 行）生成 `{"type":"function","function":{**entry.schema,"name":entry.name}}`：`name` 从 `entry.name` 注入（覆盖 schema 内冗余的 `name`），`description` 在 register 时 `description or schema.get("description")` 回退。
+- `dispatch(name, args, **kwargs)`（第 888 行）：sync handler 以 `handler(args, **kwargs)` 调用（`kwargs` 经 `_kwargs_accepted_by` 按签名裁剪），`is_async=True` 才走 `_run_async`；handler 返回 `str`（或 `{"_multimodal": True, "content": [...]}`）为合法结果，异常统一转 `tool_error`。
+
+据此 `services/agent-runtime/src/youwei_agent_runtime/runtime.py::_register_research_tools` 用 `from tools.registry import registry` + `registry.register(name=..., toolset=RESEARCH_TOOLSET, schema=..., handler=..., is_async=False, description=schema["description"])` 直连注册；handler 签名为 `(args: dict, **_) -> str`，与 dispatch 契约一致。真实注册与工具调用仍待 SG 部署环境（Hermes venv 需补齐 pydantic/youwei-contracts，见 S07h 剩余限制，随 S09 镜像切片）。
+
+## SG 实测：平台工具注册与 handler 授权（S07i，2026-09-28）
+
+sg-prod 的 Hermes venv 已补齐 pydantic 2.13.4（S07h 遗留项已解决），同步本机 S07i 源码后实测：
+
+- **注册生效**：`_register_research_tools()` 后 `registry.get_entry("snapshot_manifest")` 返回 entry（toolset=`youwei-research`，schema name=`snapshot_manifest`）；`make_agent` 构造日志 `✅ Enabled toolset 'youwei-research': snapshot_manifest`、`🛠️  Final tool selection (1 tools): snapshot_manifest`；`agent._memory_store is None`（隔离键生效）。
+- **handler 授权生效（正/反两面）**：`registry.dispatch("snapshot_manifest", {})` 在无 run context 时返回 `no research run context; tool called outside a run`；设置 `ToolContext`（合法 `llm_call` scope + evidence）后返回正确的 manifest JSON（as_of/content_sha256/kind/mode 等）；用 `snapshot_read` scope（缺 `llm_call`）时返回 `capability missing required scope 'llm_call'`。证明防御纵深授权在真实 Hermes dispatch 路径上成立。
+- **Tool Search 渐进披露（需记录的默认行为）**：Hermes 的 `tools.tool_search` 默认开启，把「plugin 工具」（非 `toolsets._HERMES_CORE_TOOLS`、非 session-gated GUI 的自定义 toolset）折叠到 `tool_call`/`tool_describe`/`tool_search` 三个桥工具后。因此 `agent.valid_tool_names` 显示 `['tool_call', 'tool_describe', 'tool_search']` 而非直接列出 `snapshot_manifest`；模型需先 `tool_search` 查目录、再 `tool_call` 调用。这**不影响**注册与 handler 授权（dispatch 路径不变），只影响模型看到工具面的方式。是否关闭 tool_search（`tools.tool_search.enabled: off`）让 snapshot_manifest 直接暴露给模型，属工具暴露语义，留待真实 LLM 研究调用切片（Phase 1B 启用）时评估。

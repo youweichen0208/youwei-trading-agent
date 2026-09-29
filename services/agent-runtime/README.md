@@ -4,7 +4,7 @@
 
 - 输入：Controller 冻结的计划与证据（FrozenEvidence）。
 - 输出：ResearchProposal，`run_research` 返回前校验引用定位；Controller 的接收与封存接线仍待实现，Agent 无权写 Ledger 或改动 Lesson。
-- 隔离：关闭内置 memory / user_profile / session_search / 后台复盘，研究工具白名单。
+- 隔离：关闭内置 memory / user_profile / session_search / 后台复盘；`enabled_toolsets=["youwei-research"]` 仅启用平台研究工具集（不启用任何 Hermes 内置工具集），当前已落地 `snapshot_manifest`，其余（quant_run/sandbox_submit/sandbox_status/artifact_read）待后续切片。
 - Hermes 上游以完整 commit SHA 固定（见 `infra/upstreams.lock.yaml`、`docs/UPSTREAMS.md`）。
 
 ## 安装（本机）
@@ -42,4 +42,4 @@ PYTHONPATH=<hermes-checkout>:<contracts-src>:<agent-runtime-src> \
     $PY services/agent-runtime/smoke/smoke_e2e.py
 ```
 
-其中 `$PY` 是固定 Hermes checkout 的 Python 3.14 venv 解释器（`~/s01-verify/hermes314/.venv/bin/python`）。预期输出以 `SMOKE OK` 结尾，且 `agent valid tools: []`、`agent memory store: None`（隔离键生效）。
+其中 `$PY` 是固定 Hermes checkout 的 Python 3.14 venv 解释器（`~/s01-verify/hermes314/.venv/bin/python`）。预期输出以 `SMOKE OK` 结尾，且 `agent memory store: None`（内置隔离键生效）。工具面：日志显示 `Enabled toolset 'youwei-research': snapshot_manifest`（平台工具已注册并被 toolset 选中），但 Hermes 的 Tool Search（渐进披露）默认把 plugin 工具折叠到 `tool_call`/`tool_describe`/`tool_search` 三个桥工具后，故 `agent valid tools` 显示这三个桥工具而非直接列出 `snapshot_manifest`——这是 Hermes 默认行为，不影响工具注册与 handler 授权（详见 docs/research/runtime-version-pinning.md「平台工具直连注册路径核实」）。
