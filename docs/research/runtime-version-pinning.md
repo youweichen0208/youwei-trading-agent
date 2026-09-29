@@ -43,3 +43,13 @@
 - `skip_context_files = True`、`skip_background_review = True`（上下文文件与后台复盘关闭）
 
 结论：`enabled_toolsets=[]`（空列表，非 None）是研究角色的正确隔离面——Hermes 内置工具集全关，仅后续注册的平台工具（snapshot_manifest / quant_run / sandbox_submit / sandbox_status / artifact_read）可被调用，且每个都经服务端按 run 能力令牌授权。此验证对应 `services/agent-runtime/src/youwei_agent_runtime/adapter.py` 的 `ISOLATION_KWARGS`。
+
+## 平台工具注册机制核实（2026-09-28）
+
+在 sg-prod 上固定 commit `7fa45eb` 的源码中核实：Hermes **没有**在 `AIAgent.__init__` 提供运行时自定义工具注入参数（无 `tools` / `custom_tools` / `register_tool` 关键字）。自定义工具只能通过 **plugin 系统**注册到全局 `tools.registry`，再经 `enabled_toolsets` 选中：
+
+- `hermes_cli.plugins.PluginContext.register_tool(name, toolset, schema, handler, check_fn=None, requires_env=None, is_async=False, description="", emoji="", override=False)` 是注册入口（`hermes_cli/plugins.py`）；同名内置工具需 `override=True` + operator 在 config.yaml 显式 `allow_tool_override`，否则拒注。
+- plugin 在 `_load_tools`（`agent/agent_init.py`）时经 `discover_plugins()` 发现，工具进全局 `tools.registry`（按 `toolset` 分组），`model_tools.get_tool_definitions(enabled_toolsets=..., disabled_toolsets=...)` 生成该实例的工具快照。
+- 因此平台研究工具的正确接入形态是：实现一个 Hermes plugin，`toolset="youwei-research"`（或类似名），在 agent-runtime 进程内注册 `snapshot_manifest` / `quant_run` / `sandbox_submit` / `sandbox_status` / `artifact_read`；`ISOLATION_KWARGS` 改为 `enabled_toolsets=["youwei-research"]`（不再是空列表）。每个 handler 必须经服务端按 run 能力令牌授权（agent-runtime 无 DB 凭证，授权回调 Controller），不能因本地可读到 FrozenEvidence 就放行任意读取。
+
+此核实解答了 S07c「需确认 Hermes 自定义工具注册机制 `ctx.register_tool`」的遗留项；`ctx.register_tool` 的 `ctx` 即 plugin 的 `PluginContext`。
