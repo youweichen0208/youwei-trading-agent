@@ -223,3 +223,88 @@ def test_fetch_proposal_raises_on_subprocess_failure():
     )
     with pytest.raises(AgentRuntimeError, match="exited 1"):
         asyncio.run(fetch(case, []))
+
+
+class _HangingProcess:
+    """A subprocess whose communicate() never returns (e.g. a stuck
+    Hermes turn). kill() marks it killed; wait() resolves after kill."""
+
+    def __init__(self):
+        self.returncode = None
+        self.killed = False
+
+    async def communicate(self, data: bytes):
+        self.received = data
+        # hang until cancelled by wait_for timeout or an outer cancel
+        await asyncio.Event().wait()
+
+    def kill(self):
+        self.killed = True
+        self.returncode = -9  # SIGKILL
+
+    async def wait(self):
+        return self.returncode
+
+
+def _invocation():
+    sec = str(uuid.uuid4())
+    snap = _snapshot([{"security_id": sec, "trade_date": "2026-09-25", "close": 100.0}])
+    case = _case(security_id=uuid.UUID(sec))
+    evidence = build_frozen_evidence(
+        run_id=uuid.uuid4(), tenant_id=uuid.uuid4(), case=case, snapshot=snap, batch_manifest={},
+    )
+    return ResearchInvocation(
+        capability_token="ywc_dummy", evidence=evidence,
+        config={"base_url": "x", "api_key": "k", "model": "m"},
+    )
+
+
+def test_run_agent_research_kills_subprocess_on_timeout():
+    proc = _HangingProcess()
+
+    async def process_factory():
+        return proc
+
+    with pytest.raises(AgentRuntimeError, match="exceeded"):
+        asyncio.run(
+            run_agent_research(
+                _invocation(), process_factory=process_factory, timeout_seconds=0.01
+            )
+        )
+    assert proc.killed is True
+
+
+def test_run_agent_research_kills_subprocess_on_cancel():
+    proc = _HangingProcess()
+
+    async def process_factory():
+        return proc
+
+    async def drive():
+        task = asyncio.create_task(
+            run_agent_research(
+                _invocation(), process_factory=process_factory, timeout_seconds=60.0
+            )
+        )
+        await asyncio.sleep(0.01)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    asyncio.run(drive())
+    assert proc.killed is True
+
+
+def test_run_agent_research_does_not_kill_on_normal_completion():
+    proc = _FakeProcess(b'{"ok": false, "error": "E: boom"}', returncode=0)
+
+    async def process_factory():
+        return proc
+
+    with pytest.raises(AgentRuntimeError, match="agent-runtime error"):
+        asyncio.run(
+            run_agent_research(
+                _invocation(), process_factory=process_factory, timeout_seconds=5.0
+            )
+        )
+    assert proc.killed is False

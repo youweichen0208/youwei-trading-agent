@@ -89,11 +89,22 @@ async def run_agent_research(
             timeout=timeout_seconds,
         )
     except asyncio.TimeoutError:
-        proc.kill()
-        await proc.wait()
         raise AgentRuntimeError(
             f"agent-runtime research turn exceeded {timeout_seconds}s"
         ) from None
+    finally:
+        # The subprocess must never outlive this invocation: a timeout, a
+        # CancelledError from the worker watchdog, or an error on the
+        # communicate path all leave the child running unless we kill it
+        # here. ``communicate`` sets returncode on normal completion, so this
+        # only fires on the abnormal paths. kill() is synchronous (SIGKILL);
+        # the wait is shielded so a re-raise of CancelledError still reaps.
+        if proc.returncode is None:
+            proc.kill()
+            try:
+                await asyncio.shield(proc.wait())
+            except asyncio.CancelledError:
+                pass  # kill was issued; the OS reaps the child
 
     if proc.returncode != 0:
         tail = (stderr or b"").decode("utf-8", "replace")[-500:]
