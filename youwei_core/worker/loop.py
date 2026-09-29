@@ -23,6 +23,7 @@ from youwei_core.jobs.worker import (
     fail_attempt,
     heartbeat as hb,
 )
+from youwei_core.ledger.pipeline import AgentRuntimeConfig
 
 log = logging.getLogger("youwei.worker")
 
@@ -223,10 +224,7 @@ def main() -> None:
     """youwei-worker entrypoint: noop + data collection + prediction
     + sandbox handlers, plus the scheduler tick."""
     from youwei_core.data.tiingo import TiingoClient, make_tiingo_daily_handler
-    from youwei_core.ledger.pipeline import (
-        AgentRuntimeConfig,
-        make_batch_predict_handler,
-    )
+    from youwei_core.ledger.pipeline import make_batch_predict_handler
     from youwei_core.ledger.scheduler import scheduler_tick
     from youwei_core.logfmt import configure_logging
     from youwei_core.sandbox.handler import make_sandbox_handler

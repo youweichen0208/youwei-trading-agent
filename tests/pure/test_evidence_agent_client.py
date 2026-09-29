@@ -308,3 +308,110 @@ def test_run_agent_research_does_not_kill_on_normal_completion():
             )
         )
     assert proc.killed is False
+
+
+# --- S07j: Controller-side binding check (authorization, pure logic) -------
+
+
+def _echo_proc_for(proposal_run_id, proposal_case_id):
+    """A fake subprocess answering a proposal with explicit run/case ids
+    (simulating a malicious or buggy runtime echoing the wrong binding)."""
+
+    class _P:
+        def __init__(self):
+            self.returncode = 0
+
+        async def communicate(self, data: bytes):
+            proposal = _proposal(proposal_run_id, proposal_case_id)
+            line = json.dumps(
+                {"ok": True, "proposal": proposal.model_dump(mode="json")},
+                sort_keys=True, separators=(",", ":"),
+            ).encode()
+            return line, b""
+
+        def kill(self):
+            pass
+
+        async def wait(self):
+            return 0
+
+    return _P
+
+
+def _fetch_for(case, snapshot, *, run_id=None):
+    run_id = run_id or uuid.uuid4()
+    return make_phase1b_llm_fetcher(
+        run_id=run_id,
+        tenant_id=uuid.uuid4(),
+        snapshot=snapshot,
+        batch_manifest={},
+        capability_token="ywc_dummy",
+        agent_runtime=AgentRuntimeConfig(
+            research_config={}, process_factory=None, timeout_seconds=30.0,
+        ),
+    ), run_id
+
+
+def test_fetcher_rejects_proposal_bound_to_wrong_run():
+    sec = str(uuid.uuid4())
+    snap = _snapshot([{"security_id": sec, "trade_date": "2026-09-25", "close": 100.0}])
+    case = _case(security_id=uuid.UUID(sec))
+    fetch, run_id = _fetch_for(case, snap)
+    wrong_run = uuid.uuid4()
+
+    async def process_factory():
+        return _echo_proc_for(wrong_run, case["id"])()
+
+    fetch_with_proc = make_phase1b_llm_fetcher(
+        run_id=run_id, tenant_id=uuid.uuid4(), snapshot=snap, batch_manifest={},
+        capability_token="ywc_dummy",
+        agent_runtime=AgentRuntimeConfig(
+            research_config={}, process_factory=process_factory, timeout_seconds=30.0,
+        ),
+    )
+    with pytest.raises(AgentRuntimeError, match="run_id/case_id"):
+        asyncio.run(fetch_with_proc(case, []))
+
+
+def test_fetcher_rejects_proposal_bound_to_wrong_case():
+    sec = str(uuid.uuid4())
+    snap = _snapshot([{"security_id": sec, "trade_date": "2026-09-25", "close": 100.0}])
+    case = _case(security_id=uuid.UUID(sec))
+    fetch, run_id = _fetch_for(case, snap)
+    wrong_case = uuid.uuid4()
+
+    async def process_factory():
+        return _echo_proc_for(run_id, wrong_case)()
+
+    fetch_with_proc = make_phase1b_llm_fetcher(
+        run_id=run_id, tenant_id=uuid.uuid4(), snapshot=snap, batch_manifest={},
+        capability_token="ywc_dummy",
+        agent_runtime=AgentRuntimeConfig(
+            research_config={}, process_factory=process_factory, timeout_seconds=30.0,
+        ),
+    )
+    with pytest.raises(AgentRuntimeError, match="run_id/case_id"):
+        asyncio.run(fetch_with_proc(case, []))
+
+
+def test_decode_result_rejects_incompatible_proposal_shape():
+    """A proposal missing the produced-value discipline must not cross the
+    boundary as a valid result (contract compatibility, S07j)."""
+    # produced without p_outperform -> ResearchProposal validation fails
+    bad = json.dumps({
+        "ok": True,
+        "proposal": {
+            "contract_version": "research-v1",
+            "run_id": str(uuid.uuid4()),
+            "case_id": str(uuid.uuid4()),
+            "source_status": "produced",
+            "model": {"model_version": "m", "provider": "p"},
+        },
+    })
+    with pytest.raises(Exception):  # pydantic ValidationError (value discipline)
+        decode_result(bad)
+
+
+def test_decode_result_rejects_non_json_result():
+    with pytest.raises(AgentRuntimeError, match="non-JSON"):
+        decode_result("not json at all")

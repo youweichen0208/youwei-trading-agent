@@ -201,6 +201,28 @@ def test_honor_request_rejects_bad_signature():
         )
 
 
+def test_honor_request_rejects_expired_capability():
+    tenant = uuid.uuid4()
+    evidence = _evidence(tenant)
+    token = sign_capability(
+        SECRET, job_id=uuid.uuid4(), attempt_no=1, tenant_id=tenant,
+        scopes=("llm_call",),
+        exp=datetime.now(UTC) - timedelta(minutes=1),  # already expired
+    )
+    payload = {
+        "capability_token": token,
+        "evidence": evidence.model_dump(mode="json"),
+        "config": {},
+    }
+    with pytest.raises(InvocationError, match="capability"):
+        asyncio.run(
+            honor_request(
+                payload, capability_secret=SECRET,
+                run_research=_fake_run_research, config_factory=_Config,
+            )
+        )
+
+
 def test_decode_request_rejects_non_json():
     with pytest.raises(InvocationError, match="not JSON"):
         decode_request("not json")
