@@ -490,6 +490,20 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
   - **Tool Search 渐进披露（记录）**：Hermes `tools.tool_search` 默认把 plugin 工具折叠到 `tool_call`/`tool_describe`/`tool_search` 桥后，故 `agent.valid_tool_names` 显示桥工具而非 `snapshot_manifest`；不影响注册与 handler 授权（dispatch 路径不变），是否关闭 tool_search 让工具直接暴露归真实 LLM 调用切片评估。
 - 剩余限制：`quant_run`/`sandbox_submit`/`sandbox_status`/`artifact_read` 四个平台工具未实现（adapter 的 `RESEARCH_TOOLS` 白名单已列名，后续切片逐个落地，每个 handler 同样按 run 能力令牌授权）；预算账本对 Hermes 内部网关调用成本归集、取消/权限/升级兼容性测试、独立 Docker 镜像构建与 digest 固定归后续；Phase 1B 正式启用依赖新 Campaign + 人工批准 release + 数据源 LLM 转发授权。
 
+### S07j 进度（2026-09-28）
+
+- 状态：**agent-runtime 弹性测试经真实 Controller 路径完成（C 切片：取消/权限/兼容性/故障恢复）**。测试驱动真实 worker loop → run_batch_predictions → fetcher → 子进程链路，仅在外部 Hermes/网关边界用假子进程替身；真实上游是否停止计算/计费另行验收。
+- 交付：
+  - `tests/test_agent_runtime_resilience.py`（新，DB 级，sg-prod Docker + 真实 Alembic）：5 个测试——执行中取消 kill 子进程 + attempt 落 cancelled、子进程超时/非零退出均封存 llm unavailable（batch 不崩溃）、重复响应 already_sealed 幂等（每 case 仅一个 commit）、lease 过期重新入队并恢复封存。
+  - `tests/pure/test_evidence_agent_client.py`：补 4 个纯逻辑测试——fetcher 层错 run/错 case 绑定拒绝（`run_id/case_id does not match`）、decode_result 对不兼容 proposal 形状（缺 produced 值）报错、非 JSON 报错。
+  - `services/agent-runtime/tests/test_invoke.py`：补过期令牌拒绝（`capability rejected`）。
+  - `youwei_core/worker/loop.py`：修复模块级 `AgentRuntimeConfig` 未导入导致 `import youwei_core.worker.loop` 抛 `NameError`（`_build_agent_runtime` 返回注解在加载时求值）；模块级 import，`main()` 去重复局部 import。
+- 关键发现：SG 部署目录的 `agent_client.py` 仍是 S07h 之前版本（缺 `4fc65ee` 的 finally 取消 reap，只有 `except TimeoutError` kill），取消测试在 SG 先暴露 `hanging.killed=False`，同步本机 `agent_client.py` 后通过——确认「测试经真实路径」能捕获部署同步遗漏。
+- 验证：
+  - 本机（3.13）`tests/pure/` 全量 31 passed（27 + 新增 4）；`services/agent-runtime` 全量 38 passed（37 + 过期令牌 1）。
+  - sg-prod DB 级：`tests/test_agent_runtime_resilience.py` 5 passed；`test_worker_loop.py` 7 passed、`test_ledger_phase1b.py`+`test_ledger_pipeline.py` 17 passed 无回归。
+- 剩余限制：真实 Hermes/网关的取消计费语义（上游是否停止计算/停止计费）另行验收；预算归集（A 切片）与剩余平台工具（B 切片）后续；Phase 1B 正式启用依赖新 Campaign + 人工批准 release + 数据源 LLM 转发授权。
+
 ```text
 任务：
 负责人：
