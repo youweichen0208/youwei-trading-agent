@@ -34,6 +34,7 @@ for _p in (_HERMES, _CONTRACTS, _AGENT_SRC):
 from youwei_agent_runtime.adapter import ISOLATION_KWARGS, build_research_brief  # noqa: E402
 from youwei_agent_runtime.runtime import (  # noqa: E402
     ResearchConfig,
+    _register_research_tools,
     make_agent,
     parse_proposal,
 )
@@ -95,6 +96,10 @@ def main() -> None:
     print(ISOLATION_KWARGS)
 
     print("\n=== building agent ===")
+    # Register the platform research tools into Hermes's global registry before
+    # constructing the agent, exactly as research-once does (main.py). Without
+    # this, enabled_toolsets=["youwei-research"] would select an empty toolset.
+    _register_research_tools()
     agent = make_agent(config)
     print("agent memory store:", agent._memory_store)
     print("agent valid tools:", sorted(agent.valid_tool_names))

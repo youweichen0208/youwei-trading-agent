@@ -72,11 +72,11 @@ def _frozen(sec="00000000-0000-0000-0000-00000000000a", bars=None):
 
 def test_isolation_disables_implicit_state():
     # skip_memory + skip_context_files + skip_background_review all True, and
-    # NO built-in toolset is enabled (empty list, not None).
+    # ONLY the platform research toolset is enabled (never a Hermes built-in).
     assert ISOLATION_KWARGS["skip_memory"] is True
     assert ISOLATION_KWARGS["skip_context_files"] is True
     assert ISOLATION_KWARGS["skip_background_review"] is True
-    assert ISOLATION_KWARGS["enabled_toolsets"] == []
+    assert ISOLATION_KWARGS["enabled_toolsets"] == ["youwei-research"]
     # the whitelist is exactly the platform research tools, not Hermes built-ins
     assert set(RESEARCH_TOOLS) == {
         "snapshot_manifest", "quant_run", "sandbox_submit",

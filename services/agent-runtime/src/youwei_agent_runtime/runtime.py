@@ -18,6 +18,12 @@ from youwei_contracts.research import (
     FrozenEvidence, ResearchProposal, validate_proposal_references,
 )
 from youwei_agent_runtime.adapter import ISOLATION_KWARGS, build_research_brief
+from youwei_agent_runtime.tools import (
+    RESEARCH_TOOLSET,
+    ToolContext,
+    reset_tool_context,
+    set_tool_context,
+)
 
 
 class HermesNotAvailable(Exception):
@@ -49,13 +55,55 @@ def _import_aiagent():
     return AIAgent
 
 
+def _register_research_tools() -> None:
+    """Register the platform research tools into Hermes's global tool registry.
+
+    Hermes has no per-instance custom-tool injection; custom tools live in the
+    global ``tools.registry`` under a toolset, selected per agent via
+    ``enabled_toolsets`` (see docs/research/runtime-version-pinning.md). This
+    function drives that registry directly (the "direct-registry path") so the
+    standalone ``research-once`` subprocess does not need plugin discovery.
+
+    Registration is idempotent at the process level: the registry is global
+    and a second call must not duplicate tools. Only the SG host (or the
+    deployment image) has the pinned checkout, so this is exercised there;
+    the pure handler/schema surface (tools.py) is tested everywhere else.
+    """
+    # Deferred import: tools.registry only exists inside the Hermes checkout.
+    # (tools/__init__.py is side-effect free and does NOT re-export registry;
+    # the module-level singleton lives at tools.registry.registry.)
+    try:
+        from tools.registry import registry
+    except ImportError:  # pragma: no cover - only on hosts w/o Hermes
+        raise HermesNotAvailable(
+            "Hermes tools.registry not on sys.path; run on SG host"
+        )
+    from youwei_agent_runtime.tools import RESEARCH_TOOL_DEFINITIONS
+
+    for name, schema, handler in RESEARCH_TOOL_DEFINITIONS:
+        # Match the PluginContext.register_tool contract Hermes resolves at
+        # _load_tools: register(name, toolset, schema, handler, ...). The
+        # registry groups by toolset and get_tool_definitions(enabled_toolsets)
+        # snapshots this instance's tools.
+        registry.register(
+            name=name,
+            toolset=RESEARCH_TOOLSET,
+            schema=schema,
+            handler=handler,
+            is_async=False,
+            description=schema["description"],
+        )
+
+
 def make_agent(config: ResearchConfig, *, platform: str = "research"):
     """Construct an isolated Hermes AIAgent for one research run.
 
     Applies ISOLATION_KWARGS (skip_memory / skip_context_files /
-    skip_background_review / enabled_toolsets=[]) so Hermes has no built-in
-    tools, no implicit memory, and no session search. Returns an agent whose
-    chat() talks to the configured OpenAI-compatible gateway.
+    skip_background_review / enabled_toolsets=[RESEARCH_TOOLSET]) so Hermes has
+    ONLY the platform research tools (already registered by the process entry
+    via ``_register_research_tools``), no built-in toolset, no implicit memory,
+    and no session search. Returns an agent whose chat() talks to the
+    configured OpenAI-compatible gateway.
     """
     AIAgent = _import_aiagent()
     return AIAgent(
@@ -103,7 +151,11 @@ def parse_proposal(raw: str, *, run_id, case_id) -> ResearchProposal:
 
 
 async def run_research(
-    evidence: FrozenEvidence, config: ResearchConfig
+    evidence: FrozenEvidence,
+    config: ResearchConfig,
+    *,
+    capability_token: str | None = None,
+    capability_secret: str | None = None,
 ) -> ResearchProposal:
     """Run one research turn and return a validated ResearchProposal.
 
@@ -111,13 +163,35 @@ async def run_research(
     the deterministic brief, run an isolated AIAgent turn against the gateway,
     and parse the answer into a proposal. Cost/budget/fencing are the
     Controller's concern; this function only produces the proposal value.
+
+    ``capability_token`` / ``capability_secret``, when provided, are carried
+    in a ToolContext contextvar for the duration of the turn so platform tool
+    handlers (tools.py) can re-verify the Controller's grant before acting.
+    They are optional so pure-logic callers (e.g. offline tests with a fake
+    agent) can run without a token; without them, any tool call will be
+    rejected by ``current_tool_context``.
     """
     agent = make_agent(config)
     brief = build_research_brief(evidence)
+
+    if capability_token is not None and capability_secret is not None:
+        tool_ctx = ToolContext(
+            evidence=evidence,
+            capability_token=capability_token,
+            capability_secret=capability_secret,
+        )
+        ctx_token = set_tool_context(tool_ctx)
+    else:
+        ctx_token = None
+
     # chat() is synchronous; run it in a thread so the caller can cancel.
     import asyncio
 
-    raw = await asyncio.to_thread(agent.chat, brief)
+    try:
+        raw = await asyncio.to_thread(agent.chat, brief)
+    finally:
+        if ctx_token is not None:
+            reset_tool_context(ctx_token)
     proposal = parse_proposal(raw, run_id=evidence.run_id, case_id=evidence.case.case_id)
     validate_proposal_references(evidence, proposal)
     return proposal

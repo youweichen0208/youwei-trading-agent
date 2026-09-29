@@ -17,22 +17,24 @@ import json
 
 from youwei_contracts.research import FrozenEvidence, evidence_row_locator
 
+from youwei_agent_runtime.tools import RESEARCH_TOOLSET
+
 # --- isolation configuration (architecture section 10 / runtime pinning) ---
 
 # Every research run must disable Hermes's implicit memory, session search,
 # background review, and context-file discovery. The values below are the
-# constructor kwargs verified against the pinned commit (7fa45eb...):
-#   AIAgent(skip_memory=True, skip_context_files=True,
-#           skip_background_review=True, enabled_toolsets=[])
-# `enabled_toolsets=[]` (empty, NOT None) selects NO built-in toolset, so
+# constructor kwargs verified against the pinned commit (7fa45eb...).
+# `enabled_toolsets` selects ONLY the platform research toolset
+# (RESEARCH_TOOLSET = "youwei-research"), never a Hermes built-in toolset, so
 # Hermes cannot reach terminal/file/browser/web/session_search. Platform
 # tools (snapshot_manifest / quant_run / sandbox_submit / ...) are registered
-# separately and are the ONLY tools a research run may call.
+# into that toolset and are the ONLY tools a research run may call; each
+# handler re-checks the run's capability token before acting (see tools.py).
 ISOLATION_KWARGS: dict = {
     "skip_memory": True,
     "skip_context_files": True,
     "skip_background_review": True,
-    "enabled_toolsets": [],
+    "enabled_toolsets": [RESEARCH_TOOLSET],
     "disabled_toolsets": [],  # belt-and-suspenders: explicit empty deny
 }
 

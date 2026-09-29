@@ -114,5 +114,9 @@ async def honor_request(
     _check_capability(capability_secret, token, evidence)
 
     config = config_factory(**config_raw)
-    proposal = await run_research(evidence, config)
+    proposal = await run_research(
+        evidence, config,
+        capability_token=token,
+        capability_secret=capability_secret,
+    )
     return encode_result(proposal)

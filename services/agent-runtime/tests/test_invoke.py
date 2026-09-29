@@ -64,7 +64,7 @@ class _Config:
         self.kwargs = kwargs
 
 
-async def _fake_run_research(evidence, config):
+async def _fake_run_research(evidence, config, *, capability_token=None, capability_secret=None):
     return ResearchProposal(
         run_id=evidence.run_id,
         case_id=evidence.case.case_id,
@@ -102,6 +102,42 @@ def test_honor_request_returns_proposal_for_valid_capability():
     decoded = json.loads(result)
     assert decoded["ok"] is True
     assert decoded["proposal"]["source_status"] == "produced"
+
+
+def test_honor_request_passes_capability_to_run_research():
+    tenant = uuid.uuid4()
+    evidence = _evidence(tenant)
+    token = sign_capability(
+        SECRET, job_id=uuid.uuid4(), attempt_no=1, tenant_id=tenant,
+        scopes=("llm_call",),
+        exp=datetime.now(UTC) + timedelta(minutes=5),
+    )
+    payload = {
+        "capability_token": token,
+        "evidence": evidence.model_dump(mode="json"),
+        "config": {"base_url": "x", "api_key": "k", "model": "m"},
+    }
+    captured = {}
+
+    async def _spy(evidence, config, *, capability_token=None, capability_secret=None):
+        captured["token"] = capability_token
+        captured["secret"] = capability_secret
+        return await _fake_run_research(
+            evidence, config,
+            capability_token=capability_token,
+            capability_secret=capability_secret,
+        )
+
+    asyncio.run(
+        honor_request(
+            payload, capability_secret=SECRET,
+            run_research=_spy, config_factory=_Config,
+        )
+    )
+    # the Controller's token and secret are forwarded verbatim so platform
+    # tool handlers (tools.py) can re-verify the grant against the evidence.
+    assert captured["token"] == token
+    assert captured["secret"] == SECRET
 
 
 def test_honor_request_rejects_wrong_tenant():

@@ -9,10 +9,12 @@ import hashlib
 import json
 import sys
 import uuid
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
 
+from youwei_contracts.capability import sign_capability
 from youwei_agent_runtime.runtime import parse_proposal
 
 
@@ -133,3 +135,59 @@ def test_research_returns_citations_to_the_rows_actually_supplied(monkeypatch, e
     assert proposal.run_id == evidence.run_id
     assert proposal.case_id == evidence.case.case_id
     assert resolve_reference(evidence, proposal.references[0])["close"] == "103"
+
+
+def test_research_sets_tool_context_for_handlers_during_turn(monkeypatch, evidence):
+    """When the Controller's capability is supplied, run_research carries it
+    in the tool contextvar so a platform tool handler (snapshot_manifest)
+    can read the frozen evidence and re-verify the grant during chat()."""
+    from youwei_agent_runtime.runtime import ResearchConfig, run_research
+    from youwei_agent_runtime.tools import snapshot_manifest_handler
+
+    token = sign_capability(
+        "secret", job_id=uuid.uuid4(), attempt_no=1, tenant_id=evidence.tenant_id,
+        scopes=("llm_call",),
+        exp=datetime.now(UTC) + timedelta(minutes=5),
+    )
+    seen = {}
+
+    def respond(brief):
+        # Inside the turn, the handler must be able to read the run context.
+        manifest = json.loads(snapshot_manifest_handler({}))
+        seen["snapshot_id"] = manifest["snapshot_id"]
+        record = next(json.loads(line) for line in brief.splitlines() if line.startswith('{"locator":'))
+        return json.dumps(_payload(
+            references=[{"kind": "evidence", "locator": record["locator"]}]
+        ))
+
+    install_external_agent(monkeypatch, respond)
+    asyncio.run(run_research(
+        evidence, ResearchConfig(
+            base_url="http://unused.invalid", api_key="unused", model="external-test-double"
+        ),
+        capability_token=token, capability_secret="secret",
+    ))
+    # the handler reported the run's own frozen snapshot, proving the context
+    # was correctly threaded through the thread hop to chat().
+    assert seen["snapshot_id"] == str(evidence.evidence.snapshot_id)
+
+
+def test_research_clears_tool_context_after_turn(monkeypatch, evidence):
+    from youwei_agent_runtime.runtime import ResearchConfig, run_research
+    from youwei_agent_runtime.tools import ToolAuthorizationError, current_tool_context
+
+    def respond(brief):
+        record = next(json.loads(line) for line in brief.splitlines() if line.startswith('{"locator":'))
+        return json.dumps(_payload(
+            references=[{"kind": "evidence", "locator": record["locator"]}]
+        ))
+
+    install_external_agent(monkeypatch, respond)
+    asyncio.run(run_research(
+        evidence, ResearchConfig(
+            base_url="http://unused.invalid", api_key="unused", model="external-test-double"
+        ),
+    ))
+    # no context leaks past the turn, whether or not a token was supplied.
+    with pytest.raises(ToolAuthorizationError):
+        current_tool_context()

@@ -38,7 +38,11 @@ from youwei_agent_runtime.invoke import (
     encode_error,
     honor_request,
 )
-from youwei_agent_runtime.runtime import ResearchConfig, run_research
+from youwei_agent_runtime.runtime import (
+    ResearchConfig,
+    _register_research_tools,
+    run_research,
+)
 
 
 def _capability_secret(args) -> str:
@@ -51,6 +55,11 @@ def _capability_secret(args) -> str:
 
 async def _research_once(args) -> int:
     secret = _capability_secret(args)
+    # Register the platform research tools into Hermes's global registry once
+    # per process, before any turn. Hermes has no per-instance tool injection;
+    # tools live in the global registry and are selected via enabled_toolsets
+    # (see tools.py / runtime._register_research_tools).
+    _register_research_tools()
     raw = sys.stdin.read()
     try:
         payload = decode_request(raw)
