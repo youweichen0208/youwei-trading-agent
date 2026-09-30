@@ -22,6 +22,7 @@ from youwei_agent_runtime.invoke import (
     encode_result,
     honor_request,
 )
+from youwei_agent_runtime.runtime import ResearchTurn, UsageReport
 
 
 def _evidence(tenant_id) -> FrozenEvidence:
@@ -65,13 +66,19 @@ class _Config:
 
 
 async def _fake_run_research(evidence, config, *, capability_token=None, capability_secret=None):
-    return ResearchProposal(
-        run_id=evidence.run_id,
-        case_id=evidence.case.case_id,
-        source_status="produced",
-        p_outperform=0.6,
-        expected_excess_return=0.02,
-        model={"model_version": "llm-v1", "provider": "test"},
+    return ResearchTurn(
+        proposal=ResearchProposal(
+            run_id=evidence.run_id,
+            case_id=evidence.case.case_id,
+            source_status="produced",
+            p_outperform=0.6,
+            expected_excess_return=0.02,
+            model={"model_version": "llm-v1", "provider": "test"},
+        ),
+        usage=UsageReport(
+            source="unavailable", scope="unknown", complete=False,
+            incomplete_reasons=("no_usage_signal",),
+        ),
     )
 
 
@@ -235,9 +242,19 @@ def test_encode_result_and_error_shapes():
         run_id=evidence.run_id, case_id=evidence.case.case_id,
         source_status="unavailable", reason="insufficient_history",
     )
-    out = json.loads(encode_result(proposal))
+    turn = ResearchTurn(proposal=proposal, usage=UsageReport(
+        source="session_delta", scope="chat_turn", complete=True,
+        prompt_tokens=10, completion_tokens=20, total_tokens=30,
+        input_tokens=8, output_tokens=20, api_calls=1,
+    ))
+    out = json.loads(encode_result(turn))
     assert out["ok"] is True
     assert out["proposal"]["source_status"] == "unavailable"
+    # usage is carried verbatim with its source/scope/complete labeling.
+    assert out["usage"]["source"] == "session_delta"
+    assert out["usage"]["complete"] is True
+    assert out["usage"]["prompt_tokens"] == 10
+    assert out["usage"]["api_calls"] == 1
 
     err = json.loads(encode_error(InvocationError("boom")))
     assert err["ok"] is False

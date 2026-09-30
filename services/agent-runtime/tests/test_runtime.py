@@ -43,12 +43,47 @@ def evidence():
     )
 
 
-def install_external_agent(monkeypatch, response):
+def install_external_agent(monkeypatch, response, *, usage=None, session_delta=None, initial=None):
+    """Install a fake Hermes AIAgent.
+
+    ``usage`` sets ``_last_turn_usage`` (the last-call dict) on the agent;
+    ``initial`` sets the session counters' pre-turn values; ``session_delta``
+    adds to them over the turn (may be negative to simulate a mid-turn reset).
+    A fake with neither ``usage`` nor ``session_delta``/``initial`` simulates a
+    checkout with no usage signal at all.
+    """
+    _ATTRS = {
+        "prompt_tokens": "session_prompt_tokens",
+        "completion_tokens": "session_completion_tokens",
+        "total_tokens": "session_total_tokens",
+        "input_tokens": "session_input_tokens",
+        "output_tokens": "session_output_tokens",
+        "cache_read_tokens": "session_cache_read_tokens",
+        "cache_write_tokens": "session_cache_write_tokens",
+        "reasoning_tokens": "session_reasoning_tokens",
+        "api_calls": "session_api_calls",
+    }
+    # Session counters only exist on the fake when the caller opts in; a fake
+    # with neither ``initial`` nor ``session_delta`` has NO session counters
+    # (so _snapshot_session_usage returns None → fallback/unavailable path).
+    _has_session = initial is not None or session_delta is not None
+
     class FakeAIAgent:
         def __init__(self, **kwargs):
-            pass
+            if _has_session:
+                for attr in _ATTRS.values():
+                    setattr(self, attr, 0)
+                if initial:
+                    for key, value in initial.items():
+                        setattr(self, _ATTRS[key], value)
 
         def chat(self, message):
+            if usage is not None:
+                self._last_turn_usage = dict(usage)
+            if session_delta is not None:
+                for key, value in session_delta.items():
+                    attr = _ATTRS[key]
+                    setattr(self, attr, getattr(self, attr) + value)
             return response(message)
 
     monkeypatch.setitem(sys.modules, "run_agent", SimpleNamespace(AIAgent=FakeAIAgent))
@@ -129,9 +164,10 @@ def test_research_returns_citations_to_the_rows_actually_supplied(monkeypatch, e
         return json.dumps(_payload(references=[{"kind": "evidence", "locator": record["locator"]}]))
 
     install_external_agent(monkeypatch, respond)
-    proposal = asyncio.run(run_research(evidence, ResearchConfig(
+    turn = asyncio.run(run_research(evidence, ResearchConfig(
         base_url="http://unused.invalid", api_key="unused", model="external-test-double"
     )))
+    proposal = turn.proposal
     assert proposal.run_id == evidence.run_id
     assert proposal.case_id == evidence.case.case_id
     assert resolve_reference(evidence, proposal.references[0])["close"] == "103"
@@ -191,3 +227,134 @@ def test_research_clears_tool_context_after_turn(monkeypatch, evidence):
     # no context leaks past the turn, whether or not a token was supplied.
     with pytest.raises(ToolAuthorizationError):
         current_tool_context()
+
+
+def test_research_returns_session_delta_usage(monkeypatch, evidence):
+    """The turn's usage is the session-counter delta (verified against the
+    pinned checkout's session accounting), labeled complete when every counter
+    is present and non-negative."""
+    from youwei_agent_runtime.runtime import ResearchConfig, run_research
+
+    def respond(brief):
+        record = next(json.loads(line) for line in brief.splitlines() if line.startswith('{"locator":'))
+        return json.dumps(_payload(
+            references=[{"kind": "evidence", "locator": record["locator"]}]
+        ))
+
+    install_external_agent(monkeypatch, respond, session_delta={
+        "prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30,
+        "input_tokens": 8, "output_tokens": 20,
+        "cache_read_tokens": 1, "cache_write_tokens": 1, "reasoning_tokens": 0,
+        "api_calls": 2,
+    })
+    result = asyncio.run(run_research(
+        evidence, ResearchConfig(
+            base_url="http://unused.invalid", api_key="unused", model="external-test-double"
+        ),
+    ))
+    assert result.proposal.source_status == "produced"
+    u = result.usage
+    assert u.source == "session_delta"
+    assert u.scope == "chat_turn"
+    assert u.complete is True
+    assert u.incomplete_reasons == ()
+    assert u.prompt_tokens == 10
+    assert u.completion_tokens == 20
+    assert u.total_tokens == 30
+    assert u.input_tokens == 8
+    assert u.output_tokens == 20
+    assert u.cache_read_tokens == 1
+    assert u.cache_write_tokens == 1
+    assert u.reasoning_tokens == 0  # confirmed zero, not unknown
+    assert u.api_calls == 2
+
+
+def test_research_falls_back_to_last_call_when_no_session_counters(monkeypatch, evidence):
+    """Without session counters (older checkout / minimal fake), the last-call
+    usage is returned as a fallback explicitly marked incomplete (it only
+    covers the final API call, not retries/tool-loop/auxiliary calls)."""
+    from youwei_agent_runtime.runtime import ResearchConfig, run_research
+
+    def respond(brief):
+        record = next(json.loads(line) for line in brief.splitlines() if line.startswith('{"locator":'))
+        return json.dumps(_payload(
+            references=[{"kind": "evidence", "locator": record["locator"]}]
+        ))
+
+    install_external_agent(monkeypatch, respond, usage={
+        "prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30,
+    })
+    result = asyncio.run(run_research(
+        evidence, ResearchConfig(
+            base_url="http://unused.invalid", api_key="unused", model="external-test-double"
+        ),
+    ))
+    u = result.usage
+    assert u.source == "last_call_fallback"
+    assert u.scope == "last_api_call"
+    assert u.complete is False
+    assert "last_call_scope_only" in u.incomplete_reasons
+    assert u.prompt_tokens == 10
+    assert u.completion_tokens == 20
+    assert u.total_tokens == 30
+    assert u.api_calls is None
+
+
+def test_research_returns_unavailable_without_any_usage_signal(monkeypatch, evidence):
+    """A checkout/fake with no usage signal yields an explicit unavailable
+    report (unknown, not a fabricated zero)."""
+    from youwei_agent_runtime.runtime import ResearchConfig, run_research
+
+    def respond(brief):
+        record = next(json.loads(line) for line in brief.splitlines() if line.startswith('{"locator":'))
+        return json.dumps(_payload(
+            references=[{"kind": "evidence", "locator": record["locator"]}]
+        ))
+
+    install_external_agent(monkeypatch, respond)  # no usage, no session_delta
+    result = asyncio.run(run_research(
+        evidence, ResearchConfig(
+            base_url="http://unused.invalid", api_key="unused", model="external-test-double"
+        ),
+    ))
+    u = result.usage
+    assert u.source == "unavailable"
+    assert u.scope == "unknown"
+    assert u.complete is False
+    assert "no_usage_signal" in u.incomplete_reasons
+    assert u.prompt_tokens is None
+    assert u.api_calls is None
+
+
+def test_research_marks_counter_reset_incomplete(monkeypatch, evidence):
+    """A session counter that rolls backwards (mid-turn reset) makes the delta
+    unreliable and forces complete=False."""
+    from youwei_agent_runtime.runtime import ResearchConfig, run_research
+
+    def respond(brief):
+        record = next(json.loads(line) for line in brief.splitlines() if line.startswith('{"locator":'))
+        return json.dumps(_payload(
+            references=[{"kind": "evidence", "locator": record["locator"]}]
+        ))
+
+    # The agent already had 100 total tokens before the turn (e.g. a reused
+    # session), then the session counters reset mid-turn so the after value
+    # drops below the before value.
+    install_external_agent(
+        monkeypatch, respond,
+        initial={"total_tokens": 100, "api_calls": 5},
+        session_delta={"prompt_tokens": 5, "completion_tokens": 2, "total_tokens": -100, "api_calls": 1},
+    )
+    result = asyncio.run(run_research(
+        evidence, ResearchConfig(
+            base_url="http://unused.invalid", api_key="unused", model="external-test-double"
+        ),
+    ))
+    u = result.usage
+    assert u.complete is False
+    assert "total_tokens_counter_reset" in u.incomplete_reasons
+    assert u.source == "session_delta"
+    assert u.scope == "chat_turn"
+    # The forward counters still differenced cleanly.
+    assert u.prompt_tokens == 5
+    assert u.api_calls == 1

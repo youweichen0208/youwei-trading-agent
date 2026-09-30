@@ -73,10 +73,21 @@ def decode_request(raw: str) -> dict:
     return payload
 
 
-def encode_result(proposal: ResearchProposal) -> str:
-    """Serialize a successful proposal for the Controller to parse."""
+def encode_result(turn) -> str:
+    """Serialize a successful research turn for the Controller to parse.
+
+    ``turn`` is a ``runtime.ResearchTurn`` (proposal + usage report). The wire
+    carries the usage report verbatim (labeled with source/scope/complete) so
+    the Controller can settle actual cost; cost settlement itself lives in the
+    Controller/budget layer.
+    """
+    usage = turn.usage.to_dict() if hasattr(turn.usage, "to_dict") else dict(turn.usage or {})
     return json.dumps(
-        {"ok": True, "proposal": proposal.model_dump(mode="json")},
+        {
+            "ok": True,
+            "proposal": turn.proposal.model_dump(mode="json"),
+            "usage": usage,
+        },
         sort_keys=True, separators=(",", ":"), ensure_ascii=False,
     )
 
@@ -114,9 +125,11 @@ async def honor_request(
     _check_capability(capability_secret, token, evidence)
 
     config = config_factory(**config_raw)
-    proposal = await run_research(
+    turn = await run_research(
         evidence, config,
         capability_token=token,
         capability_secret=capability_secret,
     )
-    return encode_result(proposal)
+    # The wire now carries the turn's usage report alongside the proposal
+    # (source/scope/complete + token counters) for Controller cost settlement.
+    return encode_result(turn)
