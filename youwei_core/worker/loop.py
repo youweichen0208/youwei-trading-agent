@@ -293,6 +293,7 @@ def _build_agent_runtime(settings: Settings) -> AgentRuntimeConfig | None:
         },
         process_factory=build_process_factory(command, env),
         timeout_seconds=settings.agent_runtime_timeout_seconds,
+        turn_reserve_micros=settings.agent_turn_reserve_micros,
     )
 
 

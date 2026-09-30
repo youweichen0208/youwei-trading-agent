@@ -115,6 +115,9 @@ runs = Table(
     Column("total_budget_micros", BigInteger, nullable=False),
     Column("reserved_micros", BigInteger, nullable=False, server_default="0"),
     Column("settled_micros", BigInteger, nullable=False, server_default="0"),
+    # Estimated cost booked from placeholder/unreconciled rates; kept apart
+    # from settled_micros (confirmed actuals). Reconcile via an ``adjust``.
+    Column("estimated_micros", BigInteger, nullable=False, server_default="0"),
     Column("wall_clock_deadline", TIMESTAMP(timezone=True), nullable=True),
     Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
     Column("updated_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
@@ -122,6 +125,7 @@ runs = Table(
     CheckConstraint("total_budget_micros >= 0", name="total_nonneg"),
     CheckConstraint("reserved_micros >= 0", name="reserved_nonneg"),
     CheckConstraint("settled_micros >= 0", name="settled_nonneg"),
+    CheckConstraint("estimated_micros >= 0", name="estimated_nonneg"),
 )
 
 jobs = Table(

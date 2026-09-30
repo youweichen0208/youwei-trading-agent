@@ -77,3 +77,9 @@ class Settings(BaseSettings):
     agent_llm_base_url: str = ""
     agent_llm_api_key: str = ""
     agent_llm_model: str = ""
+    # Conservative per-turn reservation for the agent-runtime research turn
+    # (micro-USD). 0 disables turn-level budget accounting; a non-zero value
+    # reserves before spawning the subprocess and settles the priced usage
+    # after (S07k). The Controller cannot see Hermes's internal calls, so
+    # this is a configured upper bound, not a per-call estimate.
+    agent_turn_reserve_micros: int = 0

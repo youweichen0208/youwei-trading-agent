@@ -180,6 +180,7 @@ async def get_run_view(engine: AsyncEngine, tenant_id: uuid.UUID, run_id: uuid.U
         "total_budget_micros": run.total_budget_micros,
         "reserved_micros": run.reserved_micros,
         "settled_micros": run.settled_micros,
+        "estimated_micros": run.estimated_micros,
         "created_at": run.created_at.isoformat(),
         "jobs": [
             {

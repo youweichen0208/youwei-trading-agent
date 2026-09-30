@@ -21,7 +21,12 @@ from typing import Any, Mapping
 import httpx
 
 from youwei_core.budget.service import release, reserve, settle
-from youwei_core.llm.pricing import actual_cost, estimate_max_cost
+from youwei_core.llm.pricing import (
+    COST_CONFIRMED,
+    DEFAULT_COST_MAP,
+    estimate_max_cost_for,
+    price_usage,
+)
 
 
 class GatewayError(Exception):
@@ -43,7 +48,9 @@ class GatewayClient:
         api_key: str,
         transport: httpx.AsyncBaseTransport | None = None,
         timeout: float = 120.0,
+        cost_map=DEFAULT_COST_MAP,
     ):
+        self._cost_map = cost_map
         self._http = httpx.AsyncClient(
             base_url=base_url,
             headers={"Authorization": f"Bearer {api_key}"},
@@ -71,8 +78,9 @@ class GatewayClient:
         call_key = f"{attempt_id}:{call_seq}"
 
         # 1. fail-closed reservation before anything is sent
-        estimate = estimate_max_cost(
-            model, max_tokens=max_tokens, approx_input_tokens=approx_input_tokens
+        estimate = estimate_max_cost_for(
+            self._cost_map, model,
+            max_tokens=max_tokens, approx_input_tokens=approx_input_tokens,
         )
         await reserve(
             engine,
@@ -111,13 +119,17 @@ class GatewayClient:
         data = resp.json()
         usage = data.get("usage") or {}
 
-        # 3. settle the actual cost
+        # 3. settle the actual cost. A placeholder rate card prices usage as
+        # an *estimate* (booked to estimated_micros, never confirmed); only a
+        # reconciled card books to settled_micros.
+        cost = price_usage(self._cost_map, model, usage)
         await settle(
             engine,
             run_id,
             attempt_id=attempt_id,
             call_key=call_key,
-            actual_micros=actual_cost(model, usage),
+            actual_micros=cost.amount_micros,
+            confirmed=(cost.status == COST_CONFIRMED),
         )
 
         content = ""

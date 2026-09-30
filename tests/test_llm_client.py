@@ -13,6 +13,7 @@ The Core-side contract for every model call (architecture sections
 
 import asyncio
 import uuid
+from decimal import Decimal
 
 import httpx
 import pytest
@@ -64,7 +65,9 @@ def _client(handler) -> tuple[GatewayClient, list]:
     )
 
 
-async def test_happy_path_reserves_then_settles_actual(db_engine, tenant_id):
+async def test_placeholder_rate_books_estimate_not_confirmed(db_engine, tenant_id):
+    """A placeholder rate card prices usage as an *estimate*: it books to
+    estimated_micros, never settled_micros (which stays for reconciled actuals)."""
     run_id = await _make_run(db_engine, tenant_id)
     client, calls = _client(_ok_response)
 
@@ -84,12 +87,54 @@ async def test_happy_path_reserves_then_settles_actual(db_engine, tenant_id):
     assert len(calls) == 1
     assert calls[0].headers["Authorization"] == "Bearer sk-gw"
 
-    # settled = actual cost from usage, reservation released
+    # glm-5.3 is a placeholder rate -> estimated, reservation released.
+    view = await get_run_view(db_engine, tenant_id, run_id)
+    expected = actual_cost("glm-5.3", USAGE)
+    assert view["settled_micros"] == 0
+    assert view["estimated_micros"] == expected
+    assert view["reserved_micros"] == 0
+    assert await pending_reconciliation(db_engine, run_id) == []
+
+
+async def test_reconciled_rate_books_confirmed_settled(db_engine, tenant_id):
+    """A reconciled rate card prices usage as a confirmed actual, booked to
+    settled_micros."""
+    from youwei_core.llm.pricing import (
+        CostMap, RateCard, RATE_STATUS_RECONCILED,
+    )
+    reconciled = CostMap(
+        version="test-reconciled-v1", currency="USD",
+        models={
+            "glm-5.3": RateCard(
+                input=Decimal("10"),
+                output=Decimal("40"),
+                status=RATE_STATUS_RECONCILED,
+            ),
+        },
+    )
+    run_id = await _make_run(db_engine, tenant_id)
+    # inject the reconciled cost map via a custom client
+    calls = []
+
+    def transport_handler(request):
+        calls.append(request)
+        return _ok_response(request)
+
+    client = GatewayClient(
+        "http://gateway.test", api_key="sk-gw",
+        transport=httpx.MockTransport(transport_handler),
+        cost_map=reconciled,
+    )
+    await client.chat(
+        db_engine, run_id=run_id, attempt_id=uuid.uuid4(), call_seq=1,
+        model="glm-5.3", messages=[{"role": "user", "content": "hi"}],
+        max_tokens=1000, approx_input_tokens=500,
+    )
     view = await get_run_view(db_engine, tenant_id, run_id)
     expected = actual_cost("glm-5.3", USAGE)
     assert view["settled_micros"] == expected
+    assert view["estimated_micros"] == 0
     assert view["reserved_micros"] == 0
-    assert await pending_reconciliation(db_engine, run_id) == []
 
 
 async def test_budget_exceeded_sends_nothing_upstream(db_engine, tenant_id):
