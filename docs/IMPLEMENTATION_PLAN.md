@@ -527,7 +527,21 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
 - 验证：
   - agent-runtime（本机 3.14）：`services/agent-runtime` 全量 **42 passed**（40 + 新增 2）。
   - 本机（3.13）`tests/pure` + `tests/contracts` 全量 **86 passed** 无回归（DB 级测试需 Docker，本机不可用未跑；sg-prod 归后续）。
-- 剩余限制：usage 尚未归集到 budget 层 `settle`（下一片：cost map + reserve/settle 接线 + 请求级限额）。**session 计数器覆盖范围已核实为「主回合 provider 调用」（`turn_response_check.py` → `record_response_usage`）**；auxiliary 调用（压缩/标题/vision/web_extract/session_search）的 usage 走独立的 `agent/aux_accounting.record_aux_usage` → `session_db.record_auxiliary_usage`，**不进入 session_* 计数器**，且我们的隔离配置 `_session_db=None` 时 `set_accounting_context(None, ...)` 会使其被静默丢弃——故「session 累计是否覆盖辅助调用」的答案是**不覆盖**，研究角色是否实际触发 aux 调用需在真实网关调用时观测。真实费率缺失只阻断真实金额验收，不阻断结算逻辑离线实现。Phase 1B 正式启用依赖新 Campaign + 人工批准 release + 数据源 LLM 转发授权。
+- 剩余限制：session 计数器覆盖范围已核实为「主回合 provider 调用」（`turn_response_check.py` → `record_response_usage`）；auxiliary 调用（压缩/标题/vision/web_extract/session_search）的 usage 走独立的 `agent/aux_accounting.record_aux_usage` → `session_db.record_auxiliary_usage`，**不进入 session_* 计数器**，且隔离配置 `_session_db=None` 时会被静默丢弃——研究角色是否实际触发 aux 调用需在真实网关调用时观测。真实费率缺失只阻断真实金额验收，不阻断结算逻辑离线实现。Phase 1B 正式启用依赖新 Campaign + 人工批准 release + 数据源 LLM 转发授权。
+
+### S07k 预算结算进度（2026-09-29，cost map + Controller 接线）
+
+- 状态：**版本化 cost map 与 Controller 预留/结算接线完成（离线实现 + 纯逻辑验收）**；Gateway 请求级限额（第三片）与 DB 级验证留后续。占位价结算 book 为 `estimated_micros` 而非已确认 `settled_micros`，未知费用保留预留待对账、不按 0 处理。
+- **cost map（第 1 步）**：
+  - `youwei_core/llm/pricing.py` 重写——`CostMap`（`version` + `currency=USD` + `models`）、`RateCard`（5 个计费类别 `input`/`output`/`cache_read`/`cache_write`/`reasoning`，费率 `Decimal` micros/token，`status ∈ {placeholder, reconciled}`）、`CostResult`（`amount_micros` + `status ∈ {confirmed, estimated, unknown}` + `breakdown`）、`price_usage`（5 类别独立计价，占位卡→estimated、reconciled→confirmed）、`estimate_max_cost_for`（ceil 保守预留）；币种 USD、金额精度整数 micros、舍入 half-up（结算）/ceil（预留）；`prompt_tokens`/`completion_tokens` 是派生字段（prompt=input+cache_read+cache_write），不叠加计费。legacy `actual_cost`/`estimate_max_cost`/`MODEL_PRICES` 保留为薄封装（占位价，不得 book confirmed）。`DEFAULT_COST_MAP`（`cost-map-v1-placeholder`）承载现有占位价。
+- **Controller 接线（第 2 步）**：
+  - `youwei_core/budget/service.py`：`settle` 加 `confirmed: bool = True`——`confirmed=True` book `settled_micros`（entry_type `settle`），`confirmed=False` book `estimated_micros`（entry_type `settle_estimate`，idem_key `:estimated`）；两者不同幂等键，estimate 不与后续 confirmed 撞键；`pending_reconciliation` 把 `settle_estimate` 也视为已结算（关闭 reserve）。
+  - `youwei_core/db/meta.py` + `migrations/versions/e7f8a9b0c1d2_s07k_estimated_cost_column.py`：`runs.estimated_micros`（BigInteger 非负）与 `settled_micros` 分开；`get_run_view` 暴露 `estimated_micros`。
+  - `youwei_core/llm/client.py`：`GatewayClient` 加 `cost_map` 注入；reserve 用 `estimate_max_cost_for`、settle 用 `price_usage` 的 `status` 驱动 `confirmed`（占位价→estimated）。
+  - `youwei_core/ledger/pipeline.py`：新增 `TurnBudgetWiring`（`engine`/`attempt_id`/`turn_reserve_micros`/`cost_map`）；`make_phase1b_llm_fetcher` 加 `budget` 参数——turn 前 `reserve` 配置上限、turn 后 `_settle_turn_budget`（仅 `source=session_delta` 且 `complete=True` 才计价结算，占位价→estimated；不完整/未知/`last_call_fallback` 保留 reserve 待对账，不按 0）；`AgentRuntimeConfig` 加 `turn_reserve_micros`；`run_batch_predictions` 在 `turn_reserve_micros > 0` 时构建 `TurnBudgetWiring`。
+  - `youwei_core/config.py` + `worker/loop.py`：`agent_turn_reserve_micros`（默认 0=不启用）经 `_build_agent_runtime` 传入。
+- 验证（本机 3.13，纯逻辑）：`tests/pure/test_cost_map.py` 12 passed（5 类别独立计价、prompt/completion 不叠加、placeholder→estimated vs reconciled→confirmed、非整数费率精确 + half-up/ceil 舍入、unknown model 拒绝）；`tests/pure/test_turn_budget.py` 6 passed（complete placeholder→estimated、reconciled→confirmed、incomplete/unavailable/非 dict/last_call 均保留 reserve）；`tests/pure`+`tests/contracts` 全量 **104 passed** 无回归；`tests/test_llm_client.py` 更新 happy-path 为 placeholder→estimated + 新增 reconciled→confirmed（DB 级，本机缺 Docker 未跑，留 sg-prod）。迁移 `e7f8a9b0c1d2` 为当前 head，upgrade/downgrade 未在本机跑（需 PG）。
+- 剩余限制：**第 3 片 Gateway 请求级限额未实现**（Hermes 内部多次调用/重试/辅助请求的请求级预留与结算，防止绕过 run 总预算——依赖 LiteLLM budget reservation，见 llm-gateway-options.md）；`turn_reserve_micros` 的保守上限值需部署时按真实网关定价配置，当前为占位价估算；`estimated_micros → settled_micros` 的对账转换（`adjust`）未实现（对账后人工/自动把 estimate 转为 confirmed）；DB 级预算测试（estimated/confirmed settle、fetcher reserve/settle 端到端）与迁移实测留 sg-prod。真实费率对账后替换 `DEFAULT_COST_MAP` 为 reconciled 版本。
 
 ```text
 任务：
