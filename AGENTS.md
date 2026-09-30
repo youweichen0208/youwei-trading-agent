@@ -34,8 +34,8 @@ SG 当前基线为 DigitalOcean **4 vCPU / 7.8 GB**；原型已归档拆除；**
 - `api/` 处理 HTTP 与鉴权接线；`jobs/` 管理任务、租约和事件；`worker/` 负责执行循环；`auth/` 管理身份与能力令牌；`data/` 管理供应商、证券、PIT 与快照；`ops/` 提供运行状态。新增能力优先进入对应模块。
 - `quant/` 是纯计算包；`contracts/src/youwei_contracts/` 是无数据库依赖的共享契约。Core 的 `sandbox/` 只做授权、HTTP 调用和受 fencing 保护的入库；Docker 执行只存在于 `services/sandbox-runner/`，有独立 `pyproject.toml` / `uv.lock`。保持 Core 运行依赖不含 Runner，Runner 不导入 Core；根 dev 组安装 Runner 仅供测试。
 - 确定性的 **Controller** 掌握任务状态、时间、权限与最终提交。Hermes 组织研究并返回 Proposal，由 Controller 校验后提交。
-- **Hermes 使用独立的 Python 3.14 环境**，不能为了它升级 Core 解释器。Pi 使用独立 Node/TypeScript 运行时，通过受控 RPC 与 Extensions 接入；具体版本查固定记录。
-- 标准量化能力优先实现为经过测试的 Python 库，由受控执行入口调用。Pi 用于库尚未覆盖的探索，生成代码作为沙箱输入。
+- **Hermes 使用独立的 Python 3.14 环境**，不能为了它升级 Core 解释器。Hermes 是 MVP 唯一 Agent 框架，研究角色与实验角色由独立 Hermes 实例实现。Pi 保留为可替换候选但暂缓接入（版本锁不变），具体版本查固定记录。
+- 标准量化能力优先实现为经过测试的 Python 库，由受控执行入口调用。库尚未覆盖的探索由独立 Hermes 实验实例发起，生成代码作为沙箱输入（不热加载为 Extension 或生产 quant 库）。
 - 外部项目默认使用官方固定版本，通过本仓库适配层集成。升级记录版本、完整提交 SHA 或镜像 digest，并执行相关契约测试。只有配置、扩展和适配层无法满足必要改动时才维护最小 fork，记录上游基线与本地补丁。
 - Open WebUI / 原型 Next.js 的接入在 S09 评估，前端消费 Core 的持久任务与结果接口。OpenViking 为可选的派生文档检索层；研究记忆以 PostgreSQL 与批准的版本记录为准。
 
@@ -63,7 +63,7 @@ SG 当前基线为 DigitalOcean **4 vCPU / 7.8 GB**；原型已归档拆除；**
 ### 执行隔离
 
 - 供应商访问集中在数据接入模块，模型访问统一经网关。密钥只交给对应服务，日志和研究产物须脱敏。
-- Hermes 与 Pi 的工具、扩展和 RPC 管理命令使用明确允许列表。只有小型可信 Sandbox Runner 持有容器运行时权限；生成代码在无密钥、默认无网络的受限沙箱执行。
+- Hermes 研究/实验实例的工具、扩展使用明确允许列表；Hermes 内置 `execute_code` 在宿主子进程运行，不等于 gVisor Sandbox Runner，生成代码一律经 Controller 授权进入 Runner。Pi 若日后接入，其 RPC 管理命令同样须允许列表化管理。只有小型可信 Sandbox Runner 持有容器运行时权限；生成代码在无密钥、默认无网络的受限沙箱执行。
 - 快照挂载只读；产物校验路径、链接、类型、数量、大小与 hash。外部文本、生成代码和产物均视为不可信输入。
 
 ## 开发与验证

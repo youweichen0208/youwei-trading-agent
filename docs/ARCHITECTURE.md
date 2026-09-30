@@ -1,6 +1,6 @@
 # Hermes + Pi 美股研究平台技术架构 v0.3
 
-日期：2026-09-28（仓库边界与现行部署约束同步）\
+日期：2026-09-28（仓库边界与现行部署约束同步）；2026-10-01（MVP 暂缓 Pi，Hermes 唯一 Agent 框架）\
 状态：Core 已有开发环境纵向切片；独立部署、正式数据与完整 MVP 按实施计划逐项验收\
 输入：用户提供的 v0.2 架构；详细问题见 [v0.2 评审](ARCHITECTURE_REVIEW_v0.2.md)\
 适用范围：已确认自用或受控内部研究，不向公众提供服务、不自动交易、不对外提供投资建议；目标为中国大陆入口与新加坡核心。现有 SG 主机为 DigitalOcean 4 vCPU / 7.8 GB，国内入口尚待接入。范围扩大按第13节重新评估。
@@ -19,9 +19,9 @@ S00 的具体选择登记于 [protocols/](protocols/README.md)：固定20证券�
 | 4 | Outcome 更正追加版本，评估固定版本清单；Ledger 受控提交与独立归档 | 第 6 节 |
 | 5 | Memory 内容版本、状态事件与上下文快照分开；堵住候选 Lesson 间接注入 | 第 7 节 |
 | 6 | 确定性 Workflow 管执行；PG 任务、租约、幂等和 outbox 管恢复 | 第 2–3、9 节 |
-| 7 | 标准量化绕过 Pi 模型循环；Pi 只处理需要生成代码的探索 | 第 1–3 节 |
+| 7 | 标准量化绕过 Agent 模型循环；生成代码的探索由 Hermes 实验实例发起，Pi 暂缓接入 | 第 1–3 节 |
 | 8 | 六个 SG 应用部署单元、国内持久库、轮询事件和明确出口 | 第 2、9–10 节 |
-| 9 | 沙箱输入/输出、Pi 工具与管理面、租户权限分别约束 | 第 10 节 |
+| 9 | 沙箱输入/输出、Agent 工具与管理面、租户权限分别约束 | 第 10 节 |
 | 10 | 均值/分位数使用匹配评分；注册试验；LLM 变更做前向对照 | 第 8 节 |
 | 11 | 人工批准 research release，覆盖 prompt、模型、工具、Memory 与降级策略 | 第 7–8 节 |
 | 12 | 原子预算预留、恢复目标、故障验收与真实标签等待时间 | 第 11–12 节 |
@@ -36,7 +36,7 @@ S00 的具体选择登记于 [protocols/](protocols/README.md)：固定20证券�
 | --- | --- |
 | 调度 | Workflow Controller 是确定性代码，管理持久任务、截止时间、权限和提交；Hermes 是唯一研究 Supervisor |
 | Hermes | 生成计划、组织研究、综合与反驳；输出 Proposal，由 Controller 校验并提交 |
-| Pi | 仅用于需要生成代码的探索；标准 event study / factor / model 走确定性任务 |
+| Pi | MVP 暂缓接入；保留为可替换的实验 Agent 适配器候选（版本锁不变）。需要生成代码的探索由独立 Hermes 实验实例实现，标准 event study / factor / model 走确定性任务 |
 | 模块组织 | Core API、Workflow、Ledger、Memory、Evaluation 共享代码库；按运行权限和资源需求部署 |
 | 计算与执行边界 | 纯 quant 计算独立于 Ledger；共享 contracts 不依赖数据库；Sandbox Runner 独立进程且无数据库及供应商凭证 |
 | 存储与归档 | MVP 使用 PostgreSQL 与受控本地文件；OSS 不在 MVP 范围；本地归档不提供独立防篡改或 WORM 保证 |
@@ -60,10 +60,9 @@ flowchart TD
     Edge -->|提交、轮询事件，mTLS| API[新加坡 Core API]
     API --> PG[(新加坡 PG：任务 / Ledger / Memory)]
     Controller[Core Worker：Workflow / Scheduler / Evaluation] --> PG
-    Controller -->|FrozenEvidence、能力令牌| Agent[Agent Runtime：Hermes，待接入]
-    Agent -->|探索任务| Pi[Pi RPC 子进程]
+    Controller -->|FrozenEvidence、能力令牌| Agent[Agent Runtime：Hermes 研究/实验实例，待接入]
     Agent -->|ResearchProposal| Controller
-    Pi -->|探索执行请求| Controller
+    Agent -->|探索执行请求（生成代码）| Controller
     Controller -->|HTTP：授权快照字节、hash、作业| Runner[独立 Sandbox Runner]
     Runner --> Box[gVisor：无网络 / 无密钥]
     Runner -->|校验后的产物字节与清单| Controller
@@ -74,7 +73,6 @@ flowchart TD
     Data --> PG
     PG --> Archive[本地 Ledger 导出 / WAL 归档]
     Agent --> LLM[LLM Gateway]
-    Pi --> LLM
     LLM --> Models[模型供应商]
 ```
 
@@ -92,14 +90,14 @@ flowchart TD
 | --- | --- |
 | core-api | 私有入口、鉴权、任务与事件查询、受控提交、产物存取；API 内部包含 Ledger / Memory 的受限操作 |
 | core-worker | 同代码库的 Workflow / Scheduler / Evaluation；授权并冻结沙箱输入，通过 HTTP 调用 Runner，重新校验租约并保存产物，不持有容器运行时权限 |
-| agent-runtime | Hermes 适配器及 Pi RPC 子进程；无数据库凭证、无供应商密钥、无运行时 socket |
+| agent-runtime | Hermes 适配器（研究/实验实例）；无数据库凭证、无供应商密钥、无运行时 socket |
 | data-service | 所有数据供应商适配、采集、版本化与快照；当前在 Core 数据模块实现，独立服务接线随权限隔离推进 |
 | llm-gateway | 模型出口、请求级限额与计费审计；Controller 持有跨角色、跨重试的 run 预算账本 |
 | sandbox-runner | 独立进程以固定模板创建 gVisor 作业；仅接收 Worker 授权并冻结的输入，不读业务数据库、不持有供应商密钥、不直接提交 Ledger 或保存业务产物 |
 
-另有 nginx、PostgreSQL、受控备份任务。上述职责保留在一个业务仓库，按权限需要独立运行；MVP 不要求提前启动所有目标单元。Python Core 与 TypeScript Pi 通过版本化契约连接，外部 Agent 的业务接入仍属 S07/S08。
+另有 nginx、PostgreSQL、受控备份任务。上述职责保留在一个业务仓库，按权限需要独立运行；MVP 不要求提前启动所有目标单元。Hermes 通过版本化契约接入；Pi 保留为可替换候选但暂缓接入，外部 Agent 的业务接入仍属 S07/S08。
 
-较重的标准量化计算也在批处理沙箱执行，但使用已发布的 quant 镜像和固定入口，不调用 Pi 模型循环。轻量评分可在 core-worker 执行。
+较重的标准量化计算也在批处理沙箱执行，但使用已发布的 quant 镜像和固定入口，不调用 Agent 模型循环。轻量评分可在 core-worker 执行。
 
 本方案仍是单节点 Core，不承诺高可用。现有 SG 主机为 DigitalOcean 4 vCPU / 7.8 GB，见 [目标机记录](research/s01-target-verification.md)。先限制重计算并发为1，保留数据库资源，配置小连接池与每进程内存上限；实际容量和 RPO/RTO 在 S09 目标机验收。两台服务器的旧原型已归档并移除，原型的存在或曾运行成功不作为当前业务接入证据。
 
@@ -140,7 +138,7 @@ Execution.status(job_id) -> state + validated_artifact_manifest
 Execution.cancel(job_id, attempt_token) -> cancellation_result
 ```
 
-标准 quant 与 Pi 生成代码共享执行约束。调用方不能指定任意镜像、宿主路径、挂载参数或网络模式。
+标准 quant 与探索生成代码共享执行约束。调用方不能指定任意镜像、宿主路径、挂载参数或网络模式。
 
 独立 Runner 的 HTTP 契约为 `POST /v1/executions`、`GET /v1/executions/{job_id}/{attempt_no}` 和同路径 `DELETE`。Core Worker 校验作业及快照授权，推送冻结内容和 hash；请求签名绑定 tenant、job、attempt、请求体 hash 及租约截止时间。Worker 持续轮询并按协议续租，Runner 在租约或执行时限到期后停止计算。Runner 返回经过边界校验的产物字节和清单，Worker 在当前 attempt 的 fencing 检查通过后保存业务产物。
 
@@ -350,7 +348,7 @@ PG 用短事务领取任务，原子更新 lease_owner、lease_expires_at 与递
 
 ## 10. 安全与资源
 
-Hermes 与 Pi Extension 都是可信部署代码。只允许经审核、固定版本的扩展；生成的 Python/脚本只成为沙箱输入。Phase 0 必须检查 bash/read/write/edit、shell escape、工具内部执行、包加载、skill/session 持久化所有通路，不能只拦 bash。Pi RPC wrapper 还必须允许列表化管理命令，不能把独立的 RPC bash 等命令透传给模型。具体官方能力见 [运行时核实](research/hermes-pi-runtime-verification.md)。
+Hermes 研究/实验实例与（若日后接入的）Pi Extension 都是可信部署代码。只允许经审核、固定版本的扩展；生成的 Python/脚本只成为沙箱输入。Phase 0 必须检查 bash/read/write/edit、shell escape、工具内部执行、包加载、skill/session 持久化所有通路，不能只拦 bash。Hermes 内置 `execute_code` 在 Agent 宿主子进程运行，不等于 gVisor Sandbox Runner，不能替代既定沙箱链路；研究/实验实例须维持明确工具允许列表，生成代码一律经 Controller 授权进入 Runner。Pi 保留为可替换候选，若日后接入，其 RPC wrapper 仍须允许列表化管理命令，不能把独立的 RPC bash 等命令透传给模型。具体官方能力见 [运行时核实](research/hermes-pi-runtime-verification.md)。
 
 权限由服务端认证主体决定；请求中的 tenant_id、scope、snapshot_id 不能自证权限。agent runtime 获得短期、限 job 的能力令牌，只能访问已批准的快照和操作。多用户接入前，对私有任务、产物、预测、Memory 开启 PG RLS 并测试；应用角色不能是 owner、superuser 或 BYPASSRLS。共享市场数据与 system 只读发布使用明确的策略。[PostgreSQL RLS](https://www.postgresql.org/docs/16/ddl-rowsecurity.html)
 
@@ -384,7 +382,7 @@ PII 处理覆盖请求正文、上传附件、模型日志与错误堆栈，仅�
 
 ## 11. 成本、备份与验收
 
-预算以 run 为根，所有角色/Pi/重试共享同一账本。模型调用前原子预留保守估算费用，结束后结算；并发调用不能各自读取旧余额。同时限制输出 token、墙钟时间和重试次数，实际 provider 价格与计费规则必须验证。
+预算以 run 为根，所有角色/重试共享同一账本。模型调用前原子预留保守估算费用，结束后结算；并发调用不能各自读取旧余额。同时限制输出 token、墙钟时间和重试次数，实际 provider 价格与计费规则必须验证。
 
 按 v0.2 示例，100 证券每周一次且每证券一个研究任务、每任务耗尽 2 美元上限，约 200 美元/周、867 美元/月，仅为算术预算示例；不含数据、主机、存储、实验和用户会话。三个 horizon 若拆成独立任务，成本还会改变。
 
@@ -402,7 +400,7 @@ MVP 在每次研究中共享行情/财务/新闻包，按需启用角色；一�
 | --- | --- | --- |
 | Phase 0 | 固定目标/时间协议与 Hermes/Pi 版本；数据源与沙箱技术验证；LLM 出口；部署与授权判断 | 受控执行方案通过技术验证；真实 quant 依赖可运行；PIT 数据样例通过；隔离测试库可备份恢复 |
 | Phase 1A | 持久任务与预算基础、生产沙箱、证券/日历/公司行为、Snapshot、baseline/quant、Ledger、Outcome、最小评分与只读查询 | 重复投递不重复封存；崩溃可恢复；迟到拒绝；收益已知答案正确；更正保留旧评估；经批准的 baseline/quant cohort 开始 |
-| Phase 1B | Hermes 证据研究、三组预测、Pi 一个探索 Job、两地入口、系统 campaign | 引用可核对；截止后拒绝新预测，晚确认排除出准时集合；三组按 case 配对；记录缺失与降级；输入快照可恢复 |
+| Phase 1B | Hermes 证据研究、三组预测、一个受控探索 Job、两地入口、系统 campaign | 引用可核对；截止后拒绝新预测，晚确认排除出准时集合；三组按 case 配对；记录缺失与降级；输入快照可恢复 |
 | Phase 2 | 评估 Dashboard、校准、复盘、受控 memory、trial/release 审批界面 | 历史状态召回正确；候选 Lesson 不进入正式上下文；报告显示相关性、coverage 与成本 |
 | Phase 3 | 完整 challenger 晋级、独立最终评估、人工批准及回滚工作流、必要时扩容 | 阈值/样本/查看次数事前登记；release 审计完整；支持回滚到已批准 release |
 

@@ -3,7 +3,7 @@
 日期：2026-09-27；结构优化更新：2026-09-28\
 设计依据：[ARCHITECTURE.md](ARCHITECTURE.md)\
 问题来源：[v0.2 评审](ARCHITECTURE_REVIEW_v0.2.md)\
-状态：S00 协议已确认定稿（2026-09-27）；S01 主体完成（Tiingo 字段级验证已实测；EOD 实盘观测随 S04 首次采集、生产套餐条款确认待购买时；网关取消/用量/限额待验收）；S02 已完成（隔离开发环境验收，2026-09-27）；S03 第一/二纵切片完成（沙箱执行、独立 Runner 与 HTTP 产物链路，2026-09-28；生产部署仍待验收）；S04 第一至三纵切片完成（PIT 数据基础、交易日历与冻结快照，2026-09-27；训练 manifest 登记，2026-09-28；独立退市真相源、派生特征与多源仍待补源决策）；S05 已完成四纵切片（封存核心、Outcome 回填、评估报告、归档与监控，2026-09-27）加 S05e 证据追溯收紧（2026-09-28）；S06 第一/二纵切片完成（前向预测管线，2026-09-27；供应商更正自动触发、月度汇总与报告门控，2026-09-28；正式 campaign 启动项仍阻断）；S03 剩余部署项与 S06 正式启动及 S07 后续切片（工具授权、镜像部署）与 S08–S11 待实施、待验收。S07k 预算/计费已按项目所有者决定整体删除（2026-09-30）。
+状态：S00 协议已确认定稿（2026-09-27）；S01 主体完成（Tiingo 字段级验证已实测；EOD 实盘观测随 S04 首次采集、生产套餐条款确认待购买时；网关取消/用量/限额待验收）；S02 已完成（隔离开发环境验收，2026-09-27）；S03 第一/二纵切片完成（沙箱执行、独立 Runner 与 HTTP 产物链路，2026-09-28；生产部署仍待验收）；S04 第一至三纵切片完成（PIT 数据基础、交易日历与冻结快照，2026-09-27；训练 manifest 登记，2026-09-28；独立退市真相源、派生特征与多源仍待补源决策）；S05 已完成四纵切片（封存核心、Outcome 回填、评估报告、归档与监控，2026-09-27）加 S05e 证据追溯收紧（2026-09-28）；S06 第一/二纵切片完成（前向预测管线，2026-09-27；供应商更正自动触发、月度汇总与报告门控，2026-09-28；正式 campaign 启动项仍阻断）；S03 剩余部署项与 S06 正式启动及 S07 后续切片（工具授权、镜像部署）与 S08–S11 待实施、待验收。S07k 预算/计费已按项目所有者决定整体删除（2026-09-30）。S08 于 2026-10-01 决策改为「受控量化探索闭环（Hermes）」：MVP 暂缓接入 Pi，Hermes 作为唯一 Agent 框架，Pi 保留为可替换候选。
 
 ## 1. 执行规则
 
@@ -22,7 +22,7 @@ S00 目标与评估协议
   → S05 Ledger、Outcome 与评分
   → S06 baseline/quant 前向批次
   → S07 Hermes 研究与三组预测
-  → S08 Pi 探索任务
+  → S08 受控量化探索闭环（Hermes）
   → S09 国内入口与完整 MVP 验收
   → S10 评估界面、Memory 与审批
   → S11 前向候选验证与人工发布
@@ -52,7 +52,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 
 - [x] 固定 Hermes、Pi、Python/Node、镜像与依赖版本；依据运行时核实验证实际接口（Hermes main `7fa45eb` + Python 3.14 + `uv sync --frozen` 可复现；Pi 0.87.1 + node:22 + RPC 冒烟通过；见 [实测记录](research/s01-target-verification.md)）。
 - [ ] Hermes 独立任务实例、工具白名单、关闭研究链路内置记忆/后台学习/会话检索（隔离键名已从官方文档确认，运行时验证待 S07 接入）。
-- [x] Pi 工具和 RPC 管理命令白名单依据；资源自动加载、技能及扩展固定为可信部署内容（命令全集与 flags 已固定于 [runtime-version-pinning](research/runtime-version-pinning.md)；wrapper 实现属 S08）。
+- [x] Pi 工具和 RPC 管理命令白名单依据；资源自动加载、技能及扩展固定为可信部署内容（命令全集与 flags 已固定于 [runtime-version-pinning](research/runtime-version-pinning.md)；Pi 暂缓接入，wrapper 不设于当前 MVP）。
 - [x] 在目标 SG Linux 主机上执行真实 quant 依赖，验证 gVisor、Parquet、资源与网络限制（runsc 开销噪声级、mmap 正常、锁定配置生效、网络阻断；见 [实测记录](research/s01-target-verification.md)）。
 - [x] 试用数据源（Tiingo），验证原始版本、源时间、退市/公司行为、许可与模型使用范围（2026-09-27 实测：字段全集、拆分精确、分红复权 ~1e-5 偏差→自算总收益维持、退市三形态含 SGEN 幽灵行/SIVB 缺失、SPY 正常；见 [tiingo-token-verification](research/tiingo-token-verification.md)。遗留：EOD 周五晚实盘观测随 S04 首次采集闭环；生产套餐 ToS 留存/LLM 条款于购买时浏览器确认——S04 正式快照前阻断项）。
 - [ ] 验证 LLM Gateway 的工具调用、辅助请求、取消、用量记录和并发限额（工具调用/流式/网关链路已通，火山需 Bearer 头；取消/用量/限额待 S02；见 [实测记录](research/s01-target-verification.md)）。
@@ -80,7 +80,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 
 - [ ] Runner 固定镜像 digest、命令模板、只读根目录、网络和资源限额。（S03b 生产模式在启动时拒绝非 digest 镜像或非 runsc；开发模式需显式选择。目标机 gVisor/资源验收仍待 S09）
 - [x] Worker 授权冻结快照 → 签名 HTTP 请求 → 独立 Runner 固定 spool → hash 校验 → 沙箱只读挂载。（MVP 小型 JSON 字节；大规模流式与二进制输入另行交付）
-- [ ] 标准 quant 使用已发布镜像入口，不启动 Pi Agent。（进展：sandbox.execute 从固定镜像执行作业脚本，不启动任何 Agent；Pi 接入归 S08）
+- [ ] 标准 quant 使用已发布镜像入口，不启动 Agent 模型循环。（进展：sandbox.execute 从固定镜像执行作业脚本，不启动任何 Agent；受控探索闭环归 S08，Pi 暂缓接入）
 - [x] Runner 经 HTTP 返回校验产物 → Worker 核对 job/attempt/hash → fencing 与事件同事务入库。（请求绑定 tenant/冻结内容/租约；跨租户作业快照拒绝。OSS 已排除 MVP）
 - [ ] 限制路径、文件类型/大小/数量；拒绝穿越、symlink/hardlink 和不安全反序列化；复杂解析在受限环境。（已落地：tar 流内存校验——白名单扩展、单文件/总量/数量上限、拒绝 symlink/hardlink/特殊文件/穿越/非 UTF-8，产物不落宿主磁盘）
 - [x] 超时/取消终止计算，清理容器和临时文件，保留受控日志。（S03b：HTTP 取消、租约到期停止、清理完成前占用并发槽、日志轮转及有限回执缓存；强杀后的遗留容器在 Runner 下次启动回收，目标机恢复时限仍需 S09）
@@ -147,19 +147,20 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 
 验收：故障后可恢复；同批三组共享目标和证据版本；生成截止后到达的结果不能进入准时评估。固定输入可复查，不要求外部 LLM 重跑逐字一致。
 
-### S08 — 接入一个 Pi 探索任务（Phase 1B；依赖 S03、S07）
+### S08 — 受控量化探索闭环（Hermes）（Phase 1B；依赖 S03、S07）
 
-- [ ] 通过受控 RPC wrapper 运行 Pi，所有模型调用归到父 run 预算。
-- [ ] 在实际接入时创建 Pi Node 包与 `integrations/pi/` 适配/扩展；固定包版本和锁，以 RPC 契约测试验收升级。
-- [ ] 工具仅访问授权快照、受控 job 文件系统与 Sandbox Runner。
-- [ ] 固定 Job/Artifact 契约，覆盖取消、partial、timeout、warnings、代码与环境引用。
-- [ ] **设计「研究请求 → Controller 授权 → 执行 → 产物引用」的往返契约**：Hermes 经 Controller 受控接口申请计算、查询状态、读取产物；提交、状态查询、产物读取分别授权；标准 quant 不经 Pi，artifact_read 为读取操作；不预先承诺必须实现 quant_run/sandbox_submit/sandbox_status/artifact_read 这四个名称，按一个完整探索用例决定工具接口（S07 收敛决定）。
-- [ ] 选择一个 quant 库未覆盖的探索问题，生成代码后在沙箱执行。
+> 2026-10-01 决策：MVP 暂缓接入 Pi，Hermes 作为唯一 Agent 框架；研究角色与实验角色由独立 Hermes 实例实现。依据 [hermes-only-runtime-assessment](research/hermes-only-runtime-assessment.md)。Pi 保留为可替换的实验 Agent 适配器候选，版本锁不变，仅在 Hermes 暴露具体缺口时经预登记比较后再评估接入。
+
+- [ ] **设计「研究请求 → Controller 授权 → 执行 → 产物引用」的往返契约**：Hermes 研究实例经 Controller 受控接口申请计算、查询状态、读取产物；提交、状态查询、产物读取分别授权；标准 quant 不经 Agent 模型循环，artifact_read 为读取操作；不预先承诺必须实现 quant_run/sandbox_submit/sandbox_status/artifact_read 这四个名称，按一个完整探索用例决定工具接口（S07 收敛决定）。
+- [ ] 库未覆盖时，Controller 启动独立 Hermes 实验实例，输入冻结快照说明与明确问题；生成代码作为不可信作业输入，交 Sandbox Runner 执行。研究/实验实例不共享可自动演化的记忆。
+- [ ] 固定 Job/Artifact 契约，覆盖取消、partial、timeout、warnings、代码与环境引用；提交、状态查询、产物读取分别授权。
+- [ ] 实验输出由研究实例消费，再返回 Proposal；Controller 继续掌握任务状态、租约、截止时间与正式封存。
+- [ ] 选择一个 quant 库未覆盖的探索问题，生成代码后在沙箱执行，完成从 Hermes 提议到沙箱结果、研究引用的完整样例。
 - [ ] 实验候选登记 trial；禁止把生成代码热加载为 Extension 或生产 quant 库。
 
-交付：从 Hermes 提议到 Pi 实验、沙箱结果、研究引用的完整样例。
+交付：从 Hermes 研究提议到实验实例、沙箱执行、结果回收、研究引用的完整样例。
 
-验收：本地 shell、RPC 管理命令、加载扩展、跨作业文件请求均无法突破允许范围；标准 quant 任务继续直接执行库函数。
+验收：本地 shell、RPC 管理命令、加载扩展、跨作业文件请求均无法突破允许范围；标准 quant 任务继续直接执行库函数；Hermes 内置 `execute_code` 不得替代 gVisor Sandbox Runner——研究/实验实例维持明确工具允许列表，生成代码一律经 Controller 授权进入 Runner。
 
 ### S09 — 完成国内入口与 MVP 运维验收（Phase 1B；依赖 S02、S07，可与 S08 并行）
 
@@ -218,7 +219,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 | P0-6 | 持久执行、租约、幂等、恢复 | S02、S05 |
 | P1-1 | 预测统计量与评分匹配 | S00、S05 |
 | P1-2 | 最终样本隔离、指标检验与前向验证 | S00、S10–S11 |
-| P1-3 | 标准 quant 绕过 Pi | S03、S06、S08 |
+| P1-3 | 标准 quant 绕过 Agent 模型循环 | S03、S06、S08 |
 | P1-4 | 沙箱与产物安全 | S01、S03、S08 |
 | P1-5 | 国内持久库、采集归属、出口与通信 | S02、S04、S09 |
 | P1-6 | research release 覆盖全部行为变更 | S00、S06–S07、S10–S11 |

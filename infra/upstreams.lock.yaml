@@ -19,7 +19,7 @@
         }
       },
       "deployment": {"image": null, "bindings": []},
-      "notes": "Source installation smoke-tested. S07 adapter, isolation keys, research-v1 contract and offline/no-cost smoke are complete (see docs/IMPLEMENTATION_PLAN.md S07a-g); production integration, gateway wiring, image digest and deployment acceptance remain for S09."
+      "notes": "Source installation smoke-tested. S07 adapter, isolation keys, research-v1 contract and offline/no-cost smoke are complete (see docs/IMPLEMENTATION_PLAN.md S07a-g); production integration, gateway wiring, image digest and deployment acceptance remain for S09. 2026-10-01: Hermes is the sole Agent framework for MVP; S08 is now the controlled quant exploration loop implemented with Hermes research/experiment instances (see docs/research/hermes-only-runtime-assessment.md)."
     },
     "pi": {
       "enabled": false,
@@ -34,7 +34,7 @@
         }
       },
       "deployment": {"image": null, "bindings": []},
-      "notes": "RPC get_state smoke passed; S08 wrapper, package lock, exact Node/image digest and end-to-end authorization are not accepted."
+      "notes": "RPC get_state smoke passed. 2026-10-01: deferred for MVP (Hermes is the sole Agent framework); retained as a replaceable experiment-agent adapter candidate with version pin unchanged. Re-evaluate only if Hermes exposes a concrete gap, with a pre-registered comparison on the same task/model/tools/sandbox conditions. Package lock, exact Node/image digest and end-to-end authorization remain unverified and unaccepted."
     },
     "litellm": {
       "enabled": false,
