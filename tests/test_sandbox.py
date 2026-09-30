@@ -18,6 +18,7 @@ Acceptance mapped from the plan (S03) and architecture §10:
 
 import asyncio
 import json
+import shutil
 import tempfile
 import uuid
 from datetime import UTC, date, datetime
@@ -278,7 +279,9 @@ async def test_timeout_kills_and_removes_container(db_engine, tenant_id):
     with pytest.raises(SandboxExecutionError, match="exceeded"):
         await _execute("x = 0\nwhile True: x += 1", config=_config(timeout_seconds=3))
 
-    docker = "/usr/local/bin/docker"
+    docker = shutil.which("docker")
+    if docker is None:
+        pytest.skip("docker not available")
     proc = await asyncio.create_subprocess_exec(
         docker, "ps", "--filter", "name=youwei-sbx-", "--format", "{{.Names}}",
         stdout=asyncio.subprocess.PIPE,
