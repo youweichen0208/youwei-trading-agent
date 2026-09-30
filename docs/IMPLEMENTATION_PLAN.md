@@ -153,6 +153,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 - [ ] 在实际接入时创建 Pi Node 包与 `integrations/pi/` 适配/扩展；固定包版本和锁，以 RPC 契约测试验收升级。
 - [ ] 工具仅访问授权快照、受控 job 文件系统与 Sandbox Runner。
 - [ ] 固定 Job/Artifact 契约，覆盖取消、partial、timeout、warnings、代码与环境引用。
+- [ ] **设计「研究请求 → Controller 授权 → 执行 → 产物引用」的往返契约**：Hermes 经 Controller 受控接口申请计算、查询状态、读取产物；提交、状态查询、产物读取分别授权；标准 quant 不经 Pi，artifact_read 为读取操作；不预先承诺必须实现 quant_run/sandbox_submit/sandbox_status/artifact_read 这四个名称，按一个完整探索用例决定工具接口（S07 收敛决定）。
 - [ ] 选择一个 quant 库未覆盖的探索问题，生成代码后在沙箱执行。
 - [ ] 实验候选登记 trial；禁止把生成代码热加载为 Extension 或生产 quant 库。
 
@@ -489,6 +490,13 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
   - **SG 实测（真实 Hermes，零成本）**：Hermes venv 已补齐 pydantic 2.13.4，同步 S07i 源码后——`_register_research_tools()` 注册生效（`registry.get_entry("snapshot_manifest")` toolset=`youwei-research`，构造日志 `Enabled toolset 'youwei-research': snapshot_manifest`、`Final tool selection (1 tools): snapshot_manifest`）；handler 授权正反两面通过（无 context 拒绝、合法 `llm_call` scope 返回 manifest、`snapshot_read` scope 拒绝）；`smoke_e2e.py` 全链路 `SMOKE OK`（mock 提取真实 locator、proposal 解析 + 引用校验通过、`resolved evidence rows: 1`）。详见 runtime-version-pinning.md「SG 实测」。
   - **Tool Search 渐进披露（记录）**：Hermes `tools.tool_search` 默认把 plugin 工具折叠到 `tool_call`/`tool_describe`/`tool_search` 桥后，故 `agent.valid_tool_names` 显示桥工具而非 `snapshot_manifest`；不影响注册与 handler 授权（dispatch 路径不变），是否关闭 tool_search 让工具直接暴露归真实 LLM 调用切片评估。
 - 剩余限制：`quant_run`/`sandbox_submit`/`sandbox_status`/`artifact_read` 四个平台工具未实现（adapter 的 `RESEARCH_TOOLS` 白名单已列名，后续切片逐个落地，每个 handler 同样按 run 能力令牌授权）；预算账本对 Hermes 内部网关调用成本归集、取消/权限/升级兼容性测试、独立 Docker 镜像构建与 digest 固定归后续；Phase 1B 正式启用依赖新 Campaign + 人工批准 release + 数据源 LLM 转发授权。
+
+### S07i 补充（工具范围收敛，2026-09-30）
+
+- 状态：**收敛平台工具声明与实现的一致**。此前 `adapter.RESEARCH_TOOLS` 常量列了 5 个工具名，但实际注册只来自 `tools.RESEARCH_TOOL_DEFINITIONS`（当时仅 `snapshot_manifest`），且该常量仅被测试引用——这是声明与实现不一致，不能描述为 Hermes 已获得五项能力。
+- 调整：删除 `adapter.RESEARCH_TOOLS` 常量及其测试断言；工具的唯一事实来源收敛为 `tools.RESEARCH_TOOL_DEFINITIONS`（当前 `["snapshot_manifest"]`）。`test_tools.py::test_research_tool_definitions_registry` 已断言实际注册集合 == `["snapshot_manifest"]`（非测常量）；未授权调用拒绝已由 `test_current_tool_context_raises_without_run`/`test_require_scope_rejects_*`/`test_snapshot_manifest_handler_requires_scope` 覆盖。沙箱执行类能力（quant_run/sandbox_submit/sandbox_status/artifact_read）非 Pi 专属、也非不可安全实现，但需「研究请求 → Controller 授权 → 执行 → 产物引用」的往返契约，归 S08 按一个完整探索用例决定接口（提交、状态查询、产物读取分别授权），不预先承诺这四个名称。
+- 验证：agent-runtime（本机 3.14）全量 **42 passed** 无回归。
+- 剩余限制：收敛工具列表本身不代表整个 S07 已完成；S07 剩余验收（真实网关调用、取消计费语义、独立 Docker 镜像构建与 digest 固定）与 S08 沙箱往返契约继续推进。Phase 1B 正式启用依赖新 Campaign + 人工批准 release + 数据源 LLM 转发授权。
 
 ### S07j 进度（2026-09-28）
 

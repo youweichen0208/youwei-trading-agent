@@ -27,9 +27,10 @@ from youwei_agent_runtime.tools import RESEARCH_TOOLSET
 # `enabled_toolsets` selects ONLY the platform research toolset
 # (RESEARCH_TOOLSET = "youwei-research"), never a Hermes built-in toolset, so
 # Hermes cannot reach terminal/file/browser/web/session_search. Platform
-# tools (snapshot_manifest / quant_run / sandbox_submit / ...) are registered
-# into that toolset and are the ONLY tools a research run may call; each
-# handler re-checks the run's capability token before acting (see tools.py).
+# tools (currently snapshot_manifest; see RESEARCH_TOOL_DEFINITIONS in
+# tools.py) are registered into that toolset and are the ONLY tools a
+# research run may call; each handler re-checks the run's capability token
+# before acting (see tools.py).
 ISOLATION_KWARGS: dict = {
     "skip_memory": True,
     "skip_context_files": True,
@@ -38,17 +39,14 @@ ISOLATION_KWARGS: dict = {
     "disabled_toolsets": [],  # belt-and-suspenders: explicit empty deny
 }
 
-# The research-tool whitelist (architecture section 10). These are platform
-# tools, not Hermes built-in toolsets; the adapter exposes only these to the
-# research role. Each is server-side authorized against the run's capability
-# scopes and the frozen evidence.
-RESEARCH_TOOLS: tuple[str, ...] = (
-    "snapshot_manifest",
-    "quant_run",
-    "sandbox_submit",
-    "sandbox_status",
-    "artifact_read",
-)
+# The platform research tools are defined in tools.py as
+# RESEARCH_TOOL_DEFINITIONS (the single source of truth for what is actually
+# registered). As of S07 only snapshot_manifest exists; the remaining
+# sandbox-execution capabilities (quant_run / sandbox_submit / sandbox_status /
+# artifact_read) are deferred to S08, where their authorization and round-trip
+# contract (research request -> Controller authorization -> execution ->
+# artifact reference) is designed together with a complete exploration case.
+# Do not add a name here without a matching handler in tools.py.
 
 
 # --- deterministic research brief ------------------------------------------

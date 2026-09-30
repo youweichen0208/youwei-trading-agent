@@ -13,7 +13,6 @@ import pytest
 
 from youwei_agent_runtime.adapter import (
     ISOLATION_KWARGS,
-    RESEARCH_TOOLS,
     build_research_brief,
     proposal_from_payload,
 )
@@ -77,11 +76,6 @@ def test_isolation_disables_implicit_state():
     assert ISOLATION_KWARGS["skip_context_files"] is True
     assert ISOLATION_KWARGS["skip_background_review"] is True
     assert ISOLATION_KWARGS["enabled_toolsets"] == ["youwei-research"]
-    # the whitelist is exactly the platform research tools, not Hermes built-ins
-    assert set(RESEARCH_TOOLS) == {
-        "snapshot_manifest", "quant_run", "sandbox_submit",
-        "sandbox_status", "artifact_read",
-    }
 
 
 def test_brief_is_deterministic_for_same_evidence():
