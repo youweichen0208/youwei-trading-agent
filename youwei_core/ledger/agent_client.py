@@ -36,6 +36,20 @@ class ResearchInvocation:
     config: dict  # runtime.ResearchConfig kwargs (base_url/api_key/model/...)
 
 
+@dataclass(frozen=True)
+class AgentResearchResult:
+    """One agent-runtime research turn as received by the Controller.
+
+    ``proposal`` is the validated ResearchProposal; ``usage`` is the raw usage
+    report dict (source/scope/complete + token counters) decoded from the
+    wire. The Controller's budget layer settles cost from ``usage``; when the
+    runtime is older (proposal-only wire) ``usage`` is a synthetic unavailable
+    report, never a fabricated zero."""
+
+    proposal: ResearchProposal
+    usage: dict
+
+
 def encode_request(invocation: ResearchInvocation) -> str:
     """Serialize one research request line for the agent-runtime's stdin."""
     return json.dumps(
@@ -48,12 +62,14 @@ def encode_request(invocation: ResearchInvocation) -> str:
     )
 
 
-def decode_result(raw: str) -> ResearchProposal:
-    """Parse the agent-runtime's single-line result into a proposal.
+def decode_result(raw: str) -> AgentResearchResult:
+    """Parse the agent-runtime's single-line result into a proposal + usage.
 
     A non-``ok`` result raises AgentRuntimeError carrying the runtime's error;
     a produced proposal is re-validated here (defense in depth — the runtime
-    already validated, but the Controller never trusts the wire blindly).
+    already validated, but the Controller never trusts the wire blindly). The
+    usage report is carried verbatim; an older proposal-only runtime yields a
+    synthetic unavailable report (unknown, not zero).
     """
     try:
         payload = json.loads(raw)
@@ -66,7 +82,18 @@ def decode_result(raw: str) -> ResearchProposal:
     proposal = payload.get("proposal")
     if proposal is None:
         raise AgentRuntimeError("agent-runtime result missing proposal")
-    return ResearchProposal.model_validate(proposal)
+    usage = payload.get("usage")
+    if not isinstance(usage, dict):
+        usage = {
+            "source": "unavailable",
+            "scope": "unknown",
+            "complete": False,
+            "incomplete_reasons": ["usage_not_reported"],
+        }
+    return AgentResearchResult(
+        proposal=ResearchProposal.model_validate(proposal),
+        usage=usage,
+    )
 
 
 async def run_agent_research(
@@ -74,13 +101,14 @@ async def run_agent_research(
     *,
     process_factory,
     timeout_seconds: float,
-) -> ResearchProposal:
+) -> AgentResearchResult:
     """Run one research turn in the agent-runtime subprocess.
 
     ``process_factory`` is an async callable ``(cmd, env) -> process``
     compatible with ``asyncio.create_subprocess_exec``'s return
     (stdin/stdout pipes). It is injected so the codec + timeout + error
-    handling are testable without a real Hermes checkout.
+    handling are testable without a real Hermes checkout. Returns the
+    proposal plus the usage report decoded from the wire.
     """
     proc = await process_factory()
     try:

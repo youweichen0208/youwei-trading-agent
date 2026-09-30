@@ -134,12 +134,43 @@ def test_encode_request_and_decode_result_roundtrip():
     assert payload["evidence"]["run_id"] == str(run_id)
 
     result = json.dumps(
-        {"ok": True, "proposal": _proposal(run_id, case["id"]).model_dump(mode="json")},
+        {
+            "ok": True,
+            "proposal": _proposal(run_id, case["id"]).model_dump(mode="json"),
+            "usage": {
+                "source": "session_delta", "scope": "chat_turn", "complete": True,
+                "incomplete_reasons": [], "prompt_tokens": 10,
+                "completion_tokens": 20, "total_tokens": 30,
+                "input_tokens": 8, "output_tokens": 20,
+                "cache_read_tokens": 1, "cache_write_tokens": 1,
+                "reasoning_tokens": 0, "api_calls": 2,
+            },
+        },
         sort_keys=True, separators=(",", ":"),
     )
     decoded = decode_result(result)
-    assert decoded.source_status == "produced"
-    assert decoded.p_outperform == 0.6
+    assert decoded.proposal.source_status == "produced"
+    assert decoded.proposal.p_outperform == 0.6
+    # usage carried verbatim across the wire with its labeling intact.
+    assert decoded.usage["source"] == "session_delta"
+    assert decoded.usage["complete"] is True
+    assert decoded.usage["api_calls"] == 2
+
+
+def test_decode_result_defaults_usage_when_wire_omits_it():
+    """An older proposal-only runtime yields a synthetic unavailable report,
+    never a fabricated zero (back-compat with pre-usage runtimes)."""
+    run_id = uuid.uuid4()
+    case_id = uuid.uuid4()
+    result = json.dumps(
+        {"ok": True, "proposal": _proposal(run_id, case_id).model_dump(mode="json")},
+        sort_keys=True, separators=(",", ":"),
+    )
+    decoded = decode_result(result)
+    assert decoded.proposal.source_status == "produced"
+    assert decoded.usage["source"] == "unavailable"
+    assert decoded.usage["complete"] is False
+    assert "usage_not_reported" in decoded.usage["incomplete_reasons"]
 
 
 def test_decode_result_errors_on_non_ok():
@@ -415,3 +446,83 @@ def test_decode_result_rejects_incompatible_proposal_shape():
 def test_decode_result_rejects_non_json_result():
     with pytest.raises(AgentRuntimeError, match="non-JSON"):
         decode_result("not json at all")
+
+
+def test_fetcher_passes_usage_to_sink():
+    """The fetched turn's usage report is handed to the optional usage_sink
+    verbatim (source/scope/complete + counters), so the budget layer can settle
+    actual cost without re-decoding the wire (S07k)."""
+    run_id = uuid.uuid4()
+    sec = str(uuid.uuid4())
+    bars = [{"security_id": sec, "trade_date": "2026-09-25", "close": 100.0}]
+    snap = _snapshot(bars)
+    case = _case(security_id=uuid.UUID(sec))
+    proposal = _proposal(run_id, case["id"])
+    usage_payload = {
+        "source": "session_delta", "scope": "chat_turn", "complete": True,
+        "incomplete_reasons": [], "prompt_tokens": 10,
+        "completion_tokens": 20, "total_tokens": 30,
+        "input_tokens": 8, "output_tokens": 20,
+        "cache_read_tokens": 1, "cache_write_tokens": 1,
+        "reasoning_tokens": 0, "api_calls": 2,
+    }
+    result_line = json.dumps(
+        {
+            "ok": True,
+            "proposal": proposal.model_dump(mode="json"),
+            "usage": usage_payload,
+        },
+        sort_keys=True, separators=(",", ":"),
+    ).encode()
+
+    async def process_factory():
+        return _FakeProcess(result_line)
+
+    captured = []
+    fetch = make_phase1b_llm_fetcher(
+        run_id=run_id,
+        tenant_id=uuid.uuid4(),
+        snapshot=snap,
+        batch_manifest={},
+        capability_token="ywc_dummy",
+        agent_runtime=AgentRuntimeConfig(
+            research_config={}, process_factory=process_factory, timeout_seconds=30.0,
+        ),
+        usage_sink=captured.append,
+    )
+    got = asyncio.run(fetch(case, bars))
+    assert got.source_status == "produced"
+    assert len(captured) == 1
+    assert captured[0] == usage_payload
+
+
+def test_fetcher_without_sink_drops_usage_but_returns_proposal():
+    """Without a usage_sink the fetcher still returns the proposal (usage is
+    dropped, not an error) — sealing paths run without a budget ledger."""
+    run_id = uuid.uuid4()
+    sec = str(uuid.uuid4())
+    bars = [{"security_id": sec, "trade_date": "2026-09-25", "close": 100.0}]
+    snap = _snapshot(bars)
+    case = _case(security_id=uuid.UUID(sec))
+    proposal = _proposal(run_id, case["id"])
+    result_line = json.dumps(
+        {
+            "ok": True,
+            "proposal": proposal.model_dump(mode="json"),
+            "usage": {"source": "session_delta", "scope": "chat_turn", "complete": True},
+        },
+        sort_keys=True, separators=(",", ":"),
+    ).encode()
+
+    async def process_factory():
+        return _FakeProcess(result_line)
+
+    fetch = make_phase1b_llm_fetcher(
+        run_id=run_id, tenant_id=uuid.uuid4(), snapshot=snap, batch_manifest={},
+        capability_token="ywc_dummy",
+        agent_runtime=AgentRuntimeConfig(
+            research_config={}, process_factory=process_factory, timeout_seconds=30.0,
+        ),
+    )
+    got = asyncio.run(fetch(case, bars))
+    assert got.source_status == "produced"

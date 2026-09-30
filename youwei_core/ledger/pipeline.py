@@ -171,6 +171,7 @@ def make_phase1b_llm_fetcher(
     batch_manifest: dict,
     capability_token: str,
     agent_runtime: AgentRuntimeConfig,
+    usage_sink: Callable[[dict], None] | None = None,
 ):
     """Build a fetch_proposal for the batch's frozen evidence.
 
@@ -179,6 +180,11 @@ def make_phase1b_llm_fetcher(
     (its own snapshot + case plan + batch manifest) and sends it across the
     subprocess boundary with the per-job capability token (signed by the
     worker loop when it claimed the job).
+
+    ``usage_sink``, when provided, receives the decoded usage report dict
+    after each turn so the budget layer can settle actual cost (S07k). It is
+    optional so the pure codec/fetch tests and the sealing path can run
+    without a budget ledger; without it the usage is dropped.
     """
 
     async def fetch_proposal(case, bars):
@@ -194,11 +200,12 @@ def make_phase1b_llm_fetcher(
             evidence=evidence,
             config=agent_runtime.research_config,
         )
-        proposal = await run_agent_research(
+        result = await run_agent_research(
             invocation,
             process_factory=agent_runtime.process_factory,
             timeout_seconds=agent_runtime.timeout_seconds,
         )
+        proposal = result.proposal
         # Controller-side binding check (defense in depth): the proposal must
         # answer the exact case this bundle was sent for — never trust the
         # wire's run_id/case_id blindly.
@@ -206,6 +213,8 @@ def make_phase1b_llm_fetcher(
             raise AgentRuntimeError(
                 "proposal run_id/case_id does not match the frozen evidence"
             )
+        if usage_sink is not None:
+            usage_sink(result.usage)
         return proposal
 
     return fetch_proposal
