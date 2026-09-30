@@ -25,7 +25,7 @@ ALL_TABLES = (
     "research_releases, panel_registrations, "
     "snapshots, calendar_days, calendar_builds, "
     "price_observations, raw_objects, security_identities, securities, "
-    "data_sources, budget_entries, events, attempts, jobs, runs, api_keys, tenants"
+    "data_sources, events, attempts, jobs, runs, api_keys, tenants"
 )
 
 

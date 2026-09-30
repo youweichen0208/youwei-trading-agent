@@ -132,7 +132,6 @@ async def _submit_batch_predict(engine, tenant_id, batch_id, *, release_id="rel-
         tenant_id,
         RunSubmission(
             kind="research.batch_predict",
-            total_budget_micros=0,
             jobs=[{
                 "kind": "research.batch_predict",
                 "payload": {"batch_id": str(batch_id), "release_id": release_id},

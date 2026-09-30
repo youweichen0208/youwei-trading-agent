@@ -94,7 +94,6 @@ async def _attempt(engine, tenant_id, *, kind="research.seal", max_attempts=1):
         tenant_id,
         RunSubmission(
             kind=kind,
-            total_budget_micros=0,
             jobs=[{"kind": kind, "payload": {}, "max_attempts": max_attempts}],
         ),
         idempotency_key=f"idem-{uuid.uuid4()}",

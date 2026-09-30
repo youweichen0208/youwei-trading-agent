@@ -157,9 +157,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         request: Request,
         _admin: Annotated[Principal, Depends(require_admin)],
     ):
-        """Deployment health snapshot + alerts (queue backlog, pending
-        budget reconciliation, unpublished outbox events, unreaped
-        expired leases, overdue runs, WAL archive staleness)."""
+        """Deployment health snapshot + alerts (queue backlog, unpublished
+        outbox events, unreaped expired leases, overdue runs, WAL archive
+        staleness)."""
         return await ops_status(request.app.state.engine, request.app.state.settings)
 
     # --- admin endpoints (bootstrap key) ----------------------------------

@@ -1,10 +1,9 @@
 """Database schema (SQLAlchemy Core metadata).
 
 This metadata is the single source of truth for tables; the Alembic
-migration in migrations/versions/0001 mirrors it. Money amounts are
-integer micros (micro-USD). The events table doubles as the
-transactional outbox (architecture section 9): rows are appended in the
-same transaction as state changes; published_at marks delivery.
+migration in migrations/versions/0001 mirrors it. The events table doubles
+as the transactional outbox (architecture section 9): rows are appended in
+the same transaction as state changes; published_at marks delivery.
 """
 
 import uuid
@@ -50,7 +49,6 @@ ATTEMPT_STATUSES = (
     "expired",
     "late",
 )
-BUDGET_ENTRY_TYPES = ("reserve", "release", "settle", "adjust")
 
 # --- S05: campaign registration & forecast ledger ------------------------
 
@@ -112,20 +110,10 @@ runs = Table(
     Column("idempotency_key", Text, nullable=False),
     Column("idempotency_payload_sha256", Text, nullable=False),
     Column("status", Text, nullable=False),
-    Column("total_budget_micros", BigInteger, nullable=False),
-    Column("reserved_micros", BigInteger, nullable=False, server_default="0"),
-    Column("settled_micros", BigInteger, nullable=False, server_default="0"),
-    # Estimated cost booked from placeholder/unreconciled rates; kept apart
-    # from settled_micros (confirmed actuals). Reconcile via an ``adjust``.
-    Column("estimated_micros", BigInteger, nullable=False, server_default="0"),
     Column("wall_clock_deadline", TIMESTAMP(timezone=True), nullable=True),
     Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
     Column("updated_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
     UniqueConstraint("tenant_id", "idempotency_key", name="uq_runs_tenant_idem"),
-    CheckConstraint("total_budget_micros >= 0", name="total_nonneg"),
-    CheckConstraint("reserved_micros >= 0", name="reserved_nonneg"),
-    CheckConstraint("settled_micros >= 0", name="settled_nonneg"),
-    CheckConstraint("estimated_micros >= 0", name="estimated_nonneg"),
 )
 
 jobs = Table(
@@ -178,29 +166,6 @@ events = Table(
     Column("occurred_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
     Column("published_at", TIMESTAMP(timezone=True), nullable=True),
     Index("ix_events_tenant_seq", "tenant_id", "seq"),
-)
-
-# Budget entries are an append-only ledger per run.
-# - reserve: amount reserved before a call/retry is sent upstream
-# - settle: actual cost booked after the response is priced
-# - release: reservation returned without a call result (cancel path)
-# - adjust: manual correction (e.g. reconciled unknown cost)
-# An unmatched reserve after its attempt ended is a pending
-# reconciliation (timeout/cancel with unknown cost).
-budget_entries = Table(
-    "budget_entries",
-    meta,
-    Column("id", UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
-    Column("run_id", UUID(as_uuid=True), ForeignKey("runs.id"), nullable=False),
-    Column("attempt_id", UUID(as_uuid=True), nullable=True),
-    Column("entry_type", Text, nullable=False),
-    Column("amount_micros", BigInteger, nullable=False),
-    # idem_key examples: "{attempt_id}:{call_no}:reserve" / ":settle"
-    Column("idem_key", Text, nullable=False),
-    Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
-    UniqueConstraint("run_id", "idem_key", name="uq_budget_run_idem"),
-    CheckConstraint("amount_micros >= 0", name="amount_nonneg"),
-    Index("ix_budget_run_type", "run_id", "entry_type"),
 )
 
 # --- S04: PIT data foundation -------------------------------------------

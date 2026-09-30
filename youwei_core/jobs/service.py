@@ -25,7 +25,6 @@ class JobSubmission(BaseModel):
 
 class RunSubmission(BaseModel):
     kind: str = Field(min_length=1, max_length=100)
-    total_budget_micros: int = Field(ge=0)
     wall_clock_seconds: int | None = Field(default=None, ge=1)
     jobs: list[JobSubmission] = Field(min_length=1, max_length=1000)
 
@@ -109,7 +108,6 @@ async def submit_run(
                     idempotency_key=idempotency_key,
                     idempotency_payload_sha256=payload_sha,
                     status="pending",
-                    total_budget_micros=submission.total_budget_micros,
                     wall_clock_deadline=wall_clock_deadline,
                 )
             )
@@ -133,7 +131,6 @@ async def submit_run(
                     payload={
                         "kind": submission.kind,
                         "job_count": len(submission.jobs),
-                        "total_budget_micros": submission.total_budget_micros,
                     },
                 )
             )
@@ -177,10 +174,6 @@ async def get_run_view(engine: AsyncEngine, tenant_id: uuid.UUID, run_id: uuid.U
         "id": str(run.id),
         "kind": run.kind,
         "status": run.status,
-        "total_budget_micros": run.total_budget_micros,
-        "reserved_micros": run.reserved_micros,
-        "settled_micros": run.settled_micros,
-        "estimated_micros": run.estimated_micros,
         "created_at": run.created_at.isoformat(),
         "jobs": [
             {
@@ -202,7 +195,7 @@ async def cancel_run(engine: AsyncEngine, tenant_id: uuid.UUID, run_id: uuid.UUI
     - all non-terminal jobs (queued AND running) -> cancelled immediately
     - running attempts discover this at their next side-effect commit:
       their completion is fenced and lands as 'late' (business result NOT
-      applied, preserved on the attempt; real costs still booked)
+      applied, preserved on the attempt)
     - cancelling a terminal run is a no-op returning current state
     """
     async with engine.begin() as conn:

@@ -8,7 +8,6 @@ rejected (409). Keys are scoped per tenant.
 
 BODY = {
     "kind": "research",
-    "total_budget_micros": 1_000_000,
     "jobs": [{"kind": "noop", "payload": {"x": 1}}],
 }
 
@@ -45,14 +44,11 @@ async def test_keys_are_tenant_scoped(client, tenant_headers, other_tenant_heade
     assert r1.json()["id"] != r2.json()["id"]
 
 
-async def test_run_view_lists_jobs_and_budget(client, tenant_headers):
+async def test_run_view_lists_jobs(client, tenant_headers):
     r = await _post(client, BODY, "k3", tenant_headers)
     assert r.status_code == 201
     view = r.json()
     assert view["status"] == "pending"
-    assert view["total_budget_micros"] == 1_000_000
-    assert view["reserved_micros"] == 0
-    assert view["settled_micros"] == 0
     assert len(view["jobs"]) == 1
     assert view["jobs"][0]["status"] == "queued"
     assert view["jobs"][0]["max_attempts"] == 1

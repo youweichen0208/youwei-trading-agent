@@ -12,7 +12,7 @@ the sealing path already knows how to validate.
 
 Why this lives in Core, not agent-runtime: the agent-runtime is an
 independent Python 3.14 package that must not import Core. The Controller
-(which owns sealing, fencing, budget, and the evidence snapshot identity)
+(which owns sealing, fencing, and the evidence snapshot identity)
 receives the proposal across a process boundary and maps it here.
 """
 

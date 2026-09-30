@@ -317,7 +317,6 @@ async def test_tiingo_daily_job_handler(db_engine, tenant_id):
 
     submission = RunSubmission(
         kind="data.ingest",
-        total_budget_micros=0,
         jobs=[
             JobSubmission(
                 kind="data.tiingo_daily",

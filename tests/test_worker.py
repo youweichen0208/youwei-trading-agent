@@ -24,7 +24,6 @@ from youwei_core.jobs.worker import claim_next_job, complete_attempt, heartbeat
 async def _make_run(engine, tenant_id, key, *, kind="noop", max_attempts=1, n_jobs=1):
     submission = RunSubmission(
         kind="research",
-        total_budget_micros=1_000_000,
         jobs=[
             JobSubmission(kind=kind, payload={}, max_attempts=max_attempts)
             for _ in range(n_jobs)
@@ -157,7 +156,6 @@ async def test_concurrent_claims_get_distinct_jobs(db_engine, tenant_id):
 async def _make_deadline_run(engine, tenant_id, key, *, wall_clock_seconds):
     submission = RunSubmission(
         kind="research",
-        total_budget_micros=1_000_000,
         wall_clock_seconds=wall_clock_seconds,
         jobs=[JobSubmission(kind="noop", payload={})],
     )

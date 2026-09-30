@@ -6,10 +6,9 @@ research turn. The boundary is a short-lived subprocess: one JSON request on
 stdin, one JSON result on stdout. This module is the Controller's half.
 
 It stays split so the codec is pure (testable without spawning a process) and
-the subprocess execution is a thin async seam. Budget accounting for the
-actual gateway cost is a later slice (the gateway is reached by Hermes inside
-the agent-runtime process, not through Core's GatewayClient); this slice only
-gets a validated proposal back across the boundary for sealing.
+the subprocess execution is a thin async seam. This slice gets a validated
+proposal (and its usage report) back across the boundary for sealing; cost
+accounting is out of scope for the Core.
 """
 
 from __future__ import annotations
@@ -42,9 +41,8 @@ class AgentResearchResult:
 
     ``proposal`` is the validated ResearchProposal; ``usage`` is the raw usage
     report dict (source/scope/complete + token counters) decoded from the
-    wire. The Controller's budget layer settles cost from ``usage``; when the
-    runtime is older (proposal-only wire) ``usage`` is a synthetic unavailable
-    report, never a fabricated zero."""
+    wire. When the runtime is older (proposal-only wire) ``usage`` is a
+    synthetic unavailable report, never a fabricated zero."""
 
     proposal: ResearchProposal
     usage: dict

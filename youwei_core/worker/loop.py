@@ -2,8 +2,8 @@
 heartbeat task and the outbox publisher.
 
 The loop is the composition root for youwei-worker; all semantics
-(leases, fencing, budgets) live in jobs.worker / budget.service and
-are covered by their acceptance tests."""
+(leases, fencing) live in jobs.worker and are covered by their
+acceptance tests."""
 
 import asyncio
 import logging
@@ -274,7 +274,7 @@ def main() -> None:
 
 def _build_agent_runtime(settings: Settings) -> AgentRuntimeConfig | None:
     """Assemble the agent-runtime subprocess wiring from Settings, or
-    None when the agent runtime is disabled (Phase 1A / no LLM budget)."""
+    None when the agent runtime is disabled."""
     from youwei_core.ledger.agent_client import build_process_factory
 
     if not settings.agent_runtime_enabled:
@@ -293,7 +293,6 @@ def _build_agent_runtime(settings: Settings) -> AgentRuntimeConfig | None:
         },
         process_factory=build_process_factory(command, env),
         timeout_seconds=settings.agent_runtime_timeout_seconds,
-        turn_reserve_micros=settings.agent_turn_reserve_micros,
     )
 
 

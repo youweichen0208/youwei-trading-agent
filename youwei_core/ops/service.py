@@ -2,9 +2,9 @@
 
 One read-only pass over the job tables answers the deployment's
 first-version monitoring questions (architecture section 11):
-queue backlog age, budget awaiting reconciliation, unpublished outbox
-events, lease-expired attempts not yet reaped, runs past their
-wall-clock deadline, and WAL archive staleness.
+queue backlog age, unpublished outbox events, lease-expired attempts
+not yet reaped, runs past their wall-clock deadline, and WAL archive
+staleness.
 
 The API layer exposes this as /v1/ops/status (admin key); /healthz is
 a DB-free liveness probe. Alert thresholds come from Settings so
@@ -30,7 +30,6 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from youwei_core.config import Settings
 from youwei_core.db.meta import (
     attempts,
-    budget_entries,
     events,
     forecast_cases,
     forecast_commit_events,
@@ -83,34 +82,6 @@ async def ops_snapshot(engine: AsyncEngine) -> dict:
                     runs.c.status.in_(("pending", "running")),
                     runs.c.wall_clock_deadline.is_not(None),
                     runs.c.wall_clock_deadline < now,
-                )
-            )
-        ).one()
-
-        # global pending reconciliation: reserves with no matching
-        # settle or release in the same run (unknown cost)
-        settle_match = budget_entries.alias("settle_match")
-        release_match = budget_entries.alias("release_match")
-        pending = (
-            await conn.execute(
-                select(
-                    func.count(),
-                    func.coalesce(func.sum(budget_entries.c.amount_micros), 0),
-                    func.min(budget_entries.c.created_at),
-                ).where(
-                    budget_entries.c.entry_type == "reserve",
-                    ~exists().where(
-                        settle_match.c.run_id == budget_entries.c.run_id,
-                        settle_match.c.entry_type == "settle",
-                        settle_match.c.idem_key
-                        == func.replace(budget_entries.c.idem_key, ":reserve", ":settle"),
-                    ),
-                    ~exists().where(
-                        release_match.c.run_id == budget_entries.c.run_id,
-                        release_match.c.entry_type == "release",
-                        release_match.c.idem_key
-                        == func.replace(budget_entries.c.idem_key, ":reserve", ":release"),
-                    ),
                 )
             )
         ).one()
@@ -181,11 +152,6 @@ async def ops_snapshot(engine: AsyncEngine) -> dict:
             "queued_jobs": queued[0],
             "oldest_queued_age_seconds": _age_seconds(now, queued[1]),
         },
-        "budget": {
-            "pending_reconciliation": pending[0],
-            "pending_micros": pending[1],
-            "oldest_pending_age_seconds": _age_seconds(now, pending[2]),
-        },
         "events": {
             "unpublished": unpublished[0],
             "oldest_unpublished_age_seconds": _age_seconds(now, unpublished[1]),
@@ -229,13 +195,6 @@ def evaluate_alerts(snapshot: dict, settings: Settings) -> list[str]:
         and events_age > settings.alert_unpublished_events_age_seconds
     ):
         alerts.append("unpublished_events_stale")
-
-    budget_age = snapshot["budget"]["oldest_pending_age_seconds"]
-    if (
-        budget_age is not None
-        and budget_age > settings.alert_pending_reconciliation_age_seconds
-    ):
-        alerts.append("budget_pending_reconciliation_stale")
 
     if snapshot["leases"]["expired_running_attempts"] > 0:
         alerts.append("leases_expired_not_reaped")

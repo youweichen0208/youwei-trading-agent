@@ -105,7 +105,6 @@ async def _attempt(engine, tenant_id):
         tenant_id,
         RunSubmission(
             kind="research.seal",
-            total_budget_micros=0,
             jobs=[{"kind": "research.seal", "payload": {}, "max_attempts": 1}],
         ),
         idempotency_key=f"idem-{uuid.uuid4()}",
@@ -276,7 +275,6 @@ async def test_phase1b_pipeline_seals_produced_llm_via_agent_runtime(db_engine, 
         tenant_id,
         RunSubmission(
             kind="research.batch_predict",
-            total_budget_micros=0,
             jobs=[{"kind": "research.batch_predict", "payload": {}, "max_attempts": 1}],
         ),
         idempotency_key=f"s07h-{uuid.uuid4()}",

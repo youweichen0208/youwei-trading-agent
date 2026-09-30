@@ -287,8 +287,7 @@ async def complete_attempt(
     - "fenced": the attempt was superseded (lease expired, job
       cancelled, or a newer attempt exists) -> the business result is
       NOT applied, but preserved on the attempt with status 'late' for
-      audit; real costs are still booked by the budget layer
-      regardless of this outcome.
+      audit.
     """
     async with engine.begin() as conn:
         job = (
@@ -442,8 +441,7 @@ async def abandon_attempt(
 ) -> str:
     """Mark a running attempt cancelled after its job was cancelled
     mid-flight (watchdog cancelled the handler). The job stays in its
-    cancelled state; open budget reservations remain pending
-    reconciliation (unknown cost)."""
+    cancelled state."""
     async with engine.begin() as conn:
         job = (
             await conn.execute(

@@ -70,7 +70,6 @@ async def _run_predict_job(engine, tenant_id, batch_id, release_id="rel-test-v1"
         tenant_id,
         RunSubmission(
             kind="research.batch_predict",
-            total_budget_micros=0,
             jobs=[
                 JobSubmission(
                     kind="research.batch_predict",
@@ -238,7 +237,6 @@ async def test_batch_predict_seals_all_cases_with_shared_evidence(db_engine, ten
         tenant_id,
         RunSubmission(
             kind="research.batch_predict",
-            total_budget_micros=0,
             jobs=[{
                 "kind": "research.batch_predict",
                 "payload": {"batch_id": str(plan.batch_id), "release_id": "rel-test-v1"},

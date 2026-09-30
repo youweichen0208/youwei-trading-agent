@@ -234,7 +234,6 @@ async def scheduler_tick(engine: AsyncEngine) -> dict:
                 row.tenant_id,
                 RunSubmission(
                     kind=PREDICT_JOB_KIND,
-                    total_budget_micros=0,
                     jobs=[
                         JobSubmission(
                             kind=PREDICT_JOB_KIND,

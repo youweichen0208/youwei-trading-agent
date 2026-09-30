@@ -108,7 +108,7 @@ async def _submit_and_claim(engine, tenant_id, payload, *, kind="sandbox.execute
     await submit_run(
         engine,
         tenant_id,
-        RunSubmission(kind=kind, total_budget_micros=0, jobs=[{"kind": kind, "payload": payload}]),
+        RunSubmission(kind=kind, jobs=[{"kind": kind, "payload": payload}]),
         idempotency_key=f"idem-{uuid.uuid4()}",
     )
     claimed = await claim_next_job(engine, "test-worker")
@@ -395,7 +395,7 @@ async def test_worker_cancellation_reaches_independent_runner(db_engine, tenant_
 
     payload = {"script": "import time; time.sleep(30)"}
     run = await submit_run(db_engine, tenant_id,
-        RunSubmission(kind="sandbox.execute", total_budget_micros=0,
+        RunSubmission(kind="sandbox.execute",
                       jobs=[{"kind": "sandbox.execute", "payload": payload}]), str(uuid.uuid4()))
     entered = asyncio.Event()
     captured = {}

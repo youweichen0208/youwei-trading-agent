@@ -36,7 +36,6 @@ from quant.models import (
     predict_baseline as model_predict_baseline,
     predict_quant as model_predict_quant,
 )
-from youwei_core.budget.service import reserve, settle
 from youwei_core.data.snapshots import freeze_daily_bars, read_snapshot
 from youwei_core.db.meta import (
     campaigns,
@@ -53,7 +52,6 @@ from youwei_core.ledger.agent_client import (
 from youwei_core.ledger.controller import apply_phase1b_fallback
 from youwei_core.ledger.evidence import build_frozen_evidence
 from youwei_core.ledger.sealing import SealRequest, SourcePrediction, seal_commit
-from youwei_core.llm.pricing import COST_CONFIRMED, DEFAULT_COST_MAP, CostMap, price_usage
 
 PIPELINE_VERSION = "pipeline-v1"
 
@@ -163,27 +161,6 @@ class AgentRuntimeConfig:
     research_config: dict  # runtime.ResearchConfig kwargs
     process_factory: Callable[[], Awaitable]
     timeout_seconds: float
-    # Conservative per-turn reservation (micro-USD); 0 disables turn-level
-    # budget accounting for the research turn.
-    turn_reserve_micros: int = 0
-
-
-@dataclass(frozen=True)
-class TurnBudgetWiring:
-    """Budget accounting for one research turn (S07k).
-
-    ``turn_reserve_micros`` is the conservative per-turn reservation made
-    BEFORE the subprocess is spawned (the Controller cannot see Hermes's
-    internal calls, so this is a configured upper bound, not a per-call
-    estimate). ``cost_map`` prices the turn's usage for settlement. The
-    reservation is released by settle on success; on failure/cancel with
-    unknown cost it stays open for reconciliation.
-    """
-
-    engine: AsyncEngine
-    attempt_id: uuid.UUID
-    turn_reserve_micros: int
-    cost_map: CostMap = DEFAULT_COST_MAP
 
 
 def make_phase1b_llm_fetcher(
@@ -195,7 +172,6 @@ def make_phase1b_llm_fetcher(
     capability_token: str,
     agent_runtime: AgentRuntimeConfig,
     usage_sink: Callable[[dict], None] | None = None,
-    budget: TurnBudgetWiring | None = None,
 ):
     """Build a fetch_proposal for the batch's frozen evidence.
 
@@ -206,16 +182,8 @@ def make_phase1b_llm_fetcher(
     worker loop when it claimed the job).
 
     ``usage_sink``, when provided, receives the decoded usage report dict
-    after each turn so the budget layer can settle actual cost (S07k). It is
-    optional so the pure codec/fetch tests and the sealing path can run
-    without a budget ledger; without it the usage is dropped.
-
-    ``budget``, when provided, wires reserve/settle around the turn:
-    reserve the configured upper bound before spawning the subprocess,
-    then settle the priced usage on a complete report. A placeholder rate
-    settles to estimated_micros (never confirmed); an incomplete/unknown
-    usage report leaves the reservation open for reconciliation (unknown
-    cost is never booked as zero).
+    after each turn for observability; it is optional so the pure codec/fetch
+    tests and the sealing path can run without it.
     """
 
     async def fetch_proposal(case, bars):
@@ -231,15 +199,6 @@ def make_phase1b_llm_fetcher(
             evidence=evidence,
             config=agent_runtime.research_config,
         )
-        call_key = f"{budget.attempt_id}:{case['id']}" if budget is not None else None
-        if budget is not None:
-            await reserve(
-                budget.engine,
-                run_id,
-                attempt_id=budget.attempt_id,
-                call_key=call_key,
-                amount_micros=budget.turn_reserve_micros,
-            )
         result = await run_agent_research(
             invocation,
             process_factory=agent_runtime.process_factory,
@@ -255,43 +214,9 @@ def make_phase1b_llm_fetcher(
             )
         if usage_sink is not None:
             usage_sink(result.usage)
-        if budget is not None:
-            model = agent_runtime.research_config.get("model", "")
-            await _settle_turn_budget(budget, run_id, call_key, model, result.usage)
         return proposal
 
     return fetch_proposal
-
-
-async def _settle_turn_budget(
-    budget: TurnBudgetWiring,
-    run_id: uuid.UUID,
-    call_key: str,
-    model: str,
-    usage: dict,
-) -> None:
-    """Settle a turn's reservation from its usage report.
-
-    Only a complete turn-level report (source=session_delta, complete=True)
-    is priced and settled; placeholder rates settle as estimated_micros,
-    reconciled rates as settled_micros. An incomplete/unknown report leaves
-    the reservation open (pending reconciliation) — unknown cost is never
-    booked as zero.
-    """
-    if not isinstance(usage, dict):
-        return  # no report: reservation stays open
-    complete = usage.get("complete") is True and usage.get("source") == "session_delta"
-    if not complete:
-        return  # incomplete/unknown: reservation stays open for reconciliation
-    cost = price_usage(budget.cost_map, model, usage)
-    await settle(
-        budget.engine,
-        run_id,
-        attempt_id=budget.attempt_id,
-        call_key=call_key,
-        actual_micros=cost.amount_micros,
-        confirmed=(cost.status == COST_CONFIRMED),
-    )
 
 
 # --- batch prediction ---------------------------------------------------------
@@ -405,13 +330,6 @@ async def run_batch_predictions(
     provider = llm_adjusted_provider
     if provider is None and "llm_adjusted" in campaign.enabled_sources:
         if agent_runtime is not None and claimed.capability_token is not None:
-            budget = None
-            if agent_runtime.turn_reserve_micros > 0:
-                budget = TurnBudgetWiring(
-                    engine=engine,
-                    attempt_id=claimed.attempt_id,
-                    turn_reserve_micros=agent_runtime.turn_reserve_micros,
-                )
             fetch = make_phase1b_llm_fetcher(
                 run_id=claimed.run_id,
                 tenant_id=claimed.tenant_id,
@@ -419,7 +337,6 @@ async def run_batch_predictions(
                 batch_manifest=batch.batch_manifest,
                 capability_token=claimed.capability_token,
                 agent_runtime=agent_runtime,
-                budget=budget,
             )
             provider = make_phase1b_llm_adjusted_provider(fetch)
 

@@ -13,7 +13,7 @@ from youwei_core.auth.service import create_api_key, create_tenant, revoke_api_k
 async def test_no_credentials_rejected(client):
     r = await client.post(
         "/v1/runs",
-        json={"kind": "research", "total_budget_micros": 1000, "jobs": [{"kind": "noop"}]},
+        json={"kind": "research", "jobs": [{"kind": "noop"}]},
     )
     assert r.status_code == 401
 
@@ -21,7 +21,7 @@ async def test_no_credentials_rejected(client):
 async def test_invalid_token_rejected(client):
     r = await client.post(
         "/v1/runs",
-        json={"kind": "research", "total_budget_micros": 1000, "jobs": [{"kind": "noop"}]},
+        json={"kind": "research", "jobs": [{"kind": "noop"}]},
         headers={"Authorization": "Bearer ywa_bogus", "Idempotency-Key": "auth-1"},
     )
     assert r.status_code == 401
@@ -30,7 +30,7 @@ async def test_invalid_token_rejected(client):
 async def test_x_tenant_id_header_no_longer_grants_access(client):
     r = await client.post(
         "/v1/runs",
-        json={"kind": "research", "total_budget_micros": 1000, "jobs": [{"kind": "noop"}]},
+        json={"kind": "research", "jobs": [{"kind": "noop"}]},
         headers={"X-Tenant-Id": str(uuid.uuid4()), "Idempotency-Key": "auth-2"},
     )
     assert r.status_code == 401
@@ -39,7 +39,7 @@ async def test_x_tenant_id_header_no_longer_grants_access(client):
 async def test_valid_tenant_key_submits_run(client, tenant_headers):
     r = await client.post(
         "/v1/runs",
-        json={"kind": "research", "total_budget_micros": 1000, "jobs": [{"kind": "noop"}]},
+        json={"kind": "research", "jobs": [{"kind": "noop"}]},
         headers={**tenant_headers, "Idempotency-Key": "auth-3"},
     )
     assert r.status_code == 201
@@ -63,7 +63,7 @@ async def test_revoked_key_rejected(client, db_engine, tenant_headers):
 
     r = await client.post(
         "/v1/runs",
-        json={"kind": "research", "total_budget_micros": 1000, "jobs": [{"kind": "noop"}]},
+        json={"kind": "research", "jobs": [{"kind": "noop"}]},
         headers={**tenant_headers, "Idempotency-Key": "auth-4"},
     )
     assert r.status_code == 401
@@ -90,7 +90,7 @@ async def test_admin_bootstrap_manages_tenants_and_keys(client, admin_headers, d
     # the issued key can submit runs
     r3 = await client.post(
         "/v1/runs",
-        json={"kind": "research", "total_budget_micros": 1000, "jobs": [{"kind": "noop"}]},
+        json={"kind": "research", "jobs": [{"kind": "noop"}]},
         headers={"Authorization": f"Bearer {raw}", "Idempotency-Key": "auth-5"},
     )
     assert r3.status_code == 201
@@ -107,7 +107,7 @@ async def test_admin_key_cannot_submit_runs_directly(client, admin_headers):
     """Admin keys manage keys/tenants only; runs need a tenant key."""
     r = await client.post(
         "/v1/runs",
-        json={"kind": "research", "total_budget_micros": 1000, "jobs": [{"kind": "noop"}]},
+        json={"kind": "research", "jobs": [{"kind": "noop"}]},
         headers={**admin_headers, "Idempotency-Key": "auth-6"},
     )
     assert r.status_code == 403

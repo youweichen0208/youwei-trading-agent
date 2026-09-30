@@ -76,7 +76,6 @@ async def test_worker_loop_attaches_capability(db_engine, tenant_id):
 
     submission = RunSubmission(
         kind="research",
-        total_budget_micros=1_000_000,
         jobs=[JobSubmission(kind="noop", payload={})],
     )
     await submit_run(db_engine, tenant_id, submission, "cap-1")

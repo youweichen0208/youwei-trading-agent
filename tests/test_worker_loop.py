@@ -22,7 +22,6 @@ from youwei_core.worker.loop import WorkerLoop, noop_handler
 async def _make_run(engine, tenant_id, *, kind="noop", n_jobs=1, max_attempts=1):
     submission = RunSubmission(
         kind="research",
-        total_budget_micros=1_000_000,
         jobs=[
             JobSubmission(kind=kind, payload={}, max_attempts=max_attempts)
             for _ in range(n_jobs)

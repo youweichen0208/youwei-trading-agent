@@ -44,7 +44,6 @@ class Settings(BaseSettings):
     # (expired leases, overdue runs) alert on any occurrence.
     alert_queue_backlog_age_seconds: float = 300.0
     alert_unpublished_events_age_seconds: float = 60.0
-    alert_pending_reconciliation_age_seconds: float = 3600.0
     alert_wal_archive_stale_seconds: float = 1800.0
 
     # S04: Tiingo collection (token lives in the gitignored .env).
@@ -66,20 +65,14 @@ class Settings(BaseSettings):
     # S07: agent-runtime subprocess (Hermes research). The command is the
     # full argv for `youwei-agent-runtime research-once` (venv python + main
     # module + subcommand), split on whitespace. PYTHONPATH carries the pinned
-    # Hermes checkout so the adapter can import it. Disabled by default; only
-    # a Phase 1B campaign with a non-zero LLM budget enables it.
+    # Hermes checkout so the adapter can import it. Disabled by default; a
+    # Phase 1B campaign enables it.
     agent_runtime_enabled: bool = False
     agent_runtime_command: str = ""  # e.g. ".../python -m youwei_agent_runtime.main research-once"
     agent_runtime_pythonpath: str = ""  # colon-separated; Hermes checkout dir
     agent_runtime_timeout_seconds: float = 300.0
     # gateway/model wiring for the research turn (reached by Hermes inside
-    # the agent-runtime process, NOT through Core's GatewayClient)
+    # the agent-runtime process)
     agent_llm_base_url: str = ""
     agent_llm_api_key: str = ""
     agent_llm_model: str = ""
-    # Conservative per-turn reservation for the agent-runtime research turn
-    # (micro-USD). 0 disables turn-level budget accounting; a non-zero value
-    # reserves before spawning the subprocess and settles the priced usage
-    # after (S07k). The Controller cannot see Hermes's internal calls, so
-    # this is a configured upper bound, not a per-call estimate.
-    agent_turn_reserve_micros: int = 0

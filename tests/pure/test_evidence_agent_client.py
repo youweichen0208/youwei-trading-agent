@@ -450,8 +450,7 @@ def test_decode_result_rejects_non_json_result():
 
 def test_fetcher_passes_usage_to_sink():
     """The fetched turn's usage report is handed to the optional usage_sink
-    verbatim (source/scope/complete + counters), so the budget layer can settle
-    actual cost without re-decoding the wire (S07k)."""
+    verbatim (source/scope/complete + counters) for observability."""
     run_id = uuid.uuid4()
     sec = str(uuid.uuid4())
     bars = [{"security_id": sec, "trade_date": "2026-09-25", "close": 100.0}]
@@ -498,7 +497,7 @@ def test_fetcher_passes_usage_to_sink():
 
 def test_fetcher_without_sink_drops_usage_but_returns_proposal():
     """Without a usage_sink the fetcher still returns the proposal (usage is
-    dropped, not an error) — sealing paths run without a budget ledger."""
+    dropped, not an error)."""
     run_id = uuid.uuid4()
     sec = str(uuid.uuid4())
     bars = [{"security_id": sec, "trade_date": "2026-09-25", "close": 100.0}]

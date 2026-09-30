@@ -3,7 +3,7 @@
 日期：2026-09-27；结构优化更新：2026-09-28\
 设计依据：[ARCHITECTURE.md](ARCHITECTURE.md)\
 问题来源：[v0.2 评审](ARCHITECTURE_REVIEW_v0.2.md)\
-状态：S00 协议已确认定稿（2026-09-27）；S01 主体完成（Tiingo 字段级验证已实测；EOD 实盘观测随 S04 首次采集、生产套餐条款确认待购买时；网关取消/用量/限额待验收）；S02 已完成（隔离开发环境验收，2026-09-27）；S03 第一/二纵切片完成（沙箱执行、独立 Runner 与 HTTP 产物链路，2026-09-28；生产部署仍待验收）；S04 第一至三纵切片完成（PIT 数据基础、交易日历与冻结快照，2026-09-27；训练 manifest 登记，2026-09-28；独立退市真相源、派生特征与多源仍待补源决策）；S05 已完成四纵切片（封存核心、Outcome 回填、评估报告、归档与监控，2026-09-27）加 S05e 证据追溯收紧（2026-09-28）；S06 第一/二纵切片完成（前向预测管线，2026-09-27；供应商更正自动触发、月度汇总与报告门控，2026-09-28；正式 campaign 启动项仍阻断）；S03 剩余部署项与 S06 正式启动及 S07 后续切片（工具授权、预算归集、镜像部署）与 S08–S11 待实施、待验收。
+状态：S00 协议已确认定稿（2026-09-27）；S01 主体完成（Tiingo 字段级验证已实测；EOD 实盘观测随 S04 首次采集、生产套餐条款确认待购买时；网关取消/用量/限额待验收）；S02 已完成（隔离开发环境验收，2026-09-27）；S03 第一/二纵切片完成（沙箱执行、独立 Runner 与 HTTP 产物链路，2026-09-28；生产部署仍待验收）；S04 第一至三纵切片完成（PIT 数据基础、交易日历与冻结快照，2026-09-27；训练 manifest 登记，2026-09-28；独立退市真相源、派生特征与多源仍待补源决策）；S05 已完成四纵切片（封存核心、Outcome 回填、评估报告、归档与监控，2026-09-27）加 S05e 证据追溯收紧（2026-09-28）；S06 第一/二纵切片完成（前向预测管线，2026-09-27；供应商更正自动触发、月度汇总与报告门控，2026-09-28；正式 campaign 启动项仍阻断）；S03 剩余部署项与 S06 正式启动及 S07 后续切片（工具授权、镜像部署）与 S08–S11 待实施、待验收。S07k 预算/计费已按项目所有者决定整体删除（2026-09-30）。
 
 ## 1. 执行规则
 
@@ -542,6 +542,20 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
   - `youwei_core/config.py` + `worker/loop.py`：`agent_turn_reserve_micros`（默认 0=不启用）经 `_build_agent_runtime` 传入。
 - 验证（纯逻辑 + DB 级）：`tests/pure/test_cost_map.py` 12 passed（5 类别独立计价、prompt/completion 不叠加、placeholder→estimated vs reconciled→confirmed、非整数费率精确 + half-up/ceil 舍入、unknown model 拒绝）；`tests/pure/test_turn_budget.py` 6 passed（complete placeholder→estimated、reconciled→confirmed、incomplete/unavailable/非 dict/last_call 均保留 reserve）；本机 `tests/pure`+`tests/contracts` 全量 **104 passed** 无回归。**sg-prod DB 级（Docker + postgres:16-alpine + 真实 Alembic）**：`tests/test_llm_client.py`+`test_budget.py` 15 passed（含 placeholder→estimated、reconciled→confirmed 两路径）；`test_ledger_phase1b.py`+`test_ledger_pipeline.py` 17 passed、`test_agent_runtime_resilience.py`+`test_worker_loop.py` 12 passed、`test_run_submission.py`+`test_worker.py` 15 passed 无回归；新增 `tests/test_turn_budget_db.py` 3 passed（fetcher 端到端：完整 usage+占位价→estimated_micros、不完整/unavailable→reserve 保留待对账）；迁移 `e7f8a9b0c1d2` upgrade/downgrade/upgrade 在临时 PG 实测通过。
 - 剩余限制：**第 3 片 Gateway 请求级限额未实现**（Hermes 内部多次调用/重试/辅助请求的请求级预留与结算，防止绕过 run 总预算——依赖 LiteLLM budget reservation，见 llm-gateway-options.md）；`turn_reserve_micros` 的保守上限值需部署时按真实网关定价配置，当前为占位价估算；`estimated_micros → settled_micros` 的对账转换（`adjust`）未实现（对账后人工/自动把 estimate 转为 confirmed）；真实费率对账后替换 `DEFAULT_COST_MAP` 为 reconciled 版本。
+
+### 预算/计费删除（2026-09-30，项目所有者决定）
+
+- 状态：**预算与计费维度整体删除**。项目所有者决定「计费这块不重要」，保留 run/job/attempt 任务执行机制（租约、幂等、fencing、取消），仅删除金额（预算/预留/结算/成本 map）这一维度。
+- 删除范围：
+  - 模块：`youwei_core/budget/`（reserve/settle/release/pending_reconciliation）与 `youwei_core/llm/`（GatewayClient + pricing，均为无业务调用方的死代码，实际 LLM 调用由 Hermes 在 agent-runtime 内直连网关完成）。
+  - schema：`budget_entries` 表整表删除；`runs` 表删除 `total_budget_micros`/`reserved_micros`/`settled_micros`/`estimated_micros` 四列及对应 check 约束。迁移 `f8a9b0c1d2e3`（upgrade/downgrade/upgrade 实测通过）。
+  - 接线：`RunSubmission.total_budget_micros` 字段、`get_run_view` 预算字段、`pipeline.py` 的 `TurnBudgetWiring`/`_settle_turn_budget`、`ops` 的 pending_reconciliation 告警、`config` 的 `alert_pending_reconciliation_age_seconds`/`agent_turn_reserve_micros` 均删除。agent-runtime 的 usage 报告仍透传（`usage_sink`）但仅作观测，不再接预算结算。
+  - 测试：删除 `test_budget.py`/`test_llm_client.py`/`test_turn_budget_db.py`/`pure/test_cost_map.py`/`pure/test_turn_budget.py`，清理其余测试的预算断言。
+- 验证：
+  - 本机（3.13）`tests/pure`+`tests/contracts` **86 passed**（删 18 个预算/成本测试后无回归）；全部 Core 模块 import 通过。
+  - sg-prod DB 级（真实 PG + Alembic）：`test_run_submission`+`test_worker`+`test_worker_loop`+`test_ops` 30 passed；`test_ledger_seal`+`test_ledger_pipeline`+`test_ledger_phase1b`+`test_agent_runtime_resilience` 39 passed；`test_auth`+`test_capability`+`test_ledger_*`（campaign/archive/outcomes/evaluation/monthly/training）+`test_logging` 70 passed；`test_sandbox`+`test_data_*`（calendar/pit/snapshots/securities）51 passed。迁移 `f8a9b0c1d2e3` upgrade/downgrade/upgrade 在临时 PG 实测通过。
+  - 唯一失败：`test_sandbox.py::test_timeout_kills_and_removes_container` 因硬编码 `/usr/local/bin/docker`（SG 实际在 `/usr/bin/docker`）而 `FileNotFoundError`——**既有环境问题，与本次删除无关**。
+- 剩余限制：run 执行无金额上限保护；若未来需要恢复成本控制，可回滚 `f8a9b0c1d2e3` 迁移（已保留 downgrade）。S02 预算相关的历史记录保留为当时状态，不代表当前实现。
 
 ```text
 任务：
