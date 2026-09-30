@@ -8,7 +8,7 @@
 
 | 边界 | 职责 | 依赖与权限 |
 | --- | --- | --- |
-| `youwei_core/` | HTTP 入口、鉴权、任务/租约、预算、数据授权/PIT、Ledger、调度与评估记录 | Core Python 3.13 环境；持有相应业务数据库凭证，按模块控制副作用 |
+| `youwei_core/` | HTTP 入口、鉴权、任务/租约、数据授权/PIT、Ledger、调度与评估记录 | Core Python 3.13 环境；持有相应业务数据库凭证，按模块控制副作用 |
 | `quant/` | 当前为 baseline 与动量工程模型；显式输入产生计算结果 | 不依赖 Core 数据库、HTTP、供应商或容器运行时；Ledger 调用它并记录 provenance；收益解析仍在 Ledger |
 | `contracts/src/youwei_contracts/` | Core 与 Runner 共享的执行、冻结输入和产物传输结构 | 轻量独立包；不导入 Core、数据库模型或上游 Agent SDK |
 | `services/sandbox-runner/src/youwei_runner/` | 执行 HTTP 接口、签名与租约检查、受限容器生命周期、输入与产物边界校验 | 独立 `pyproject.toml` 与 `uv.lock`；持有受限运行时权限，无业务数据库或供应商凭证 |
@@ -66,7 +66,7 @@ Runner 的状态只作短期执行缓存，PostgreSQL 是业务状态权威。Ru
 
 | 组件 | 本仓库负责的接入 | 当前边界 |
 | --- | --- | --- |
-| Hermes | 固定证据、研究权限与预算输入；接收 ResearchProposal 后交 Controller 校验 | 已有独立 Python 3.14 适配与 Runtime 桥、冻结行引用预检；真实网关、平台工具授权与 Controller 封存接线仍待验收 |
+| Hermes | 固定证据与研究权限；接收 ResearchProposal 后交 Controller 校验 | 已有独立 Python 3.14 适配与 Runtime 桥、冻结行引用预检；真实网关、平台工具授权与 Controller 封存接线仍待验收 |
 | Pi | MVP 暂缓接入（Hermes 为唯一 Agent 框架）；若日后接入则负责受控 RPC、工具/扩展允许列表、将探索代码提交到执行链路 | 版本锁保留；无业务接入，Node/TypeScript 包与 RPC wrapper 不设于当前 MVP |
 | Open WebUI | 作为可选界面消费 Core 身份、持久任务和研究结果接口 | S09 评估；不把其原生会话或执行状态作为 Core 权威 |
 | OpenViking | 可选长文档派生检索适配器 | 尚未接入；事实与批准的研究记忆仍由 Core 管理 |
@@ -77,7 +77,7 @@ Core 的运行依赖不含 Runner；根 dev 组安装 Runner 仅用于集成测�
 
 ## 4. 现有能力与后续范围
 
-现有开发纵向切片覆盖持久任务、身份与预算、PIT 日线与冻结快照、预测封存、Outcome 修订、最小评分、归档导出和 baseline/quant 管线。本次结构调整提取纯量化与共享契约，并把 Runner 的权限从 Worker 中分离；实际验证结果由实施计划记录。
+现有开发纵向切片覆盖持久任务、身份、PIT 日线与冻结快照、预测封存、Outcome 修订、最小评分、归档导出和 baseline/quant 管线。本次结构调整提取纯量化与共享契约，并把 Runner 的权限从 Worker 中分离；实际验证结果由实施计划记录。
 
 以下能力仍需独立交付：外部 Agent 的正式研究链路、受控量化探索闭环（Hermes）、国内入口、受控研究记忆、正式数据总体和模型发布、生产权限与恢复验收。现有管线模型是实现验证载具，不因代码搬迁变为已批准研究模型。
 

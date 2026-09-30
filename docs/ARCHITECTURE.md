@@ -24,7 +24,7 @@ S00 的具体选择登记于 [protocols/](protocols/README.md)：固定20证券�
 | 9 | 沙箱输入/输出、Agent 工具与管理面、租户权限分别约束 | 第 10 节 |
 | 10 | 均值/分位数使用匹配评分；注册试验；LLM 变更做前向对照 | 第 8 节 |
 | 11 | 人工批准 research release，覆盖 prompt、模型、工具、Memory 与降级策略 | 第 7–8 节 |
-| 12 | 原子预算预留、恢复目标、故障验收与真实标签等待时间 | 第 11–12 节 |
+| 12 | 恢复目标、故障验收与真实标签等待时间 | 第 11–12 节 |
 
 上表按设计主题整理；实际开发遵循实施计划中的依赖顺序，持久任务与安全执行基础必须先于正式研究任务。
 
@@ -92,7 +92,7 @@ flowchart TD
 | core-worker | 同代码库的 Workflow / Scheduler / Evaluation；授权并冻结沙箱输入，通过 HTTP 调用 Runner，重新校验租约并保存产物，不持有容器运行时权限 |
 | agent-runtime | Hermes 适配器（研究/实验实例）；无数据库凭证、无供应商密钥、无运行时 socket |
 | data-service | 所有数据供应商适配、采集、版本化与快照；当前在 Core 数据模块实现，独立服务接线随权限隔离推进 |
-| llm-gateway | 模型出口、请求级限额与计费审计；Controller 持有跨角色、跨重试的 run 预算账本 |
+| llm-gateway | 模型出口与请求级限额；模型调用费用不设预算账本（预算/计费维度已删除），外部调用的实际收费与内部观测由 Gateway／供应商记录为准 |
 | sandbox-runner | 独立进程以固定模板创建 gVisor 作业；仅接收 Worker 授权并冻结的输入，不读业务数据库、不持有供应商密钥、不直接提交 Ledger 或保存业务产物 |
 
 另有 nginx、PostgreSQL、受控备份任务。上述职责保留在一个业务仓库，按权限需要独立运行；MVP 不要求提前启动所有目标单元。Hermes 通过版本化契约接入；Pi 保留为可替换候选但暂缓接入，外部 Agent 的业务接入仍属 S07/S08。
@@ -103,7 +103,7 @@ flowchart TD
 
 ### 2.1 仓库与依赖边界
 
-Core 保留一个业务包及一条迁移链，任务、租户、预算、PIT、Ledger 的事务归 Core 管理。本次将纯量化模型提取到 quant，只接收显式输入并返回计算结果；Ledger 负责案例、版本、封存与评估记录。收益算术当前仍在 Ledger 的 outcomes 模块，后续扩展时沿纯计算边界提取。
+Core 保留一个业务包及一条迁移链，任务、租户、PIT、Ledger 的事务归 Core 管理。本次将纯量化模型提取到 quant，只接收显式输入并返回计算结果；Ledger 负责案例、版本、封存与评估记录。收益算术当前仍在 Ledger 的 outcomes 模块，后续扩展时沿纯计算边界提取。
 
 共享 contracts 承载冻结输入、执行请求和产物清单等传输结构，不依赖 Core 数据库、HTTP 路由或供应商 SDK。Runner 使用独立依赖环境，只依赖这些结构和执行组件；Worker 保留数据库授权及有副作用的提交。具体包与验证入口见 [仓库边界](REPOSITORY.md)。
 
@@ -123,7 +123,7 @@ FrozenEvidence = data_manifest + memory_manifest + release_id + content_hash
 ### 3.2 研究
 
 ```text
-ResearchRuntime.propose(plan, frozen_evidence, budget) -> ResearchProposal
+ResearchRuntime.propose(plan, frozen_evidence) -> ResearchProposal
 ```
 
 Proposal 包含结构化事实引用、研究观点、反证、量化调整、warnings 和使用的工具结果。它没有直接写 Ledger、改变 Lesson 状态或发布策略的能力。
@@ -201,7 +201,7 @@ return_convention / corporate_action_policy / missing_price_policy
 
 “下一交易时段”明确为下一次常规交易时段的开盘，不含盘前盘后。美东时区、夏令时和提前收盘由版本化交易日历处理。真实交易模拟另加成交、成本与滑点模型。
 
-首版集合为1、20、60交易日；D1/D60仅作探索性切片。每周六06:00 America/New_York 冻结输入，deadline 为入场常规开盘前15分钟；普通周约有51小时15分钟调度窗口，DST和假日由日历解析。该窗口不替代单run预算与超时。详见 [time-protocol.v1](protocols/time-protocol.v1.md)。
+首版集合为1、20、60交易日；D1/D60仅作探索性切片。每周六06:00 America/New_York 冻结输入，deadline 为入场常规开盘前15分钟；普通周约有51小时15分钟调度窗口，DST和假日由日历解析。该窗口不替代单run超时。详见 [time-protocol.v1](protocols/time-protocol.v1.md)。
 
 system campaign 登记时间规则；每个 Batch 在开始前解析并封存具体 cutoff、deadline 与入场时段，必须满足：
 
@@ -227,7 +227,7 @@ expected_excess_return 不能单独确定 target_price：还缺 benchmark 预期
 | --- | --- |
 | research_releases | prompt、角色/DAG、LLM、quant、特征、memory policy、工具、降级策略的不可变版本组合 |
 | training_manifests | 训练清单：固定特征集及依赖、逐模型预处理、标签成熟规则、拟合窗口、校准与内容 hash 的模型产物；release 引用（ref+hash），campaign 注册时验证解析与一致性 |
-| campaigns | 事前登记的多周研究计划：总体、股票池快照、TargetSpec、enabled_sources、频率与时间协议、预算、主指标、缺失处理、生产 release 和可选 shadow release；不含具体批次时刻 |
+| campaigns | 事前登记的多周研究计划：总体、股票池快照、TargetSpec、enabled_sources、频率与时间协议、主指标、缺失处理、生产 release 和可选 shadow release；不含具体批次时刻 |
 | forecast_batches | Campaign 内一个 decision_cutoff 对应的周实例：具体 cutoff、prediction_deadline、entry_session 与该批计划 case；Scheduler 按周创建，漏跑/跳过也保留 |
 | forecast_cases | 应当产生预测的批次内证券 × horizon（按 batch_id 归属）；失败也保留 |
 | run_attempts | 任务尝试、租约、错误、耗时、原始模型响应引用 |
@@ -302,7 +302,7 @@ Phase 1A 的主问题是同一预登记 case 集上的 quant_model 相对 baseli
 - baseline 首版可用 p=0.5、expected_excess_return=0；另有动量或历史基准率时独立标识，不能事后挑最弱基线；
 - 概率必须来自冻结的、过去数据拟合的模型/映射，不能把任意动量分数直接当概率；
 - 计算每个 case 的成对损失差，而不是比较不同样本集合的两个均值；
-- 报告 coverage、失败、迟到、回退率及成本；成功子样本的结论限定在该子样本；
+- 报告 coverage、失败、迟到、回退率；成功子样本的结论限定在该子样本；
 - 分别评估实际降级政策的端到端表现与成功产生的原始 LLM 输出；
 - 重叠 horizon 和同日股票的相关性都需处理；每周 D20 预测不能以1日独立块假定无重叠。Q7 已确认：v1 先仅描述统计，跨批区间用连续周批次区块自举，参数与样本条件事前登记后启用，此前不输出推断性区间；
 - 概率评分改进不能直接等同于可交易收益。PnL 需要独立、预登记的持仓与成本规则。
@@ -319,7 +319,7 @@ Phase 1A 的主问题是同一预登记 case 集上的 quant_model 相对 baseli
 
 “最近一段历史”只有在研究者、Agent 与调参流程确实未接触其信息时才可叫 holdout。一次使用后不能从已研究的历史中重新画一个框并宣称恢复独立性；新的最终评估窗口应等待未来数据积累。Evaluator 访问最终样本，Evolution 不获得逐条反馈；预登记查看次数及晋级规则。
 
-至少跟踪证据支持率、引用准确性、关键事实错误、完成率、成本与延迟，分别判断研究工具价值和预测增量。没有预测增量时仍可保留解释和检索功能。
+至少跟踪证据支持率、引用准确性、关键事实错误、完成率与延迟，分别判断研究工具价值和预测增量。没有预测增量时仍可保留解释和检索功能。
 
 ## 9. 持久执行与跨境链路
 
@@ -329,7 +329,7 @@ PG 保存业务执行状态，Runner 中的执行状态仅为短期缓存。Runn
 
 PG 用短事务领取任务，原子更新 lease_owner、lease_expires_at 与递增 attempt_token；可用 FOR UPDATE SKIP LOCKED 降低消费者锁竞争。不能持有事务跨越 LLM 调用。[PostgreSQL 16 文档](https://www.postgresql.org/docs/16/sql-select.html)
 
-完成提交检查最新 attempt_token；租约过期的旧 Worker 即使返回成功也无权覆盖新尝试。崩溃后重试可能再次产生 LLM 成本，系统承诺业务提交幂等，不宣称外部调用恰好一次。
+完成提交检查最新 attempt_token；租约过期的旧 Worker 即使返回成功也无权覆盖新尝试。崩溃后重试可能使外部模型调用重复收费，系统承诺业务提交幂等，不宣称外部调用恰好一次。
 
 状态、下一步任务和 outbox 事件同事务落库。带副作用的每个步骤有唯一键，包含 case/job、步骤名和输入 hash。归档、对象上传使用确定键与 hash；外部成功而确认丢失时可对账。
 
@@ -380,17 +380,15 @@ gVisor 的保护受网络与挂载配置约束，不能写成“即使注入也�
 
 PII 处理覆盖请求正文、上传附件、模型日志与错误堆栈，仅替换 user_id 不够。市场数据许可也应覆盖发送给外部模型、派生展示、缓存与留存，不只检查 Web 行情展示。
 
-## 11. 成本、备份与验收
+## 11. 备份与验收
 
-预算以 run 为根，所有角色/重试共享同一账本。模型调用前原子预留保守估算费用，结束后结算；并发调用不能各自读取旧余额。同时限制输出 token、墙钟时间和重试次数，实际 provider 价格与计费规则必须验证。
+预算/计费维度已删除（2026-09-30，项目所有者决定）：不设内部预算账本，模型调用的实际费用以 Gateway／供应商记录为准，仅作观测；保留 run/job/attempt 的租约、幂等、fencing 与取消机制。仍限制输出 token、墙钟时间和重试次数。
 
-按 v0.2 示例，100 证券每周一次且每证券一个研究任务、每任务耗尽 2 美元上限，约 200 美元/周、867 美元/月，仅为算术预算示例；不含数据、主机、存储、实验和用户会话。三个 horizon 若拆成独立任务，成本还会改变。
-
-MVP 在每次研究中共享行情/财务/新闻包，按需启用角色；一个综合角色附带固定反证步骤即可起步。增加并行角色须有引用质量、成本或延迟的对照收益。
+MVP 在每次研究中共享行情/财务/新闻包，按需启用角色；一个综合角色附带固定反证步骤即可起步。增加并行角色须有引用质量、费用或延迟的对照收益。
 
 建议恢复目标仍为待验收指标：数据库 RPO <= 15 分钟、核心 RTO <= 4 小时。已完成的 [本地 WAL/PITR 演练](ops/backup-pitr-drill.md)只证明小型隔离库的归档与时间点恢复机制；同一主机的备份无法覆盖主机或磁盘整体丢失。S09 需落实独立故障域中的恢复副本、目标容量下的恢复演练和告警，才能确认生产 RPO/RTO。云盘快照只是补充，OSS 不是本次 MVP 的依赖。
 
-身份备份留在境内。SG 备份在 SG；Ledger 导出与可按策略过期的数据库备份分别管理目录、权限和保留政策。监控 WAL 延迟、最后成功归档时间、磁盘水位、队列年龄、租约过期、预测 coverage 和预算拒绝。
+身份备份留在境内。SG 备份在 SG；Ledger 导出与可按策略过期的数据库备份分别管理目录、权限和保留政策。监控 WAL 延迟、最后成功归档时间、磁盘水位、队列年龄、租约过期、预测 coverage。
 
 ## 12. 实施顺序与硬验收
 
@@ -399,9 +397,9 @@ MVP 在每次研究中共享行情/财务/新闻包，按需启用角色；一�
 | 阶段 | 交付 | 通过条件 |
 | --- | --- | --- |
 | Phase 0 | 固定目标/时间协议与 Hermes/Pi 版本；数据源与沙箱技术验证；LLM 出口；部署与授权判断 | 受控执行方案通过技术验证；真实 quant 依赖可运行；PIT 数据样例通过；隔离测试库可备份恢复 |
-| Phase 1A | 持久任务与预算基础、生产沙箱、证券/日历/公司行为、Snapshot、baseline/quant、Ledger、Outcome、最小评分与只读查询 | 重复投递不重复封存；崩溃可恢复；迟到拒绝；收益已知答案正确；更正保留旧评估；经批准的 baseline/quant cohort 开始 |
+| Phase 1A | 持久任务基础、生产沙箱、证券/日历/公司行为、Snapshot、baseline/quant、Ledger、Outcome、最小评分与只读查询 | 重复投递不重复封存；崩溃可恢复；迟到拒绝；收益已知答案正确；更正保留旧评估；经批准的 baseline/quant cohort 开始 |
 | Phase 1B | Hermes 证据研究、三组预测、一个受控探索 Job、两地入口、系统 campaign | 引用可核对；截止后拒绝新预测，晚确认排除出准时集合；三组按 case 配对；记录缺失与降级；输入快照可恢复 |
-| Phase 2 | 评估 Dashboard、校准、复盘、受控 memory、trial/release 审批界面 | 历史状态召回正确；候选 Lesson 不进入正式上下文；报告显示相关性、coverage 与成本 |
+| Phase 2 | 评估 Dashboard、校准、复盘、受控 memory、trial/release 审批界面 | 历史状态召回正确；候选 Lesson 不进入正式上下文；报告显示相关性、coverage |
 | Phase 3 | 完整 challenger 晋级、独立最终评估、人工批准及回滚工作流、必要时扩容 | 阈值/样本/查看次数事前登记；release 审计完整；支持回滚到已批准 release |
 
 跨阶段必测场景：
