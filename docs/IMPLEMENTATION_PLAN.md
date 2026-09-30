@@ -504,6 +504,31 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
   - sg-prod DB 级：`tests/test_agent_runtime_resilience.py` 5 passed；`test_worker_loop.py` 7 passed、`test_ledger_phase1b.py`+`test_ledger_pipeline.py` 17 passed 无回归。
 - 剩余限制：真实 Hermes/网关的取消计费语义（上游是否停止计算/停止计费）另行验收；预算归集（A 切片）与剩余平台工具（B 切片）后续；Phase 1B 正式启用依赖新 Campaign + 人工批准 release + 数据源 LLM 转发授权。
 
+### S07k 进度（2026-09-29）
+
+- 状态：**预算归集 A 切片——用量观测与跨进程透传完成（SG 只读核实 + 本地离线验收）**。真实 Hermes checkout 的 usage 属性已核实，session 累计差值作为回合用量主观测源、`_last_turn_usage` 作兼容回退；wire 协议已携带带完整性与来源标注的 usage 报告；DB 归集（预算 settle）为下一片，成本换算与预留/结算时点语义已确定（见下）。
+- **SG 只读核实结论（固定 SHA `7fa45eb`，`~/s01-verify/hermes314`）**：
+  - `agent._last_turn_usage` **真实存在**（`agent/turn_usage.py:191`，`agent._last_turn_usage = dict(usage_dict)`，注释 "Stash canonical usage for on_turn_complete(); keep the latest call's."），但语义是**最后一次 API 调用的 usage**，不是回合累计；回合开始 `conversation_loop.py:1573` 重置为 `None`，回合结束 `turn_finalizer.py` 传给 `on_turn_complete` 钩子。
+  - **session 累计计数器是回合用量的权威观测源**：`agent/turn_usage.py:174-181` 每次 API 调用后把 `record_response_usage` 累加到 `session_prompt_tokens`/`session_completion_tokens`/`session_total_tokens`/`session_input_tokens`/`session_output_tokens`/`session_cache_read_tokens`/`session_cache_write_tokens`/`session_reasoning_tokens` + `session_api_calls`（`agent/agent_init.py:2298-2303` 初始化全 0）。`session_api_calls` 对**每个完成的 provider attempt 都计数**（含工具循环的辅助调用），但「包含全部重试/压缩/辅助调用」这一覆盖范围**仍需按固定版本核实，不自动假设**。
+  - `chat()` 只返回字符串（`turn_facade.py`：`run_conversation(...)["final_response"]`），返回 dict 无 usage 字段，故 usage 只能从 agent 属性读。
+  - `CanonicalUsage`（`agent/usage_pricing.py`）：`input_tokens`/`output_tokens`/`cache_read_tokens`/`cache_write_tokens`/`reasoning_tokens`，`prompt_tokens = input + cache_read + cache_write`（**字段重叠，不可全部相加计费**）。
+- **用量观测语义（已确定）**：
+  - session_* 累计计数器为回合用量主观测源，取**回合前后差值**（before 值检查、不假定恒 0）；`_last_turn_usage` 仅作兼容回退，必须标记 `last_call_fallback` + `complete=False`（只覆盖最后一次调用）。
+  - token 数与 api_calls 用**可空非负整数**：未知填 `null`，确认为零才填 `0`。保留各字段原始语义，prompt/input、completion/output 可能重叠，缓存与 reasoning 可能是子集，**不全部相加计费**。`api_calls` 只表达已核实计数范围，不能直接当作供应商收费请求次数。
+  - `complete=true` 需覆盖范围已核实且本回合无丢失；超时/断流/取消/覆盖不明或 counter 倒退（回合中 reset）均标记不完整并附 `incomplete_reasons`。
+- **成本换算语义（已确定，下一片实现）**：版本化、已核实的 cost map，记录模型、费率版本及计费类别（含缓存 token 等差异）；费率或用量不完整时保留为待对账，占位价不能写成已确认的 actual_micros，未知费用不能按 0 处理。最终费用核对以 Gateway／供应商记录为依据。
+- **预留与结算时点（已确定，下一片实现）**：预留由 Controller 在可能产生费用的调用开始前执行；Hermes 内部多次调用还需 Gateway 执行请求级限额避免总预算被绕过。结算在用量及可用价格确定后按调用或 attempt 幂等结算，不等待 batch 封存；预测失败/封存失败/取消时已发生费用仍归集，费用未知则保留预留等待对账。
+- 交付：
+  - `services/agent-runtime/src/youwei_agent_runtime/runtime.py`：新增 `UsageReport`（`source`/`scope`/`complete`/`incomplete_reasons` + 8 token 字段 + `api_calls`，`to_dict()` 供 wire 序列化）、`_SessionUsageSnapshot`、`_snapshot_session_usage`、`_delta_usage`（取差 + counter 倒退检测）、`_from_last_call`（last_call_fallback，含 provider 命名容错 `cache_read_input_tokens`/`input_tokens` 等）；`ResearchTurn` 的 `usage` 由裸 dict 改为 `UsageReport`；`run_research` 回合前/后各快照一次 session 计数器取差，无 session 计数器时回退 last-call，无任何信号时 `unavailable`。
+  - `services/agent-runtime/src/youwei_agent_runtime/invoke.py`：`encode_result(turn)` 携带 `usage` 报告（`{ok, proposal, usage}`），`honor_request` 传 `turn` 而非 `turn.proposal`。
+  - `youwei_core/ledger/agent_client.py`：新增 `AgentResearchResult`（`proposal` + `usage`）；`decode_result` 解析 usage，旧 proposal-only runtime 给合成 `unavailable` 报告（`usage_not_reported`，未知非零）；`run_agent_research` 返回 `AgentResearchResult`。
+  - `youwei_core/ledger/pipeline.py`：`make_phase1b_llm_fetcher` 加可选 `usage_sink` 回调，取回后把 `result.usage` 原样传给 sink（预算层归集用）；无 sink 时丢弃 usage 但仍返回 proposal（封存路径无需预算账本）。
+  - 测试：`services/agent-runtime/tests/test_runtime.py` 重写 usage 观测测试（session_delta 完整字段/complete、last_call 回退、无信号 unavailable、counter 倒退 incomplete），`test_invoke.py` 补 usage 透传断言；`tests/pure/test_evidence_agent_client.py` 补 wire usage 往返、proposal-only 默认 unavailable、usage_sink 透传、无 sink 丢弃。
+- 验证：
+  - agent-runtime（本机 3.14）：`services/agent-runtime` 全量 **42 passed**（40 + 新增 2）。
+  - 本机（3.13）`tests/pure` + `tests/contracts` 全量 **86 passed** 无回归（DB 级测试需 Docker，本机不可用未跑；sg-prod 归后续）。
+- 剩余限制：usage 尚未归集到 budget 层 `settle`（下一片：cost map + reserve/settle 接线 + 请求级限额）。**session 计数器覆盖范围已核实为「主回合 provider 调用」（`turn_response_check.py` → `record_response_usage`）**；auxiliary 调用（压缩/标题/vision/web_extract/session_search）的 usage 走独立的 `agent/aux_accounting.record_aux_usage` → `session_db.record_auxiliary_usage`，**不进入 session_* 计数器**，且我们的隔离配置 `_session_db=None` 时 `set_accounting_context(None, ...)` 会使其被静默丢弃——故「session 累计是否覆盖辅助调用」的答案是**不覆盖**，研究角色是否实际触发 aux 调用需在真实网关调用时观测。真实费率缺失只阻断真实金额验收，不阻断结算逻辑离线实现。Phase 1B 正式启用依赖新 Campaign + 人工批准 release + 数据源 LLM 转发授权。
+
 ```text
 任务：
 负责人：
