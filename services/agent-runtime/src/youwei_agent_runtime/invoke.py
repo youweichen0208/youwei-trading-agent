@@ -1,16 +1,18 @@
-"""One-shot research invocation (S07h): the agent-runtime subprocess boundary.
+"""One-shot research invocation (S07m): the agent-runtime subprocess boundary.
 
-The Controller (Core worker) launches this package as a short-lived
-subprocess for one ``llm_adjusted`` research turn: it writes a single JSON
-request to stdin and reads a single JSON result from stdout. This module
-holds the request/result codec and the capability-token check as pure logic
-(no Hermes import), so it is testable without the pinned checkout; the actual
-``AIAgent`` turn is delegated to ``runtime.run_research``.
+The Controller (Core worker) submits one research invocation per case through
+the Runner's controlled interface; the research container reads a single JSON
+request on stdin and writes a single JSON result on stdout. This module holds
+the request/result codec and the Ed25519 grant check as pure logic (no Hermes
+import), so it is testable without the pinned checkout; the actual ``AIAgent``
+turn is delegated to ``runtime.run_research``.
 
-Trust model (architecture §10): the Controller signs a per-job capability
-token (bound to job/attempt/tenant with scopes and an expiry). This process
-verifies it before calling the gateway, so a request's parameters alone never
-prove authority. The token is the ONLY thing this process accepts.
+Trust model (architecture §10, hardened): the Controller signs an Ed25519
+research grant (aud=runtime-research) binding invocation/tenant/run/job/
+attempt/case/evidence/config with scopes and an expiry. This process holds
+only the PUBLIC key (by kid) and VERIFIES the grant before calling the
+gateway — it can never sign one. The grant is the ONLY thing this process
+accepts; request parameters alone never prove authority.
 """
 
 from __future__ import annotations
@@ -19,12 +21,18 @@ import json
 import uuid
 from dataclasses import dataclass
 
-from youwei_contracts.capability import CapabilityError, verify_capability
+from youwei_contracts.research_capability import (
+    AUD_RUNTIME_RESEARCH,
+    SCOPE_RESEARCH_RUN,
+    ResearchCapabilityError,
+    verify_research_token,
+)
 from youwei_contracts.research import FrozenEvidence, ResearchProposal
 
 # The capability scope a research run must carry (signed by the Controller's
 # worker loop when it claims the prediction job).
-REQUIRED_SCOPE = "llm_call"
+REQUIRED_SCOPE = SCOPE_RESEARCH_RUN
+REQUIRED_AUDIENCE = AUD_RUNTIME_RESEARCH
 
 
 class InvocationError(Exception):
@@ -39,25 +47,35 @@ class ResearchRequest:
     config: dict  # runtime.ResearchConfig fields, validated by the runtime
 
 
-def _check_capability(secret: str, token: str, evidence: FrozenEvidence) -> None:
-    """Verify the Controller's capability token against the evidence bundle.
+def _check_capability(
+    public_keys: dict[str, str], token: str, evidence: FrozenEvidence
+) -> None:
+    """Verify the Controller's Ed25519 research grant against the evidence.
 
-    The token binds job/attempt/tenant; the evidence carries run_id and
-    tenant_id. We require the scope and tenant match and the token be
-    unexpired. (The job/attempt binding is the Controller's own check at
-    claim time; here the tenant and scope are what this process can verify.)
+    The research container holds only PUBLIC keys (by kid); it can verify the
+    grant but never sign one. The grant must be the runtime-research audience,
+    carry the research:run scope, and bind the evidence's tenant AND case
+    (stronger than the legacy HMAC check, which only matched tenant).
     """
     try:
-        cap = verify_capability(secret, token)
-    except CapabilityError as exc:
-        raise InvocationError(f"capability rejected: {exc}") from exc
+        cap = verify_research_token(public_keys, token)
+    except ResearchCapabilityError as exc:
+        raise InvocationError(f"research capability rejected: {exc}") from exc
+    if cap.aud != REQUIRED_AUDIENCE:
+        raise InvocationError(
+            f"research capability has wrong audience (expected {REQUIRED_AUDIENCE!r})"
+        )
     if REQUIRED_SCOPE not in cap.scopes:
         raise InvocationError(
-            f"capability missing required scope {REQUIRED_SCOPE!r}"
+            f"research capability missing required scope {REQUIRED_SCOPE!r}"
         )
     if cap.tenant_id != evidence.tenant_id:
         raise InvocationError(
-            "capability tenant does not match the evidence bundle's tenant"
+            "research capability tenant does not match the evidence bundle's tenant"
+        )
+    if cap.case_id != evidence.case.case_id:
+        raise InvocationError(
+            "research capability case does not match the evidence bundle's case"
         )
 
 
@@ -102,11 +120,11 @@ def encode_error(exc: Exception) -> str:
 async def honor_request(
     payload: dict,
     *,
-    capability_secret: str,
+    public_keys: dict[str, str],
     run_research,  # runtime.run_research (deferred import keeps this pure-logic)
     config_factory,  # runtime.ResearchConfig
 ) -> str:
-    """Handle one decoded request: verify the capability, construct the
+    """Handle one decoded request: verify the grant, construct the
     evidence + config, run the research turn, and encode the result.
 
     ``run_research`` and ``config_factory`` are injected so this module stays
@@ -122,13 +140,13 @@ async def honor_request(
         raise InvocationError("missing evidence bundle")
 
     evidence = FrozenEvidence.model_validate(evidence_raw)
-    _check_capability(capability_secret, token, evidence)
+    _check_capability(public_keys, token, evidence)
 
     config = config_factory(**config_raw)
     turn = await run_research(
         evidence, config,
         capability_token=token,
-        capability_secret=capability_secret,
+        public_keys=public_keys,
     )
     # The wire now carries the turn's usage report alongside the proposal
     # (source/scope/complete + token counters) for Controller cost settlement.

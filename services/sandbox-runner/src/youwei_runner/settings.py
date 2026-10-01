@@ -18,6 +18,23 @@ class RunnerSettings(BaseSettings):
     max_cached_bytes: int = Field(default=32 * 1024 * 1024, ge=1024)
     max_request_bytes: int = Field(default=8 * 1024 * 1024, gt=0)
 
+    # --- research link (S07m): agent-runtime container execution ---
+    # The research container runs the fixed agent-runtime image (pinned by
+    # digest in production) with stdin/stdout forwarding and egress limited to
+    # the approved gateway. The Runner holds only the PUBLIC key (kid -> PEM)
+    # to verify the Controller's Ed25519 research grant; it never signs.
+    agent_runtime_image: str = ""  # e.g. "youwei-agent-runtime@sha256:..."
+    agent_runtime_gateway_url: str = ""  # the ONLY allowed egress destination
+    agent_runtime_gateway_host: str = ""  # host[:port] resolved from gateway_url
+    agent_runtime_public_keys: dict[str, str] = Field(default_factory=dict)  # kid -> PEM
+    agent_runtime_exec_config_version: str = "research-exec-v1"
+    agent_runtime_timeout_seconds: float = Field(default=300.0, gt=0, le=3600)
+    agent_runtime_memory: str = "768m"
+    agent_runtime_cpus: str = "1.0"
+    agent_runtime_pids_limit: int = 128
+    agent_runtime_max_stdout_bytes: int = Field(default=1_000_000, gt=0)
+    agent_runtime_max_stderr_bytes: int = Field(default=256_000, gt=0)
+
     @model_validator(mode="after")
     def production_constraints(self):
         if not self.development:
@@ -25,4 +42,13 @@ class RunnerSettings(BaseSettings):
                 raise ValueError("production sandbox image must be pinned by digest")
             if self.runtime != "runsc":
                 raise ValueError("production sandbox requires runsc")
+        if self.agent_runtime_image:
+            if not self.development and not re.fullmatch(
+                r"[^\s]+@sha256:[0-9a-f]{64}", self.agent_runtime_image
+            ):
+                raise ValueError("production agent-runtime image must be pinned by digest")
+            # Egress restriction must be actually configured, never defaulted
+            # away: a research entrypoint without an approved gateway is refused.
+            if not self.agent_runtime_gateway_url:
+                raise ValueError("agent-runtime gateway URL is required when the research entry is enabled")
         return self

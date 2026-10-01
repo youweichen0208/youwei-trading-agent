@@ -47,12 +47,25 @@ from youwei_core.ledger.agent_client import (
     ResearchInvocation,
     run_agent_research,
 )
+from youwei_core.ledger.research_client import (
+    RunnerResearchConfig,
+    make_runner_research_fetcher,
+)
 from youwei_core.ledger.controller import apply_phase1b_fallback
 from youwei_core.ledger.evidence import build_frozen_evidence
 from youwei_core.ledger.model_registry import build_release_predictor
 from youwei_core.ledger.sealing import SealRequest, SourcePrediction, seal_commit
 
 PIPELINE_VERSION = "pipeline-v1"
+
+
+async def _lease_expiry(claimed: ClaimedJob):
+    """expiry_provider for the Runner research link: the grant's exp must not
+    outlive the attempt's lease. Claim-time lease is the conservative floor;
+    the DB-level active-lease re-check is exercised in the SG DB tests (S07m-3)."""
+    from datetime import UTC, datetime
+
+    return claimed.lease_expires_at.astimezone(UTC) if claimed.lease_expires_at.tzinfo else claimed.lease_expires_at
 
 class PredictError(Exception):
     pass
@@ -208,7 +221,12 @@ def make_phase1b_llm_fetcher(
 # --- batch prediction ---------------------------------------------------------
 
 
-def make_batch_predict_handler(engine: AsyncEngine, *, agent_runtime: AgentRuntimeConfig | None = None):
+def make_batch_predict_handler(
+    engine: AsyncEngine,
+    *,
+    agent_runtime: AgentRuntimeConfig | None = None,
+    runner_research: RunnerResearchConfig | None = None,
+):
     """Build the `research.batch_predict` job handler."""
 
     async def handle_batch_predict(claimed: ClaimedJob) -> dict:
@@ -216,6 +234,7 @@ def make_batch_predict_handler(engine: AsyncEngine, *, agent_runtime: AgentRunti
         return await run_batch_predictions(
             engine, claimed, payload.batch_id, payload.release_id,
             agent_runtime=agent_runtime,
+            runner_research=runner_research,
         )
 
     return handle_batch_predict
@@ -229,6 +248,7 @@ async def run_batch_predictions(
     *,
     llm_adjusted_provider=None,
     agent_runtime: AgentRuntimeConfig | None = None,
+    runner_research: RunnerResearchConfig | None = None,
 ) -> dict:
     """Produce and seal every case of a batch from one frozen evidence
     snapshot. Per-case failures (e.g. a case whose deadline already
@@ -238,11 +258,12 @@ async def run_batch_predictions(
     ``llm_adjusted_provider`` is an async callable
     ``(case, bars, quant, evidence_snapshot_id) -> SourcePrediction``.
     When None (Phase 1A), the llm_adjusted position is fixed at
-    unavailable/not_enabled. When the campaign is Phase 1B and
-    ``agent_runtime`` is provided, the provider is built from the
-    agent-runtime subprocess fetcher (S07h); otherwise a Phase 1B
-    campaign with no agent-runtime wiring still seals llm_adjusted as
-    unavailable (agent_runtime_unavailable) — never a fake LLM value."""
+    unavailable/not_enabled. When the campaign is Phase 1B and either
+    ``agent_runtime`` (local subprocess, S07h) or ``runner_research``
+    (Runner-controlled container, S07m) is provided, the provider fetches a
+    proposal across the corresponding boundary; without wiring it still seals
+    llm_adjusted as unavailable (agent_runtime_unavailable) — never a fake
+    LLM value."""
     async with engine.begin() as conn:
         batch = (
             await conn.execute(
@@ -322,7 +343,23 @@ async def run_batch_predictions(
     # fabricated LLM value.
     provider = llm_adjusted_provider
     if provider is None and "llm_adjusted" in campaign.enabled_sources:
-        if agent_runtime is not None and claimed.capability_token is not None:
+        if runner_research is not None:
+            # S07m: research runs in the Runner-controlled container, one
+            # invocation per case, authorized by the Controller's Ed25519 key.
+            fetch = make_runner_research_fetcher(
+                run_id=claimed.run_id,
+                tenant_id=claimed.tenant_id,
+                job_id=claimed.job_id,
+                attempt_no=claimed.attempt_no,
+                snapshot=frozen,
+                batch_manifest=batch.batch_manifest,
+                client=runner_research.client,
+                key=runner_research.signing_key,
+                expiry_provider=lambda: _lease_expiry(claimed),
+                research_config=runner_research.research_config,
+            )
+            provider = make_phase1b_llm_adjusted_provider(fetch)
+        elif agent_runtime is not None and claimed.capability_token is not None:
             fetch = make_phase1b_llm_fetcher(
                 run_id=claimed.run_id,
                 tenant_id=claimed.tenant_id,

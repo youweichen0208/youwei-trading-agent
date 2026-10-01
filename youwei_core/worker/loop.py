@@ -24,6 +24,11 @@ from youwei_core.jobs.worker import (
     heartbeat as hb,
 )
 from youwei_core.ledger.pipeline import AgentRuntimeConfig
+from youwei_core.ledger.research_client import (
+    ResearchRunnerClient,
+    ResearchSigningKey,
+    RunnerResearchConfig,
+)
 
 log = logging.getLogger("youwei.worker")
 
@@ -245,11 +250,12 @@ def main() -> None:
     runner = RunnerClient(settings.runner_url) if settings.runner_url else None
 
     agent_runtime = _build_agent_runtime(settings)
+    runner_research = _build_runner_research(settings)
     handlers = {
         "noop": noop_handler,
         "data.tiingo_daily": make_tiingo_daily_handler(engine, tiingo),
         "research.batch_predict": make_batch_predict_handler(
-            engine, agent_runtime=agent_runtime
+            engine, agent_runtime=agent_runtime, runner_research=runner_research
         ),
     }
     if runner is not None:
@@ -266,6 +272,8 @@ def main() -> None:
         finally:
             if runner is not None:
                 await runner.aclose()
+            if runner_research is not None:
+                await runner_research.client.aclose()
             await tiingo.aclose()
             await engine.dispose()
 
@@ -293,6 +301,28 @@ def _build_agent_runtime(settings: Settings) -> AgentRuntimeConfig | None:
         },
         process_factory=build_process_factory(command, env),
         timeout_seconds=settings.agent_runtime_timeout_seconds,
+    )
+
+
+def _build_runner_research(settings: Settings) -> RunnerResearchConfig | None:
+    """Assemble the Runner research-link wiring (S07m) from Settings, or
+    None when the research signing key is not configured.
+
+    The Controller holds the Ed25519 PRIVATE key; the Runner and research
+    container hold only public keys. The gateway endpoint/key are injected by
+    the Runner, so only the model name is carried here."""
+    if not settings.research_signing_private_key:
+        return None
+    if not settings.runner_url:
+        return None
+    return RunnerResearchConfig(
+        client=ResearchRunnerClient(settings.runner_url),
+        signing_key=ResearchSigningKey(
+            kid=settings.research_signing_kid,
+            private_key_pem=settings.research_signing_private_key,
+            exec_config_version=settings.research_exec_config_version,
+        ),
+        research_config={"model": settings.research_model},
     )
 
 

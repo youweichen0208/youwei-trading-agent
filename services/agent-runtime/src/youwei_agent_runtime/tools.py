@@ -27,13 +27,14 @@ from dataclasses import dataclass
 from typing import Any
 
 from youwei_contracts.research import FrozenEvidence
+from youwei_contracts.research_capability import SCOPE_RESEARCH_RUN
 
 RESEARCH_TOOLSET = "youwei-research"
 
-# The capability scope a research tool call must carry. It is the same scope
-# the worker loop signs for an llm_call job (see youwei_core/worker/loop.py);
-# platform tools run inside that job's run and may not exceed its grant.
-TOOL_REQUIRED_SCOPE = "llm_call"
+# The research-grant scope a tool call must carry. It is the same scope the
+# Controller signs for the runtime-research audience (research:run); platform
+# tools run inside that grant and may not exceed it.
+TOOL_REQUIRED_SCOPE = SCOPE_RESEARCH_RUN
 
 
 class ToolAuthorizationError(Exception):
@@ -46,12 +47,13 @@ class ToolContext:
 
     ``evidence`` is the frozen bundle the Controller handed to this run (the
     ONLY market input a tool may read); ``capability_token`` is the verified
-    Controller-signed token; ``capability_secret`` re-verifies it on demand.
+    Controller-signed Ed25519 grant; ``public_keys`` (kid -> PEM) re-verifies
+    it on demand (the container can verify, never sign).
     """
 
     evidence: FrozenEvidence
     capability_token: str
-    capability_secret: str
+    public_keys: dict[str, str]
 
 
 _tool_context: contextvars.ContextVar[ToolContext | None] = contextvars.ContextVar(
@@ -75,19 +77,25 @@ def current_tool_context() -> ToolContext:
 
 
 def require_scope(ctx: ToolContext, scope: str = TOOL_REQUIRED_SCOPE) -> None:
-    """Re-verify the carried capability token has the required scope.
+    """Re-verify the carried grant has the required scope (defense in depth).
 
-    The token was already verified at the process boundary; this re-checks it
-    is unexpired and still carries the scope (defense in depth — a tool must
-    not act on a stale or scope-less grant)."""
-    from youwei_contracts.capability import CapabilityError, verify_capability
+    The grant was already verified at the process boundary; this re-checks it
+    is unexpired and still carries the scope. The container holds only public
+    keys, so this re-verification cannot mint a new grant."""
+    from youwei_contracts.research_capability import (
+        AUD_RUNTIME_RESEARCH,
+        ResearchCapabilityError,
+        verify_research_token,
+    )
 
     try:
-        cap = verify_capability(ctx.capability_secret, ctx.capability_token)
-    except CapabilityError as exc:
-        raise ToolAuthorizationError(f"capability rejected: {exc}") from exc
+        cap = verify_research_token(ctx.public_keys, ctx.capability_token)
+    except ResearchCapabilityError as exc:
+        raise ToolAuthorizationError(f"research capability rejected: {exc}") from exc
+    if cap.aud != AUD_RUNTIME_RESEARCH:
+        raise ToolAuthorizationError("research capability has wrong audience")
     if scope not in cap.scopes:
-        raise ToolAuthorizationError(f"capability missing required scope {scope!r}")
+        raise ToolAuthorizationError(f"research capability missing required scope {scope!r}")
 
 
 # --- snapshot_manifest ------------------------------------------------------

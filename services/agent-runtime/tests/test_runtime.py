@@ -14,7 +14,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from youwei_contracts.capability import sign_capability
+from youwei_contracts.research_capability import (
+    AUD_RUNTIME_RESEARCH,
+    SCOPE_RESEARCH_RUN,
+    generate_research_keypair,
+    sign_research_token,
+)
 from youwei_agent_runtime.runtime import parse_proposal
 
 
@@ -174,16 +179,19 @@ def test_research_returns_citations_to_the_rows_actually_supplied(monkeypatch, e
 
 
 def test_research_sets_tool_context_for_handlers_during_turn(monkeypatch, evidence):
-    """When the Controller's capability is supplied, run_research carries it
+    """When the Controller's grant is supplied, run_research carries it
     in the tool contextvar so a platform tool handler (snapshot_manifest)
     can read the frozen evidence and re-verify the grant during chat()."""
     from youwei_agent_runtime.runtime import ResearchConfig, run_research
     from youwei_agent_runtime.tools import snapshot_manifest_handler
 
-    token = sign_capability(
-        "secret", job_id=uuid.uuid4(), attempt_no=1, tenant_id=evidence.tenant_id,
-        scopes=("llm_call",),
-        exp=datetime.now(UTC) + timedelta(minutes=5),
+    priv, pub = generate_research_keypair()
+    token = sign_research_token(
+        priv, kid="k1", aud=AUD_RUNTIME_RESEARCH, invocation_id=uuid.uuid4(),
+        tenant_id=evidence.tenant_id, run_id=evidence.run_id, job_id=uuid.uuid4(),
+        attempt_no=1, case_id=evidence.case.case_id,
+        evidence_sha256="e" * 64, exec_config_version="v1",
+        scopes=(SCOPE_RESEARCH_RUN,), exp=datetime.now(UTC) + timedelta(minutes=5),
     )
     seen = {}
 
@@ -201,7 +209,7 @@ def test_research_sets_tool_context_for_handlers_during_turn(monkeypatch, eviden
         evidence, ResearchConfig(
             base_url="http://unused.invalid", api_key="unused", model="external-test-double"
         ),
-        capability_token=token, capability_secret="secret",
+        capability_token=token, public_keys={"k1": pub},
     ))
     # the handler reported the run's own frozen snapshot, proving the context
     # was correctly threaded through the thread hop to chat().

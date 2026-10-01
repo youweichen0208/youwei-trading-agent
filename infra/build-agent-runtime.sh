@@ -34,11 +34,17 @@ mkdir -p "${STAGE}/infra/images"
 cp "${SCRIPT_DIR}/images/agent-runtime.Dockerfile" "${STAGE}/infra/images/agent-runtime.Dockerfile"
 # .dockerignore keeps .venv/.git/__pycache__ out of the context.
 cp "${REPO_ROOT}/.dockerignore" "${STAGE}/.dockerignore"
-# --relative keeps the repo-relative layout the Dockerfile COPY paths expect.
-rsync -a --relative --delete \
-    "${REPO_ROOT}/./contracts" \
-    "${REPO_ROOT}/./services/agent-runtime" \
-    "${STAGE}/"
+# Copy the two source trees the Dockerfile references, preserving their
+# repo-relative layout (contracts/ and services/agent-runtime/) under the
+# build context root. `cd` first so rsync uses plain relative sources; create
+# the nested parent dir explicitly so `services/agent-runtime` keeps its full
+# path (rsync otherwise drops the `services/` prefix for a nested source).
+(
+    cd "${REPO_ROOT}"
+    rsync -a --delete ./contracts "${STAGE}/"
+    mkdir -p "${STAGE}/services"
+    rsync -a --delete ./services/agent-runtime "${STAGE}/services/"
+)
 
 echo "== copying context to ${HOST}:${REMOTE_DIR} =="
 ssh "${HOST}" "rm -rf '${REMOTE_DIR}' && mkdir -p '${REMOTE_DIR}'"

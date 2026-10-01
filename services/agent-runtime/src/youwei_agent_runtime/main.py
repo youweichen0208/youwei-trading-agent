@@ -1,16 +1,15 @@
-"""agent-runtime entrypoint (S07h).
+"""agent-runtime entrypoint (S07m).
 
 The agent-runtime is an independent Python 3.14 process with no database or
-supplier credentials. The Controller launches it as a short-lived subprocess
-for one ``llm_adjusted`` research turn:
+supplier credentials. The Runner launches it as a short-lived container for
+one ``llm_adjusted`` research turn:
 
-    youwei-agent-runtime research-once \
-        --capability-secret-env YOUWEI_CAPABILITY_SECRET
+    youwei-agent-runtime research-once --public-keys-env YOUWEI_RESEARCH_PUBLIC_KEYS
 
 The request is a single JSON object on stdin:
 
     {
-      "capability_token": "<Controller-signed ywc_ token>",
+      "capability_token": "<Controller-signed ywr_ Ed25519 grant>",
       "evidence": { ... FrozenEvidence ... },
       "config": { "base_url": "...", "api_key": "...", "model": "..." }
     }
@@ -20,15 +19,18 @@ and the result is a single JSON object on stdout:
     {"ok": true, "proposal": { ... ResearchProposal ... }}
     {"ok": false, "error": "<Type>: <message>"}
 
-The capability secret is shared with the Controller's signing secret; it is
-read from the environment so it never appears on the command line or in the
-request body. The capability token is verified before any gateway call.
+The research container holds only the PUBLIC key (``kid -> PEM``, read from
+the environment) and VERIFIES the Controller's grant — it can never sign one.
+The gateway endpoint/key are injected by the Runner, never read from the
+request. stdin/stdout are byte-capped; a result over the cap fails rather than
+truncating JSON.
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import os
 import sys
 
@@ -44,17 +46,38 @@ from youwei_agent_runtime.runtime import (
     run_research,
 )
 
+# Byte caps for the single-line JSON wire contract (S07m). The research
+# container is a short-lived subprocess; these bound stdin and stdout so a
+# runaway or oversized result fails cleanly instead of truncating JSON.
+MAX_STDIN_BYTES = 16 * 1024 * 1024   # frozen evidence bundle + config
+MAX_STDOUT_BYTES = 1_000_000          # one result object (proposal + usage)
 
-def _capability_secret(args) -> str:
-    env = args.capability_secret_env
-    secret = os.environ.get(env, "")
-    if not secret:
+
+def _public_keys(args) -> dict[str, str]:
+    env = args.public_keys_env
+    raw = os.environ.get(env, "")
+    if not raw:
         raise SystemExit(f"research-once requires {env} to be set")
-    return secret
+    try:
+        keys = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"{env} is not valid JSON") from exc
+    if not isinstance(keys, dict) or not keys:
+        raise SystemExit(f"{env} must be a non-empty JSON object of {{kid: pem}}")
+    return keys
+
+
+def _read_stdin_bounded() -> str:
+    """Read stdin up to MAX_STDIN_BYTES; over the cap fails the invocation
+    rather than silently truncating the request JSON."""
+    data = sys.stdin.buffer.read(MAX_STDIN_BYTES + 1)
+    if len(data) > MAX_STDIN_BYTES:
+        raise InvocationError("request exceeds stdin byte cap")
+    return data.decode("utf-8", errors="replace")
 
 
 async def _research_once(args) -> int:
-    secret = _capability_secret(args)
+    public_keys = _public_keys(args)
     # Hermes writes its init banner / API-call progress / conversation log via
     # bare print() to stdout (agent/agent_init.py, turn_facade.py). The
     # research-once wire contract is a single JSON object on stdout, so divert
@@ -68,11 +91,11 @@ async def _research_once(args) -> int:
         # injection; tools live in the global registry and are selected via
         # enabled_toolsets (see tools.py / runtime._register_research_tools).
         _register_research_tools()
-        raw = sys.stdin.read()
+        raw = _read_stdin_bounded()
         payload = decode_request(raw)
         result = await honor_request(
             payload,
-            capability_secret=secret,
+            public_keys=public_keys,
             run_research=run_research,
             config_factory=ResearchConfig,
         )
@@ -84,6 +107,12 @@ async def _research_once(args) -> int:
         return 1
     finally:
         sys.stdout = real_stdout
+    # A result over the stdout cap is a failure, never a truncated JSON blob.
+    if len(result.encode("utf-8")) > MAX_STDOUT_BYTES:
+        real_stdout.write(encode_error(
+            InvocationError("research result exceeds stdout byte cap")
+        ) + "\n")
+        return 1
     real_stdout.write(result + "\n")
     return 0
 
@@ -94,9 +123,9 @@ def main(argv: list[str] | None = None) -> None:
 
     once = sub.add_parser("research-once", help="run one research turn over stdin/stdout")
     once.add_argument(
-        "--capability-secret-env",
-        default="YOUWEI_CAPABILITY_SECRET",
-        help="env var holding the capability verification secret",
+        "--public-keys-env",
+        default="YOUWEI_RESEARCH_PUBLIC_KEYS",
+        help="env var holding the JSON map of trusted research public keys (kid -> PEM)",
     )
     once.set_defaults(handler=_research_once)
 

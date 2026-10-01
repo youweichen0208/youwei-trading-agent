@@ -1,10 +1,11 @@
-"""S07i: platform research-tool surface (snapshot_manifest) — pure, no Hermes.
+"""S07m: platform research-tool surface (snapshot_manifest) — pure, no Hermes.
 
 These tests pin the tool-authorization model and the snapshot_manifest
 handler's output without importing the pinned Hermes checkout: the handler
 must only read the run's frozen evidence (from the contextvar), must re-verify
-the Controller's capability token and required scope before acting, and must
-report the evidence manifest exactly as frozen (no live data, no DB).
+the Controller's Ed25519 research grant and required scope before acting, and
+must report the evidence manifest exactly as frozen (no live data, no DB). The
+research container holds only PUBLIC keys (it verifies, never signs).
 """
 
 import json
@@ -13,8 +14,13 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from youwei_contracts.capability import sign_capability
 from youwei_contracts.research import FrozenEvidence
+from youwei_contracts.research_capability import (
+    AUD_RUNTIME_RESEARCH,
+    SCOPE_RESEARCH_RUN,
+    generate_research_keypair,
+    sign_research_token,
+)
 
 from youwei_agent_runtime.tools import (
     RESEARCH_TOOL_DEFINITIONS,
@@ -29,6 +35,12 @@ from youwei_agent_runtime.tools import (
     snapshot_manifest_handler,
     snapshot_manifest_schema,
 )
+
+
+@pytest.fixture(scope="module")
+def keypair():
+    priv, pub = generate_research_keypair()
+    return priv, pub
 
 
 def _evidence(**overrides) -> FrozenEvidence:
@@ -80,27 +92,30 @@ def _evidence(**overrides) -> FrozenEvidence:
     return FrozenEvidence(**base)
 
 
-SECRET = "test-capability-secret"
-
-
-def _token(tenant_id, scopes=("llm_call",), *, exp=None, secret=SECRET):
-    return sign_capability(
-        secret,
+def _token(priv, evidence, scopes=(SCOPE_RESEARCH_RUN,), *, exp=None):
+    return sign_research_token(
+        priv,
+        kid="k1",
+        aud=AUD_RUNTIME_RESEARCH,
+        invocation_id=uuid.uuid4(),
+        tenant_id=evidence.tenant_id,
+        run_id=evidence.run_id,
         job_id=uuid.uuid4(),
         attempt_no=1,
-        tenant_id=tenant_id,
+        case_id=evidence.case.case_id,
+        evidence_sha256="e" * 64,
+        exec_config_version="v1",
         scopes=scopes,
         exp=exp or (datetime.now(UTC) + timedelta(minutes=5)),
     )
 
 
 @pytest.fixture
-def ctx():
+def ctx(keypair):
+    priv, pub = keypair
     evidence = _evidence()
-    token = _token(evidence.tenant_id)
-    tc = ToolContext(
-        evidence=evidence, capability_token=token, capability_secret=SECRET
-    )
+    token = _token(priv, evidence)
+    tc = ToolContext(evidence=evidence, capability_token=token, public_keys={"k1": pub})
     tok = set_tool_context(tc)
     yield tc
     reset_tool_context(tok)
@@ -116,7 +131,6 @@ def test_current_tool_context_raises_without_run():
 
 def test_set_and_reset_tool_context(ctx):
     assert current_tool_context() is ctx
-    # reset via the token returned by set_tool_context
     reset_tool_context(set_tool_context(ctx))
 
 
@@ -127,29 +141,28 @@ def test_require_scope_accepts_valid_scope(ctx):
     require_scope(ctx, TOOL_REQUIRED_SCOPE)  # does not raise
 
 
-def test_require_scope_rejects_missing_scope(ctx):
+def test_require_scope_rejects_missing_scope(ctx, keypair):
+    priv, pub = keypair
     evidence = _evidence()
-    token = _token(evidence.tenant_id, scopes=("snapshot_read",))
-    tc = ToolContext(evidence=evidence, capability_token=token, capability_secret=SECRET)
+    token = _token(priv, evidence, scopes=("snapshot_read",))
+    tc = ToolContext(evidence=evidence, capability_token=token, public_keys={"k1": pub})
     with pytest.raises(ToolAuthorizationError, match="missing required scope"):
         require_scope(tc, TOOL_REQUIRED_SCOPE)
 
 
-def test_require_scope_rejects_bad_signature(ctx):
+def test_require_scope_rejects_bad_signature(ctx, keypair):
+    priv, pub = keypair
     evidence = _evidence()
-    tc = ToolContext(
-        evidence=evidence, capability_token="ywc_garbage", capability_secret=SECRET
-    )
+    tc = ToolContext(evidence=evidence, capability_token="ywr_garbage", public_keys={"k1": pub})
     with pytest.raises(ToolAuthorizationError, match="capability rejected"):
         require_scope(tc, TOOL_REQUIRED_SCOPE)
 
 
-def test_require_scope_rejects_expired(ctx):
+def test_require_scope_rejects_expired(ctx, keypair):
+    priv, pub = keypair
     evidence = _evidence()
-    token = _token(
-        evidence.tenant_id, exp=datetime.now(UTC) - timedelta(minutes=1)
-    )
-    tc = ToolContext(evidence=evidence, capability_token=token, capability_secret=SECRET)
+    token = _token(priv, evidence, exp=datetime.now(UTC) - timedelta(minutes=1))
+    tc = ToolContext(evidence=evidence, capability_token=token, public_keys={"k1": pub})
     with pytest.raises(ToolAuthorizationError, match="capability rejected"):
         require_scope(tc, TOOL_REQUIRED_SCOPE)
 
@@ -172,17 +185,13 @@ def test_snapshot_manifest_handler_reports_frozen_manifest(ctx):
     assert out["code_version"] == ev.manifest["code_version"]
 
 
-def test_snapshot_manifest_handler_uses_content_length_when_row_count_absent(ctx):
+def test_snapshot_manifest_handler_uses_content_length_when_row_count_absent(ctx, keypair):
+    priv, pub = keypair
     evidence = _evidence()
-    # strip row_count from manifest to exercise the fallback branch
-    ev = evidence.evidence
-    manifest = dict(ev.manifest)
-    manifest.pop("row_count")
-    # rebuild a frozen evidence whose manifest lacks row_count but hash matches
-    import hashlib
-
     sec = str(uuid.uuid4())
     bars = [{"security_id": sec, "trade_date": "2026-09-25", "close": 1.0}]
+    import hashlib
+
     content_sha = hashlib.sha256(
         json.dumps(bars, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
     ).hexdigest()
@@ -202,8 +211,8 @@ def test_snapshot_manifest_handler_uses_content_length_when_row_count_absent(ctx
         target_policy_sha256="d" * 64,
         batch_manifest={},
     )
-    token = _token(ev2.tenant_id)
-    tc = ToolContext(evidence=ev2, capability_token=token, capability_secret=SECRET)
+    token = _token(priv, ev2)
+    tc = ToolContext(evidence=ev2, capability_token=token, public_keys={"k1": pub})
     tok = set_tool_context(tc)
     try:
         out = json.loads(snapshot_manifest_handler({}))
@@ -218,10 +227,11 @@ def test_snapshot_manifest_handler_rejects_tampered_content(ctx):
         snapshot_manifest_handler({})
 
 
-def test_snapshot_manifest_handler_requires_scope():
+def test_snapshot_manifest_handler_requires_scope(keypair):
+    priv, pub = keypair
     evidence = _evidence()
-    token = _token(evidence.tenant_id, scopes=("snapshot_read",))  # wrong scope
-    tc = ToolContext(evidence=evidence, capability_token=token, capability_secret=SECRET)
+    token = _token(priv, evidence, scopes=("snapshot_read",))  # wrong scope
+    tc = ToolContext(evidence=evidence, capability_token=token, public_keys={"k1": pub})
     tok = set_tool_context(tc)
     try:
         with pytest.raises(ToolAuthorizationError, match="scope"):
@@ -246,4 +256,4 @@ def test_research_tool_definitions_registry():
     names = [name for name, _schema, _handler in RESEARCH_TOOL_DEFINITIONS]
     assert names == ["snapshot_manifest"]
     assert RESEARCH_TOOLSET == "youwei-research"
-    assert TOOL_REQUIRED_SCOPE == "llm_call"
+    assert TOOL_REQUIRED_SCOPE == "research:run"

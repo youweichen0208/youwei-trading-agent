@@ -100,4 +100,5 @@ if __name__ == "__main__":
     import sys
 
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 9901
-    HTTPServer(("127.0.0.1", port), Handler).serve_forever()
+    host = sys.argv[2] if len(sys.argv) > 2 else "127.0.0.1"
+    HTTPServer((host, port), Handler).serve_forever()

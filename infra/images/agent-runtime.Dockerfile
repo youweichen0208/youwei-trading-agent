@@ -69,6 +69,14 @@ RUN uv pip install --no-deps \
         /opt/youwei-contracts \
         /opt/youwei-agent-runtime
 
+# The research link signs/verifies with Ed25519 (research_capability.py),
+# which needs cryptography. Hermes's own uv.lock already pins it (==50.0.1,
+# via alibabacloud transitively); `--no-deps` above did NOT install the
+# [signing] extra, so VERIFY the version Hermes provided rather than
+# installing a second copy (a forced downgrade would fight Hermes's pin).
+RUN /opt/hermes/.venv/bin/python -c \
+        "import cryptography; assert cryptography.__version__ == '50.0.1', cryptography.__version__"
+
 # The runtime stage only needs the venv + Hermes source; drop .git and the
 # build-only apt tooling that would otherwise bloat the final image.
 RUN rm -rf /opt/hermes/.git

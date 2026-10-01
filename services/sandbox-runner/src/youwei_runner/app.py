@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Awaitable, Callable
+import uuid
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -10,6 +11,21 @@ from pydantic import ValidationError
 
 from youwei_contracts.capability import CapabilityError, verify_capability
 from youwei_contracts.sandbox import SandboxRequest, ExecutionResult, ExecutionStatus, request_digest
+from youwei_contracts.agent_runtime import (
+    ResearchInvocationEnvelope,
+    ResearchInvocationRequest,
+    ResearchInvocationResult,
+    ResearchInvocationStatus,
+    invocation_digest,
+)
+from youwei_contracts.research_capability import (
+    AUD_RUNNER_EXEC,
+    SCOPE_RESEARCH_CANCEL,
+    SCOPE_RESEARCH_RUN,
+    SCOPE_RESEARCH_STATUS,
+    ResearchCapabilityError,
+    verify_research_token,
+)
 
 from youwei_runner.settings import RunnerSettings
 
@@ -23,11 +39,29 @@ class Record:
     task: asyncio.Task | None = None
 
 
+@dataclass
+class ResearchRecord:
+    request: ResearchInvocationRequest
+    runtime_token: str
+    view: ResearchInvocationStatus
+    expires_at: datetime
+    task: asyncio.Task | None = None
+
+
 Executor = Callable[[SandboxRequest], Awaitable[ExecutionResult]]
+ResearchExecutor = Callable[
+    [ResearchInvocationRequest], Awaitable[ResearchInvocationResult]
+]
 
 
-def create_app(settings: RunnerSettings, *, executor: Executor | None = None) -> FastAPI:
+def create_app(
+    settings: RunnerSettings,
+    *,
+    executor: Executor | None = None,
+    research_executor: ResearchExecutor | None = None,
+) -> FastAPI:
     records: dict[tuple, Record] = {}
+    research_records: dict[uuid.UUID, ResearchRecord] = {}
 
     @asynccontextmanager
     async def lifespan(app):
@@ -38,6 +72,7 @@ def create_app(settings: RunnerSettings, *, executor: Executor | None = None) ->
             yield
         finally:
             tasks = [r.task for r in records.values() if r.task is not None]
+            tasks += [r.task for r in research_records.values() if r.task is not None]
             for task in tasks:
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
@@ -167,8 +202,141 @@ def create_app(settings: RunnerSettings, *, executor: Executor | None = None) ->
             record.view.status = "cancelled"
         return record.view
 
+    # --- research invocations (S07m) ----------------------------------------
+    # A separate controlled entry for the agent-runtime research container,
+    # keyed by invocation_id (one turn per case) and authorized by Ed25519
+    # (the Runner holds only public keys; it never signs). The legacy sandbox
+    # HMAC link is unchanged.
+
+    def authorize_research(request: Request, scope: str):
+        raw = request.headers.get("authorization", "")
+        if not raw.startswith("Bearer "):
+            raise HTTPException(401, "research capability required")
+        try:
+            cap = verify_research_token(settings.agent_runtime_public_keys, raw[7:])
+        except ResearchCapabilityError:
+            raise HTTPException(403, "invalid research capability") from None
+        if cap.aud != AUD_RUNNER_EXEC:
+            raise HTTPException(403, "research capability has wrong audience")
+        if scope not in cap.scopes:
+            raise HTTPException(403, f"research capability missing {scope} scope")
+        return cap
+
+    async def execute_research(record: ResearchRecord):
+        work = None
+        try:
+            if research_executor is None:
+                from youwei_runner.research import execute_research_request
+                from youwei_runner.research import build_research_config
+
+                config = build_research_config(settings)
+                # The app layer already authorized the request (aud=runner-exec);
+                # the container grant (aud=runtime-research) is passed through so
+                # the research container can verify it independently.
+                work = asyncio.create_task(
+                    execute_research_request(
+                        record.request, config, capability_token=record.runtime_token
+                    )
+                )
+            else:
+                work = asyncio.create_task(research_executor(record.request))
+            while not work.done():
+                if record.expires_at <= datetime.now(UTC):
+                    raise asyncio.CancelledError
+                await asyncio.wait({work}, timeout=0.05)
+            result = work.result()
+            record.view.result = result
+            record.view.status = "succeeded"
+        except asyncio.CancelledError:
+            record.view.status = "cancelled"
+        except Exception as exc:
+            record.view.status = "failed"
+            record.view.error = str(exc)[:500]
+        finally:
+            if work is not None and not work.done():
+                work.cancel()
+                await asyncio.gather(work, return_exceptions=True)
+
+    @app.post("/v1/research-invocations")
+    async def research_submit(request: Request):
+        cap = authorize_research(request, SCOPE_RESEARCH_RUN)
+        raw = bytearray()
+        async for chunk in request.stream():
+            raw.extend(chunk)
+            if len(raw) > settings.max_request_bytes:
+                raise HTTPException(413, "research request too large")
+        try:
+            envelope = ResearchInvocationEnvelope.model_validate_json(raw)
+        except ValidationError:
+            raise HTTPException(422, "invalid agent-runtime-v1 envelope") from None
+        req = envelope.request
+        digest = invocation_digest(req)
+        # Binding: the grant's invocation/tenant/case/evidence must match.
+        if (
+            cap.invocation_id != req.invocation_id
+            or cap.tenant_id != req.tenant_id
+            or cap.case_id != req.case_id
+            or cap.evidence_sha256 != req.evidence_sha256
+            or cap.exec_config_version != req.exec_config_version
+        ):
+            raise HTTPException(403, "research capability binding mismatch")
+        key = req.invocation_id
+        if key in research_records:
+            record = research_records[key]
+            if record.view.request_sha256 != digest:
+                raise HTTPException(409, "invocation already bound to another payload")
+            record.expires_at = max(record.expires_at, cap.exp)
+            return JSONResponse(record.view.model_dump(mode="json"))
+        if sum(
+            r.task is not None and not r.task.done() for r in research_records.values()
+        ) >= settings.max_parallel:
+            raise HTTPException(429, "research runner at capacity")
+        if len(research_records) >= settings.max_records:
+            for old_key, old in list(research_records.items()):
+                if old.task is not None and old.task.done() and old.expires_at < datetime.now(UTC):
+                    del research_records[old_key]
+            if len(research_records) >= settings.max_records:
+                raise HTTPException(503, "research receipt capacity reached")
+        record = ResearchRecord(
+            req,
+            envelope.runtime_token,
+            ResearchInvocationStatus(
+                invocation_id=req.invocation_id,
+                request_sha256=digest,
+                status="running",
+            ),
+            cap.exp,
+        )
+        research_records[key] = record
+        record.task = asyncio.create_task(execute_research(record))
+        return JSONResponse(record.view.model_dump(mode="json"), status_code=202)
+
+    def find_research_record(invocation_id, request, scope):
+        cap = authorize_research(request, scope)
+        if cap.invocation_id != invocation_id:
+            raise HTTPException(403, "research capability scope mismatch")
+        record = research_records.get(invocation_id)
+        if record is None:
+            raise HTTPException(404, "research invocation unavailable; recover through Core")
+        record.expires_at = max(record.expires_at, cap.exp)
+        return record
+
+    @app.get("/v1/research-invocations/{invocation_id}")
+    async def research_status(invocation_id: uuid.UUID, request: Request):
+        record = find_research_record(invocation_id, request, SCOPE_RESEARCH_STATUS)
+        return record.view
+
+    @app.delete("/v1/research-invocations/{invocation_id}")
+    async def research_cancel(invocation_id: uuid.UUID, request: Request):
+        record = find_research_record(invocation_id, request, SCOPE_RESEARCH_CANCEL)
+        if record.task is not None and record.view.status == "running":
+            record.task.cancel()
+            await asyncio.gather(record.task, return_exceptions=True)
+            record.view.status = "cancelled"
+        return record.view
+
     @app.get("/healthz")
     async def health():
-        return {"status": "ok", "contract_version": "sandbox-v1"}
+        return {"status": "ok", "contract_version": "sandbox-v1", "research": "agent-runtime-v1"}
 
     return app

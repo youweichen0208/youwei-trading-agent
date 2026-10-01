@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Container smoke for the agent-runtime headless image (S07).
+"""Container smoke for the agent-runtime headless image (S07m).
 
 Runs INSIDE the built image (or any env with the agent-runtime venv + the
 pinned Hermes checkout on PYTHONPATH). It starts a local mock OpenAI-compatible
@@ -8,12 +8,15 @@ research-once` entrypoint as a subprocess for the happy path and four
 authorization-rejection paths. No real model, no cost.
 
     # inside the image (entrypoint overridden):
-    docker run --rm --network host --entrypoint python \
+    docker run --rm --entrypoint python \
         -v "$PWD/smoke:/smoke:ro" <image> /smoke/container_smoke.py \
-        --secret <32+ char capability secret>
+        --private-key "$(cat /path/research-key.pem)"
 
-The capability secret is passed only via the environment to the subprocess
-(YOUWEI_CAPABILITY_SECRET), never on the command line or in the request body.
+The research link uses Ed25519 (S07m): the smoke runner HOLDS the private key
+to SIGN grants, but it passes only the PUBLIC key (kid -> PEM) to the
+research-once subprocess via YOUWEI_RESEARCH_PUBLIC_KEYS. This proves the
+research container can VERIFY a grant but never sign one. No secret is shared
+with the container; nothing appears on the command line or in the request body.
 """
 
 import argparse
@@ -27,10 +30,18 @@ import time
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from youwei_contracts.capability import sign_capability
 from youwei_contracts.research import FrozenEvidence
+from youwei_contracts.research_capability import (
+    AUD_RUNTIME_RESEARCH,
+    SCOPE_RESEARCH_RUN,
+    generate_research_keypair,
+    public_key_thumbprint,
+    sign_research_token,
+)
 
 from mock_gateway import Handler, HTTPServer
+
+EXEC_CONFIG_VERSION = "research-exec-v1"
 
 
 def make_evidence(tenant_id: uuid.UUID) -> FrozenEvidence:
@@ -77,25 +88,33 @@ def make_evidence(tenant_id: uuid.UUID) -> FrozenEvidence:
     )
 
 
-def token(secret, *, tenant_id, scopes, exp, job_id=None, attempt_no=1):
-    return sign_capability(
-        secret,
-        job_id=job_id or uuid.uuid4(),
-        attempt_no=attempt_no,
+def make_token(private_key_pem, *, kid, evidence, tenant_id, scopes, exp):
+    """Sign one runtime-research grant bound to the evidence's run/case."""
+    return sign_research_token(
+        private_key_pem,
+        kid=kid,
+        aud=AUD_RUNTIME_RESEARCH,
+        invocation_id=uuid.uuid4(),
         tenant_id=tenant_id,
-        scopes=tuple(scopes),
+        run_id=evidence.run_id,
+        job_id=uuid.uuid4(),
+        attempt_no=1,
+        case_id=evidence.case.case_id,
+        evidence_sha256="e" * 64,
+        exec_config_version=EXEC_CONFIG_VERSION,
+        scopes=scopes,
         exp=exp,
     )
 
 
-def run_once(secret, payload):
+def run_once(public_keys_json, payload):
     """Run the research-once entrypoint once, returning (exit_code, stdout, stderr).
 
     Called as a subprocess of the same venv (the container ENTRYPOINT is
-    overridden by the smoke runner); capability secret is injected only via
-    env, mirroring how the Controller launches the process."""
+    overridden by the smoke runner); only the PUBLIC key map is injected via
+    env, mirroring how the Runner launches the research container."""
     env = dict(os.environ)
-    env["YOUWEI_CAPABILITY_SECRET"] = secret
+    env["YOUWEI_RESEARCH_PUBLIC_KEYS"] = public_keys_json
     proc = subprocess.run(
         ["youwei-agent-runtime", "research-once"],
         input=json.dumps(payload).encode(),
@@ -149,13 +168,30 @@ def expect_reject(name, result, expect_fragment):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--secret", required=True, help="capability secret (>=32 chars)")
+    ap.add_argument("--private-key", default=None,
+                    help="Ed25519 private key PEM (default: generate a fresh pair)")
+    ap.add_argument("--public-key", default=None,
+                    help="Ed25519 public key PEM to trust (default: derive from --private-key)")
     ap.add_argument("--gateway-port", type=int, default=9901)
     args = ap.parse_args()
 
-    if len(args.secret) < 32:
-        print("secret must be >= 32 characters")
-        return 2
+    if args.private_key:
+        private_key_pem = open(args.private_key).read()
+        if args.public_key:
+            public_key_pem = open(args.public_key).read()
+        else:
+            from cryptography.hazmat.primitives import serialization
+            priv = serialization.load_pem_private_key(private_key_pem.encode(), password=None)
+            public_key_pem = priv.public_key().public_bytes(
+                serialization.Encoding.PEM,
+                serialization.PublicFormat.SubjectPublicKeyInfo,
+            ).decode()
+    else:
+        private_key_pem, public_key_pem = generate_research_keypair()
+
+    kid = public_key_thumbprint(public_key_pem)[:16]
+    public_keys = {kid: public_key_pem}
+    public_keys_json = json.dumps(public_keys, sort_keys=True)
 
     gateway_url = f"http://127.0.0.1:{args.gateway_port}/v1"
     gateway = HTTPServer(("127.0.0.1", args.gateway_port), Handler)
@@ -171,35 +207,39 @@ def main():
         config = {"base_url": gateway_url, "api_key": "mock-key", "model": "mock-model"}
         base = {"evidence": evidence.model_dump(mode="json"), "config": config}
 
+        def tok(tenant_id, scopes, exp):
+            return make_token(private_key_pem, kid=kid, evidence=evidence,
+                              tenant_id=tenant_id, scopes=scopes, exp=exp)
+
         results = []
         results.append(expect_ok(
-            "valid-capability",
-            run_once(args.secret, {**base, "capability_token": token(
-                args.secret, tenant_id=tenant, scopes=["llm_call"], exp=future)}),
+            "valid-grant",
+            run_once(public_keys_json, {**base, "capability_token": tok(
+                tenant, [SCOPE_RESEARCH_RUN], future)}),
         ))
         results.append(expect_reject(
             "wrong-tenant",
-            run_once(args.secret, {**base, "capability_token": token(
-                args.secret, tenant_id=uuid.uuid4(), scopes=["llm_call"], exp=future)}),
+            run_once(public_keys_json, {**base, "capability_token": tok(
+                uuid.uuid4(), [SCOPE_RESEARCH_RUN], future)}),
             "tenant",
         ))
         results.append(expect_reject(
             "missing-scope",
-            run_once(args.secret, {**base, "capability_token": token(
-                args.secret, tenant_id=tenant, scopes=["snapshot_read"], exp=future)}),
+            run_once(public_keys_json, {**base, "capability_token": tok(
+                tenant, ["snapshot_read"], future)}),
             "scope",
         ))
-        good = token(args.secret, tenant_id=tenant, scopes=["llm_call"], exp=future)
+        good = tok(tenant, [SCOPE_RESEARCH_RUN], future)
         bad = good[:-4] + ("AAAA" if good[-4:] != "AAAA" else "BBBB")
         results.append(expect_reject(
             "bad-signature",
-            run_once(args.secret, {**base, "capability_token": bad}),
+            run_once(public_keys_json, {**base, "capability_token": bad}),
             "signature",
         ))
         results.append(expect_reject(
             "expired",
-            run_once(args.secret, {**base, "capability_token": token(
-                args.secret, tenant_id=tenant, scopes=["llm_call"], exp=past)}),
+            run_once(public_keys_json, {**base, "capability_token": tok(
+                tenant, [SCOPE_RESEARCH_RUN], past)}),
             "expired",
         ))
 

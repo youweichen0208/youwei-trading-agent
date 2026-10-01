@@ -5,7 +5,7 @@ description = "Hermes research runtime (S07). Independent Python 3.14 environmen
 requires-python = ">=3.14,<3.15"
 dependencies = [
     "pydantic>=2.10,<3",
-    "youwei-contracts",
+    "youwei-contracts[signing]",
 ]
 
 [tool.uv.sources]

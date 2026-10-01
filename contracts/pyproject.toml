@@ -4,6 +4,12 @@ version = "0.1.0"
 requires-python = ">=3.13,<3.15"
 dependencies = ["pydantic>=2.10,<3"]
 
+[project.optional-dependencies]
+# Ed25519 signing/verification for the research link (research_capability.py).
+# Pure DTO consumers need not install it; Core, Runner and agent-runtime
+# declare this extra explicitly and pin it in their lock files.
+signing = ["cryptography>=44,<51"]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

@@ -76,3 +76,12 @@ class Settings(BaseSettings):
     agent_llm_base_url: str = ""
     agent_llm_api_key: str = ""
     agent_llm_model: str = ""
+
+    # S07m: research link over the Runner's controlled entry (Ed25519). The
+    # Controller holds the signing PRIVATE key; the Runner and research
+    # container hold only public keys. The model is the gateway model name
+    # (the gateway endpoint/key are injected by the Runner, never here).
+    research_signing_private_key: str = ""  # Ed25519 PEM (Controller secret)
+    research_signing_kid: str = "research-key-1"
+    research_exec_config_version: str = "research-exec-v1"
+    research_model: str = ""

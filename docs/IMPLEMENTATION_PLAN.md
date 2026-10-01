@@ -3,7 +3,7 @@
 日期：2026-09-27；结构优化更新：2026-09-28\
 设计依据：[ARCHITECTURE.md](ARCHITECTURE.md)\
 问题来源：[v0.2 评审](ARCHITECTURE_REVIEW_v0.2.md)\
-状态：S00 协议已确认定稿（2026-09-27）；S01 主体完成（Tiingo 字段级验证已实测；EOD 实盘观测随 S04 首次采集、个人内部Phase 1A数据许可已确认；LLM转发许可及网关验收另行记录）；S02 已完成（隔离开发环境验收，2026-09-27）；S03 第一/二纵切片完成（沙箱执行、独立 Runner 与 HTTP 产物链路，2026-09-28；生产部署仍待验收）；S04 第一至三纵切片完成（PIT 数据基础、交易日历与冻结快照，2026-09-27；训练 manifest 登记，2026-09-28；独立退市真相源、派生特征与多源仍待补源决策）；S05 已完成四纵切片（封存核心、Outcome 回填、评估报告、归档与监控，2026-09-27）加 S05e 证据追溯收紧（2026-09-28）；S06 第一/二纵切片完成（前向预测管线，2026-09-27；供应商更正自动触发、月度汇总与报告门控，2026-09-28；正式 campaign 启动项仍阻断；分类方案为 eodhd_sector；S06h真实panel/日历/SPY冻结、Logistic/Ridge和历史Trial已完成；候选D20未显示增量，具体release待人工决定与批准）；S03 剩余部署项与 S06 正式启动及 S07 后续切片（工具授权、镜像部署）与 S08–S11 待实施、待验收。S07k 预算/计费已按项目所有者决定整体删除（2026-09-30）。S08 于 2026-10-01 决策改为「受控量化探索闭环（Hermes）」：MVP 暂缓接入 Pi，Hermes 作为唯一 Agent 框架，Pi 保留为可替换候选。
+状态：S00 协议已确认定稿（2026-09-27）；S01 主体完成（Tiingo 字段级验证已实测；EOD 实盘观测随 S04 首次采集、个人内部Phase 1A数据许可已确认；LLM转发许可及网关验收另行记录）；S02 已完成（隔离开发环境验收，2026-09-27）；S03 第一/二纵切片完成（沙箱执行、独立 Runner 与 HTTP 产物链路，2026-09-28；生产部署仍待验收）；S04 第一至三纵切片完成（PIT 数据基础、交易日历与冻结快照，2026-09-27；训练 manifest 登记，2026-09-28；独立退市真相源、派生特征与多源仍待补源决策）；S05 已完成四纵切片（封存核心、Outcome 回填、评估报告、归档与监控，2026-09-27）加 S05e 证据追溯收紧（2026-09-28）；S06 第一/二纵切片完成（前向预测管线，2026-09-27；供应商更正自动触发、月度汇总与报告门控，2026-09-28；正式 campaign 启动项仍阻断；分类方案为 eodhd_sector；S06h真实panel/日历/SPY冻结、Logistic/Ridge和历史Trial已完成；候选D20未显示增量，具体release待人工决定与批准）；S03 剩余部署项与 S06 正式启动及 S07 后续切片（工具授权、镜像部署）与 S08–S11 待实施、待验收。S07k 预算/计费已按项目所有者决定整体删除（2026-09-30）。S07m 研究运行时跨容器接线（Ed25519 授权 + Runner 受控执行，S07m-1/S07m-2/S07m-3 完成）。S08 于 2026-10-01 决策改为「受控量化探索闭环（Hermes）」：MVP 暂缓接入 Pi，Hermes 作为唯一 Agent 框架，Pi 保留为可替换候选。
 
 ## 1. 执行规则
 
@@ -608,6 +608,23 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
   - 本机 agent-runtime（3.14）`pytest -q` → **45 passed**（42 + 新增 3）；`main import OK`（纯逻辑面无 Hermes 依赖）。
   - `infra/validate_upstreams.py --mode catalog` → VALID。
 - 剩余限制：manifest digest 为本地 digest 非 registry 引用，尚无镜像仓库（部署引用未就绪）；真实 LLM 网关调用、取消计费语义、数据源 LLM 转发授权、Phase 1B 正式启用（新 Campaign + 人工 release 批准）仍待后续；未验证 Controller 跨容器接线、生产资源压测、gVisor 运行。
+
+### S07m 进度（2026-10-01，研究运行时跨容器接线：Ed25519 授权 + Runner 受控执行）
+
+- 状态：**S07m-1（研究授权契约）、S07m-2（跨容器执行）、S07m-3（SG 镜像/受限网络/贯通）均完成**。研究链路采用非对称授权，既有 sandbox-v1 HMAC 链路保持不变。S07m-3 在 SG 实测：容器内 Ed25519 冒烟 5/5、受限网络（internal network 仅网关出口，外网/宿主机/docker socket 均不可达）、真实 Controller→Runner→研究容器→mock 网关端到端贯通（`END_TO_END OK`，produced p=0.6 + session_delta usage）。
+- 决策（项目所有者 2026-10-01）：契约形态为新增 `agent-runtime-v1`（保留 research-once stdin/stdout）；本片只做单次研究调用，S08 探索工具往返单独实现；研究容器仅允许访问批准的网关出口，sandbox-v1 继续无网络；凭证改造限定新研究链路（Ed25519），不迁移旧 HMAC。
+- 交付：
+  - `contracts/src/youwei_contracts/research_capability.py`（新）：Ed25519 研究令牌（`ywr_` 前缀）——`generate_research_keypair`/`sign_research_token`/`verify_research_token`/`public_key_thumbprint`；audience（`runner-exec`/`runtime-research`）、scope（`research:run`/`research:status`/`research:cancel`）；kid 只查询部署受信公钥，未知 kid/alg/版本/audience 一律拒绝（无 HMAC 回退）；绑定 tenant/run/job/attempt/case/证据 hash/执行配置版本/有效期/nbf；续租是全新签名（内层令牌不随外层租约续期延长）。`cryptography>=44,<51` 作为 `youwei-contracts[signing]` 可选依赖（deferred import，纯 DTO 消费者无需安装）。
+  - `contracts/src/youwei_contracts/agent_runtime.py`（新）：`agent-runtime-v1` 契约——`ResearchInvocationRequest`（`invocation_id` 键解决逐 Case 冲突；绑定 tenant/run/job/attempt/case/证据/执行配置版本；证据 hash 构造时校验）、`ResearchRuntimeConfig`（只含 model/iterations，base_url/api_key 由 Runner 注入）、`ResearchInvocationResult`（含实际镜像 digest）、`ResearchInvocationStatus`、`ResearchInvocationEnvelope`（稳定内容 request 与 runtime_token 分离，续签不改变请求 digest）。
+  - `services/sandbox-runner/src/youwei_runner/research.py`（新）：Runner 研究执行入口——`run_research_container`（`docker run -i` 转发 stdin/stdout，非 root 只读、cap-drop ALL、CPU/mem/PID 限制、仅网关出口网络、超时 kill+清理、stdout/stderr 字节上限、结果超限失败不截断）、`build_research_config`、`verify_research_grant`、`execute_research_request`（注入网关 endpoint/key，调用方不可覆盖）。
+  - `services/sandbox-runner/src/youwei_runner/app.py`：新增 `/v1/research-invocations` 三端点（submit/status/cancel），`invocation_id` 键 + Ed25519 授权（`aud=runner-exec`）+ 幂等（同 invocation 同内容重放、异内容 409）+ 绑定校验；`settings.py` 加研究镜像/网关/公钥/执行配置版本/资源上限，生产模式强制 digest + 网关配置非空（缺网络规则拒绝启动）。
+  - `youwei_core/ledger/research_client.py`（新）：Controller 侧研究链路——`ResearchSigningKey`/`sign_invocation_tokens`（签发 runner-exec + runtime-research 两令牌）、`build_research_request`/`evidence_sha256`、`ResearchRunnerClient`（HTTP 提交/轮询）、`run_research_via_runner`（提交→轮询→结果，每次令牌使用前经 expiry_provider 重签，续租=新签名）、`make_runner_research_fetcher`（`fetch_proposal(case,bars)` 一 Case 一 invocation）。
+  - `youwei_core/ledger/pipeline.py`：`run_batch_predictions` 新增 `runner_research` 参数，Phase 1B 优先走 Runner 受控链路（每 Case 独立 invocation_id），否则回退旧本地 subprocess 或 unavailable；`make_batch_predict_handler` 透传。
+  - `youwei_core/config.py` + `worker/loop.py`：`research_signing_private_key`/`research_signing_kid`/`research_exec_config_version`/`research_model`；`_build_runner_research` 组装 `RunnerResearchConfig`；worker 启动/关闭管理研究 client。
+  - `services/agent-runtime`：`invoke.py`/`tools.py`/`runtime.py`/`main.py` 由 HMAC secret 改为 Ed25519 公钥验签（`YOUWEI_RESEARCH_PUBLIC_KEYS` env 读 `{kid: pem}`，验签 `aud=runtime-research` + `research:run` scope + tenant + case 绑定）；`main.py` 加 stdin/stdout 字节上限（超限失败不截断）。
+- 验证（本机，无 Docker/DB）：`uv run --frozen pytest tests/pure tests/contracts tests/known_answers -q` → **183 passed**（含新增 research_capability 13、agent_runtime 6、research_runner_http 7、research_client 5）；agent-runtime 3.14 自有环境 `pytest -q` → **48 passed**（invoke 10、tools 12、runtime、main 含 stdin 上限）；`git diff --check` 通过。cryptography 统一到 50.x（Core/Runner/agent-runtime 三环境 50.0.2，镜像内 Hermes 锁 50.0.1），Ed25519 签发/验签在 3.13 与 3.14 均实测通过。
+- SG 验证（S07m-3）：容器内 Ed25519 冒烟 5/5（合法 grant produced / 错 tenant / 缺 scope `research:run` / 坏签名 / 过期）；受限网络 `youwei-research`（`docker network create --internal`）实测——mock 网关可达、外网 8.8.8.8/宿主机公网 IP/docker socket 网关均 `Network is unreachable`；真实 `execute_research_request`→`run_research_container`（`docker run -i` + Ed25519 验签 + 网关注入 + 公钥注入）端到端贯通 `END_TO_END OK`。验收文档 [agent-runtime-cross-container.md](ops/agent-runtime-cross-container.md)；镜像 digest `sha256:998f060eb0f7fadaa1712e9540370a4dc1e79995b56f1a41a9c1f7b1e892f153`（tag `youwei/agent-runtime:dev`）。
+- 剩余限制：manifest digest 为本地 digest 非 registry 引用，尚无镜像仓库（`deployment.image` 保持 null）；受限网络的 DNS/IPv6 通路未显式测试（internal network 无外网，DNS 解析需 S09 按网关实际地址固定）；真实 LLM 网关（litellm）调用、取消计费语义、数据源 LLM 转发授权、Phase 1B 正式启用（新 Campaign + 人工 release 批准）仍待后续；DB 级测试（迁移 + 现有测试全量）仍待 SG 完整跑（本片只跑纯逻辑 + 端到端冒烟）；expiry_provider 当前用 claim 时 lease，DB 级 active-lease 重查随 S07m 后续 DB 测试验证。
 
 ```text
 任务：

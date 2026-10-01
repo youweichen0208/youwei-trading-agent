@@ -1,8 +1,9 @@
-"""S07h: agent-runtime invocation codec + capability check (pure, no Hermes).
+"""S07m: agent-runtime invocation codec + Ed25519 grant check (pure, no Hermes).
 
 These tests pin the subprocess boundary from the agent-runtime side: the
-request codec, the capability-token verification (scope + tenant binding),
-and the result encoding — all without importing the pinned Hermes checkout.
+request codec, the Ed25519 research-grant verification (audience + scope +
+tenant + case binding), and the result encoding — all without importing the
+pinned Hermes checkout. The research container holds only PUBLIC keys.
 """
 
 import asyncio
@@ -13,8 +14,13 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from youwei_contracts.capability import sign_capability
 from youwei_contracts.research import FrozenEvidence, ResearchProposal
+from youwei_contracts.research_capability import (
+    AUD_RUNTIME_RESEARCH,
+    SCOPE_RESEARCH_RUN,
+    generate_research_keypair,
+    sign_research_token,
+)
 from youwei_agent_runtime.invoke import (
     InvocationError,
     decode_request,
@@ -23,6 +29,12 @@ from youwei_agent_runtime.invoke import (
     honor_request,
 )
 from youwei_agent_runtime.runtime import ResearchTurn, UsageReport
+
+
+@pytest.fixture(scope="module")
+def keypair():
+    priv, pub = generate_research_keypair()
+    return priv, pub
 
 
 def _evidence(tenant_id) -> FrozenEvidence:
@@ -60,12 +72,30 @@ def _evidence(tenant_id) -> FrozenEvidence:
     )
 
 
+def _token(priv, evidence, *, tenant_id=None, scopes=(SCOPE_RESEARCH_RUN,), exp=None, aud=AUD_RUNTIME_RESEARCH):
+    return sign_research_token(
+        priv,
+        kid="k1",
+        aud=aud,
+        invocation_id=uuid.uuid4(),
+        tenant_id=tenant_id if tenant_id is not None else evidence.tenant_id,
+        run_id=evidence.run_id,
+        job_id=uuid.uuid4(),
+        attempt_no=1,
+        case_id=evidence.case.case_id,
+        evidence_sha256="e" * 64,
+        exec_config_version="v1",
+        scopes=scopes,
+        exp=exp or (datetime.now(UTC) + timedelta(minutes=5)),
+    )
+
+
 class _Config:
     def __init__(self, **kwargs):
         self.kwargs = kwargs
 
 
-async def _fake_run_research(evidence, config, *, capability_token=None, capability_secret=None):
+async def _fake_run_research(evidence, config, *, capability_token=None, public_keys=None):
     return ResearchTurn(
         proposal=ResearchProposal(
             run_id=evidence.run_id,
@@ -82,17 +112,11 @@ async def _fake_run_research(evidence, config, *, capability_token=None, capabil
     )
 
 
-SECRET = "test-capability-secret"
-
-
-def test_honor_request_returns_proposal_for_valid_capability():
+def test_honor_request_returns_proposal_for_valid_grant(keypair):
+    priv, pub = keypair
     tenant = uuid.uuid4()
     evidence = _evidence(tenant)
-    token = sign_capability(
-        SECRET, job_id=uuid.uuid4(), attempt_no=1, tenant_id=tenant,
-        scopes=("llm_call", "snapshot_read"),
-        exp=datetime.now(UTC) + timedelta(minutes=5),
-    )
+    token = _token(priv, evidence)
     payload = {
         "capability_token": token,
         "evidence": evidence.model_dump(mode="json"),
@@ -101,7 +125,7 @@ def test_honor_request_returns_proposal_for_valid_capability():
     result = asyncio.run(
         honor_request(
             payload,
-            capability_secret=SECRET,
+            public_keys={"k1": pub},
             run_research=_fake_run_research,
             config_factory=_Config,
         )
@@ -111,14 +135,11 @@ def test_honor_request_returns_proposal_for_valid_capability():
     assert decoded["proposal"]["source_status"] == "produced"
 
 
-def test_honor_request_passes_capability_to_run_research():
+def test_honor_request_passes_grant_to_run_research(keypair):
+    priv, pub = keypair
     tenant = uuid.uuid4()
     evidence = _evidence(tenant)
-    token = sign_capability(
-        SECRET, job_id=uuid.uuid4(), attempt_no=1, tenant_id=tenant,
-        scopes=("llm_call",),
-        exp=datetime.now(UTC) + timedelta(minutes=5),
-    )
+    token = _token(priv, evidence)
     payload = {
         "capability_token": token,
         "evidence": evidence.model_dump(mode="json"),
@@ -126,35 +147,30 @@ def test_honor_request_passes_capability_to_run_research():
     }
     captured = {}
 
-    async def _spy(evidence, config, *, capability_token=None, capability_secret=None):
+    async def _spy(evidence, config, *, capability_token=None, public_keys=None):
         captured["token"] = capability_token
-        captured["secret"] = capability_secret
+        captured["public_keys"] = public_keys
         return await _fake_run_research(
             evidence, config,
             capability_token=capability_token,
-            capability_secret=capability_secret,
+            public_keys=public_keys,
         )
 
     asyncio.run(
         honor_request(
-            payload, capability_secret=SECRET,
+            payload, public_keys={"k1": pub},
             run_research=_spy, config_factory=_Config,
         )
     )
-    # the Controller's token and secret are forwarded verbatim so platform
-    # tool handlers (tools.py) can re-verify the grant against the evidence.
     assert captured["token"] == token
-    assert captured["secret"] == SECRET
+    assert captured["public_keys"] == {"k1": pub}
 
 
-def test_honor_request_rejects_wrong_tenant():
+def test_honor_request_rejects_wrong_tenant(keypair):
+    priv, pub = keypair
     tenant = uuid.uuid4()
     evidence = _evidence(tenant)
-    token = sign_capability(
-        SECRET, job_id=uuid.uuid4(), attempt_no=1, tenant_id=uuid.uuid4(),  # other tenant
-        scopes=("llm_call",),
-        exp=datetime.now(UTC) + timedelta(minutes=5),
-    )
+    token = _token(priv, evidence, tenant_id=uuid.uuid4())  # other tenant
     payload = {
         "capability_token": token,
         "evidence": evidence.model_dump(mode="json"),
@@ -163,20 +179,43 @@ def test_honor_request_rejects_wrong_tenant():
     with pytest.raises(InvocationError, match="tenant"):
         asyncio.run(
             honor_request(
-                payload, capability_secret=SECRET,
+                payload, public_keys={"k1": pub},
                 run_research=_fake_run_research, config_factory=_Config,
             )
         )
 
 
-def test_honor_request_rejects_missing_scope():
+def test_honor_request_rejects_wrong_case(keypair):
+    priv, pub = keypair
     tenant = uuid.uuid4()
     evidence = _evidence(tenant)
-    token = sign_capability(
-        SECRET, job_id=uuid.uuid4(), attempt_no=1, tenant_id=tenant,
-        scopes=("snapshot_read",),  # no llm_call
-        exp=datetime.now(UTC) + timedelta(minutes=5),
+    # Sign for a DIFFERENT case_id than the evidence carries.
+    token = sign_research_token(
+        priv, kid="k1", aud=AUD_RUNTIME_RESEARCH, invocation_id=uuid.uuid4(),
+        tenant_id=tenant, run_id=evidence.run_id, job_id=uuid.uuid4(), attempt_no=1,
+        case_id=uuid.uuid4(),  # wrong case
+        evidence_sha256="e" * 64, exec_config_version="v1",
+        scopes=(SCOPE_RESEARCH_RUN,), exp=datetime.now(UTC) + timedelta(minutes=5),
     )
+    payload = {
+        "capability_token": token,
+        "evidence": evidence.model_dump(mode="json"),
+        "config": {},
+    }
+    with pytest.raises(InvocationError, match="case"):
+        asyncio.run(
+            honor_request(
+                payload, public_keys={"k1": pub},
+                run_research=_fake_run_research, config_factory=_Config,
+            )
+        )
+
+
+def test_honor_request_rejects_missing_scope(keypair):
+    priv, pub = keypair
+    tenant = uuid.uuid4()
+    evidence = _evidence(tenant)
+    token = _token(priv, evidence, scopes=("snapshot_read",))
     payload = {
         "capability_token": token,
         "evidence": evidence.model_dump(mode="json"),
@@ -185,37 +224,35 @@ def test_honor_request_rejects_missing_scope():
     with pytest.raises(InvocationError, match="scope"):
         asyncio.run(
             honor_request(
-                payload, capability_secret=SECRET,
+                payload, public_keys={"k1": pub},
                 run_research=_fake_run_research, config_factory=_Config,
             )
         )
 
 
-def test_honor_request_rejects_bad_signature():
+def test_honor_request_rejects_bad_signature(keypair):
+    priv, pub = keypair
     tenant = uuid.uuid4()
     evidence = _evidence(tenant)
     payload = {
-        "capability_token": "ywc_garbage",
+        "capability_token": "ywr_garbage",
         "evidence": evidence.model_dump(mode="json"),
         "config": {},
     }
     with pytest.raises(InvocationError, match="capability"):
         asyncio.run(
             honor_request(
-                payload, capability_secret=SECRET,
+                payload, public_keys={"k1": pub},
                 run_research=_fake_run_research, config_factory=_Config,
             )
         )
 
 
-def test_honor_request_rejects_expired_capability():
+def test_honor_request_rejects_expired_grant(keypair):
+    priv, pub = keypair
     tenant = uuid.uuid4()
     evidence = _evidence(tenant)
-    token = sign_capability(
-        SECRET, job_id=uuid.uuid4(), attempt_no=1, tenant_id=tenant,
-        scopes=("llm_call",),
-        exp=datetime.now(UTC) - timedelta(minutes=1),  # already expired
-    )
+    token = _token(priv, evidence, exp=datetime.now(UTC) - timedelta(minutes=1))
     payload = {
         "capability_token": token,
         "evidence": evidence.model_dump(mode="json"),
@@ -224,7 +261,26 @@ def test_honor_request_rejects_expired_capability():
     with pytest.raises(InvocationError, match="capability"):
         asyncio.run(
             honor_request(
-                payload, capability_secret=SECRET,
+                payload, public_keys={"k1": pub},
+                run_research=_fake_run_research, config_factory=_Config,
+            )
+        )
+
+
+def test_honor_request_rejects_unknown_kid(keypair):
+    priv, pub = keypair
+    tenant = uuid.uuid4()
+    evidence = _evidence(tenant)
+    token = _token(priv, evidence)
+    payload = {
+        "capability_token": token,
+        "evidence": evidence.model_dump(mode="json"),
+        "config": {},
+    }
+    with pytest.raises(InvocationError, match="capability"):
+        asyncio.run(
+            honor_request(
+                payload, public_keys={"other": pub},  # wrong kid
                 run_research=_fake_run_research, config_factory=_Config,
             )
         )
@@ -250,7 +306,6 @@ def test_encode_result_and_error_shapes():
     out = json.loads(encode_result(turn))
     assert out["ok"] is True
     assert out["proposal"]["source_status"] == "unavailable"
-    # usage is carried verbatim with its source/scope/complete labeling.
     assert out["usage"]["source"] == "session_delta"
     assert out["usage"]["complete"] is True
     assert out["usage"]["prompt_tokens"] == 10

@@ -368,7 +368,7 @@ async def run_research(
     config: ResearchConfig,
     *,
     capability_token: str | None = None,
-    capability_secret: str | None = None,
+    public_keys: dict[str, str] | None = None,
 ) -> ResearchTurn:
     """Run one research turn and return a validated proposal plus usage.
 
@@ -378,12 +378,13 @@ async def run_research(
     are the Controller's concern; this function only produces the proposal and
     a labeled usage observation.
 
-    ``capability_token`` / ``capability_secret``, when provided, are carried in
-    a ToolContext contextvar for the duration of the turn so platform tool
-    handlers (tools.py) can re-verify the Controller's grant before acting.
-    They are optional so pure-logic callers (e.g. offline tests with a fake
-    agent) can run without a token; without them, any tool call will be
-    rejected by ``current_tool_context``.
+    ``capability_token`` / ``public_keys``, when provided, are carried in a
+    ToolContext contextvar for the duration of the turn so platform tool
+    handlers (tools.py) can re-verify the Controller's Ed25519 grant before
+    acting. They are optional so pure-logic callers (e.g. offline tests with a
+    fake agent) can run without a token; without them, any tool call will be
+    rejected by ``current_tool_context``. ``public_keys`` maps kid -> PEM (the
+    container verifies; it never signs).
 
     Usage observation: the session counters are snapshotted BEFORE and AFTER
     the turn and differenced (the before value is checked, never assumed 0).
@@ -395,11 +396,11 @@ async def run_research(
     agent = make_agent(config)
     brief = build_research_brief(evidence)
 
-    if capability_token is not None and capability_secret is not None:
+    if capability_token is not None and public_keys is not None:
         tool_ctx = ToolContext(
             evidence=evidence,
             capability_token=capability_token,
-            capability_secret=capability_secret,
+            public_keys=public_keys,
         )
         ctx_token = set_tool_context(tool_ctx)
     else:
