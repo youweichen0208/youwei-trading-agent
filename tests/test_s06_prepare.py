@@ -55,8 +55,9 @@ def test_remaining_missing_reports_blockers(prepare):
     items = prepare._remaining_missing(protocol, validation_clean, None, None, None)
     # the vendor's missing source time is a recorded fact, NOT a blocker
     assert not any("source_effective_at_unknown" in i for i in items)
-    # the real Phase 1A blockers are reported
-    assert any("tiingo_production_tos_not_confirmed" in i for i in items)
+    # data licensing is now satisfied (paid personal plans), so it is NOT listed
+    assert not any("tiingo_production_tos_not_confirmed" in i for i in items)
+    # the real remaining blockers are reported
     assert any("formal_model_and_training_manifest_not_registered" in i for i in items)
     assert any("final_release_hash_awaits_human_approval" in i for i in items)
     # a clean validation does NOT add the validation-not-clean blocker

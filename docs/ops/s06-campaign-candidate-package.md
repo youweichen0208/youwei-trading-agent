@@ -37,17 +37,16 @@
 
 | # | 阻断项 | 性质 | 谁解除 |
 | --- | --- | --- | --- |
-| 1 | **Tiingo 生产套餐 ToS 未确认**（留存/缓存/退订条款；当前 token 为 free/evaluation，禁止持久保存） | 数据许可（Phase 1A） | 项目所有者（购买付费套餐时浏览器确认） |
-| 2 | **EODHD 留存/备份/限额条款未确认** | 数据许可（Phase 1A） | 项目所有者 |
-| 3 | **正式模型未实现/未验证**（方向已定：baseline 常量 + quant Logistic Regression，Trial 已预登记，结果待运行） | 模型验证 | 实现 + Trial 结果 + 项目所有者确认 |
-| 4 | **实际 panel + 完整 manifest hash 未生成** | 冻结执行 | 许可解除后执行 `prepare_s06_campaign.py` |
-| 5 | **日历 build 版本（年份范围 + 内容 hash）与 SPY 永久 ID 未固定**（tzdb 已固定 tzdata==2026.4 / IANA 2026d；日历 RULES_VERSION=nyse-rules-v1 已固定，build 版本待冻结时确定年份范围与 hash；SPY 永久 ID 待数据采集时登记） | 固定引用 | 工程（冻结/采集时完成，无需再选技术方案） |
-| 6 | **正式 release 未批准** | 人工批准 | 项目所有者批准具体 release hash |
+| 1 | **正式模型未实现/未验证**（方向已定：baseline 常量 + quant Logistic Regression，Trial 已预登记，结果待运行） | 模型验证 | 实现 + Trial 结果 + 项目所有者确认 |
+| 2 | **实际 panel + 完整 manifest hash 未生成** | 冻结执行 | 执行 `prepare_s06_campaign.py`（数据许可已满足，可直接冻结） |
+| 3 | **日历 build 版本（年份范围 + 内容 hash）与 SPY 永久 ID 未固定**（tzdb 已固定 tzdata==2026.4 / IANA 2026d；日历 RULES_VERSION=nyse-rules-v1 已固定，build 版本待冻结时确定年份范围与 hash；SPY 永久 ID 待数据采集时登记） | 固定引用 | 工程（冻结/采集时完成，无需再选技术方案） |
+| 4 | **正式 release 未批准** | 人工批准 | 项目所有者批准具体 release hash |
 
 ### 3.2 事实记录（非阻断，但须在 manifest 中记录）
 
 | 事实 | 说明 | 是否阻断 Phase 1A |
 | --- | --- | --- |
+| **数据许可已满足** | Tiingo Personal $30/月 + EODHD 成分数据，均个人自用、内部留存/备份；停订后删除为已知义务（见 [data-license-checklist](data-license-checklist.md)） | **否** |
 | **source_effective_at 未知** | EODHD 不暴露供应商发布时间/生效时间；已记录 `observed_at`（系统采集时刻）与 `usable_at`，协议（campaign-policy.v2）允许 null + 缺失依据 | **否** |
 | **LLM 转发授权未取得** | Phase 1B 首次向模型发送供应商数据前才需取得；Phase 1A 完全不调 LLM | **否** |
 
@@ -66,10 +65,9 @@ EODHD_API_KEY=... YOUWEI_DATABASE_URL=... python ops/prepare_s06_campaign.py
 
 ## 5. 下一步
 
-1. **数据许可（Phase 1A）**：确认 Tiingo 生产套餐 ToS（§3.1 #1）与 EODHD 留存/限额条款（§3.1 #2）；LLM 转发授权归 Phase 1B，不在此阻断（见 [data-license-checklist](data-license-checklist.md)）。
-2. **模型实现 + Trial 结果**：方向已定（baseline 常量 + quant Logistic Regression），Trial `registered` 已登记；下一步实现模型、按 Trial 登记的历史验证执行、登记 `started`/结果事件，再交你确认（§3.1 #3）。
-3. **冻结执行**：许可解除后，在受控库运行 `prepare_s06_campaign.py`，生成实际 panel + 完整 hash（§3.1 #4）。
-4. **固定引用**：日历/tzdb/SPY 永久 ID（§3.1 #5，工程工作，见 [运行时版本固定](../research/runtime-version-pinning.md)）。
-5. **最终 release**：所有引用固定后，生成 release 候选 hash，交项目所有者批准（§3.1 #6）。
+1. **模型实现 + Trial 结果**：方向已定（baseline 常量 + quant Logistic Regression），Trial `registered` 已登记；下一步实现模型、按 Trial 登记的历史验证执行、登记 `started`/结果事件，再交你确认（§3.1 #1）。
+2. **冻结执行**：数据许可已满足，在受控库运行 `prepare_s06_campaign.py`，生成实际 panel + 完整 hash（§3.1 #2）。
+3. **固定引用**：日历 build 版本（年份范围 + hash）与 SPY 永久 ID（§3.1 #3，工程工作，冻结/采集时完成）。
+4. **最终 release**：所有引用固定后，生成 release 候选 hash，交项目所有者批准（§3.1 #4）。
 
 在全部前置解除前，`formal_campaign_allowed=false`，不启动 campaign。

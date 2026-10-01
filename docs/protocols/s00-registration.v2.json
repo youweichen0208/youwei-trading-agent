@@ -158,7 +158,7 @@
     "actual_panel_and_complete_manifest_hashes",
     "calendar_tzdb_and_security_ids",
     "formal_model_and_training_manifests",
-    "runtime_budget_permissions_and_recovery_acceptance",
+    "runtime_permissions_and_recovery_acceptance",
     "human_approval_of_actual_release_hash"
   ],
   "protocol_files": [

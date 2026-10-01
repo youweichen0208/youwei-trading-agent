@@ -186,9 +186,6 @@ def _remaining_missing(protocol, validation, ingest, frame, sample) -> list[str]
     items: list[str] = []
     if not validation.get("ok"):
         items.append("panel_registration_validation_not_clean: " + "; ".join(validation.get("issues", [])))
-    # Tiingo price data is still free/evaluation; production snapshot ToS is
-    # not yet confirmed (see docs/research/tiingo-token-verification.md).
-    items.append("tiingo_production_tos_not_confirmed")
     # quant-momentum-v0 / baseline-constant-v0 are engineering vehicles, not
     # formally chosen models (see docs/trials/registry.md).
     items.append("formal_model_and_training_manifest_not_registered")
