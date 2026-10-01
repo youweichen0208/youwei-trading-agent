@@ -408,6 +408,19 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
 - 验证：`tests/test_s06_prepare.py` 4 passed；`infra/validate_upstreams.py --mode catalog` VALID；v2 JSON 有效且 4 个协议文件 hash 与登记一致。
 - 剩余限制：未在真实库跑准备入口（需 EODHD 许可确认后执行）；Tiingo 生产套餐 ToS、EODHD 限额/留存权限、正式模型选择、真实 Trial 登记、实际 panel 冻结、release 批准均待项目所有者逐项解除。
 
+### S06g 模型规格 + Trial 预登记 + 许可拆分 + 引用固定（2026-10-01）
+
+- 状态：**模型方向确定并 Trial 预登记、许可按阶段拆分、时间记录修正、tzdb 固定**；仍无 release 批准、正式 campaign 未启动。
+- 交付：
+  - 模型规格：`docs/trials/model-candidates.md` 更新——baseline 定为常量 `p=0.5`/`expected=0`；quant 定为 L2 正则化 Logistic Regression（少量价格特征，预测 D20 跑赢 SPY 的二分类标签），训练窗口/特征/预处理/正则化/标签成熟全部满足 PIT，期望收益单独建模（不从胜率反推）；`quant-momentum-v0` 保留为工程载具。
+  - Trial 预登记：`docs/trials/registry.md` 登记 `trial-001-quant-lr-vs-baseline` 的 `registered` 事件（假设、主指标 paired Brier、D20 主/D1/D60 探索、purge/embargo、待固定参数标注 to_be_fixed_before_started、结果留空），event_hash `cb05a9c7...`；`s00-registration.v2.json` 的 `trial_count` 改为 1。
+  - 许可拆分：`docs/ops/data-license-checklist.md`——按阶段拆 Phase 1A（内部计算/留存/备份/退订/限额）与 Phase 1B（LLM 转发）；含 Tiingo/EODHD 两家的套餐现状、待核实条款、证据位置、待询问供应商的草稿；明确「LLM 转发未取得不阻断 Phase 1A」。
+  - 时间记录修正：`ops/prepare_s06_campaign.py` 的 `observed_at=None` 改为 `observed_at=ingest.usable_at`（系统实际采集时刻，与供应商生效时间 source_effective_at 区分）；`_remaining_missing` 移除「source_effective_at_unknown」阻断项，改入 `source_time_record`（事实记录、非阻断）；候选包文档 §3 拆「阻断项（6 项）」与「事实记录（非阻断）」。
+  - tzdb 固定：`pyproject.toml` 加 `tzdata>=2026.4,<2027`，`uv.lock` 解析为 tzdata==2026.4（IANA 2026d）；`s00-registration.v2.json` 的 `tzdb_version` 填 `2026d`、新增 `calendar_rules_version=nyse-rules-v1` 与 `tzdata_package=tzdata==2026.4`。
+  - 测试：`tests/test_s06_prepare.py` 更新（source_effective_at 从阻断项改为非阻断断言）。
+- 验证：`tests/test_s06_prepare.py` 4 passed；`tests/test_data_calendar.py` 20 passed（tzdata 加入无回归）；`tzdb_version()` 返回 `2026d`；v2 JSON 有效；uv.lock revision 仍为 3（无漂移）。
+- 剩余限制：日历 build 版本（年份范围 + 内容 hash）与 SPY 永久 ID 仍待冻结/采集时固定（技术方案已定，无需再决策）；tzdata 的目标机 NTP/时区验证归 S09；正式模型实现、Trial `started`/结果事件、实际 panel 冻结、release 批准均待后续。
+
 ### S07a 进度（2026-09-28）
 
 - 状态：**S07 第一纵切片完成（环境搭建与 API 签名钉定）**；Hermes 研究规划/契约/权限接线仍待后续切片，正式启用依赖 S06 首次真实批次封存验收。

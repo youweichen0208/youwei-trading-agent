@@ -12,6 +12,7 @@ dependencies = [
     "pydantic>=2.10,<3",
     "pydantic-settings>=2.7,<3",
     "httpx>=0.28,<0.29",
+    "tzdata>=2026.4,<2027",
     "youwei-contracts",
 ]
 

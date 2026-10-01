@@ -88,7 +88,9 @@
     "exit_rule": "regular_close_of_horizon_session_including_entry_as_d1",
     "calendar_policy": "versioned_nyse_regular_sessions_with_listing_market_checks",
     "calendar_version": null,
-    "tzdb_version": null,
+    "calendar_rules_version": "nyse-rules-v1",
+    "tzdb_version": "2026d",
+    "tzdata_package": "tzdata==2026.4",
     "first_campaign_cutoff": null
   },
   "sources": {
@@ -143,7 +145,7 @@
     "release_content_hash": null,
     "approved_at": null,
     "trial_registry": "../trials/registry.md",
-    "trial_count": 0,
+    "trial_count": 1,
     "git_is_absolute_immutability": false,
     "remote_branch_protection_configured": false,
     "external_worm_anchor_configured": false

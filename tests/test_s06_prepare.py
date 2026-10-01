@@ -53,8 +53,9 @@ def test_remaining_missing_reports_blockers(prepare):
     protocol = prepare._load_protocol()
     validation_clean = {"ok": True, "issues": [], "checks": {}}
     items = prepare._remaining_missing(protocol, validation_clean, None, None, None)
-    # the persistent gaps are reported regardless of a clean validation
-    assert any("source_effective_at_unknown" in i for i in items)
+    # the vendor's missing source time is a recorded fact, NOT a blocker
+    assert not any("source_effective_at_unknown" in i for i in items)
+    # the real Phase 1A blockers are reported
     assert any("tiingo_production_tos_not_confirmed" in i for i in items)
     assert any("formal_model_and_training_manifest_not_registered" in i for i in items)
     assert any("final_release_hash_awaits_human_approval" in i for i in items)

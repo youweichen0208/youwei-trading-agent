@@ -105,7 +105,13 @@ async def _prepare(args) -> dict:
             seed=sampling["seed"],
             sample_size=sampling["n"],
             source_raw_object_id=ingest.raw_object_id,
-            observed_at=None,  # vendor exposes no source time
+            # observed_at is WHEN THIS SYSTEM observed the data (the ingest
+            # instant), NOT the vendor's publication/effective time. The
+            # vendor exposes no source time, so source_effective_at stays
+            # unknown; that unknown does NOT block Phase 1A — the protocol
+            # (campaign-policy.v2) permits null source time when the
+            # observed/usable times and the missing-time basis are recorded.
+            observed_at=ingest.usable_at,
             usable_at=ingest.usable_at,
             source_available_basis="vendor_does_not_expose_source_time",
             frame_as_of=frame_as_of,
@@ -146,6 +152,17 @@ def _candidate_package(protocol, ingest, frame, sample, registration, validation
             "quotas": sample.quotas,
             "source_raw_object_id": str(ingest.raw_object_id),
         },
+        # source time is a recorded FACT, not a blocker: the vendor exposes no
+        # publication/effective time, so source_effective_at stays null while
+        # observed_at (this system's ingest instant) and usable_at are recorded
+        # with an explicit missing-time basis. campaign-policy.v2 permits this.
+        "source_time_record": {
+            "observed_at": ingest.usable_at.isoformat() if ingest.usable_at else None,
+            "usable_at": ingest.usable_at.isoformat() if ingest.usable_at else None,
+            "source_effective_at": None,
+            "basis": "vendor_does_not_expose_source_time",
+            "blocks_phase_1a": False,
+        },
         "validation_report": validation,
         "release_candidate": {
             "protocol_ref": "campaign-policy-v2",
@@ -163,13 +180,12 @@ def _candidate_package(protocol, ingest, frame, sample, registration, validation
 def _remaining_missing(protocol, validation, ingest, frame, sample) -> list[str]:
     """The explicit gaps that still block a human-approved release. This is a
     factual report of what is not yet fixed, not a claim that the tool filled
-    anything the caller did not supply."""
+    anything the caller did not supply. The vendor's missing source time is
+    deliberately NOT listed here: it is a recorded fact (source_time_record),
+    permitted by campaign-policy.v2, not a blocker."""
     items: list[str] = []
     if not validation.get("ok"):
         items.append("panel_registration_validation_not_clean: " + "; ".join(validation.get("issues", [])))
-    # source time: EODHD exposes none, so the frame cannot claim a vendor
-    # effective time — this is a persistent gap until a timed source exists.
-    items.append("source_effective_at_unknown: vendor_does_not_expose_source_time")
     # Tiingo price data is still free/evaluation; production snapshot ToS is
     # not yet confirmed (see docs/research/tiingo-token-verification.md).
     items.append("tiingo_production_tos_not_confirmed")

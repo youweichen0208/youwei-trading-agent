@@ -1,7 +1,7 @@
-# 模型候选说明与正式化要求（S06 准备材料）
+# 模型候选规格与 Trial 预登记（S06 准备材料）
 
 日期：2026-10-01  
-状态：准备材料，供项目所有者审阅与决策。未选择正式模型、未登记真实模型比较 Trial、未生成正式 release。
+状态：候选方向已确定（baseline 常量 + quant 正则化 Logistic Regression）；Trial 已做 `registered` 预登记、结果留空；正式 release 未批准。现有 `quant-momentum-v0` 保留为工程载具。
 
 ## 1. 现状：现有模型是工程载具，不是正式模型
 
@@ -9,43 +9,48 @@ Phase 1A 预测管线已用两个「工程载具」跑通，它们**不是正式
 
 | 载具 | 版本 | 行为 | 局限 |
 | --- | --- | --- | --- |
-| baseline | `baseline-constant-v0` | 常量 `p_outperform=0.5`、`expected_excess_return=0`，不消费任何市场证据 | 是「无信息基线」的合理起点，但正式基线是否用历史基准率（如长期 SPY 胜率）需要决策 |
-| quant | `quant-momentum-v0` | 20 日动量直接映射：`p = clip(0.5 + momentum, 0.05, 0.95)`、`expected = clip(momentum, -0.5, 0.5)` | **把动量直接当概率**，无拟合窗口、无校准、无标签成熟、无历史验证——这是管线占位，不是可辩护的预测模型 |
+| baseline | `baseline-constant-v0` | 常量 `p_outperform=0.5`、`expected_excess_return=0`，不消费任何市场证据 | 作为无信息基线可保留，但需明确其「不消费证据」的定位 |
+| quant | `quant-momentum-v0` | 20 日动量直接映射：`p = clip(0.5 + momentum, 0.05, 0.95)` | **把动量直接当概率**，无拟合窗口、无校准、无标签成熟——管线占位，不提升为正式模型 |
 
-关键结论（与 [ARCHITECTURE §8](../ARCHITECTURE.md) 一致）：`quant-momentum-v0` 把动量分数线性映射为概率，**不能未经重新设计、验证和登记就提升为正式量化模型**。正式模型的概率必须来自「冻结的、过去数据拟合的模型/映射」，不能把任意动量分数直接当概率。
+关键结论（与 [ARCHITECTURE §8](../ARCHITECTURE.md) 一致）：`quant-momentum-v0` 把动量分数线性映射为概率，**不能未经重新设计、验证和登记就提升为正式量化模型**。正式模型的概率必须来自「冻结的、过去数据拟合的模型/映射」。
 
-## 2. 正式模型候选方向（待项目所有者决策）
-
-以下只列出候选方向与各自必须补齐的验证，不在此替所有者做选择。
+## 2. 已确定的候选规格（2026-10-01）
 
 ### 2.1 baseline
 
-- **候选 A**：保留 `p=0.5` 常量（纯无信息基线）。最保守、最可辩护，但作为「相对基准」信息量低。
-- **候选 B**：历史基准率（如全样本 SPY 超额为正的长期频率），用冻结历史数据拟合一个常数。需要：拟合窗口 PIT 干净、样本量、以及「基准率本身不引入未来信息」的证明。
-- 无论选哪个，都必须明确：baseline 的 `p` 从何而来、是否消费证据、是否含拟合参数。
+- **常量 `p_outperform=0.5`、`expected_excess_return=0`**，不消费任何市场证据。这与现有 `baseline-constant-v0` 语义一致，正式化时不改公式，只固定其定位（无信息基线、无拟合、无校准、无标签）。
 
-### 2.2 quant
+### 2.2 quant：正则化 Logistic Regression
 
-- **候选 C（简单校准动量）**：在冻结历史窗口上，把动量信号映射为概率时**实际拟合校准**（如 logistic 或分箱频率），而非线性 `0.5 + momentum`。需要：训练/验证/测试切分、purge/embargo、PIT 标签成熟、样本量与校准曲线披露。
-- **候选 D（其它因子）**：换用其它已测试因子。需要同样的验证链路。
-- **候选 E（保持占位 + 明确降级）**：若 MVP 只想跑通三组对照而不宣称 quant 有效，可保留载具但**在 manifest 和披露中明确其非正式、非校准性质**，并把「quant 改善」的解释严格限定为管线验收，不做统计推断。
+- **模型**：用少量价格特征的 L2 正则化 Logistic Regression，预测「该证券在目标窗口内是否跑赢 SPY（excess return > 0）」这一二分类标签。
+- **特征（候选，需在 Trial 中固定）**：动量、波动率等少量价格衍生特征（具体集合在 Trial 的 `parameters` 里登记，登记后不可改）。
+- **主目标**：D20（excess return > 0 的标签）；D1/D60 为探索性切片。
+- **训练约束**（全部满足 PIT）：
+  - 固定训练窗口、特征集合、预处理、正则化强度、标签成熟规则；
+  - 训练/验证/测试切分 + purge/embargo；
+  - 标签只在训练截止时已成熟可用（D20 标签须在 cutoff 后 20 交易日 + 宽限期才成熟）；
+  - 历史验证带 purge/embargo，不得用未来数据拟合。
+- **概率输出**：Logistic Regression 输出的是**校准后的概率**（不是线性映射），实际校准质量需在 Trial 中验证（校准曲线、Brier）。
+- **期望收益**：**不从此胜率直接反推**。若正式预测需要 `expected_excess_return`，必须单独定义收益预测模型（如分位数或回归），在 Trial 中登记其规格。Phase 1A 若只输出概率而不输出收益点估计，须在 manifest 中明示 `expected_excess_return` 的语义（none 或单独模型）。
 
-## 3. 正式化所需步骤（顺序固定）
+Logistic Regression 是合适的简单概率模型候选，但**实际校准质量需要验证**——这是 Trial 的核心检验，不是默认成立。
 
-1. **Trial 登记**：首次用于「选择/比较模型」的试验，在查看结果前登记到 [registry.md](registry.md)。当前没有真实模型比较发生，因此**尚无真实 Trial 可登记**——候选方向确认后、实际比较开始前登记。
-2. **重新设计与冻结**：按选定方向实现模型，冻结公式、窗口、特征、缺失政策。
-3. **历史验证**：纯量化候选做带 purge/embargo 的 PIT 历史验证（[ARCHITECTURE §8](../ARCHITECTURE.md)）；LLM 相关候选走前向 shadow。
-4. **training manifest 登记**：用 `register_training_manifest` 登记正式的 `training_manifests` 记录，显式声明特征集、预处理、拟合窗口、校准、标签成熟（五项固定事实，`none` 须明说）。
-5. **release 引用绑定**：campaign 注册时 `training_manifest_ref + sha256` 解析到已登记 manifest，`baseline_version/quant_model_version` 与其模型一致。
-6. **人工批准 release**：生成具体 release hash，由项目所有者批准。Agent 不填批准人、时间或放行标志。
+## 3. 正式化步骤（Trial 已预登记，其余待执行）
+
+1. **Trial 登记（已做）**：`registered` 事件已写入 [registry.md](registry.md)，结果引用留空。
+2. **实现与冻结**：按 §2 规格实现，冻结公式、窗口、特征、缺失政策。
+3. **历史验证**：按 Trial 登记的切分/指标/停止规则执行，带 purge/embargo 的 PIT 验证。
+4. **training manifest 登记**：`register_training_manifest` 登记正式 manifest（特征集、预处理、拟合窗口、校准、标签成熟五项固定事实）。
+5. **release 引用绑定**：campaign 注册时 `training_manifest_ref + sha256` 解析到已登记 manifest。
+6. **人工批准 release**：生成具体 release hash，由项目所有者批准。
 
 ## 4. training manifest 现状
 
-- 载具 manifest `tm-vehicles-v0`（`vehicle_training_manifest()`）已能登记，且 artifact hash 锁定 `quant/models.py` 实际字节。它**明确声明是工程载具**，`fitting_window=none`、`calibration=none`、`label_maturation=none`。
-- 正式模型的 manifest 待选定模型后登记（新的 `manifest_id`），不与载具 manifest 混用。
-- 未在本材料中登记任何「正式」training manifest，因为没有正式模型被选定。
+- 载具 manifest `tm-vehicles-v0`（`vehicle_training_manifest()`）已能登记，明确声明是工程载具（`fitting_window=none`、`calibration=none`、`label_maturation=none`）。
+- 正式 Logistic Regression 模型的 manifest 待实现并验证后登记（新 `manifest_id`），不与载具 manifest 混用。
+- 当前未登记任何「正式」training manifest（正式模型尚未实现）。
 
 ## 5. Trial Registry 现状
 
-- [registry.md](registry.md) 已有登记格式与追加约束，`trial_count=0`，没有真实比较试验。
-- 本材料不虚构任何 Trial 记录。首次模型比较开始前，由项目所有者确认候选方向后，我再按格式登记真实的 `registered` 事件。
+- [registry.md](registry.md) 已登记 1 条 `registered` 事件（见下文），`trial_count=1`，结果引用留空，无 `started`/`observed`/`completed` 事件。
+- 登记的是**试验计划**（假设、特征、时间切分、主指标、停止规则），不是结果；不等待正式 release 批准即可登记。
