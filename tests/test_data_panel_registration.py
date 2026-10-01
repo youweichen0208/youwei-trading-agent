@@ -73,11 +73,11 @@ async def _freeze(engine, *, frame_as_of=None, usable_at=None, stratification="e
     freeze a registration. Returns (registration, frame, sample)."""
     components = _components()
     client = _client(_constituents_body(components))
-    frame_as_of = frame_as_of or date(2026, 9, 28)
     ingest = await ingest_sp500_constituents(
         engine, client,
         source_available_at=usable_at,
     )
+    frame_as_of = frame_as_of or ingest.usable_at.date()
     frame = await build_member_frame(engine, components, frame_as_of=frame_as_of)
     sample = draw_panel(frame, seed="20260927")
     reg = await freeze_panel_registration(
@@ -146,7 +146,7 @@ async def test_freeze_restore_reproduces_same_frame_hash(db_engine):
 
     components = _components()
     frame2 = await build_member_frame(
-        db_engine, components, frame_as_of=date(2026, 9, 28)
+        db_engine, components, frame_as_of=reg.content["frame_as_of"]
     )
     assert frame2.frame_sha256 == frame.frame_sha256  # restored ids, not fresh randoms
     sample2 = draw_panel(frame2, seed="20260927")

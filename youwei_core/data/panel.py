@@ -27,11 +27,12 @@ decision the caller pins explicitly and the gate re-checks.
 
 import json
 import uuid
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import date, datetime
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
 from quant.sampling import (
     SAMPLER_VERSION,
@@ -365,8 +366,18 @@ async def restore_panel_registration(
 # --- registration gate -----------------------------------------------------------
 
 
+@asynccontextmanager
+async def _registration_connection(engine: AsyncEngine | AsyncConnection):
+    """Reuse the caller's transaction during an atomic bundle restore."""
+    if isinstance(engine, AsyncConnection):
+        yield engine
+    else:
+        async with engine.begin() as conn:
+            yield conn
+
+
 async def _load_registration(engine, registration_id):
-    async with engine.begin() as conn:
+    async with _registration_connection(engine) as conn:
         reg = (
             await conn.execute(
                 select(panel_registrations).where(
@@ -380,7 +391,7 @@ async def _load_registration(engine, registration_id):
 
 
 async def validate_panel_registration(
-    engine: AsyncEngine,
+    engine: AsyncEngine | AsyncConnection,
     registration_id: uuid.UUID,
     *,
     panel_security_ids: list | None = None,
@@ -396,7 +407,7 @@ async def validate_panel_registration(
     checks: dict[str, bool] = {}
 
     # source raw object intact and parseable
-    async with engine.begin() as conn:
+    async with _registration_connection(engine) as conn:
         raw = (
             await conn.execute(
                 select(raw_objects).where(
