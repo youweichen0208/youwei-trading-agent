@@ -2,7 +2,7 @@
 
 registry_version：1\
 创建日期：2026-09-27\
-状态：登记载体已建立；已预登记 1 条 `registered` 试验（trial-001，结果留空，无 release 批准事件）。
+状态：Trial 001 已完成规格固定、started及completed追加事件；负向D20结果已保留，无release批准事件。
 
 ## 1. 追加规则
 
@@ -85,3 +85,143 @@ event_hash 对规范化事件内容计算，排除自身 event_hash；第一事�
 ```
 
 > 状态说明：本条是 `registered`（试验计划预登记），非结果、非 release 批准。`features`/`regularization`/`random_seeds`/`evaluation_schedule_stopping_rule`/`code_commit` 均标注 `to_be_fixed_before_started` 或 `null`——这些在实验真正开始前以 `started` 事件固定；结果以 `observed`/`completed` 事件追加，失败或放弃如实登记。当前 `trial_count=1`，无 `started`/结果/批准事件。
+
+### trial-001 规格固定（运行前追加）
+
+```json
+{
+  "trial_id": "trial-001-quant-lr-vs-baseline",
+  "event_id": "evt-trial-001-spec-fixed",
+  "event_type": "corrected",
+  "recorded_at": "2026-10-01T08:06:24.326774+00:00",
+  "actor_principal_id": "codex_agent",
+  "corrects_event_id": "evt-trial-001-registered",
+  "spec_ref": "docs/trials/trial-001-spec.v1.json",
+  "spec_sha256": "42b58b986a231720d8bf74df1d5541dab5407b48d4e47f1bb435a2001d5e6264",
+  "reason": "Fix all candidate parameters and comparison schedule before fetching or inspecting price outcomes; original owner-labelled record remains historical, this action is by agent",
+  "prev_event_hash": "cb05a9c736a0a1b7912d6345ea955f854097ac5894862495b27be7b16b637242",
+  "result_ref": null,
+  "event_hash": "00712bf8d307212e71e6386b574d73a5819f342a3d977ae8f0ced825fca0fe61"
+}
+```
+
+### evt-trial-001-started-20261001T081321Z
+
+```json
+{
+  "trial_id": "trial-001-quant-lr-vs-baseline",
+  "actor_principal_id": "codex_agent",
+  "event_id": "evt-trial-001-started-20261001T081321Z",
+  "event_type": "started",
+  "recorded_at": "2026-10-01T08:13:21.961055+00:00",
+  "input_sha256": "4a0e1492b64b17ed309f07397e3a639196a9b1fdfb2f0be1602ed14a76f5da53",
+  "spec_sha256": "42b58b986a231720d8bf74df1d5541dab5407b48d4e47f1bb435a2001d5e6264",
+  "code_files": {
+    "quant/dataset.py": "3c6a4241e8f854ca01ca66281eabd7e12380a67c057b4a872794358f141fd2e7",
+    "quant/logistic.py": "620e42b337f291281480c237de7611a8788aec3a9bb2f8c3a4866953f9ad8b85",
+    "quant/trial.py": "57c7b258a346e7ef4aba82dcb02a50fec0739dbd7747d784f49a9d36c6e08b9f",
+    "ops/run_s06_trial.py": "edfc21d87037232179b33891f0133ae8d18b750c5ee8fa38a26681b57840ef00",
+    "uv.lock": "91565a06acdce3d19173b04c2be67c52b7382d56c02ec914f8c8a170aa7a8993"
+  },
+  "code_commit": "e017a95abb7aa4e2cf3dab2b1eaac6864f57ee19",
+  "code_state": "working_tree_files_fixed_by_content_hash",
+  "started_at": "2026-10-01T08:13:21.961055+00:00",
+  "spec_ref": "docs/trials/trial-001-spec.v1.json",
+  "result_ref": null,
+  "prev_event_hash": "00712bf8d307212e71e6386b574d73a5819f342a3d977ae8f0ced825fca0fe61",
+  "event_hash": "1e1f1b2d6757229ef82682678f0a8ae6d29ec61de631225e656150f535e47f84"
+}
+```
+
+### evt-trial-001-completed-20261001T081321Z
+
+```json
+{
+  "trial_id": "trial-001-quant-lr-vs-baseline",
+  "actor_principal_id": "codex_agent",
+  "event_id": "evt-trial-001-completed-20261001T081321Z",
+  "event_type": "completed",
+  "recorded_at": "2026-10-01T08:13:26.545928+00:00",
+  "result_ref": ".local/s06-candidate-20261001/trial-001/report.json",
+  "result_sha256": "464b56862d7961311d362fc4c198f09e493acfa7a49a07d9be8bb4601680d3de",
+  "scope": "retrospective_current_panel_not_formal_pit",
+  "primary_test_result": {
+    "planned": 2080,
+    "paired_scored": 1820,
+    "coverage": 0.875,
+    "missing_reasons": {
+      "partition_embargo": 260
+    },
+    "baseline_brier": 0.25,
+    "quant_brier": 0.25301217828224476,
+    "paired_brier_difference": 0.0030121782822447518,
+    "calibration_bins": [
+      {
+        "bin": 0,
+        "n": 0,
+        "mean_probability": null,
+        "observed_rate": null
+      },
+      {
+        "bin": 1,
+        "n": 0,
+        "mean_probability": null,
+        "observed_rate": null
+      },
+      {
+        "bin": 2,
+        "n": 0,
+        "mean_probability": null,
+        "observed_rate": null
+      },
+      {
+        "bin": 3,
+        "n": 3,
+        "mean_probability": 0.35719468268220966,
+        "observed_rate": 0
+      },
+      {
+        "bin": 4,
+        "n": 905,
+        "mean_probability": 0.4815452656034152,
+        "observed_rate": 0.47955801104972373
+      },
+      {
+        "bin": 5,
+        "n": 903,
+        "mean_probability": 0.5201933588179133,
+        "observed_rate": 0.3953488372093023
+      },
+      {
+        "bin": 6,
+        "n": 9,
+        "mean_probability": 0.6332492199375229,
+        "observed_rate": 0.5555555555555556
+      },
+      {
+        "bin": 7,
+        "n": 0,
+        "mean_probability": null,
+        "observed_rate": null
+      },
+      {
+        "bin": 8,
+        "n": 0,
+        "mean_probability": null,
+        "observed_rate": null
+      },
+      {
+        "bin": 9,
+        "n": 0,
+        "mean_probability": null,
+        "observed_rate": null
+      }
+    ],
+    "uncertainty": "descriptive_only",
+    "quant_return_mae": 0.059336045887331795,
+    "baseline_return_mae": 0.05863483072769231
+  },
+  "prev_event_hash": "1e1f1b2d6757229ef82682678f0a8ae6d29ec61de631225e656150f535e47f84",
+  "event_hash": "2ec859581f0b09b12f59dea6a19587cc25c982dab36a2899eb6538a482da652e"
+}
+```

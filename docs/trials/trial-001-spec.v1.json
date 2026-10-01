@@ -1,0 +1,65 @@
+{
+  "spec_version": "trial-001-v1",
+  "trial_id": "trial-001-quant-lr-vs-baseline",
+  "purpose": "retrospective_current_panel_candidate_validation_not_formal_pit_evidence",
+  "population": "frozen_registration_a7ce1959-3b3f-459d-8dd3-69f698ca7dc8_current_panel_only",
+  "data_start": "2016-01-01",
+  "data_end": "2026-09-30",
+  "cutoff_first": "2017-01-07",
+  "cutoff_last": "2026-06-27",
+  "horizons_td": [
+    1,
+    20,
+    60
+  ],
+  "primary_horizon_td": 20,
+  "features": [
+    "excess_momentum_20d",
+    "excess_momentum_60d",
+    "volatility_20d"
+  ],
+  "feature_policy": "calendar-contiguous raw closes + splits/dividends; 21/61 closes; volatility simple total-return daily std ddof=0 sqrt(252)",
+  "lr": {
+    "C": 1.0,
+    "solver": "lbfgs",
+    "penalty": "l2",
+    "class_weight": null,
+    "max_iter": 2000,
+    "tol": 1e-08,
+    "seed": 20260927
+  },
+  "expected_return": {
+    "model": "ridge",
+    "alpha": 1.0,
+    "solver": "svd",
+    "fit_intercept": true
+  },
+  "preprocessing": "StandardScaler fitted on training rows only; no imputation; no post-fit calibration",
+  "train_cutoff_start": "2017-01-07",
+  "train_cutoff_end": "2022-12-31",
+  "training_as_of": "2023-01-01T00:00:00Z",
+  "validation_cutoff_start": "2023-01-01",
+  "validation_cutoff_end": "2023-12-31",
+  "test_cutoff_start": "2024-01-01",
+  "test_cutoff_end": "2025-12-31",
+  "purge": "training rows must have assumed_label_available_at <= training_as_of; no future training folds",
+  "embargo": "validation/test observations require entry >= 65 calendar sessions after prior partition end; validation never used to fit test model",
+  "label_availability": "assumed historical only: exit + 5 sessions close; real historical vendor availability not established",
+  "candidate_refit": "same parameters; all eligible cutoffs through 2026-06-27 with labels mature by actual run time",
+  "minimum_training_rows": 200,
+  "minimum_training_classes": 2,
+  "primary_metric": "paired_brier_quant_minus_baseline",
+  "baseline": {
+    "p_outperform": 0.5,
+    "expected_excess_return": 0.0
+  },
+  "reporting": "point estimates, full planned denominators, scored coverage, missing reasons, fixed 10-bin calibration; no CI/p-values",
+  "stopping_rule": "one candidate, one validation/test report per horizon; no tuning/restarts based on results; retain failures and negative effects",
+  "limitations": [
+    "current-panel survivor conditioning",
+    "current vendor revisions lack historical source timestamps",
+    "current ticker mapping does not prove all historical identities",
+    "merger/spinoff completeness not independently established"
+  ],
+  "formal_campaign_allowed": false
+}
