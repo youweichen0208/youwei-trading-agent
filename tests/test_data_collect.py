@@ -241,3 +241,113 @@ async def test_collect_tick_submits_and_is_idempotent(db_engine, tenant_id):
     )
     assert second["submitted"] == []
     assert len(second["idempotent"]) == 2
+
+
+async def _ingest_bar(engine, security_id, trade_date, raw_id=None):
+    """Insert one price observation so a target day counts as complete."""
+    import hashlib as _hashlib
+
+    from sqlalchemy.dialects.postgresql import insert as pg_insert
+
+    from youwei_core.db.meta import price_observations
+
+    raw_id = raw_id or uuid.uuid4()
+    async with engine.begin() as conn:
+        # A minimal raw object satisfies the FK (unique content per raw_id).
+        q = _hashlib.sha256(f"bar:{raw_id}".encode()).hexdigest()
+        c = _hashlib.sha256(f"bar-content:{raw_id}".encode()).hexdigest()
+        await conn.execute(
+            pg_insert(raw_objects)
+            .values(
+                id=raw_id, source_id="test-source", endpoint="test",
+                query={}, query_sha256=q, content="{}", content_sha256=c,
+                content_type="application/json", row_count=1,
+                parser_version="v1", source_available_at=None,
+                source_available_basis="test", usable_at=datetime.now(UTC),
+            )
+            .on_conflict_do_nothing(index_elements=[raw_objects.c.id])
+        )
+        await conn.execute(
+            pg_insert(price_observations)
+            .values(
+                id=uuid.uuid4(),
+                raw_object_id=raw_id,
+                source_id="test-source",
+                security_id=security_id,
+                trade_date=trade_date,
+                open=100, high=101, low=99, close=100.5,
+                volume=1000, adj_close=100.5, div_cash=0, split_factor=1,
+                quality="ok",
+            )
+            .on_conflict_do_nothing(
+                index_elements=[price_observations.c.raw_object_id,
+                                price_observations.c.trade_date]
+            )
+        )
+
+
+async def test_collect_tick_skips_target_whose_window_is_complete(db_engine, tenant_id):
+    a = await _sec_with_ticker(db_engine, "AAA")
+    bench = await _sec_with_ticker(db_engine, "SPY")
+    panel = uuid.uuid4()
+    await _make_panel(db_engine, panel, [a])
+    await _make_release(db_engine, "rel-1", panel, bench)
+
+    from youwei_core.auth.service import create_tenant
+    await create_tenant(db_engine, f"tenant-{tenant_id}", tenant_id=tenant_id)
+
+    from youwei_core.data.calendar import build_calendar
+    await build_calendar(db_engine, year_start=2026, year_end=2026)
+
+    client = _FakeTiingo()
+    now = datetime(2026, 10, 10, 21, 30, tzinfo=UTC)  # 17:30 ET (Fri)
+
+    # Pre-populate the 5-trading-day window (2026-10-06 .. 2026-10-09,
+    # plus 2026-10-10) for BOTH securities so they are complete.
+    from youwei_core.data.collect import _last_n_trading_days
+    days = await _last_n_trading_days(db_engine, now, 5)
+    for sid in (a, bench):
+        for d in days:
+            await _ingest_bar(db_engine, sid, d)
+
+    result = await collect_tick(
+        db_engine, client, release_id="rel-1", tenant_id=tenant_id, db_now=now
+    )
+    assert result["submitted"] == []
+    assert sorted(result["complete"]) == ["AAA", "SPY"]
+    assert result["gaps"] == {}
+
+
+async def test_collect_tick_next_slot_requeries_incomplete_target(db_engine, tenant_id):
+    """An HTTP 200 with missing data must not satisfy the day: the next
+    observation slot re-submits for the still-incomplete target."""
+    a = await _sec_with_ticker(db_engine, "AAA")
+    bench = await _sec_with_ticker(db_engine, "SPY")
+    panel = uuid.uuid4()
+    await _make_panel(db_engine, panel, [a])
+    await _make_release(db_engine, "rel-1", panel, bench)
+
+    from youwei_core.auth.service import create_tenant
+    await create_tenant(db_engine, f"tenant-{tenant_id}", tenant_id=tenant_id)
+
+    from youwei_core.data.calendar import build_calendar
+    await build_calendar(db_engine, year_start=2026, year_end=2026)
+
+    client = _FakeTiingo()
+
+    # Slot 1: 17:30 ET. No data yet -> both submitted.
+    slot1 = datetime(2026, 10, 10, 21, 30, tzinfo=UTC)
+    first = await collect_tick(
+        db_engine, client, release_id="rel-1", tenant_id=tenant_id, db_now=slot1
+    )
+    assert len(first["submitted"]) == 2
+    assert first["gaps"]  # both targets have gaps
+
+    # Slot 2: 18:00 ET (30 min later). The job never ran (no worker),
+    # so data is still missing -> re-submit under a NEW slot key.
+    slot2 = datetime(2026, 10, 10, 22, 0, tzinfo=UTC)
+    second = await collect_tick(
+        db_engine, client, release_id="rel-1", tenant_id=tenant_id, db_now=slot2
+    )
+    assert len(second["submitted"]) == 2  # NOT idempotent: different slot
+    assert second["idempotent"] == []

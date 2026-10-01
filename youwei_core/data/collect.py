@@ -192,6 +192,59 @@ async def _last_n_trading_days(
     return list(reversed(days))
 
 
+async def missing_trading_days(
+    engine: AsyncEngine,
+    security_ids: list[uuid.UUID],
+    start_date: date,
+    end_date: date,
+) -> dict[uuid.UUID, list[date]]:
+    """For each security, the trading days in ``[start_date, end_date]``
+    that have NO price observation (any quality). A present observation
+    means the day was fetched at least once; ``zero_volume`` rows still
+    count as present (they are a data-quality flag, not a gap).
+
+    This is the "is the target day complete?" check: an HTTP 200, a
+    non-empty response or a created=False ingest does NOT prove the day
+    is complete — only an actual observation row does.
+    """
+    from sqlalchemy import func as sa_func
+
+    from youwei_core.db.meta import calendar_days, price_observations
+    from youwei_core.data.calendar import VENUE
+
+    result: dict[uuid.UUID, list[date]] = {}
+    async with engine.begin() as conn:
+        # Trading days inside the window.
+        trading = (
+            await conn.execute(
+                select(calendar_days.c.date).where(
+                    calendar_days.c.venue == VENUE,
+                    calendar_days.c.is_trading.is_(True),
+                    calendar_days.c.date >= start_date,
+                    calendar_days.c.date <= end_date,
+                )
+            )
+        ).scalars().all()
+        if not trading:
+            return result
+        for sid in security_ids:
+            have = set(
+                (
+                    await conn.execute(
+                        select(sa_func.distinct(price_observations.c.trade_date)).where(
+                            price_observations.c.security_id == sid,
+                            price_observations.c.trade_date >= start_date,
+                            price_observations.c.trade_date <= end_date,
+                        )
+                    )
+                ).scalars().all()
+            )
+            missing = [d for d in trading if d not in have]
+            if missing:
+                result[sid] = missing
+    return result
+
+
 def observation_slot(db_now: datetime) -> str:
     """Compute the current collection observation slot in America/New_York.
 
@@ -236,6 +289,8 @@ async def collect_tick(
         "targets": 0,
         "submitted": [],
         "idempotent": [],
+        "complete": [],
+        "gaps": {},
         "errors": [],
     }
     if db_now is not None:
@@ -264,7 +319,19 @@ async def collect_tick(
     end_date = days[-1]
     window = f"{start_date.isoformat()}/{end_date.isoformat()}"
 
+    # A day is only complete when an actual observation row exists; an
+    # HTTP 200 / non-empty response / created=False does not prove it.
+    # Skip targets whose window is already complete; submit the rest.
+    missing = await missing_trading_days(
+        engine, [t.security_id for t in targets], start_date, end_date
+    )
+
     for target in targets:
+        gaps = missing.get(target.security_id)
+        if not gaps:
+            summary["complete"].append(target.ticker)
+            continue
+        summary["gaps"][target.ticker] = [d.isoformat() for d in gaps]
         idempotency_key = (
             f"{tenant_id}:{COLLECT_CONFIG_VERSION}:{SOURCE_SLUG}:"
             f"{target.security_id}:{window}:{slot}"
