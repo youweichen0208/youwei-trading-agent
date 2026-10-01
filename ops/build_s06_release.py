@@ -37,7 +37,7 @@ def validate_candidate_inputs(trial, input_sha256, data, references, panel):
         raise ValueError('panel membership differs from the frozen trial input')
 
 
-async def build(root):
+async def build(root, *, release_id):
     references = json.loads((root/'references.json').read_text())
     panel = json.loads((root/'panel-bundle.json').read_text())
     trial = json.loads((root/'trial-001/report.json').read_text())
@@ -90,7 +90,7 @@ async def build(root):
             raise ValueError('registered protocol content hash mismatch')
         protocol_refs[item['path']] = item['sha256']
     release = {
-        'release_id':'release-logistic-ridge-candidate-20261001-v1',
+        'release_id':release_id,
         'status':'candidate_unapproved', 'enabled_sources':['baseline','quant_model'],
         'fallback_policy':'phase1a-none', 'baseline_version':'baseline-constant-v0',
         'quant_model_version':MODEL_VERSION, 'feature_set_version':fs,
@@ -133,4 +133,12 @@ async def build(root):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--candidate-dir',required=True)
-    asyncio.run(build(Path(parser.parse_args().candidate_dir)))
+    parser.add_argument('--release-date',required=True,
+        help="YYYYMMDD stamped into the release_id as release-logistic-ridge-candidate-{date}-v1; "
+             "same id + different content raises ReleaseConflict, so a fresh date is required "
+             "whenever code_files (pipeline.py/uv.lock) change.")
+    args = parser.parse_args()
+    if not re.fullmatch(r'\d{8}', args.release_date):
+        raise SystemExit('--release-date must be YYYYMMDD')
+    release_id = f'release-logistic-ridge-candidate-{args.release_date}-v1'
+    asyncio.run(build(Path(args.candidate_dir), release_id=release_id))
