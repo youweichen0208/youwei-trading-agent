@@ -12,7 +12,7 @@
 | `/tiingo/fundamentals/{ticker}/daily` | 存在（市值、PE 等日频指标） |
 | `/tiingo/fundamentals/meta?ticker={t}` | 存在（行业字段所在端点） |
 | `/tiingo/fundamentals/{ticker}/statements` | 存在 |
-| 认证模型 | `token` 参数；无 token → `Please supply a token`；无效 → `Invalid token.` |
+| 认证模型 | `token` query 参数或 `Authorization: Token <key>` 头（两者等效，头方式 2026-10-02 实测：有效→200、伪造→403 `Invalid token.`，见 [tiingo-token-verification §8](tiingo-token-verification.md)）；无 token → `Please supply a token`；无效 → `Invalid token.`；生产客户端用头方式，避免密钥进 URL/日志 |
 
 方法论记录：父路径（如 `/tiingo/corporate-actions`）404 **不能**证明子资源不存在——首版曾据此误判公司行为无独立端点，已按官方文档纠正。
 

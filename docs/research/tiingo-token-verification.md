@@ -91,3 +91,12 @@ S04 首次真实采集（周五晚定时任务）本身即完成该验证；在�
 - 「Tiingo 可作主行情源」判定维持：原始 OHLC + 行内公司行为字段满足 target-spec 自算总收益口径；adjClose 降级为容差交叉核对。
 - GICS 与 S&P 500 成分 PIT 快照缺口结论不变（sector 为 SIC 派生；成分源另配）。
 - S04 数据服务新增验收点：幽灵行检测（volume=0 连续性）、退市状态不依赖 Tiingo endDate、SIVB 型缺口登记。
+
+## 8. 认证传递方式（2026-10-02 补充验证）
+
+背景：S09b 生产启动后发现 worker 日志里 httpx INFO 级请求日志打印完整 URL，而客户端当时把 token 作为 `token` query 参数传递，导致密钥落入容器日志（违反「日志须脱敏」约束）。修复时实测头认证：
+
+- 方法：sg-prod 上真实 curl 调用 `/tiingo/daily/SPY/prices`（不打印 token 本体）。
+- `Authorization: Token <真实 token>` 头 + 日期 query → **200**，返回正常价格行（close=762.63，与 2026-09-30 实测一致）。
+- `Authorization: Token bogus-token-value` 伪造头 → **403** `{"detail":"Invalid token."}`，与 query 参数方式的无效 token 响应一致，证明头被真实校验。
+- 结论：`youwei_core/data/tiingo.py` 改为仅用 Authorization 头传递 token，URL 不再携带密钥；mock 服务器（`ops/s09b_mock_tiingo.py`）本就不校验 token，验收环境不受影响。回归测试断言 URL 与 httpx 日志均不含 token。
