@@ -1,4 +1,4 @@
-"""Forward prediction pipeline (S06 vehicle).
+"""Forward prediction pipeline with release-bound numeric models.
 
 The Controller-side job that turns a planned batch into sealed
 predictions:
@@ -10,12 +10,10 @@ predictions:
 3. seal each case's three positions atomically (Phase 1A: llm_adjusted
    fixed at unavailable/not_enabled)
 
-Model status: `baseline-constant-v0` and `quant-momentum-v0` are
-pipeline vehicles for engineering acceptance — deterministic, frozen,
-fully disclosed — NOT the formal campaign models. Selecting the real
-baseline/quant requires Trial registration and a human-approved
-release (campaign-policy §5–6); they plug in through the same
-registry without touching the sealing path.
+Old releases retain their `quant-momentum-v0` engineering vehicle. A release
+explicitly selecting `quant-logistic-ridge-v1` carries all three horizon JSON
+artifacts; the registry checks them before any snapshot or prediction write.
+Trial registration and human release approval remain separate requirements.
 """
 
 import json
@@ -51,13 +49,10 @@ from youwei_core.ledger.agent_client import (
 )
 from youwei_core.ledger.controller import apply_phase1b_fallback
 from youwei_core.ledger.evidence import build_frozen_evidence
+from youwei_core.ledger.model_registry import build_release_predictor
 from youwei_core.ledger.sealing import SealRequest, SourcePrediction, seal_commit
 
 PIPELINE_VERSION = "pipeline-v1"
-
-# evidence window: calendar days of daily bars before the cutoff
-EVIDENCE_LOOKBACK_CALENDAR_DAYS = 90
-
 
 class PredictError(Exception):
     pass
@@ -81,15 +76,6 @@ def predict_baseline(bars: list[dict]) -> SourcePrediction:
 def predict_quant(bars: list[dict] | None = None) -> SourcePrediction:
     """Adapt the frozen momentum vehicle's result for Ledger sealing."""
     return SourcePrediction(**asdict(model_predict_quant(bars)))
-
-
-# registry: enabled source -> model implementation. Formal models
-# register here after trial + release approval; the sealing path is
-# model-agnostic.
-MODELS = {
-    "baseline": predict_baseline,
-    "quant_model": predict_quant,
-}
 
 
 # --- llm_adjusted provider (Phase 1B seam) -----------------------------------
@@ -302,7 +288,14 @@ async def run_batch_predictions(
     # one evidence snapshot for the whole batch, frozen at the batch's
     # decision cutoff (runs after the cutoff by construction)
     cutoff = batch.decision_cutoff_utc
-    start_date = (cutoff - timedelta(days=EVIDENCE_LOOKBACK_CALENDAR_DAYS)).date()
+    predictor = await build_release_predictor(
+        engine,
+        release_manifest=release.manifest,
+        batch_manifest=batch.batch_manifest,
+        cutoff=cutoff,
+        benchmark_security_id=str(campaign.benchmark_security_id),
+    )
+    start_date = (cutoff - timedelta(days=predictor.lookback_calendar_days)).date()
     end_date = cutoff.date()
     security_ids = sorted(
         {str(c.security_id) for c in cases} | {str(campaign.benchmark_security_id)}
@@ -343,7 +336,7 @@ async def run_batch_predictions(
     sealed, already, failures = 0, 0, []
     for case in cases:
         bars = bars_by_security.get(str(case.security_id), [])
-        quant = MODELS["quant_model"](bars=bars)
+        quant = predictor.predict_case(case, bars_by_security)
         # the quant position consumed the batch's frozen evidence: the
         # per-prediction reference makes the input traceable. Attached
         # for unavailable results too — the snapshot records the
@@ -360,7 +353,7 @@ async def run_batch_predictions(
             else provider(case, bars, quant, snap.snapshot_id)
         )
         sources = [
-            MODELS["baseline"](bars),
+            predict_baseline(bars),
             quant,
             llm_adjusted,
         ]
@@ -369,7 +362,11 @@ async def run_batch_predictions(
             release_id=release_id,
             sources=sources,
             input_manifest={
-                "code_version": PIPELINE_VERSION,
+                "code_version": (
+                    PIPELINE_VERSION if predictor.model_version == QUANT_MODEL_VERSION
+                    else "pipeline-logistic-v1"
+                ),
+                **predictor.provenance(case.horizon_td),
                 "evidence_snapshot_id": str(snap.snapshot_id),
                 "evidence_query": {
                     "security_ids": security_ids,
