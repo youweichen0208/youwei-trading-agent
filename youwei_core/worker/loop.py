@@ -7,6 +7,7 @@ acceptance tests."""
 
 import asyncio
 import logging
+import uuid
 from typing import Awaitable, Callable
 
 from sqlalchemy.ext.asyncio import AsyncEngine
@@ -260,11 +261,26 @@ def main() -> None:
     }
     if runner is not None:
         handlers["sandbox.execute"] = make_sandbox_handler(engine, runner, secret=settings.runner_secret)
+
+    async def _scheduler_fn() -> None:
+        # Controller-side tick: prediction/outcome/report scheduling.
+        await scheduler_tick(engine)
+        # S09a: daily collection scheduling (fixed panel + benchmark).
+        if settings.collect_release_id and settings.collect_tenant_id:
+            from youwei_core.data.collect import collect_tick
+
+            await collect_tick(
+                engine,
+                tiingo,
+                release_id=settings.collect_release_id,
+                tenant_id=uuid.UUID(settings.collect_tenant_id),
+            )
+
     loop = WorkerLoop(
         engine,
         handlers=handlers,
         settings=settings,
-        scheduler_fn=lambda: scheduler_tick(engine),
+        scheduler_fn=_scheduler_fn,
     )
     async def serve():
         try:

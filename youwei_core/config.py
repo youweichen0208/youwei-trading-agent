@@ -85,3 +85,11 @@ class Settings(BaseSettings):
     research_signing_kid: str = "research-key-1"
     research_exec_config_version: str = "research-exec-v1"
     research_model: str = ""
+
+    # S09a: daily collection scheduler (collect_tick). The collection set
+    # is fixed by ONE named release; its manifest names the panel
+    # registration + benchmark. The collect tenant owns the submitted
+    # jobs (and thus the idempotency key's tenant component).
+    collect_release_id: str = ""  # release_id naming the panel+benchmark
+    collect_tenant_id: str = ""  # UUID string; tenant owning collection jobs
+    collect_interval_seconds: float = 60.0  # how often collect_tick runs
