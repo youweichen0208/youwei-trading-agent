@@ -23,10 +23,16 @@ import uuid
 from pathlib import Path
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import select, text
 
 import quant.models as quant_module
-from youwei_core.ledger.service import CampaignValidationError, register_campaign
+from conftest import make_campaign_plan
+from youwei_core.db.meta import research_releases
+from youwei_core.ledger.service import (
+    CampaignValidationError,
+    approve_release,
+    register_campaign,
+)
 from youwei_core.ledger.training import (
     ManifestValidationError,
     TrainingManifestConflict,
@@ -42,10 +48,35 @@ VEHICLE_ID = "tm-vehicles-v0"
 
 async def _campaign_for(engine, tenant_id, ctx, release_id, key=None):
     """register_campaign with a fresh key (the shared helper pins one)."""
+    campaign_key = key or f"c-tm-{uuid.uuid4().hex[:8]}"
+    async with engine.begin() as conn:
+        release_sha = (
+            await conn.execute(
+                select(research_releases.c.release_content_sha256).where(
+                    research_releases.c.release_id == release_id
+                )
+            )
+        ).scalar_one()
+    plan, scope = make_campaign_plan(
+        tenant_id=tenant_id,
+        campaign_key=campaign_key,
+        release_content_sha256=release_sha,
+        benchmark_security_id=ctx["benchmark"],
+        panel_security_ids=[str(s) for s in ctx["panel"]],
+        target_specs=_specs(),
+        time_protocol_sha256=TIME_SHA,
+    )
+    await approve_release(
+        engine,
+        release_id=release_id,
+        approver_principal_id="human-owner",
+        scope="phase1a-forward",
+        scope_manifest=scope.model_dump(mode="json"),
+    )
     return await register_campaign(
         engine,
         tenant_id=tenant_id,
-        campaign_key=key or f"c-tm-{uuid.uuid4().hex[:8]}",
+        campaign_key=campaign_key,
         release_id=release_id,
         target_specs=_specs(),
         time_protocol_ref="time-protocol-v1",
@@ -54,6 +85,9 @@ async def _campaign_for(engine, tenant_id, ctx, release_id, key=None):
         panel_security_ids=[str(s) for s in ctx["panel"]],
         panel_manifest={"sampler_version": "sector-stratified-hash-v1"},
         enabled_sources=["baseline", "quant_model"],
+        planned_cutoffs=plan["planned_cutoffs"],
+        planned_cutoffs_sha256=plan["planned_cutoffs_sha256"],
+        campaign_plan_sha256=plan["campaign_plan_sha256"],
     )
 
 

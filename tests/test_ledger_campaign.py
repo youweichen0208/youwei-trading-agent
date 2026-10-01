@@ -14,8 +14,9 @@ import uuid
 from datetime import UTC, datetime
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import select, text
 
+from conftest import make_campaign_plan
 from youwei_core.data.calendar import (
     ET,
     CalendarError,
@@ -33,6 +34,7 @@ from youwei_core.ledger.service import (
     register_campaign,
     register_release,
 )
+from youwei_core.db.meta import research_releases
 from test_data_pit import _security
 
 # protocol file hashes are only placeholders for tests: real values
@@ -47,6 +49,35 @@ def _specs():
         {"horizon_td": 20, "target_spec_id": "excess-tr-d20-v1", "content_sha256": SPEC_SHA},
         {"horizon_td": 60, "target_spec_id": "excess-tr-d60-v1", "content_sha256": SPEC_SHA},
     ]
+
+
+def _plan_hashes():
+    """A self-consistent frozen plan for tests that assert OTHER validation
+    errors — the cutoff list and its hash satisfy the range gate so the test
+    reaches the check it actually exercises."""
+    from youwei_core.ledger.plan import prepare_campaign_plan
+
+    plan = prepare_campaign_plan(
+        tenant_id=uuid.uuid4(),
+        campaign_key="plan",
+        release_content_sha256="a" * 64,
+        phase="1a",
+        first_cutoff=datetime(2026, 1, 3, 6, 0, tzinfo=ET),
+        batch_count=12,
+        panel_security_ids=[str(uuid.uuid4())],
+        benchmark_security_id=str(uuid.uuid4()),
+        target_specs=_specs(),
+        enabled_sources=["baseline", "quant_model"],
+        fallback_policy="phase1a-none",
+        primary_metric="d20_paired_brier_delta",
+        time_protocol_ref="time-protocol-v1",
+        time_protocol_sha256=TIME_SHA,
+    )
+    return dict(
+        planned_cutoffs=plan["planned_cutoffs"],
+        planned_cutoffs_sha256=plan["planned_cutoffs_sha256"],
+        campaign_plan_sha256=plan["campaign_plan_sha256"],
+    )
 
 
 async def _build_calendar(engine):
@@ -75,6 +106,30 @@ async def _campaign(engine, tenant_id, benchmark, panel, *, release_id="rel-test
     from youwei_core.auth.service import create_tenant
 
     await create_tenant(engine, f"tenant-{tenant_id}", tenant_id=tenant_id)
+    async with engine.begin() as conn:
+        release_sha = (
+            await conn.execute(
+                select(research_releases.c.release_content_sha256).where(
+                    research_releases.c.release_id == release_id
+                )
+            )
+        ).scalar_one()
+    plan, scope = make_campaign_plan(
+        tenant_id=tenant_id,
+        campaign_key="c-test-1",
+        release_content_sha256=release_sha,
+        benchmark_security_id=benchmark,
+        panel_security_ids=[str(s) for s in panel],
+        target_specs=_specs(),
+        time_protocol_sha256=TIME_SHA,
+    )
+    await approve_release(
+        engine,
+        release_id=release_id,
+        approver_principal_id="human-owner",
+        scope="phase1a-forward",
+        scope_manifest=scope.model_dump(mode="json"),
+    )
     return await register_campaign(
         engine,
         tenant_id=tenant_id,
@@ -87,6 +142,9 @@ async def _campaign(engine, tenant_id, benchmark, panel, *, release_id="rel-test
         panel_security_ids=[str(s) for s in panel],
         panel_manifest={"sampler_version": "sector-stratified-hash-v1"},
         enabled_sources=["baseline", "quant_model"],
+        planned_cutoffs=plan["planned_cutoffs"],
+        planned_cutoffs_sha256=plan["planned_cutoffs_sha256"],
+        campaign_plan_sha256=plan["campaign_plan_sha256"],
     )
 
 
@@ -118,20 +176,59 @@ async def test_release_content_hash_deterministic_and_self_excluding(db_engine):
     assert h1 == h2 and len(h1) == 64
 
 
-async def test_campaign_requires_approved_release(db_engine, tenant_id):
+async def test_campaign_requires_plan_bound_approval(db_engine, tenant_id):
+    """A legacy free-text approval does NOT authorize a campaign: the approval
+    must carry a structured scope whose campaign_plan_sha256 binds this exact
+    plan (S06i)."""
     await _build_calendar(db_engine)
     benchmark = await _security(db_engine, ticker="SPY")
     panel = [await _security(db_engine, ticker="S0")]
     await _release(db_engine, approved=False)
-    with pytest.raises(CampaignValidationError, match="approval"):
-        await _campaign(db_engine, tenant_id, benchmark, panel)
-    # approving afterwards unblocks registration
+    # legacy free-text approval only -> still rejected (no plan-bound scope)
     await approve_release(
         db_engine,
         release_id="rel-test-v1",
         approver_principal_id="human-owner",
         scope="phase1a-forward",
     )
+    async with db_engine.begin() as conn:
+        release_sha = (
+            await conn.execute(
+                select(research_releases.c.release_content_sha256).where(
+                    research_releases.c.release_id == "rel-test-v1"
+                )
+            )
+        ).scalar_one()
+    plan, scope = make_campaign_plan(
+        tenant_id=tenant_id,
+        campaign_key="c-test-1",
+        release_content_sha256=release_sha,
+        benchmark_security_id=benchmark,
+        panel_security_ids=panel,
+        target_specs=_specs(),
+        time_protocol_sha256=TIME_SHA,
+    )
+    from youwei_core.auth.service import create_tenant
+
+    await create_tenant(db_engine, f"tenant-{tenant_id}", tenant_id=tenant_id)
+    with pytest.raises(CampaignValidationError, match="approval"):
+        await register_campaign(
+            db_engine,
+            tenant_id=tenant_id,
+            campaign_key="c-test-1",
+            release_id="rel-test-v1",
+            target_specs=_specs(),
+            time_protocol_ref="time-protocol-v1",
+            time_protocol_sha256=TIME_SHA,
+            benchmark_security_id=benchmark,
+            panel_security_ids=[str(s) for s in panel],
+            panel_manifest={"sampler_version": "sector-stratified-hash-v1"},
+            enabled_sources=["baseline", "quant_model"],
+            planned_cutoffs=plan["planned_cutoffs"],
+            planned_cutoffs_sha256=plan["planned_cutoffs_sha256"],
+            campaign_plan_sha256=plan["campaign_plan_sha256"],
+        )
+    # _campaign approves with the plan-bound scope then registers -> succeeds
     assert (await _campaign(db_engine, tenant_id, benchmark, panel)).created
 
 
@@ -191,6 +288,7 @@ async def test_campaign_idempotent_and_conflict(db_engine, tenant_id):
             panel_security_ids=[str(ctx["panel"][0])],  # different panel
             panel_manifest={},
             enabled_sources=["baseline", "quant_model"],
+            **_plan_hashes(),
         )
 
 
@@ -215,6 +313,7 @@ async def test_campaign_rejects_phase1b_sources_and_bad_panels(db_engine, tenant
             # Phase 1B sources but Phase 1A fallback -> mismatch
             enabled_sources=["baseline", "quant_model", "llm_adjusted"],
             fallback_policy="phase1a-none",
+            **_plan_hashes(),
         )
 
     with pytest.raises(CampaignValidationError, match="unknown security"):
@@ -230,6 +329,7 @@ async def test_campaign_rejects_phase1b_sources_and_bad_panels(db_engine, tenant
             panel_security_ids=[str(uuid.uuid4())],
             panel_manifest={},
             enabled_sources=["baseline", "quant_model"],
+            **_plan_hashes(),
         )
 
     with pytest.raises(CampaignValidationError, match="missing target specs"):

@@ -430,9 +430,11 @@ release_approvals = Table(
     Column("approved_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
     Column("release_content_sha256", Text, nullable=False),
     Column("scope", Text, nullable=False),
+    Column("scope_manifest", JSONB, nullable=True),
+    Column("scope_sha256", Text, nullable=True),
     Column("basis", Text, nullable=True),
     Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
-    UniqueConstraint("release_row_id", "approver_principal_id", name="uq_approvals_release_approver"),
+    UniqueConstraint("release_row_id", "approver_principal_id", "scope_sha256", name="uq_approvals_release_approver_scope"),
 )
 
 # Pre-registered multi-week research plan (campaign-policy §2.3):
@@ -456,10 +458,28 @@ campaigns = Table(
     Column("enabled_sources", JSONB, nullable=False),
     Column("fallback_policy", Text, nullable=False),
     Column("primary_metric", Text, nullable=False),
+    Column("planned_cutoffs", JSONB, nullable=True),
+    Column("planned_cutoffs_sha256", Text, nullable=True),
+    Column("campaign_plan_sha256", Text, nullable=True),
     Column("status", Text, nullable=False, server_default="active"),
     Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
     UniqueConstraint("tenant_id", "campaign_key", name="uq_campaigns_tenant_key"),
     CheckConstraint("time_protocol_sha256 ~ '^[0-9a-f]{64}$'", name="time_sha_format"),
+)
+
+# S06i: append-only control facts (stop_new_batches) with reason/actor/time.
+# One per (campaign, event_type); stopping never deletes a plan or case, and
+# outcome follow-up / reports stay independent of this switch.
+campaign_control_events = Table(
+    "campaign_control_events",
+    meta,
+    Column("id", UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    Column("campaign_id", UUID(as_uuid=True), ForeignKey("campaigns.id"), nullable=False),
+    Column("event_type", Text, nullable=False),
+    Column("reason", Text, nullable=False),
+    Column("actor_principal_id", Text, nullable=False),
+    Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
+    UniqueConstraint("campaign_id", "event_type", name="uq_control_campaign_event"),
 )
 
 # One decision_cutoff's weekly instance (time-protocol §1). Planned

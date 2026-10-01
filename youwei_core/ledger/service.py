@@ -21,7 +21,7 @@ import hashlib
 import json
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncEngine
@@ -35,6 +35,7 @@ from youwei_core.data.calendar import (
 from youwei_core.db.meta import (
     HORIZONS_TD,
     campaigns,
+    campaign_control_events,
     events,
     forecast_batches,
     forecast_cases,
@@ -44,6 +45,7 @@ from youwei_core.db.meta import (
     securities,
     training_manifests,
 )
+from youwei_core.ledger.plan import CampaignPlanScope, scope_manifest_hash
 
 # campaign-policy §3 (Phase 1A)
 PHASE1A_ENABLED_SOURCES = ("baseline", "quant_model")
@@ -175,14 +177,24 @@ async def approve_release(
     release_id: str,
     approver_principal_id: str,
     scope: str,
+    scope_manifest: dict | None = None,
     basis: str | None = None,
-) -> None:
+) -> str:
     """Record a human approval of the release's current content hash.
-    Idempotent per (release, approver); an approval whose stored hash
-    no longer matches the release row is an integrity error (releases
-    are immutable, so this can only mean tampering)."""
+
+    A structured ``scope_manifest`` binds the approval to one concrete
+    campaign plan (its ``campaign_plan_sha256``), not just the release. It is
+    validated and its canonical hash stored as ``scope_sha256``; one approver
+    may approve the same release for different plans. Re-submitting the same
+    full approval is idempotent. A legacy free-text ``scope`` is kept for
+    audit only and grants no new experiment authorization. Returns the
+    ``scope_sha256`` (or ``None`` for a legacy free-text-only approval)."""
     if not approver_principal_id:
         raise CampaignValidationError("approver_principal_id is required")
+    manifest_sha = None
+    if scope_manifest is not None:
+        parsed_scope = CampaignPlanScope.model_validate(scope_manifest)
+        manifest_sha = scope_manifest_hash(parsed_scope)
     async with engine.begin() as conn:
         release = (
             await conn.execute(
@@ -198,6 +210,7 @@ async def approve_release(
                 select(release_approvals).where(
                     release_approvals.c.release_row_id == release.id,
                     release_approvals.c.approver_principal_id == approver_principal_id,
+                    release_approvals.c.scope_sha256 == manifest_sha,
                 )
             )
         ).mappings().first()
@@ -207,7 +220,7 @@ async def approve_release(
                     f"existing approval of {release_id!r} references a different "
                     "content hash than the release row"
                 )
-            return
+            return manifest_sha
         await conn.execute(
             release_approvals.insert().values(
                 id=uuid.uuid4(),
@@ -215,9 +228,12 @@ async def approve_release(
                 approver_principal_id=approver_principal_id,
                 release_content_sha256=release.release_content_sha256,
                 scope=scope,
+                scope_manifest=scope_manifest,
+                scope_sha256=manifest_sha,
                 basis=basis,
             )
         )
+    return manifest_sha
 
 
 async def release_is_approved(engine: AsyncEngine, release_row_id) -> bool:
@@ -342,12 +358,30 @@ async def register_campaign(
     enabled_sources: list[str],
     fallback_policy: str = PHASE1A_FALLBACK_POLICY,
     primary_metric: str = "d20_paired_brier_delta",
+    planned_cutoffs: list[str] | None = None,
+    planned_cutoffs_sha256: str | None = None,
+    campaign_plan_sha256: str | None = None,
 ) -> CampaignRecord:
     """Pre-register a campaign. Phase 1A policy: enabled sources are
     exactly baseline + quant_model, no fallback. Phase 1B policy:
     baseline + quant_model + llm_adjusted with the quant fallback. The
-    referenced release must carry a matching human approval."""
+    referenced release must carry a matching human approval whose structured
+    scope binds this campaign's full plan hash (S06i), and the frozen weekly
+    cutoff list must be supplied and hash-verified."""
     _validate_target_specs(target_specs)
+    if not planned_cutoffs or not isinstance(planned_cutoffs, list):
+        raise CampaignValidationError(
+            "planned_cutoffs is required: a campaign must freeze its weekly "
+            "cutoff list (S06i), it cannot plan batches without bound"
+        )
+    if len(planned_cutoffs_sha256 or "") != 64 or len(campaign_plan_sha256 or "") != 64:
+        raise CampaignValidationError(
+            "planned_cutoffs_sha256 and campaign_plan_sha256 must be 64 hex chars"
+        )
+    if sha256_hex(planned_cutoffs) != planned_cutoffs_sha256:
+        raise CampaignValidationError(
+            "planned_cutoffs_sha256 does not match the supplied cutoff list"
+        )
     enabled = set(enabled_sources)
     if enabled == set(PHASE1A_ENABLED_SOURCES):
         if fallback_policy != PHASE1A_FALLBACK_POLICY:
@@ -411,6 +445,9 @@ async def register_campaign(
         "enabled_sources": sorted(enabled_sources),
         "fallback_policy": fallback_policy,
         "primary_metric": primary_metric,
+        "planned_cutoffs": planned_cutoffs,
+        "planned_cutoffs_sha256": planned_cutoffs_sha256,
+        "campaign_plan_sha256": campaign_plan_sha256,
     }
     payload_sha = sha256_hex(payload)
 
@@ -443,18 +480,40 @@ async def register_campaign(
         ).mappings().one_or_none()
         if release is None:
             raise ReleaseNotFound(release_id)
-        approval = (
+        # S06i: the release must carry a human approval whose structured scope
+        # binds THIS campaign's full plan (campaign_plan_sha256) and matches
+        # tenant + campaign key + release content hash. A legacy free-text
+        # approval grants no new experiment authorization.
+        approvals = (
             await conn.execute(
-                select(release_approvals.c.release_content_sha256).where(
-                    release_approvals.c.release_row_id == release.id
+                select(release_approvals.c.scope_manifest).where(
+                    release_approvals.c.release_row_id == release.id,
+                    release_approvals.c.release_content_sha256 == release.release_content_sha256,
                 )
             )
-        ).scalars().first()
-        if approval != release.release_content_sha256:
+        ).scalars().all()
+        plan_approved = False
+        for manifest in approvals:
+            if not manifest:
+                continue
+            try:
+                parsed = CampaignPlanScope.model_validate(manifest)
+            except ValueError:
+                continue
+            if (
+                parsed.campaign_plan_sha256 == campaign_plan_sha256
+                and parsed.tenant_id == tenant_id
+                and parsed.campaign_key == campaign_key
+                and parsed.release_content_sha256 == release.release_content_sha256
+            ):
+                plan_approved = True
+                break
+        if not plan_approved:
             raise CampaignValidationError(
-                f"release {release_id!r} has no approval matching its content "
-                "hash; a campaign needs a human-approved release "
-                "(campaign-policy §5)"
+                f"release {release_id!r} has no approval whose scope binds this "
+                "campaign plan (campaign_plan_sha256 + tenant + campaign key + "
+                "release hash); a campaign needs a human approval of this exact "
+                "plan (S06i)"
             )
 
         # campaign-policy §5: a release manifest referencing a training
@@ -494,6 +553,9 @@ async def register_campaign(
                 enabled_sources=sorted(enabled_sources),
                 fallback_policy=fallback_policy,
                 primary_metric=primary_metric,
+                planned_cutoffs=planned_cutoffs,
+                planned_cutoffs_sha256=planned_cutoffs_sha256,
+                campaign_plan_sha256=campaign_plan_sha256,
             )
         )
         await conn.execute(
@@ -507,6 +569,77 @@ async def register_campaign(
             )
         )
     return CampaignRecord(campaign_id=campaign_id, chain_id=chain_id, created=True)
+
+
+# --- campaign control (S06i) ------------------------------------------------
+
+STOP_EVENT_TYPE = "stop_new_batches"
+
+
+async def stop_campaign_new_batches(
+    engine: AsyncEngine,
+    campaign_id: uuid.UUID,
+    *,
+    reason: str,
+    actor_principal_id: str,
+) -> bool:
+    """Append a stop_new_batches control event (S06i §4).
+
+    Stopping is an append-only fact: it never deletes a plan or case, and it
+    only halts NEW batch planning — outcome follow-up, D60 follow-up, reports
+    and later corrections stay independent. Idempotent per campaign. Returns
+    True when a new event was appended, False when the campaign was already
+    stopped."""
+    if not reason or not actor_principal_id:
+        raise CampaignValidationError("reason and actor_principal_id are required")
+    async with engine.begin() as conn:
+        campaign = (
+            await conn.execute(
+                select(campaigns).where(campaigns.c.id == campaign_id)
+            )
+        ).mappings().one_or_none()
+        if campaign is None:
+            raise CampaignValidationError(f"campaign {campaign_id} not found")
+        existing = (
+            await conn.execute(
+                select(campaign_control_events.c.id).where(
+                    campaign_control_events.c.campaign_id == campaign_id,
+                    campaign_control_events.c.event_type == STOP_EVENT_TYPE,
+                )
+            )
+        ).scalar_one_or_none()
+        if existing is not None:
+            return False
+        await conn.execute(
+            campaign_control_events.insert().values(
+                id=uuid.uuid4(),
+                campaign_id=campaign_id,
+                event_type=STOP_EVENT_TYPE,
+                reason=reason,
+                actor_principal_id=actor_principal_id,
+            )
+        )
+        await conn.execute(
+            events.insert().values(
+                tenant_id=campaign.tenant_id,
+                event_type="campaign.stop_new_batches",
+                payload={"campaign_id": str(campaign_id), "reason": reason},
+            )
+        )
+    return True
+
+
+async def campaign_is_stopped(engine: AsyncEngine, campaign_id: uuid.UUID) -> bool:
+    """Whether a stop_new_batches control event exists for this campaign."""
+    async with engine.begin() as conn:
+        return (
+            await conn.execute(
+                select(campaign_control_events.c.id).where(
+                    campaign_control_events.c.campaign_id == campaign_id,
+                    campaign_control_events.c.event_type == STOP_EVENT_TYPE,
+                )
+            )
+        ).scalar_one_or_none() is not None
 
 
 # --- batch planning ----------------------------------------------------------
@@ -548,6 +681,14 @@ async def plan_batch(
             raise CampaignNotFound(str(campaign_id))
         if campaign.status != "active":
             raise PlanError(f"campaign {campaign_id} is not active")
+        if campaign.planned_cutoffs is not None:
+            # S06i: a batch may only be planned for a cutoff inside the
+            # campaign's frozen weekly list. Any other cutoff is out of scope.
+            cutoff_iso = decision_cutoff.astimezone(UTC).isoformat()
+            if cutoff_iso not in campaign.planned_cutoffs:
+                raise PlanError(
+                    f"cutoff {cutoff_iso} is outside the campaign's frozen plan"
+                )
 
     times: BatchTimes = await resolve_batch_times(engine, decision_cutoff)
 

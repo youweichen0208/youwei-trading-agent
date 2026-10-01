@@ -18,8 +18,9 @@ import uuid
 from datetime import UTC, date, datetime, timedelta
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import select, text
 
+from conftest import make_campaign_plan
 from youwei_core.data.panel import (
     IDENTITY_BASIS,
     build_member_frame,
@@ -266,7 +267,12 @@ async def test_registration_append_only(db_engine):
 
 
 async def test_campaign_gate_requires_validating_registration(db_engine, tenant_id):
-    from youwei_core.ledger.service import CampaignValidationError, register_campaign
+    from youwei_core.ledger.service import (
+        CampaignValidationError,
+        approve_release,
+        register_campaign,
+    )
+    from youwei_core.db.meta import research_releases
     from youwei_core.data.securities import create_security
     from test_ledger_campaign import TIME_SHA, _release, _specs
 
@@ -281,8 +287,32 @@ async def test_campaign_gate_requires_validating_registration(db_engine, tenant_
         identities=[IdentitySpec("ticker", "SPY", date(1990, 1, 1))],
     )
     await _release(db_engine)
+    async with db_engine.begin() as conn:
+        release_sha = (
+            await conn.execute(
+                select(research_releases.c.release_content_sha256).where(
+                    research_releases.c.release_id == "rel-test-v1"
+                )
+            )
+        ).scalar_one()
 
     async def register(panel_ids, reg_id, key):
+        plan, scope = make_campaign_plan(
+            tenant_id=tenant_id,
+            campaign_key=key,
+            release_content_sha256=release_sha,
+            benchmark_security_id=benchmark,
+            panel_security_ids=panel_ids,
+            target_specs=_specs(),
+            time_protocol_sha256=TIME_SHA,
+        )
+        await approve_release(
+            db_engine,
+            release_id="rel-test-v1",
+            approver_principal_id="human-owner",
+            scope="phase1a-forward",
+            scope_manifest=scope.model_dump(mode="json"),
+        )
         return await register_campaign(
             db_engine,
             tenant_id=tenant_id,
@@ -295,6 +325,9 @@ async def test_campaign_gate_requires_validating_registration(db_engine, tenant_
             panel_security_ids=panel_ids,
             panel_manifest={"panel_registration_id": str(reg_id)},
             enabled_sources=["baseline", "quant_model"],
+            planned_cutoffs=plan["planned_cutoffs"],
+            planned_cutoffs_sha256=plan["planned_cutoffs_sha256"],
+            campaign_plan_sha256=plan["campaign_plan_sha256"],
         )
 
     # a consistent registration passes

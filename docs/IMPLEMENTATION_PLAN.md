@@ -637,3 +637,16 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
 - 测试修复：发现旧纯测试手动asyncio.run清空pytest session loop，引发后续异步测试连锁失败。9个测试改async/await；最小三测试复现从1失败变为3通过，不改生产循环。
 - 验证：关键接口按TDD实际观察红→绿；新/相关量化、日历、panel恢复、模型接线测试通过。最终 `uv run --frozen pytest -q --tb=short` → **396 passed，无skip**；`python3 infra/validate_upstreams.py --mode catalog` → VALID；`git diff --check`通过；v2四份协议hash与登记一致。冻结模型JSON重新加载后，六组验证/测试预测共7,800条及评分逐值复现。完整候选库恢复验证行情55,189行、日历3,391行、504证券、1个training manifest/1个release，批准/Campaign/预测均为0。
 - 剩余：人工评估该候选是否值得前向实验及实际release批准；生产权限/部署/独立恢复仍按S09验收。不将本地运行或历史回顾升级为正式前向结果。
+
+### S06i 前向实验登记与调度边界（2026-10-01）
+
+- 状态：**三个调度/批准约束落地**（本地实现+纯逻辑验收）；DB级集成测试待SG验证；实际release批准仍由人完成。
+- 背景：为受控前向实验（12周观察窗口、模型冻结）补齐注册与调度边界，区分「停止新增批次」与「继续结果随访」。
+- 交付：
+  - `youwei_core/ledger/plan.py`（新）：`expand_planned_cutoffs`按America/New_York本地日期+7天展开周六06:00 ET cutoff（跨DST不漂移）；`prepare_campaign_plan`生成 `planned_cutoffs_sha256`（周次清单）与 `campaign_plan_sha256`（完整实验范围：tenant/key/release hash/panel/target/benchmark/sources/fallback/主指标/时间协议/周次清单）；`CampaignPlanScope` Pydantic 严格校验批准 scope。
+  - 迁移 `f9a0b1c2d3e4`：campaigns 加 `planned_cutoffs`/`planned_cutoffs_sha256`/`campaign_plan_sha256`；release_approvals 加 `scope_manifest`/`scope_sha256` 且唯一键从(release,approver)改为(release,approver,scope_sha256)（同一人可对同一release的不同计划分别批准）；新增 append-only `campaign_control_events` 表。
+  - `service.py`：`register_campaign` 必填 planned_cutoffs 并校验 hash，且要求批准 scope_manifest 绑定本 campaign_plan_sha256 + tenant + key + release hash（legacy 字符串 scope 不授予新实验授权）；`approve_release` 加 scope_manifest；新增 `stop_campaign_new_batches`（追加事件、幂等）与 `campaign_is_stopped`；`plan_batch` 拒绝清单外 cutoff。
+  - `scheduler.py`：批次规划只遍历冻结清单（第13批不存在）、跳过已停止 campaign；预测运行排除已停止；结果回填/报告/更正不受停止影响。
+  - 测试：`tests/pure/test_campaign_plan.py`（DST展开、双hash敏感性、scope校验，7项）；`tests/test_s06i_campaign_plan.py`（DB级：范围外拒绝、错plan scope拒绝、停止幂等、停止后跳过规划，4项）；同步 test_ledger_campaign/phase1b/training/panel_registration 的 fixture 走「prepare→批准(scope)→register」顺序。
+- 验证：`uv run --frozen pytest -q tests/pure tests/known_answers tests/contracts` → **152 passed**；各DB测试模块 `--collect-only` 无import错误。
+- 剩余：DB级测试（迁移+新测试+现有测试全量）需Docker，本机不可用，待SG验证；SG生产部署/权限/恢复验收归S09；实际release批准（候选hash `06618a0c...` + 实验计划hash + 批准范围）由项目所有者一次性审阅后完成。

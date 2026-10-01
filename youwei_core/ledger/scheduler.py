@@ -35,9 +35,11 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from youwei_core.data.calendar import next_weekly_cutoff
+from datetime import datetime
 from youwei_core.db.meta import (
     batch_report_input_state,
     campaigns,
+    campaign_control_events,
     evaluation_reports,
     forecast_batches,
     forecast_cases,
@@ -60,7 +62,7 @@ from youwei_core.ledger.monthly import (
     monthly_input_digest,
 )
 from youwei_core.ledger.outcomes import outcome_evidence_changed, resolve_outcome
-from youwei_core.ledger.service import plan_batch, record_batch_miss
+from youwei_core.ledger.service import campaign_is_stopped, plan_batch, record_batch_miss
 
 PREDICT_JOB_KIND = "research.batch_predict"
 HORIZONS = (1, 20, 60)
@@ -160,27 +162,33 @@ async def scheduler_tick(engine: AsyncEngine) -> dict:
     # --- 1. batch planning -------------------------------------------------
     for campaign in active:
         try:
+            if await campaign_is_stopped(engine, campaign.id):
+                # S06i: a stopped campaign no longer plans NEW batches, but
+                # its outcome follow-up continues (handled in later phases).
+                continue
+            planned = [datetime.fromisoformat(c) for c in (campaign.planned_cutoffs or [])]
+            if not planned:
+                # legacy campaign without a frozen plan: skip planning rather
+                # than plan unbounded weeks (S06i forbids unbounded batches)
+                continue
             async with engine.begin() as conn:
-                last = (
-                    await conn.execute(
-                        select(func.max(forecast_batches.c.decision_cutoff_utc)).where(
-                            forecast_batches.c.campaign_id == campaign.id
+                existing = {
+                    c.isoformat()
+                    for c in (
+                        await conn.execute(
+                            select(forecast_batches.c.decision_cutoff_utc).where(
+                                forecast_batches.c.campaign_id == campaign.id
+                            )
                         )
-                    )
-                ).scalar_one_or_none()
-            if last is None:
-                # first batch: the next cutoff eligible at/after now;
-                # no looking back before the campaign existed
-                # (time-protocol §2)
-                cutoffs = [next_weekly_cutoff(db_now)]
-            else:
-                cutoffs = []
-                target = next_weekly_cutoff(db_now)
-                candidate = next_weekly_cutoff(last)
-                while candidate <= target:
-                    cutoffs.append(candidate)
-                    candidate = next_weekly_cutoff(candidate)
-            for cutoff in cutoffs:
+                    ).scalars().all()
+                }
+            target = next_weekly_cutoff(db_now)
+            for cutoff in planned:
+                key = cutoff.isoformat()
+                if key in existing:
+                    continue
+                if cutoff > target:
+                    continue  # only pre-register up to the next cutoff
                 backfilled = cutoff <= db_now
                 plan = await plan_batch(
                     engine,
@@ -221,6 +229,12 @@ async def scheduler_tick(engine: AsyncEngine) -> dict:
                         campaigns.c.status == "active",
                         forecast_batches.c.decision_cutoff_utc <= db_now,
                         forecast_batches.c.prediction_deadline_utc > db_now,
+                        ~exists(
+                            select(1).where(
+                                campaign_control_events.c.campaign_id == campaigns.c.id,
+                                campaign_control_events.c.event_type == "stop_new_batches",
+                            )
+                        ),
                     )
                 )
             )

@@ -12,8 +12,9 @@ import uuid
 from datetime import UTC, date, datetime, timedelta
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import select, text
 
+from conftest import make_campaign_plan
 from youwei_core.auth.service import create_tenant
 from youwei_core.data.calendar import build_calendar, next_weekly_cutoff
 from youwei_core.data.snapshots import freeze_daily_bars
@@ -32,6 +33,7 @@ from youwei_core.ledger.sealing import (
     commit_status,
     seal_commit,
 )
+from youwei_core.db.meta import research_releases
 from test_data_pit import _security
 from test_ledger_seal import _quant_evidence_for, _shift_case_window
 
@@ -69,6 +71,33 @@ async def _phase1b_setup(engine, tenant_id, *, n_panel=1):
     panel = [await _security(engine, ticker=f"S{i}") for i in range(n_panel)]
     await _phase1b_release(engine)
     await create_tenant(engine, f"tenant-{tenant_id}", tenant_id=tenant_id)
+    async with engine.begin() as conn:
+        release_sha = (
+            await conn.execute(
+                select(research_releases.c.release_content_sha256).where(
+                    research_releases.c.release_id == "rel-phase1b-v1"
+                )
+            )
+        ).scalar_one()
+    plan, scope = make_campaign_plan(
+        tenant_id=tenant_id,
+        campaign_key="c-phase1b",
+        release_content_sha256=release_sha,
+        benchmark_security_id=benchmark,
+        panel_security_ids=[str(s) for s in panel],
+        target_specs=_specs(),
+        time_protocol_sha256=TIME_SHA,
+        phase="1b",
+        fallback_policy="phase1b-llm-from-quant",
+        enabled_sources=["baseline", "quant_model", "llm_adjusted"],
+    )
+    await approve_release(
+        engine,
+        release_id="rel-phase1b-v1",
+        approver_principal_id="human-owner",
+        scope="phase1b-forward",
+        scope_manifest=scope.model_dump(mode="json"),
+    )
     campaign = await register_campaign(
         engine,
         tenant_id=tenant_id,
@@ -82,6 +111,9 @@ async def _phase1b_setup(engine, tenant_id, *, n_panel=1):
         panel_manifest={"sampler_version": "sector-stratified-hash-v1"},
         enabled_sources=["baseline", "quant_model", "llm_adjusted"],
         fallback_policy="phase1b-llm-from-quant",
+        planned_cutoffs=plan["planned_cutoffs"],
+        planned_cutoffs_sha256=plan["planned_cutoffs_sha256"],
+        campaign_plan_sha256=plan["campaign_plan_sha256"],
     )
     return {"benchmark": benchmark, "panel": panel, "campaign": campaign}
 
