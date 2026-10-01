@@ -650,3 +650,15 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
   - 测试：`tests/pure/test_campaign_plan.py`（DST展开、双hash敏感性、scope校验，7项）；`tests/test_s06i_campaign_plan.py`（DB级：范围外拒绝、错plan scope拒绝、停止幂等、停止后跳过规划，4项）；同步 test_ledger_campaign/phase1b/training/panel_registration 的 fixture 走「prepare→批准(scope)→register」顺序。
 - 验证：`uv run --frozen pytest -q tests/pure tests/known_answers tests/contracts` → **152 passed**；各DB测试模块 `--collect-only` 无import错误。
 - 剩余：DB级测试（迁移+新测试+现有测试全量）需Docker，本机不可用，待SG验证；SG生产部署/权限/恢复验收归S09；实际release批准（候选hash `06618a0c...` + 实验计划hash + 批准范围）由项目所有者一次性审阅后完成。
+
+### S06i 范围绑定修复 + SG DB 验收（2026-10-01，补记）
+
+- 状态：**register_campaign 范围绑定缺口已修复，全量 DB 测试在 SG 真实 PostgreSQL 验收通过**。
+- 缺口（项目所有者审阅发现）：S06i 的 `register_campaign` 只重算了 `planned_cutoffs_sha256`，未根据实际登记参数重算完整 `campaign_plan_sha256`——只把调用方提供的 hash 与批准记录比较，调用方可保留已批准 hash 而篡改实际计划参数。
+- 修复：
+  - `plan.py`：提取 `campaign_plan_sha256_from(...)` 纯函数（从实际参数重算完整计划 hash），`prepare_campaign_plan` 复用它（保持字节一致）。
+  - `service.py`：`register_campaign` 服务端重算 `campaign_plan_sha256`（用实际 tenant/key/release hash/phase/panel/target/sources/fallback/主指标/时间协议/cutoffs），与调用方提供的值比较，不匹配拒绝；`phase` 从 `enabled_sources` 推导（1a/1b）并核对批准 scope 的 phase；security 存在性检查移到重算之前（先报参数错误、后报 hash 不匹配）。
+  - `plan_batch` 检查顺序修正：`resolve_batch_times`（非周六报 CalendarError）移到 frozen plan 检查之前，避免「非周六 cutoff」被误报为「outside frozen plan」。
+  - 测试：新增 3 个反例测试（改 primary_metric/target_specs/enabled_sources 后携带原 hash 拒绝）；修复 S06i 遗留的 frozen plan 时间错位——`make_campaign_plan` 默认 first_cutoff 从硬编码 2026-01-03 改为动态 `next_weekly_cutoff(now)`，各测试按需显式传 first_cutoff/batch_count（monthly/archive 用过去锚点，backfill 测试用 now-3/4 周锚点）。
+- 验证（SG 真实 PostgreSQL，Docker + postgres:16-alpine + Alembic）：`test_s06i_campaign_plan` 7 passed、`test_ledger_campaign` 12 passed、`test_ledger_seal`/`phase1b`/`pipeline`/`training`/`data_panel_registration` 全通过、`test_ledger_archive`/`monthly`/`evaluation`/`outcomes`/`model_registry` 全通过、`test_worker`/`worker_loop`/`ops`/`auth`/`capability` 69 passed、`test_data_*`/`panel_bundle`/`run_submission`/`logging`/`s06_prepare` 78 passed、`test_data_eodhd`/`tiingo`/`sandbox`/`agent_runtime_resilience` 38 passed。本机纯逻辑 `tests/pure tests/contracts tests/known_answers` → 183 passed 无回归。
+- 剩余：`06618a0c...` 候选 release 已不能代表当前工作区（S06i 之后 pipeline.py/uv.lock 变更）——需按最新工作区重新生成候选 ID 与 release hash；Phase 1A 必需的 S09 部署/权限/恢复验收仍待做；完整 release hash + Campaign 计划 hash + 使用范围的正式人工批准归项目所有者。

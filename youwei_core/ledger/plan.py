@@ -121,6 +121,53 @@ def scope_manifest_hash(scope: CampaignPlanScope | dict) -> str:
     return _sha256_hex(payload)
 
 
+def campaign_plan_sha256_from(
+    *,
+    tenant_id: uuid.UUID,
+    campaign_key: str,
+    release_content_sha256: str,
+    phase: str,
+    panel_security_ids: list[str],
+    benchmark_security_id: str,
+    target_specs: list[dict],
+    enabled_sources: list[str],
+    fallback_policy: str,
+    primary_metric: str,
+    time_protocol_ref: str,
+    time_protocol_sha256: str,
+    planned_cutoffs: list[str],
+) -> str:
+    """Recompute the full campaign plan hash from ACTUAL registration params.
+
+    This is the server-side recomputation the S06i ``register_campaign`` gate
+    uses to bind the plan hash to the concrete values it is about to persist —
+    the caller must NOT be trusted to supply a hash that could stay valid while
+    the underlying plan parameters (panel, target, sources, primary metric,
+    cutoffs, ...) change. ``planned_cutoffs`` is the already-expanded ISO-8601
+    cutoff list (the same bytes ``planned_cutoffs_sha256`` was computed over).
+
+    The field set and canonicalization MUST stay byte-identical to what
+    ``prepare_campaign_plan`` hashes, or a plan built by that helper would no
+    longer verify here.
+    """
+    plan_scope = {
+        "tenant_id": str(tenant_id),
+        "campaign_key": campaign_key,
+        "release_content_sha256": release_content_sha256,
+        "phase": phase,
+        "panel_security_ids": sorted(str(s) for s in panel_security_ids),
+        "benchmark_security_id": str(benchmark_security_id),
+        "target_specs": sorted(target_specs, key=lambda s: s.get("horizon_td", 0)),
+        "enabled_sources": sorted(enabled_sources),
+        "fallback_policy": fallback_policy,
+        "primary_metric": primary_metric,
+        "time_protocol_ref": time_protocol_ref,
+        "time_protocol_sha256": time_protocol_sha256,
+        "planned_cutoffs": planned_cutoffs,
+    }
+    return _sha256_hex(plan_scope)
+
+
 def prepare_campaign_plan(
     *,
     tenant_id: uuid.UUID,
@@ -143,28 +190,28 @@ def prepare_campaign_plan(
     planned_cutoffs = expand_planned_cutoffs(first_cutoff, batch_count)
     planned_cutoffs_sha256 = _sha256_hex([_utc_iso(c) for c in planned_cutoffs])
 
-    plan_scope = {
-        "tenant_id": str(tenant_id),
-        "campaign_key": campaign_key,
-        "release_content_sha256": release_content_sha256,
-        "phase": phase,
-        "panel_security_ids": sorted(str(s) for s in panel_security_ids),
-        "benchmark_security_id": str(benchmark_security_id),
-        "target_specs": sorted(target_specs, key=lambda s: s.get("horizon_td", 0)),
-        "enabled_sources": sorted(enabled_sources),
-        "fallback_policy": fallback_policy,
-        "primary_metric": primary_metric,
-        "time_protocol_ref": time_protocol_ref,
-        "time_protocol_sha256": time_protocol_sha256,
-        "planned_cutoffs": [_utc_iso(c) for c in planned_cutoffs],
-    }
-    campaign_plan_sha256 = _sha256_hex(plan_scope)
+    cutoff_iso = [_utc_iso(c) for c in planned_cutoffs]
+    campaign_plan_sha256 = campaign_plan_sha256_from(
+        tenant_id=tenant_id,
+        campaign_key=campaign_key,
+        release_content_sha256=release_content_sha256,
+        phase=phase,
+        panel_security_ids=[str(s) for s in panel_security_ids],
+        benchmark_security_id=str(benchmark_security_id),
+        target_specs=target_specs,
+        enabled_sources=enabled_sources,
+        fallback_policy=fallback_policy,
+        primary_metric=primary_metric,
+        time_protocol_ref=time_protocol_ref,
+        time_protocol_sha256=time_protocol_sha256,
+        planned_cutoffs=cutoff_iso,
+    )
 
     return {
         "phase": phase,
         "first_cutoff": _utc_iso(first_cutoff),
         "batch_count": batch_count,
-        "planned_cutoffs": [_utc_iso(c) for c in planned_cutoffs],
+        "planned_cutoffs": cutoff_iso,
         "planned_cutoffs_sha256": planned_cutoffs_sha256,
         "campaign_plan_sha256": campaign_plan_sha256,
         "timezone": "America/New_York",

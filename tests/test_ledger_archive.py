@@ -47,7 +47,11 @@ from test_ledger_seal import _seal, _shift_case_window, _sources
 async def _archived_scenario(engine, tenant_id, *, n_panel=2):
     """A campaign with sealed commits, resolved outcomes and a D20
     report — the complete ledger record an export freezes."""
-    ctx = await _setup(engine, tenant_id, n_panel=n_panel)
+    ctx = await _setup(
+        engine, tenant_id, n_panel=n_panel,
+        first_cutoff=next_weekly_cutoff(datetime.now(UTC) - timedelta(weeks=12)),
+        batch_count=20,
+    )
     plan = await plan_batch(
         engine,
         ctx["campaign"].campaign_id,

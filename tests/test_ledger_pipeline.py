@@ -115,7 +115,13 @@ async def test_tick_preregisters_coming_cutoff(db_engine, tenant_id):
 
 
 async def test_tick_backfills_missed_weeks(db_engine, tenant_id):
-    ctx = await _setup(db_engine, tenant_id, n_panel=1)
+    # Anchor the frozen plan exactly at the three-weeks-ago cutoff this test
+    # backfills, so the plan contains it plus the two gap weeks and the coming
+    # Saturday — and nothing earlier (a 4-week anchor would add a third gap).
+    ctx = await _setup(
+        db_engine, tenant_id, n_panel=1,
+        first_cutoff=next_weekly_cutoff(datetime.now(UTC) - timedelta(weeks=3)),
+    )
     # a batch three Saturdays ago (an outage gap after it)
     past = next_weekly_cutoff(datetime.now(UTC) - timedelta(weeks=3))
     await plan_batch(

@@ -89,25 +89,26 @@ async def test_register_rejects_wrong_plan_scope(db_engine, tenant_id):
         target_specs=_specs(), time_protocol_sha256=TIME_SHA,
     )
     # approve with a DIFFERENT plan hash (scope binds the wrong plan)
-    other, _ = make_campaign_plan(
+    other, other_scope = make_campaign_plan(
         tenant_id=tenant_id, campaign_key="c-other", release_content_sha256=release_sha,
         benchmark_security_id=benchmark, panel_security_ids=panel,
         target_specs=_specs(), time_protocol_sha256=TIME_SHA,
     )
     await approve_release(
         db_engine, release_id="rel-test-v1", approver_principal_id="human-owner",
-        scope="phase1a-forward", scope_manifest=scope.model_dump(mode="json"),
+        scope="phase1a-forward", scope_manifest=other_scope.model_dump(mode="json"),
     )
-    # register with a plan hash the approval does NOT bind -> rejected
+    # register with a SELF-CONSISTENT plan ("c-s") whose hash the approval does
+    # NOT bind (it bound "c-other") -> rejected at the approval gate
     with pytest.raises(CampaignValidationError, match="approval"):
         await register_campaign(
             db_engine, tenant_id=tenant_id, campaign_key="c-s", release_id="rel-test-v1",
             target_specs=_specs(), time_protocol_ref="time-protocol-v1", time_protocol_sha256=TIME_SHA,
             benchmark_security_id=benchmark, panel_security_ids=[str(s) for s in panel],
             panel_manifest={}, enabled_sources=["baseline", "quant_model"],
-            planned_cutoffs=other["planned_cutoffs"],
-            planned_cutoffs_sha256=other["planned_cutoffs_sha256"],
-            campaign_plan_sha256=other["campaign_plan_sha256"],
+            planned_cutoffs=plan["planned_cutoffs"],
+            planned_cutoffs_sha256=plan["planned_cutoffs_sha256"],
+            campaign_plan_sha256=plan["campaign_plan_sha256"],
         )
 
 
@@ -159,3 +160,87 @@ async def test_scheduler_skips_stopped_campaign_planning(db_engine, tenant_id):
         not (e.get("campaign_id") == str(campaign_id))
         for e in summary["errors"]
     )
+
+
+async def _approved_campaign_material(db_engine, tenant_id):
+    """Build an approved release + a plan-bound approval scope, returning the
+    materials a register_campaign call needs (release_sha, plan, scope)."""
+    await build_calendar(db_engine, year_start=2024, year_end=2027)
+    benchmark = await _security(db_engine, ticker="SPY")
+    panel = [await _security(db_engine, ticker="S0")]
+    await _release(db_engine)
+    await create_tenant(db_engine, f"tenant-{tenant_id}", tenant_id=tenant_id)
+    async with db_engine.begin() as conn:
+        release_sha = (
+            await conn.execute(
+                select(research_releases.c.release_content_sha256).where(
+                    research_releases.c.release_id == "rel-test-v1"
+                )
+            )
+        ).scalar_one()
+    plan, scope = make_campaign_plan(
+        tenant_id=tenant_id, campaign_key="c-s", release_content_sha256=release_sha,
+        benchmark_security_id=benchmark, panel_security_ids=panel,
+        target_specs=_specs(), time_protocol_sha256=TIME_SHA,
+    )
+    await approve_release(
+        db_engine, release_id="rel-test-v1", approver_principal_id="human-owner",
+        scope="phase1a-forward", scope_manifest=scope.model_dump(mode="json"),
+    )
+    return benchmark, panel, plan
+
+
+async def test_register_recomputes_plan_hash_and_rejects_changed_primary_metric(db_engine, tenant_id):
+    """S06i hardening: changing the primary metric while reusing the approved
+    campaign_plan_sha256 must be rejected — the server recomputes the hash
+    from the actual params, it does not trust the caller's string."""
+    benchmark, panel, plan = await _approved_campaign_material(db_engine, tenant_id)
+    with pytest.raises(CampaignValidationError, match="campaign_plan_sha256 does not match"):
+        await register_campaign(
+            db_engine, tenant_id=tenant_id, campaign_key="c-s", release_id="rel-test-v1",
+            target_specs=_specs(), time_protocol_ref="time-protocol-v1", time_protocol_sha256=TIME_SHA,
+            benchmark_security_id=benchmark, panel_security_ids=[str(s) for s in panel],
+            panel_manifest={}, enabled_sources=["baseline", "quant_model"],
+            # the plan hash was computed for the DEFAULT primary metric; a
+            # different metric changes the real plan but not the reused hash
+            primary_metric="d1_paired_brier_delta",
+            planned_cutoffs=plan["planned_cutoffs"],
+            planned_cutoffs_sha256=plan["planned_cutoffs_sha256"],
+            campaign_plan_sha256=plan["campaign_plan_sha256"],
+        )
+
+
+async def test_register_recomputes_plan_hash_and_rejects_changed_target_specs(db_engine, tenant_id):
+    """Changing a target spec while reusing the approved hash is rejected."""
+    benchmark, panel, plan = await _approved_campaign_material(db_engine, tenant_id)
+    # keep all three horizons (so we pass _validate_target_specs) but change
+    # the D20 content hash — the real plan differs, the reused hash does not.
+    tampered_specs = [dict(s) for s in _specs()]
+    tampered_specs[1]["content_sha256"] = "0" * 64
+    with pytest.raises(CampaignValidationError, match="campaign_plan_sha256 does not match"):
+        await register_campaign(
+            db_engine, tenant_id=tenant_id, campaign_key="c-s", release_id="rel-test-v1",
+            target_specs=tampered_specs, time_protocol_ref="time-protocol-v1", time_protocol_sha256=TIME_SHA,
+            benchmark_security_id=benchmark, panel_security_ids=[str(s) for s in panel],
+            panel_manifest={}, enabled_sources=["baseline", "quant_model"],
+            planned_cutoffs=plan["planned_cutoffs"],
+            planned_cutoffs_sha256=plan["planned_cutoffs_sha256"],
+            campaign_plan_sha256=plan["campaign_plan_sha256"],
+        )
+
+
+async def test_register_recomputes_plan_hash_and_rejects_changed_sources(db_engine, tenant_id):
+    """Registering a Phase 1B source set against a Phase 1A approval (same hash
+    string) is rejected by the server-side recomputation."""
+    benchmark, panel, plan = await _approved_campaign_material(db_engine, tenant_id)
+    with pytest.raises(CampaignValidationError, match="campaign_plan_sha256 does not match"):
+        await register_campaign(
+            db_engine, tenant_id=tenant_id, campaign_key="c-s", release_id="rel-test-v1",
+            target_specs=_specs(), time_protocol_ref="time-protocol-v1", time_protocol_sha256=TIME_SHA,
+            benchmark_security_id=benchmark, panel_security_ids=[str(s) for s in panel],
+            panel_manifest={}, enabled_sources=["baseline", "quant_model", "llm_adjusted"],
+            fallback_policy="phase1b-llm-from-quant",
+            planned_cutoffs=plan["planned_cutoffs"],
+            planned_cutoffs_sha256=plan["planned_cutoffs_sha256"],
+            campaign_plan_sha256=plan["campaign_plan_sha256"],
+        )

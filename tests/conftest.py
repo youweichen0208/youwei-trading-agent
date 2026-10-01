@@ -59,12 +59,17 @@ def make_campaign_plan(
 ):
     """Shared S06i test helper: build a frozen campaign plan and its structured
     approval scope (prepare -> scope manifest -> register order)."""
-    from datetime import datetime
+    from datetime import UTC, datetime
 
-    from youwei_core.data.calendar import ET
+    from youwei_core.data.calendar import next_weekly_cutoff
     from youwei_core.ledger.plan import CampaignPlanScope, prepare_campaign_plan
 
-    first = first_cutoff or datetime(2026, 1, 3, 6, 0, tzinfo=ET)  # Saturday 06:00 ET
+    # Default anchor: the FIRST coming Saturday cutoff. The 12-week frozen
+    # plan therefore starts in the future and contains exactly the cutoffs the
+    # scheduler/plan_batch tests plan against, with no past weeks to backfill.
+    # (A fixed 2026-01-03 anchor ended the plan in March 2026 and rejected the
+    # Sept/Oct-2026 cutoffs; an anchor BEFORE now backfilled past weeks.)
+    first = first_cutoff or next_weekly_cutoff(datetime.now(UTC))
     plan = prepare_campaign_plan(
         tenant_id=tenant_id,
         campaign_key=campaign_key,

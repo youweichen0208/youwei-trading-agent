@@ -11,7 +11,7 @@ Acceptance mapped from the plan (S05) and campaign-policy v1:
 """
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import select, text
@@ -41,6 +41,12 @@ from test_data_pit import _security
 # are registered when the actual campaign starts (S06)
 SPEC_SHA = "a" * 64
 TIME_SHA = "b" * 64
+
+# Frozen-plan anchor for tests whose cutoffs land in Sept/Oct 2026 (the
+# S04b known-answer date 2026-09-26 and next_weekly_cutoff(now)). The frozen
+# weekly list must CONTAIN those cutoffs or plan_batch rejects them as out of
+# scope.
+FIRST_CUTOFF_2026Q4 = datetime(2026, 9, 5, 6, 0, tzinfo=ET)  # Saturday 06:00 ET
 
 
 def _specs():
@@ -102,7 +108,7 @@ async def _release(engine, *, release_id="rel-test-v1", approved=True, manifest=
     return rec
 
 
-async def _campaign(engine, tenant_id, benchmark, panel, *, release_id="rel-test-v1"):
+async def _campaign(engine, tenant_id, benchmark, panel, *, release_id="rel-test-v1", first_cutoff=None, batch_count=12):
     from youwei_core.auth.service import create_tenant
 
     await create_tenant(engine, f"tenant-{tenant_id}", tenant_id=tenant_id)
@@ -122,6 +128,8 @@ async def _campaign(engine, tenant_id, benchmark, panel, *, release_id="rel-test
         panel_security_ids=[str(s) for s in panel],
         target_specs=_specs(),
         time_protocol_sha256=TIME_SHA,
+        first_cutoff=first_cutoff,
+        batch_count=batch_count,
     )
     await approve_release(
         engine,
@@ -148,13 +156,13 @@ async def _campaign(engine, tenant_id, benchmark, panel, *, release_id="rel-test
     )
 
 
-async def _setup(engine, tenant_id, *, n_panel=2):
+async def _setup(engine, tenant_id, *, n_panel=2, first_cutoff=None, batch_count=12):
     """Calendar + securities + approved release + campaign."""
     await _build_calendar(engine)
     benchmark = await _security(engine, ticker="SPY")
     panel = [await _security(engine, ticker=f"S{i}") for i in range(n_panel)]
     await _release(engine)
-    campaign = await _campaign(engine, tenant_id, benchmark, panel)
+    campaign = await _campaign(engine, tenant_id, benchmark, panel, first_cutoff=first_cutoff, batch_count=batch_count)
     return {"benchmark": benchmark, "panel": panel, "campaign": campaign}
 
 
@@ -354,7 +362,7 @@ async def test_campaign_rejects_phase1b_sources_and_bad_panels(db_engine, tenant
 async def test_plan_batch_seals_known_answer_windows(db_engine, tenant_id):
     """S04b-verified known answer: 2026-09-26 Saturday cutoff ->
     entry 09-28 09:30 EDT, D20 exit 10-23, D60 exit 12-21."""
-    ctx = await _setup(db_engine, tenant_id, n_panel=1)
+    ctx = await _setup(db_engine, tenant_id, n_panel=1, first_cutoff=FIRST_CUTOFF_2026Q4)
     cutoff = datetime(2026, 9, 26, 6, 0, tzinfo=ET)
     backfill = datetime.now(UTC) > cutoff.astimezone(UTC)
     plan = await plan_batch(
@@ -416,7 +424,7 @@ async def test_plan_batch_rejects_non_saturday_cutoff(db_engine, tenant_id):
 
 
 async def test_plan_batch_future_cutoff_and_idempotency(db_engine, tenant_id):
-    ctx = await _setup(db_engine, tenant_id, n_panel=2)
+    ctx = await _setup(db_engine, tenant_id, n_panel=2, first_cutoff=FIRST_CUTOFF_2026Q4)
     cutoff = next_weekly_cutoff(datetime.now(UTC))
     plan = await plan_batch(db_engine, ctx["campaign"].campaign_id, decision_cutoff=cutoff)
     assert plan.created
@@ -429,8 +437,14 @@ async def test_plan_batch_future_cutoff_and_idempotency(db_engine, tenant_id):
 
 
 async def test_plan_batch_past_cutoff_requires_explicit_backfill(db_engine, tenant_id):
-    ctx = await _setup(db_engine, tenant_id, n_panel=1)
-    cutoff = datetime(2024, 1, 6, 6, 0, tzinfo=ET)  # a Saturday long past
+    # Anchor the frozen plan three weeks in the past so its list CONTAINS a
+    # cutoff that is already behind "now" (two weeks back) — that is the "past
+    # cutoff needs explicit backfill" case.
+    ctx = await _setup(
+        db_engine, tenant_id, n_panel=1,
+        first_cutoff=next_weekly_cutoff(datetime.now(UTC) - timedelta(weeks=3)),
+    )
+    cutoff = next_weekly_cutoff(datetime.now(UTC) - timedelta(weeks=2))
     with pytest.raises(PlanBackfillRequired):
         await plan_batch(db_engine, ctx["campaign"].campaign_id, decision_cutoff=cutoff)
 
@@ -467,7 +481,7 @@ async def test_plan_batch_past_cutoff_requires_explicit_backfill(db_engine, tena
 
 
 async def test_ledger_tables_reject_update_delete_truncate(db_engine, tenant_id):
-    ctx = await _setup(db_engine, tenant_id, n_panel=1)
+    ctx = await _setup(db_engine, tenant_id, n_panel=1, first_cutoff=FIRST_CUTOFF_2026Q4)
     cutoff = next_weekly_cutoff(datetime.now(UTC))
     plan = await plan_batch(db_engine, ctx["campaign"].campaign_id, decision_cutoff=cutoff)
     case_id = plan.case_ids[0]

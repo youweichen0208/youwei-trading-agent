@@ -116,8 +116,15 @@ async def _month_fixture(engine, tenant_id, *, quant_ps=(0.5, 0.6)):
     value (point estimates 0.0 and 0.11 with y=0), plus one
     planned-but-missed batch. Shared flat bars make every excess
     return exactly 0."""
-    ctx = await _setup(engine, tenant_id, n_panel=1)
     month, cutoffs = _pick_past_month()
+    # Anchor the frozen plan at the past month's FIRST cutoff and run it for
+    # exactly that month's cutoffs, so the scheduler backfills nothing outside
+    # this month and generates exactly one monthly report.
+    ctx = await _setup(
+        engine, tenant_id, n_panel=1,
+        first_cutoff=cutoffs[0],
+        batch_count=len(cutoffs),
+    )
 
     _, _, dates = await _window_dates(engine, exit_sessions_back=1, span=35)
     await _ingest_window(engine, "S0", ctx["panel"][0], dates)

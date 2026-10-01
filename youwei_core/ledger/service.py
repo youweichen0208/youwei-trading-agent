@@ -45,7 +45,11 @@ from youwei_core.db.meta import (
     securities,
     training_manifests,
 )
-from youwei_core.ledger.plan import CampaignPlanScope, scope_manifest_hash
+from youwei_core.ledger.plan import (
+    CampaignPlanScope,
+    campaign_plan_sha256_from,
+    scope_manifest_hash,
+)
 
 # campaign-policy §3 (Phase 1A)
 PHASE1A_ENABLED_SOURCES = ("baseline", "quant_model")
@@ -384,11 +388,13 @@ async def register_campaign(
         )
     enabled = set(enabled_sources)
     if enabled == set(PHASE1A_ENABLED_SOURCES):
+        phase = "1a"
         if fallback_policy != PHASE1A_FALLBACK_POLICY:
             raise CampaignValidationError(
                 f"Phase 1A fallback_policy must be {PHASE1A_FALLBACK_POLICY!r}"
             )
     elif enabled == set(PHASE1B_ENABLED_SOURCES):
+        phase = "1b"
         if fallback_policy != PHASE1B_FALLBACK_POLICY:
             raise CampaignValidationError(
                 f"Phase 1B fallback_policy must be {PHASE1B_FALLBACK_POLICY!r}"
@@ -480,6 +486,45 @@ async def register_campaign(
         ).mappings().one_or_none()
         if release is None:
             raise ReleaseNotFound(release_id)
+        # panel and benchmark must be real securities — validate parameter
+        # well-formedness BEFORE the plan-hash recomputation, so a concrete
+        # value error (unknown security) is reported before a hash mismatch
+        # that merely reflects the same bad parameters.
+        for sec_id in [str(benchmark_security_id)] + panel:
+            found = (
+                await conn.execute(
+                    select(securities.c.id).where(securities.c.id == uuid.UUID(sec_id))
+                )
+            ).scalar_one_or_none()
+            if found is None:
+                raise CampaignValidationError(f"unknown security {sec_id}")
+        # S06i hardening: recompute the FULL campaign plan hash server-side
+        # from the ACTUAL registration params (panel, target, sources, metric,
+        # cutoffs, release content hash, phase) and require it to equal the
+        # caller-supplied hash. Trusting the caller's hash string alone would
+        # let a caller keep an already-approved hash while silently changing
+        # the plan parameters underneath it.
+        recomputed_plan_sha = campaign_plan_sha256_from(
+            tenant_id=tenant_id,
+            campaign_key=campaign_key,
+            release_content_sha256=release.release_content_sha256,
+            phase=phase,
+            panel_security_ids=panel,
+            benchmark_security_id=str(benchmark_security_id),
+            target_specs=target_specs,
+            enabled_sources=enabled_sources,
+            fallback_policy=fallback_policy,
+            primary_metric=primary_metric,
+            time_protocol_ref=time_protocol_ref,
+            time_protocol_sha256=time_protocol_sha256,
+            planned_cutoffs=planned_cutoffs,
+        )
+        if recomputed_plan_sha != campaign_plan_sha256:
+            raise CampaignValidationError(
+                "campaign_plan_sha256 does not match the actual registration "
+                "parameters; recompute it from the exact plan (S06i) rather "
+                "than reusing an approved hash for changed parameters"
+            )
         # S06i: the release must carry a human approval whose structured scope
         # binds THIS campaign's full plan (campaign_plan_sha256) and matches
         # tenant + campaign key + release content hash. A legacy free-text
@@ -523,16 +568,6 @@ async def register_campaign(
         # before (the Phase 1A vehicles disclose their facts in their own
         # registered manifest).
         await _validate_training_reference(conn, release.manifest)
-
-        # panel and benchmark must be real securities
-        for sec_id in [str(benchmark_security_id)] + panel:
-            found = (
-                await conn.execute(
-                    select(securities.c.id).where(securities.c.id == uuid.UUID(sec_id))
-                )
-            ).scalar_one_or_none()
-            if found is None:
-                raise CampaignValidationError(f"unknown security {sec_id}")
 
         campaign_id = uuid.uuid4()
         chain_id = f"campaign:{campaign_id}"
@@ -671,6 +706,13 @@ async def plan_batch(
     if decision_cutoff.tzinfo is None:
         raise PlanError("decision_cutoff must be timezone-aware")
 
+    # Resolve the calendar times FIRST: a malformed cutoff (not Saturday
+    # 06:00 ET) raises CalendarError before we consider whether it is inside
+    # the frozen weekly plan. Checking the plan first would report a
+    # non-Saturday cutoff as "outside the frozen plan" and mask the real
+    # format error.
+    times: BatchTimes = await resolve_batch_times(engine, decision_cutoff)
+
     async with engine.begin() as conn:
         campaign = (
             await conn.execute(
@@ -689,8 +731,6 @@ async def plan_batch(
                 raise PlanError(
                     f"cutoff {cutoff_iso} is outside the campaign's frozen plan"
                 )
-
-    times: BatchTimes = await resolve_batch_times(engine, decision_cutoff)
 
     # exits: entry day counts as D1 (target-spec §2)
     exits = {}
