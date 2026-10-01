@@ -3,7 +3,7 @@
 日期：2026-09-27；结构优化更新：2026-09-28\
 设计依据：[ARCHITECTURE.md](ARCHITECTURE.md)\
 问题来源：[v0.2 评审](ARCHITECTURE_REVIEW_v0.2.md)\
-状态：**当前推进 S09（Phase 1A 上线前验收）**——S00–S06（含 S06j 12 批候选计划）与 S07 纵切片已完成；S09a 部署准备已收尾；S09b 隔离验收（合成 + 真实 Tiingo 两轮）与生产库准备完成（正式 tenant 与计划 hash 已固定，冻结候选已导入生产库）。**下一步：GHCR 凭证恢复后推送已验收镜像并更新部署文件 → 启动正式 API/Worker 与采集（S09b 收尾）→ S09c 运维验收 → 组装批准包交项目所有者一次性确认。** 阶段详情见 [§4 完成记录](#4-完成记录)；S08（受控量化探索）已决策为 Hermes 唯一框架、Pi 暂缓，可并行推进。
+状态：**当前推进 S09（Phase 1A 上线前验收）**——S00–S06（含 S06j 12 批候选计划）与 S07 纵切片已完成；S09a 部署准备已收尾；**S09b 运行接线完成**（隔离验收两轮 + 生产库准备 + 镜像发布 + 生产 API/Worker/采集上线，含 token 日志缺陷修复与 r2 重发布）。**下一步：S09c 运维验收（远端恢复、重启恢复、资源测量、告警、RPO/RTO、pgBackRest 目标落实）→ 组装批准包交项目所有者一次性确认。** 阶段详情见 [§4 完成记录](#4-完成记录)；S08（受控量化探索）已决策为 Hermes 唯一框架、Pi 暂缓，可并行推进。
 
 ## 1. 执行规则
 
@@ -39,13 +39,13 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 | S07 | 纵切片完成、Phase 1B 未启用 | Hermes 研究契约/进程边界/平台工具/无头镜像；Ed25519 跨容器研究接线（S07m）；真实网关/预算/批准待后续 |
 | S08 | 已决策、未实现 | 受控量化探索闭环（Hermes 唯一框架，Pi 暂缓）；工具往返契约待 S07 收敛后设计 |
 | S09a | 完成 | 采集调度 collect_tick（16 测试）+ 生产 Compose（去 Runner）+ Core 镜像发布 GHCR + deployment 校验 VALID |
-| **S09b** | **进行中（待 GHCR 凭证）** | 隔离验收（合成 12/12 + 真实采集 45/45）与生产库准备完成：5 处部署缺陷修复、生产库初始化、冻结候选导入、tenant `f497c122…` 与计划 hash 固定；正式 API/Worker 启动待 GHCR 凭证恢复 |
-| S09c | 待 S09b | 运维验收：远端恢复、重启恢复、资源测量、告警、RPO/RTO |
+| **S09b** | 完成 | 运行接线闭环：隔离验收（合成 12/12 + 真实 45/45）、生产库准备（tenant `f497c122…`/计划 hash 固定）、GHCR 镜像发布（r2 digest `53631663…`，含 token 日志缺陷修复）、生产 API/Worker/采集上线（105 观测、21 任务 succeeded、deployment 校验 VALID） |
+| **S09c** | **下一步** | 运维验收：远端恢复、重启恢复、资源测量、告警、RPO/RTO |
 | S10–S11 | 未开始 | 评估界面/Memory/审批；候选验证与发布 |
 
-**当前阻塞正式 Campaign 启动的链：** GHCR 凭证恢复 → 推送已验收镜像并更新生产 Compose/upstreams.lock/deployment-manifest（S09b 收尾）→ S09c 运维验收 → 批准包（release `bdb8bbe0…` + 计划 `d403c8e5…` + scope_manifest `0b899b00…` + 使用范围 + 验收证据）→ 项目所有者一次性批准 → 正式 Campaign。正式 tenant UUID（`f497c122-45b6-497b-bb99-9c42401c3e5f`）与计划 hash 已在 S09b 固定。
+**当前阻塞正式 Campaign 启动的链：** S09c 运维验收 → 批准包（release `bdb8bbe0…` + 计划 `d403c8e5…` + scope_manifest `0b899b00…` + 使用范围 + 验收证据）→ 项目所有者一次性批准 → 正式 Campaign。tenant UUID（`f497c122-45b6-497b-bb99-9c42401c3e5f`）、计划 hash 与生产运行环境（Core 镜像 r2 digest `53631663…`）已在 S09b 固定。
 
-**下一步动作（按序）：** ① 恢复 GHCR 凭证（用户操作）并推送已验收镜像、更新部署文件；② 启动正式 API/Worker + 启用采集（S09b 收尾）；③ S09c 运维验收；④ 组装批准包交所有者一次性确认。
+**下一步动作（按序）：** ① S09c 运维验收（含 pgBackRest 备份目标落实）；② 组装批准包交所有者一次性确认；③ 批准后正式注册 Campaign（`primary_metric` 显式传 `paired_brier_quant_minus_baseline`，否则计划 hash 不匹配）。
 
 ## 2. 任务清单
 
@@ -729,7 +729,7 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
 
 ### S09b 进度（2026-10-02，隔离验收 + 生产库准备）
 
-- 状态：**S09b 隔离验收（两轮）与生产库准备完成；生产 API/Worker 正式发布仍待 GHCR 凭证恢复**。范围：修复 S09a 部署缺陷 5 处 → 隔离验收（合成 + 真实）→ 生产库初始化 + 冻结候选导入 + tenant/计划固定。本轮不启动生产 API/Worker、不启用自动采集、不创建批准或 Campaign。
+- 状态：**S09b 运行接线完成（2026-10-02）**：隔离验收（两轮）+ 生产库准备 + GHCR 镜像发布 + 生产 API/Worker/采集上线；期间发现并修复 token 入日志缺陷（r2 重发布）。批准与 Campaign 未发生（release_approvals 0、campaigns 0）。
 - 修复 S09a 部署缺陷（5 处，比原报告多 1 处 internal 网络）：
   1. `production.json` 挂载路径 `./postgres/init` → `../postgres/init`（相对 compose 文件位置解析不到脚本）。
   2. `01-roles.sh` 的 `:'password'` 在 `DO $$…$$` 块内不插值 → `\gexec` + `format('%L', :'var')`；真实 PG 验证角色创建/密码登录/DB owner。
@@ -749,4 +749,9 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
   - 保持 release_approvals 0、campaigns 0、formal_campaign_allowed=false。
 - 关键注意项：`primary_metric` 正式值 **`paired_brier_quant_minus_baseline`**（S06j + v2 文件）；`register_campaign` 默认参数是 `d20_paired_brier_delta`（仅测试占位），正式注册必须显式传前者否则计划 hash 不匹配。
 - 仓库同步（收尾时发现并修复）：`tests/contracts/test_upstreams.py` 的仓库 catalog 断言过期——S09a 启用 core/postgres 组件后，裸 `--mode deployment` 的报错从 "at least one enabled" 变为 "requires --compose and --manifest"（S09a 提交时未重跑该组测试）。已更新断言，意图不变：仓库 catalog 单独不构成经验证的部署。本地无 PG 测试组（pure/contracts/known_answers）183 通过；`--mode catalog` VALID。
-- 剩余限制：GHCR 凭证恢复后推送已验收镜像 → registry digest → 更新生产 Compose/upstreams.lock.yaml/deployment-manifest → 按 digest 拉取验证 → 启动正式 API/Worker；正式采集启用 collect_release_id=`release-logistic-ridge-candidate-20261002-v1`、collect_tenant_id=`f497c122-45b6-497b-bb99-9c42401c3e5f`；S09c 运维验收；组装批准包交项目所有者一次性确认。
+- 收尾（GHCR 凭证恢复后，2026-10-02；见 [s09b-production-launch.md](ops/s09b-production-launch.md)）：
+  - 凭证经 stdin 登录（不落命令行/日志/仓库）；推送 `phase1a-s09b` → registry digest `55678d52...`，按 digest 拉取验证通过；部署文件更新后 SG 渲染 deployment 校验 VALID。
+  - 首次启动验证：healthz 200；采集窗口内 21 对象 × 最近 5 交易日真实采集（105 行、21 任务全部 succeeded）。
+  - **缺陷与修复**：httpx INFO 日志打印完整 URL，token 作为 query 参数明文入 worker 日志；改为 `Authorization: Token` 头（真实调用验证 200/403，[tiingo-token-verification §8](research/tiingo-token-verification.md)），SG 真实 PG 31 测试通过，重建 r2 镜像 `phase1a-s09b2`（registry digest `53631663...`）重新发布并重部署；旧容器（含 token 日志）随重建删除，新日志 0 处 token，`raw_objects` 与数据库本就不含 token。
+  - 最终状态：production.json / upstreams.lock.yaml / deployment-manifest 固定 r2 digest；SG deployment + catalog 双 VALID；`ops/s09b_deploy.py` LOCAL_CORE_TAG → `phase1a-s09b2`；生产三服务健康（restarts=0）。
+- 剩余限制：S09c 运维验收（远端恢复、重启恢复、资源测量、告警、RPO/RTO、pgBackRest 目标落实）；acceptance 环境留存/拆除随 S09c 决定；下一交易日 ET 17:30 首采为头认证采集的自然确认点；组装批准包交项目所有者一次性确认。

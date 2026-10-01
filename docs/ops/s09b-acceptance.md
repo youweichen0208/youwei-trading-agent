@@ -50,6 +50,8 @@ S09a 交付的生产 Compose / init 脚本 / 入口存在 5 处工程缺陷，�
 
 SG 上 `.docker/config.json` 的 ghcr.io `auth` 已失效：`docker push` 与 `docker pull`（含旧 digest `7292c853`）均报 `denied`。**本地隔离验收可继续**（用本地镜像 + `pull_policy: never`）；**新镜像正式发布待 GHCR 凭证恢复**。恢复后：用 write:packages 登录推送、取得并验证 registry digest、更新生产 Compose / upstreams.lock.yaml / deployment-manifest，再按 digest 拉取验证。正式 Campaign 与 release 批准仍按原流程执行。
 
+**2026-10-02 更新：凭证已恢复，推送与拉取验证完成（见 §九）。**凭证经 stdin 传入 docker login，不落命令行、日志、仓库或本报告。
+
 ## 五、第一轮验收：合成数据闭环（12/12 通过）
 
 验收 harness：`ops/s09b_acceptance.py`（在一次性 Core 容器内跑，连 core 网络；`ops/s09b_mock_tiingo.py` 提供固定供应商响应）。结果：
@@ -109,6 +111,21 @@ docker run --rm --network youwei-acceptance_core \
 
 ## 八、剩余
 
-- 正式库初始化 + 候选导入（`release-logistic-ridge-candidate-20261002-v1`）+ 正式 tenant `youwei-internal-research` 固定 + 采集启用。
-- GHCR 凭证恢复后：推送同一镜像、取得 registry digest、更新部署清单、按 digest 拉取验证。
+- 正式库初始化 + 候选导入（`release-logistic-ridge-candidate-20261002-v1`）+ 正式 tenant `youwei-internal-research` 固定：已完成，见 [s09b-production-db-prep.md](s09b-production-db-prep.md)。
+- GHCR 凭证恢复后的推送、registry digest、部署清单更新、按 digest 拉取验证：已完成，见 §九。
+- 生产 API/Worker 启动 + 采集启用 + deployment 校验：见 [s09b-production-launch.md](s09b-production-launch.md)。
 - 本报告不构成 release 批准或正式 Campaign 授权；批准记录 0、Campaign 0 保持。
+
+## 九、镜像正式发布（2026-10-02，凭证恢复后）
+
+GHCR 凭证恢复后，在 SG 上完成已验收镜像的正式发布：
+
+- 登录：`docker login ghcr.io`（token 经 stdin 传入，不落命令行/日志/仓库；SG `/root/.docker/config.json` 持有 base64 auth，与 S09a 既有方式一致）。
+- 推送：`docker push ghcr.io/youweichen0208/youwei-core:phase1a-s09b` → `digest: sha256:55678d52580fea7cf51e4a6093d8cfff4ed55c9f86a7aa4c142b9fb3de6bee80 size: 856`。
+- **registry digest（OCI index）`sha256:55678d52580fea7cf51e4a6093d8cfff4ed55c9f86a7aa4c142b9fb3de6bee80`**，与 §二 的本地索引 digest 一致；`docker buildx imagetools inspect` 确认 tag 指向该 index，合 amd64 平台 manifest `sha256:0c1f2b094e512af4000b3d9c2d6349b316d06719c84a0c51316839f7f3977e28`（与 §二 一致）与 unknown/unknown attestation manifest `sha256:b17bf46f0a12223669d49ac43a2d41ece70a7e95dfd5d14483994aeb7490e033`（buildx 默认附加）。
+- 按 digest 拉取验证：`docker pull ghcr.io/youweichen0208/youwei-core@sha256:55678d52580fea7cf51e4a6093d8cfff4ed55c9f86a7aa4c142b9fb3de6bee80` → `Status: Image is up to date`。
+- 生产 Compose（`infra/compose/production.json`）、`infra/upstreams.lock.yaml`、`infra/deployment-manifest.json` 已按此 digest 更新（deployment 校验与生产启动验证见 [s09b-production-launch.md](s09b-production-launch.md)）。
+
+本节证明镜像与 registry 引用一致；不替代生产运行验收（S09c）、不构成 release 批准或正式 Campaign 授权。
+
+**后续（同日）：该镜像在生产启动后发现 token 入日志缺陷，修复后重建为 `phase1a-s09b2`（registry digest `sha256:53631663...`）并重新发布；生产最终固定 r2 digest，`core` 组件验收证据相应移至 [s09b-production-launch.md](s09b-production-launch.md)。**

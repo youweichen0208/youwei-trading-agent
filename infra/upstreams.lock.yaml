@@ -6,9 +6,9 @@
       "enabled": true,
       "source": {"kind": "local", "path": ".", "version": "0.1.0"},
       "integration_status": "integrated",
-      "verification": {"status": "passed", "evidence": {"path": "docs/ops/s09a-core-image-release.md", "sha256": "789130bb710e8870e0b9a40aa03de93298a4d22f531537e64c087921073233f3"}},
-      "deployment": {"image": "ghcr.io/youweichen0208/youwei-core@sha256:7292c8538e70750ebbd3c278ebd8572563b342ca5593981c34fc8659b9bd0e3c", "bindings": [{"service": "core-api", "field": "image"}, {"service": "core-worker", "field": "image"}]},
-      "notes": "S09a: Phase 1A Core image (API + Worker, one image, youwei-api / youwei-worker entrypoints). Published to GHCR ghcr.io/youweichen0208/youwei-core on 2026-10-02, digest sha256:7292c8538e70750ebbd3c278ebd8572563b342ca5593981c34fc8659b9bd0e3c. Image build/push/pull-by-digest verified (docs/ops/s09a-core-image-release.md); production runtime acceptance remains S09b/S09c."
+      "verification": {"status": "passed", "evidence": {"path": "docs/ops/s09b-production-launch.md", "sha256": "ae446337edb8f7688eb9cea3a1e533f5bd0f0a2230297408b07ccbf3b67af9a6"}},
+      "deployment": {"image": "ghcr.io/youweichen0208/youwei-core@sha256:53631663f04096f3bcb19d4ee14d1c5598785f1bb39a12c75a736691d9cc1848", "bindings": [{"service": "core-api", "field": "image"}, {"service": "core-worker", "field": "image"}]},
+      "notes": "S09b (r2): Core image rebuilt with the 5 deployment fixes plus the Tiingo token-in-logs fix (Authorization header instead of query param; verified with real calls, docs/research/tiingo-token-verification.md §8) and pushed to GHCR on 2026-10-02, tag phase1a-s09b2, registry digest sha256:53631663f04096f3bcb19d4ee14d1c5598785f1bb39a12c75a736691d9cc1848 (OCI index). Push/pull-by-digest verified; production API/Worker launched and collection enabled (105 observations, 21/21 collect jobs succeeded; campaigns 0, approvals 0). Evidence: docs/ops/s09b-production-launch.md; r1 digest sha256:55678d52... retained in registry as history. Ops acceptance (S09c) remains."
     },
     "postgres": {
       "enabled": true,

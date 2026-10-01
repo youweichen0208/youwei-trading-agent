@@ -52,7 +52,7 @@ SECRET_KEYS = [
 ]
 
 # Local image tag used for offline acceptance (until GHCR push is restored).
-LOCAL_CORE_TAG = "ghcr.io/youweichen0208/youwei-core:phase1a-s09b"
+LOCAL_CORE_TAG = "ghcr.io/youweichen0208/youwei-core:phase1a-s09b2"
 
 
 class DeployError(RuntimeError):
