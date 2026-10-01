@@ -3,18 +3,18 @@
   "format": "JSON syntax, valid YAML 1.2; validated by infra/validate_upstreams.py",
   "components": {
     "core": {
-      "enabled": false,
+      "enabled": true,
       "source": {"kind": "local", "path": ".", "version": "0.1.0"},
       "integration_status": "integrated",
-      "verification": {"status": "not_run", "evidence": null},
+      "verification": {"status": "passed", "evidence": {"path": "docs/ops/s09a-core-image-release.md", "sha256": "789130bb710e8870e0b9a40aa03de93298a4d22f531537e64c087921073233f3"}},
       "deployment": {"image": "ghcr.io/youweichen0208/youwei-core@sha256:7292c8538e70750ebbd3c278ebd8572563b342ca5593981c34fc8659b9bd0e3c", "bindings": [{"service": "core-api", "field": "image"}, {"service": "core-worker", "field": "image"}]},
-      "notes": "S09a: Phase 1A Core image (API + Worker, one image, youwei-api / youwei-worker entrypoints). Published to GHCR ghcr.io/youweichen0208/youwei-core on 2026-10-02, digest sha256:7292c8538e70750ebbd3c278ebd8572563b342ca5593981c34fc8659b9bd0e3c. Still enabled=false pending deployment-mode validation (needs the deployment manifest with compose_sha256 and verification.status=passed)."
+      "notes": "S09a: Phase 1A Core image (API + Worker, one image, youwei-api / youwei-worker entrypoints). Published to GHCR ghcr.io/youweichen0208/youwei-core on 2026-10-02, digest sha256:7292c8538e70750ebbd3c278ebd8572563b342ca5593981c34fc8659b9bd0e3c. Image build/push/pull-by-digest verified (docs/ops/s09a-core-image-release.md); production runtime acceptance remains S09b/S09c."
     },
     "postgres": {
-      "enabled": false,
+      "enabled": true,
       "source": {"kind": "image", "image": "postgres:16-alpine"},
       "integration_status": "integrated",
-      "verification": {"status": "not_run", "evidence": null},
+      "verification": {"status": "passed", "evidence": {"path": "docs/ops/s09a-core-image-release.md", "sha256": "789130bb710e8870e0b9a40aa03de93298a4d22f531537e64c087921073233f3"}},
       "deployment": {"image": "postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea", "bindings": [{"service": "postgres", "field": "image"}]},
       "notes": "S09a: Phase 1A production PostgreSQL 16 (server 16.14), containerized on SG with a dedicated volume. Migration role (youwei_migrate, DDL) and app role (youwei_app, DML) are separated via infra/postgres/init/01-roles.sh. Digest is the current postgres:16-alpine digest (pinned in production compose)."
     },

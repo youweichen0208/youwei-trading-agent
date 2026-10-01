@@ -25,8 +25,8 @@ Runner 已从 Phase 1A 移除：Logistic/Ridge 直接在 Core 内执行；`runne
 - [x] 构建 Core 镜像并推送 GHCR 私有仓库 `ghcr.io/youweichen0208/youwei-core`。（已完成 2026-10-02，digest `sha256:7292c8538e70750ebbd3c278ebd8572563b342ca5593981c34fc8659b9bd0e3c`）
 - [x] 回填 `infra/compose/production.json` 的两个 `PLACEHOLDER_CORE_DIGEST` 为真实 digest。
 - [x] `upstreams.lock.yaml` 的 `core` 组件补全 `deployment.image` digest + `bindings`（core-api/core-worker image）。
-- [ ] 将 `core` 组件置 `enabled:true`、`verification.status` 置 `passed`（附验收证据）。
-- [ ] 生成 deployment manifest（含 `compose_sha256`），跑 `infra/validate_upstreams.py --mode deployment`。
+- [x] 将 `core` 组件置 `enabled:true`、`verification.status` 置 `passed`（附验收证据 `docs/ops/s09a-core-image-release.md`）。
+- [x] 生成 deployment manifest（`infra/deployment-manifest.json`，含 `lock_sha256`/`compose_sha256`），跑 `infra/validate_upstreams.py --mode deployment` → **VALID**（2026-10-02）。
 
 ## 迁移与部署步骤（镜像发布后）
 

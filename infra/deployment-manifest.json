@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "lock_sha256": "d1ff477d724cf5dd3aa3f861b4ccafd68e4a2179dc310d94c62fdc062b7a0b24",
+  "compose_sha256": "4dc2dc4411ea712d44c56c2757ce90da8d91a5dd3cf821bb730724d6be5eb8e6",
+  "components": {
+    "core": {
+      "image": "ghcr.io/youweichen0208/youwei-core@sha256:7292c8538e70750ebbd3c278ebd8572563b342ca5593981c34fc8659b9bd0e3c",
+      "bindings": [
+        {
+          "service": "core-api",
+          "field": "image"
+        },
+        {
+          "service": "core-worker",
+          "field": "image"
+        }
+      ]
+    },
+    "postgres": {
+      "image": "postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea",
+      "bindings": [
+        {
+          "service": "postgres",
+          "field": "image"
+        }
+      ]
+    }
+  }
+}
