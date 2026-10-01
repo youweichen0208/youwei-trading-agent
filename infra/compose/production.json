@@ -12,7 +12,7 @@
       },
       "volumes": [
         "postgres_data:/var/lib/postgresql/data",
-        "./postgres/init:/docker-entrypoint-initdb.d:ro"
+        "../postgres/init:/docker-entrypoint-initdb.d:ro"
       ],
       "networks": ["core"],
       "restart": "unless-stopped",
@@ -40,7 +40,7 @@
         "YOUWEI_CAPABILITY_SECRET": "${YOUWEI_CAPABILITY_SECRET:?set the Core job capability signing secret}"
       },
       "ports": ["127.0.0.1:8000:8000"],
-      "networks": ["core"],
+      "networks": ["core", "edge"],
       "depends_on": {"postgres": {"condition": "service_healthy"}},
       "restart": "unless-stopped",
       "read_only": true,
@@ -90,6 +90,7 @@
   },
   "networks": {
     "core": {"internal": true},
+    "edge": {},
     "egress": {}
   },
   "volumes": {"postgres_data": {}}
