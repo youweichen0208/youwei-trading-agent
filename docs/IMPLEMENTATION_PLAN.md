@@ -3,7 +3,7 @@
 日期：2026-09-27；结构优化更新：2026-09-28\
 设计依据：[ARCHITECTURE.md](ARCHITECTURE.md)\
 问题来源：[v0.2 评审](ARCHITECTURE_REVIEW_v0.2.md)\
-状态：S00 协议已确认定稿（2026-09-27）；S01 主体完成（Tiingo 字段级验证已实测；EOD 实盘观测随 S04 首次采集、生产套餐条款确认待购买时；网关取消/用量/限额待验收）；S02 已完成（隔离开发环境验收，2026-09-27）；S03 第一/二纵切片完成（沙箱执行、独立 Runner 与 HTTP 产物链路，2026-09-28；生产部署仍待验收）；S04 第一至三纵切片完成（PIT 数据基础、交易日历与冻结快照，2026-09-27；训练 manifest 登记，2026-09-28；独立退市真相源、派生特征与多源仍待补源决策）；S05 已完成四纵切片（封存核心、Outcome 回填、评估报告、归档与监控，2026-09-27）加 S05e 证据追溯收紧（2026-09-28）；S06 第一/二纵切片完成（前向预测管线，2026-09-27；供应商更正自动触发、月度汇总与报告门控，2026-09-28；正式 campaign 启动项仍阻断；分类方案已于 2026-10-01 确定为 eodhd_sector 方案 (a)，候选包准备完成，正式 release 待批准）；S03 剩余部署项与 S06 正式启动及 S07 后续切片（工具授权、镜像部署）与 S08–S11 待实施、待验收。S07k 预算/计费已按项目所有者决定整体删除（2026-09-30）。S08 于 2026-10-01 决策改为「受控量化探索闭环（Hermes）」：MVP 暂缓接入 Pi，Hermes 作为唯一 Agent 框架，Pi 保留为可替换候选。
+状态：S00 协议已确认定稿（2026-09-27）；S01 主体完成（Tiingo 字段级验证已实测；EOD 实盘观测随 S04 首次采集、个人内部Phase 1A数据许可已确认；LLM转发许可及网关验收另行记录）；S02 已完成（隔离开发环境验收，2026-09-27）；S03 第一/二纵切片完成（沙箱执行、独立 Runner 与 HTTP 产物链路，2026-09-28；生产部署仍待验收）；S04 第一至三纵切片完成（PIT 数据基础、交易日历与冻结快照，2026-09-27；训练 manifest 登记，2026-09-28；独立退市真相源、派生特征与多源仍待补源决策）；S05 已完成四纵切片（封存核心、Outcome 回填、评估报告、归档与监控，2026-09-27）加 S05e 证据追溯收紧（2026-09-28）；S06 第一/二纵切片完成（前向预测管线，2026-09-27；供应商更正自动触发、月度汇总与报告门控，2026-09-28；正式 campaign 启动项仍阻断；分类方案为 eodhd_sector；S06h真实panel/日历/SPY冻结、Logistic/Ridge和历史Trial已完成；候选D20未显示增量，具体release待人工决定与批准）；S03 剩余部署项与 S06 正式启动及 S07 后续切片（工具授权、镜像部署）与 S08–S11 待实施、待验收。S07k 预算/计费已按项目所有者决定整体删除（2026-09-30）。S08 于 2026-10-01 决策改为「受控量化探索闭环（Hermes）」：MVP 暂缓接入 Pi，Hermes 作为唯一 Agent 框架，Pi 保留为可替换候选。
 
 ## 1. 执行规则
 
@@ -119,8 +119,8 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 
 ### S06 — 开始 baseline/quant 前向运行（Phase 1A；依赖 S05）
 
-- [ ] 发布固定 baseline 与简单量化模型，登记训练与校准版本。（进展：管线载具 baseline-constant-v0 / quant-momentum-v0 已随 S06a 落地并全量披露；正式模型选择须 Trial 登记 + release 人工批准，待阻断项解除）
-- [ ] 人工批准初始 release，按已登记规则固定20证券 panel，事前登记每批60个 case。（阻断：生产套餐 ToS 未确认、人工批准未发生；工程路径已就绪——抽样算法、成分采集器与 panel 构建已落地（见 S06c/S06d），真实数据已端到端抽出 20 只；GICS 命名标签待定）
+- [ ] 发布固定 baseline 与简单量化模型，登记训练与校准版本。（进展：管线载具 baseline-constant-v0 / quant-momentum-v0 已随 S06a 落地并全量披露；Logistic/Ridge候选实现及真实Trial已完成（S06h），主D20未显示增量；正式release仍待人工批准）
+- [ ] 人工批准初始 release，按已登记规则固定20证券 panel，事前登记每批60个 case。（进展：个人内部Phase 1A许可已确认；eodhd_sector的20证券panel、完整恢复包、日历和SPY已实际冻结（S06h）；人工批准及正式Campaign未发生）
 - [ ] llm_adjusted 保留 unavailable/not_enabled，不填充伪造 LLM 结果。（管线已固定封存该位置，S06a 验收）
 - [ ] Scheduler 按周创建新批次，按交易日检查到期 Outcome。（已落地：见 S06a/S06b 进度；已 resolved Outcome 的供应商更正自动触发已于 S06b 落地）
 - [ ] 最小只读查询显示计划数、完成数、缺失、迟到、数据质量和评分适用范围。（已落地：campaign_status 服务 + 租户隔离 API，见 S06a 进度）
@@ -621,3 +621,19 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
 ```
 
 开发排期只管理交付和验收；20D/60D 标签成熟及有效样本积累按真实交易日计算，不能用回放或合成数据替代。
+
+
+### S06h 真实冻结、候选模型与 Trial（2026-10-01）
+
+- 状态：**本地候选工程与真实历史比较完成；未批准release、未启动正式Campaign、未部署SG生产**。
+- 真实数据：EODHD 503成员按既定规则固定20证券；Tiingo 20证券+SPY采集55,189条日线，失败0。原始数据只保留在gitignore私有目录。
+- 恢复：`data/panel_bundle.py`完整源/映射/登记导出导入，篡改/冲突拒绝、同事务回滚；真实新库恢复后完整包和名单hash一致、二次恢复幂等。候选库另完成pg_dump→新库恢复，日历/行情/模型manifest/release行数与内容hash一致；这是本地候选恢复，不代替独立故障域备份。
+- 固定引用：NYSE规则v2补7月3日交易日提前收盘；固定2016–2028 build及hash，实际加载tzdata 2026.4/IANA 2026d字节；SPY永久ID固定。[实际引用](ops/s06-campaign-freeze-20261001.md)
+- 模型：`quant/logistic.py`逐horizon L2 Logistic+独立Ridge，训练标准化固定，JSON产物无pickle；`quant/dataset.py`统一连续交易日特征和目标收益；`quant/trial.py`固定切分、成熟过滤、65session embargo、成对评分及完整计划分母。
+- 实际Trial：事前追加参数后只跑一次，保存started/completed及代码/数据hash；D20测试Brier 0.253012 vs baseline 0.250000，成对差+0.003012。无调参重跑，无显著性结论。当前panel历史回顾缺乏完整历史PIT/公司行为证据，不能算正式能力证明。[结果](trials/trial-001-results.md)
+- 接线：`ledger/model_registry.py`按release/horizon/hash取冻结模型，拒绝错hash/未知模型/未来训练/错日历，缺特征unavailable。`pipeline.py`新模型用120天冻结股票/SPY证据；旧release保持载具、90天和旧pipeline版本。
+- 运维入口：`ops/collect_s06_trial_data.py`冻结行情/引用；`ops/run_s06_trial.py`校验预登记hash与panel并拒绝重复Trial；`ops/build_s06_release.py`校验全部输入/结果/引用后幂等登记候选，不批准、不创建Campaign。
+- 候选：`release-logistic-ridge-candidate-20261001-v1`，hash `06618a0c769cceb75968106897b4f3638cd6ff61de0fe3565e73fa3c1f6eceb5`；批准记录0、Campaign0。[候选材料](ops/s06-campaign-candidate-package.md)
+- 测试修复：发现旧纯测试手动asyncio.run清空pytest session loop，引发后续异步测试连锁失败。9个测试改async/await；最小三测试复现从1失败变为3通过，不改生产循环。
+- 验证：关键接口按TDD实际观察红→绿；新/相关量化、日历、panel恢复、模型接线测试通过。最终 `uv run --frozen pytest -q --tb=short` → **396 passed，无skip**；`python3 infra/validate_upstreams.py --mode catalog` → VALID；`git diff --check`通过；v2四份协议hash与登记一致。冻结模型JSON重新加载后，六组验证/测试预测共7,800条及评分逐值复现。完整候选库恢复验证行情55,189行、日历3,391行、504证券、1个training manifest/1个release，批准/Campaign/预测均为0。
+- 剩余：人工评估该候选是否值得前向实验及实际release批准；生产权限/部署/独立恢复仍按S09验收。不将本地运行或历史回顾升级为正式前向结果。

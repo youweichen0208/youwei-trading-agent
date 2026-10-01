@@ -1,7 +1,7 @@
 # S06 正式启动候选包（审阅与批准材料）
 
 日期：2026-10-01  
-状态：工程侧准备到可审阅/批准的程度；**正式 campaign 未启动，formal_campaign_allowed=false，无 release 批准**。最终 release hash 由项目所有者批准，不由本工具或 Agent 生成放行。
+状态：工程侧准备到可审阅/批准的程度；**正式 campaign 未启动，formal_campaign_allowed=false，无 release 批准**。最终 release hash 已生成供审阅，批准由项目所有者完成，工具不生成放行。
 
 本材料汇总 S06 正式启动所需的全部信息，供项目所有者审阅。分「已确定」「待冻结」「缺失项」三部分。
 
@@ -18,29 +18,33 @@
 | 抽样 / 采集 / panel 构建 / 冻结 / 恢复 / 校验 | 已实现并测试（S06c/S06d/S06e），真实 EODHD 数据端到端抽出 20 只 | 实施计划 |
 | 供应商更正触发 / 月度汇总 | 已实现（S06b） | 实施计划 |
 
-## 2. 待冻结（工程已就绪，待执行 + 待批准）
+## 2. 已冻结的候选材料（未批准）
 
-这些项的实现函数已存在且测试通过，但「正式」冻结需满足许可条件后执行，并生成最终引用。
+以下工程已实际执行；本节旧入口供定位，实际引用与恢复报告以冻结记录为准。
 
-| 项 | 现状 | 触发条件 |
+| 项 | 现状 | 证据 |
 | --- | --- | --- |
-| 实际 panel 完整冻结 | `freeze_panel_registration` 已就绪；可执行入口见 `ops/prepare_s06_campaign.py` | EODHD 数据许可确认后，在目标库执行一次，生成 `registration_id` + 全套 hash |
-| panel 注册校验报告 | `validate_panel_registration` 已就绪 | 冻结后执行，输出 `{ok, issues, checks}` |
-| 正式 training manifest | `register_training_manifest` 已就绪；载具 manifest `tm-vehicles-v0` 可登记 | 正式模型选定后登记 |
-| release 候选包 | 结构见 `prepare_s06_campaign.py::_candidate_package` | 冻结 + 校验完成后填充 |
+| 实际 panel 完整冻结 | 已冻结20证券，完整源/映射/名单hash齐备 | 真实冻结记录及私有panel-bundle |
+| panel 注册校验报告 | 实际新库恢复、复算、幂等均通过 | panel-recovery-report.json |
+| 候选 training manifest | Logistic/Ridge已登记独立manifest，未批准 | training-manifest.json |
+| release 候选包 | 已生成并登记具体hash，批准数0 | release-candidate.json / release-summary.json |
 
 ## 3. 阻断项与事实记录
 
 按 [s00-registration.v2.json `blocking_items`](../protocols/s00-registration.v2.json) 与 [数据许可核对](data-license-checklist.md)，区分「阻断正式启动」与「非阻断的事实记录」。
 
-### 3.1 阻断项（需逐项解除）
+### 3.1 当前剩余与已完成项
 
-| # | 阻断项 | 性质 | 谁解除 |
-| --- | --- | --- | --- |
-| 1 | **正式模型未实现/未验证**（方向已定：baseline 常量 + quant Logistic Regression，Trial 已预登记，结果待运行） | 模型验证 | 实现 + Trial 结果 + 项目所有者确认 |
-| 2 | **实际 panel + 完整 manifest hash 未生成** | 冻结执行 | 执行 `prepare_s06_campaign.py`（数据许可已满足，可直接冻结） |
-| 3 | **日历 build 版本（年份范围 + 内容 hash）与 SPY 永久 ID 未固定**（tzdb 已固定 tzdata==2026.4 / IANA 2026d；日历 RULES_VERSION=nyse-rules-v1 已固定，build 版本待冻结时确定年份范围与 hash；SPY 永久 ID 待数据采集时登记） | 固定引用 | 工程（冻结/采集时完成，无需再选技术方案） |
-| 4 | **正式 release 未批准** | 人工批准 | 项目所有者批准具体 release hash |
+真实完成证据见 [冻结与恢复记录](s06-campaign-freeze-20261001.md)。
+
+| 项 | 当前状态 |
+| --- | --- |
+| 模型实现 + Trial | Logistic/Ridge与release适配已实现；真实历史比较完成，D20未优于基线，历史PIT限制完整披露 |
+| panel + 完整hash | 503成员→20证券已冻结；完整包在新库恢复复算一致 |
+| 日历 / tzdb / SPY | nyse-rules-v2、2016–2028 build、实际tzdata字节与SPY永久ID均固定 |
+| training manifest / release候选 | 已在独立候选库登记，具体hash见冻结记录；无批准、无Campaign |
+| 人工决定 | 审阅负向Trial及数据限制，决定是否允许未来实验；批准必须指向实际release hash |
+| 生产部署 | SG权限、资源与运维验收仍归S09；本地候选完成不代表生产部署完成 |
 
 ### 3.2 事实记录（非阻断，但须在 manifest 中记录）
 
@@ -65,9 +69,6 @@ EODHD_API_KEY=... YOUWEI_DATABASE_URL=... python ops/prepare_s06_campaign.py
 
 ## 5. 下一步
 
-1. **模型实现 + Trial 结果**：方向已定（baseline 常量 + quant Logistic Regression），Trial `registered` 已登记；下一步实现模型、按 Trial 登记的历史验证执行、登记 `started`/结果事件，再交你确认（§3.1 #1）。
-2. **冻结执行**：数据许可已满足，在受控库运行 `prepare_s06_campaign.py`，生成实际 panel + 完整 hash（§3.1 #2）。
-3. **固定引用**：日历 build 版本（年份范围 + hash）与 SPY 永久 ID（§3.1 #3，工程工作，冻结/采集时完成）。
-4. **最终 release**：所有引用固定后，生成 release 候选 hash，交项目所有者批准（§3.1 #4）。
+本次工程和真实历史Trial已完成。先审阅 [Trial结果](../trials/trial-001-results.md) 与候选release。若继续改变模型或特征，先登记新试验；若允许当前候选开展未来实验，需人工批准具体hash，并完成相应部署验收。
 
-在全部前置解除前，`formal_campaign_allowed=false`，不启动 campaign。
+`formal_campaign_allowed=false`，未启动Campaign。冻结后的panel按registration ID恢复/校验，不能重跑采集抽样替代恢复。

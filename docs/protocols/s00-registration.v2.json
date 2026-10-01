@@ -28,25 +28,47 @@
     "seed": "20260927",
     "seed_origin": "implementation_default_fixed_before_sampling",
     "panel_policy": "fixed_no_replacement_across_weekly_batches",
-    "frame_as_of": null,
-    "frame_snapshot_ref": null,
-    "frame_hash": null,
-    "selected_security_ids": null,
-    "selected_list_hash": null,
+    "frame_as_of": "2026-10-01",
+    "frame_snapshot_ref": "5d7281c8-6be1-4591-8466-72a547a21c65",
+    "frame_hash": "2c204af0fbbee83cb74896d87c66b903b426ddd34b478ef81e1158fe3aa597f5",
+    "selected_security_ids": [
+      "0938f421-edf9-47f1-be72-938a3d23f168",
+      "1c281b3e-9fe9-4367-9e02-9b579a111f33",
+      "1eeb26b5-ba3a-46d1-8e26-4d3276754add",
+      "274b63c7-b206-4c6b-b0be-8a3641c8cbb2",
+      "3f17d025-0f29-446d-829c-b36ba130bd9b",
+      "44a03091-4ce5-404b-afd4-289b00a85403",
+      "4d740cc2-8158-45cb-ae53-6ac747bca830",
+      "574cffe0-f9de-4e68-8e99-41db12ecb082",
+      "5c99f0cd-f6df-4ee8-9c9f-6c33df5e4b25",
+      "6a5b96ff-2293-4329-83f6-78d710f28dcb",
+      "819ac2e1-4448-47fa-8aba-564943814a2d",
+      "86964925-09e1-4d99-8164-00117e68007a",
+      "a152bdab-c7fe-4d5d-868a-ea8d3a72fe41",
+      "aba90554-12d1-46c0-8638-ac7b3a1d7bd3",
+      "ace505fa-ef78-4ef5-98cd-2ff08302c388",
+      "af203f01-fb2d-48a8-b968-bb479fc41ee4",
+      "ddce6e2b-dc39-42f9-ad5d-a24b5f4ebd4f",
+      "dfc8fba5-88b1-4f26-bf7d-10fe28481264",
+      "f06e67ad-ab02-411b-a7ba-a031385c934c",
+      "f7783423-7ab2-44a7-9156-a50aae49ca7b"
+    ],
+    "selected_list_hash": "b41568a62664306d046e27905ca5765cb0c5e5e306fd24299db260d622beacab",
     "classification_source": "eodhd:spglobal:Components[].Sector",
     "classification_semantics": "vendor_observed_not_official_gics",
-    "classification_snapshot_ref": null,
-    "classification_snapshot_sha256": null,
-    "observed_at": null,
-    "usable_at": null,
+    "classification_snapshot_ref": "5d7281c8-6be1-4591-8466-72a547a21c65",
+    "classification_snapshot_sha256": "76a3de100128e5e0da36a60cde3a0788b2105573481a1b2fe6dfeea4d582547f",
+    "observed_at": "2026-10-01T08:03:51.482011+00:00",
+    "usable_at": "2026-10-01T08:03:51.482011+00:00",
     "source_effective_at": null,
-    "raw_content_sha256": null,
-    "security_mapping_ref": null,
-    "security_mapping_sha256": null,
-    "frame_content_ref": null,
-    "panel_manifest_ref": null,
-    "panel_manifest_sha256": null,
-    "registration_validation_report_ref": null
+    "raw_content_sha256": "76a3de100128e5e0da36a60cde3a0788b2105573481a1b2fe6dfeea4d582547f",
+    "security_mapping_ref": "panel_registration:a7ce1959-3b3f-459d-8dd3-69f698ca7dc8#mapping",
+    "security_mapping_sha256": "31cf03286812958c5fc9e08861d210d8d89797c3c29c9731779bef8c84404f2a",
+    "frame_content_ref": ".local/s06-candidate-20261001/panel-bundle.json",
+    "panel_manifest_ref": ".local/s06-candidate-20261001/panel-bundle.json",
+    "panel_manifest_sha256": "e36a875ce5b7eda95d35b4ea92b92bda7cd22d50cb131cfaab78f8f500a3f4e4",
+    "registration_validation_report_ref": ".local/s06-candidate-20261001/panel-recovery-report.json",
+    "panel_manifest_hash_method": "SHA256 canonical UTF8 payload, sorted keys, compact separators"
   },
   "target": {
     "horizons_td": [
@@ -61,7 +83,7 @@
     ],
     "benchmark_policy_id": "spy-total-return-v1",
     "benchmark_ticker": "SPY",
-    "benchmark_security_id": null,
+    "benchmark_security_id": "ee161699-08b6-4250-986a-b39a393a68df",
     "excess_return": "asset_total_return_minus_benchmark_total_return",
     "dividend_reinvestment": "ex_date_close_for_entitled_holdings",
     "cash_takeover_reinvestment": "cash_zero_interest_until_target_exit",
@@ -87,11 +109,17 @@
     "deadline_minutes_before_entry": 15,
     "exit_rule": "regular_close_of_horizon_session_including_entry_as_d1",
     "calendar_policy": "versioned_nyse_regular_sessions_with_listing_market_checks",
-    "calendar_version": null,
-    "calendar_rules_version": "nyse-rules-v1",
+    "calendar_version": "xnys-2016-2028-nyse-rules-v2",
+    "calendar_rules_version": "nyse-rules-v2",
     "tzdb_version": "2026d",
     "tzdata_package": "tzdata==2026.4",
-    "first_campaign_cutoff": null
+    "first_campaign_cutoff": null,
+    "calendar_sha256": "0c4bae63bd467a8e28638bb1b034c26430aca656274b81568c9884d303cb0988",
+    "calendar_years": [
+      2016,
+      2028
+    ],
+    "timezone_content_sha256": "d7f2206b3a45989fc9ad63d558922532fa7352280d5f87176bf1db79cb1d1fa9"
   },
   "sources": {
     "phase_1a": {
@@ -152,13 +180,8 @@
   },
   "formal_campaign_allowed": false,
   "blocking_items": [
-    "authorized_membership_and_observed_classification_evidence",
-    "frozen_security_mapping_with_supported_validity_and_restore_verification",
-    "panel_registration_cross_validation_of_protocol_source_frame_and_selected",
-    "actual_panel_and_complete_manifest_hashes",
-    "calendar_tzdb_and_security_ids",
-    "formal_model_and_training_manifests",
-    "runtime_permissions_and_recovery_acceptance",
+    "human_decision_on_candidate_with_no_demonstrated_D20_improvement",
+    "runtime_permissions_and_recovery_acceptance_for_production",
     "human_approval_of_actual_release_hash"
   ],
   "protocol_files": [
@@ -220,5 +243,21 @@
       "reason": "0401fd4_updated_status_line_only_before_this_amendment; time_rules_unchanged",
       "v1_registration_preserved": true
     }
-  ]
+  ],
+  "candidate_preparation": {
+    "release_id": "release-logistic-ridge-candidate-20261001-v1",
+    "release_content_sha256": "06618a0c769cceb75968106897b4f3638cd6ff61de0fe3565e73fa3c1f6eceb5",
+    "training_manifest_id": "tm-logistic-ridge-candidate-20261001-v1",
+    "training_manifest_sha256": "febd10801f8ea99819197007805bf53b82e81b9880f2516aac02b0bee1c38098",
+    "human_approval_granted": false,
+    "formal_campaign_allowed": false,
+    "approval_records_in_candidate_db": 0,
+    "campaigns_in_candidate_db": 0,
+    "primary_test_brier_difference": 0.0030121782822447518,
+    "recommendation": "no demonstrated improvement; review limitations before any prospective experiment approval",
+    "completed_at": "2026-10-01T08:13:26.545928+00:00",
+    "trial_report_ref": "docs/trials/trial-001-results.md",
+    "private_artifact_directory": ".local/s06-candidate-20261001",
+    "historical_validation_scope": "retrospective_current_panel_not_verified_historical_pit"
+  }
 }

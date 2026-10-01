@@ -9,7 +9,7 @@
 | 边界 | 职责 | 依赖与权限 |
 | --- | --- | --- |
 | `youwei_core/` | HTTP 入口、鉴权、任务/租约、数据授权/PIT、Ledger、调度与评估记录 | Core Python 3.13 环境；持有相应业务数据库凭证，按模块控制副作用 |
-| `quant/` | 当前为 baseline 与动量工程模型；显式输入产生计算结果 | 不依赖 Core 数据库、HTTP、供应商或容器运行时；Ledger 调用它并记录 provenance；收益解析仍在 Ledger |
+| `quant/` | baseline/动量兼容载具、冻结Logistic/Ridge模型、特征与历史Trial计算；显式输入产生结果 | 不依赖 Core 数据库、HTTP、供应商或容器运行时；计算依赖scikit-learn/NumPy等由根uv.lock固定，Ledger按release选择冻结参数并记录provenance |
 | `contracts/src/youwei_contracts/` | Core 与 Runner 共享的执行、冻结输入和产物传输结构 | 轻量独立包；不导入 Core、数据库模型或上游 Agent SDK |
 | `services/sandbox-runner/src/youwei_runner/` | 执行 HTTP 接口、签名与租约检查、受限容器生命周期、输入与产物边界校验 | 独立 `pyproject.toml` 与 `uv.lock`；持有受限运行时权限，无业务数据库或供应商凭证 |
 | `youwei_core/sandbox/` | Worker 侧授权、HTTP 客户端、当前 attempt 的产物接纳和查询 | 使用 Core 事务与 fencing；不执行生成代码、不访问容器运行时 socket |
