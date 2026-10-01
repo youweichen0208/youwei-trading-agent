@@ -1,0 +1,96 @@
+{
+  "name": "youwei-production-phase1a",
+  "services": {
+    "postgres": {
+      "image": "postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea",
+      "environment": {
+        "POSTGRES_USER": "youwei_owner",
+        "POSTGRES_DB": "youwei",
+        "POSTGRES_PASSWORD": "${YOUWEI_POSTGRES_OWNER_PASSWORD:?set the postgres superuser/owner password}",
+        "POSTGRES_MIGRATE_PASSWORD": "${YOUWEI_POSTGRES_MIGRATE_PASSWORD:?set the migration role password}",
+        "POSTGRES_APP_PASSWORD": "${YOUWEI_POSTGRES_APP_PASSWORD:?set the app role password}"
+      },
+      "volumes": [
+        "postgres_data:/var/lib/postgresql/data",
+        "./postgres/init:/docker-entrypoint-initdb.d:ro"
+      ],
+      "networks": ["core"],
+      "restart": "unless-stopped",
+      "healthcheck": {
+        "test": ["CMD-SHELL", "pg_isready -U youwei_app -d youwei"],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 30,
+        "start_period": "10s"
+      },
+      "cpus": "1.0",
+      "mem_limit": "1g",
+      "pids_limit": 256,
+      "logging": {
+        "driver": "json-file",
+        "options": {"max-size": "10m", "max-file": "3"}
+      }
+    },
+    "core-api": {
+      "image": "ghcr.io/youweichen0208/youwei-core@sha256:PLACEHOLDER_CORE_DIGEST",
+      "command": ["youwei-api"],
+      "environment": {
+        "YOUWEI_DATABASE_URL": "postgresql+asyncpg://youwei_app:${YOUWEI_POSTGRES_APP_PASSWORD:?set the app role password}@postgres:5432/youwei",
+        "YOUWEI_ADMIN_API_KEY": "${YOUWEI_ADMIN_API_KEY:?set an admin bootstrap key}",
+        "YOUWEI_CAPABILITY_SECRET": "${YOUWEI_CAPABILITY_SECRET:?set the Core job capability signing secret}"
+      },
+      "ports": ["127.0.0.1:8000:8000"],
+      "networks": ["core"],
+      "depends_on": {"postgres": {"condition": "service_healthy"}},
+      "restart": "unless-stopped",
+      "read_only": true,
+      "tmpfs": ["/tmp:rw,nosuid,noexec,size=32m"],
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "healthcheck": {
+        "test": ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2).read()"],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 5,
+        "start_period": "10s"
+      },
+      "cpus": "0.5",
+      "mem_limit": "384m",
+      "pids_limit": 128,
+      "logging": {
+        "driver": "json-file",
+        "options": {"max-size": "10m", "max-file": "3"}
+      }
+    },
+    "core-worker": {
+      "image": "ghcr.io/youweichen0208/youwei-core@sha256:PLACEHOLDER_CORE_DIGEST",
+      "command": ["youwei-worker"],
+      "environment": {
+        "YOUWEI_DATABASE_URL": "postgresql+asyncpg://youwei_app:${YOUWEI_POSTGRES_APP_PASSWORD:?set the app role password}@postgres:5432/youwei",
+        "YOUWEI_CAPABILITY_SECRET": "${YOUWEI_CAPABILITY_SECRET:?set the Core job capability signing secret}",
+        "YOUWEI_TIINGO_TOKEN": "${YOUWEI_TIINGO_TOKEN:?set the Tiingo API token}",
+        "YOUWEI_COLLECT_RELEASE_ID": "${YOUWEI_COLLECT_RELEASE_ID:-}",
+        "YOUWEI_COLLECT_TENANT_ID": "${YOUWEI_COLLECT_TENANT_ID:-}"
+      },
+      "networks": ["core", "egress"],
+      "depends_on": {"postgres": {"condition": "service_healthy"}},
+      "restart": "unless-stopped",
+      "read_only": true,
+      "tmpfs": ["/tmp:rw,nosuid,noexec,size=32m"],
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "cpus": "1.0",
+      "mem_limit": "768m",
+      "pids_limit": 128,
+      "logging": {
+        "driver": "json-file",
+        "options": {"max-size": "10m", "max-file": "3"}
+      }
+    }
+  },
+  "networks": {
+    "core": {"internal": true},
+    "egress": {}
+  },
+  "volumes": {"postgres_data": {}}
+}

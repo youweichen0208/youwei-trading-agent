@@ -2,6 +2,22 @@
   "schema_version": 1,
   "format": "JSON syntax, valid YAML 1.2; validated by infra/validate_upstreams.py",
   "components": {
+    "core": {
+      "enabled": false,
+      "source": {"kind": "local", "path": ".", "version": null},
+      "integration_status": "integrated",
+      "verification": {"status": "not_run", "evidence": null},
+      "deployment": {"image": null, "bindings": []},
+      "notes": "S09a: Phase 1A Core image (API + Worker, one image, youwei-api / youwei-worker entrypoints). Local source, not yet published to GHCR; deployment.image and digest stay null until the image is built and pushed (ghcr.io/youweichen0208/youwei-core). Production compose infra/compose/production.json references ghcr.io/youweichen0208/youwei-core@sha256:PLACEHOLDER_CORE_DIGEST until then."
+    },
+    "postgres": {
+      "enabled": false,
+      "source": {"kind": "image", "image": "postgres:16-alpine"},
+      "integration_status": "integrated",
+      "verification": {"status": "not_run", "evidence": null},
+      "deployment": {"image": "postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea", "bindings": [{"service": "postgres", "field": "image"}]},
+      "notes": "S09a: Phase 1A production PostgreSQL 16 (server 16.14), containerized on SG with a dedicated volume. Migration role (youwei_migrate, DDL) and app role (youwei_app, DML) are separated via infra/postgres/init/01-roles.sh. Digest is the current postgres:16-alpine digest (pinned in production compose)."
+    },
     "hermes": {
       "enabled": false,
       "source": {
