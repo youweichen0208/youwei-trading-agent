@@ -3,7 +3,7 @@
 日期：2026-09-27；结构优化更新：2026-09-28\
 设计依据：[ARCHITECTURE.md](ARCHITECTURE.md)\
 问题来源：[v0.2 评审](ARCHITECTURE_REVIEW_v0.2.md)\
-状态：S00 协议已确认定稿（2026-09-27）；S01 主体完成（Tiingo 字段级验证已实测；EOD 实盘观测随 S04 首次采集、个人内部Phase 1A数据许可已确认；LLM转发许可及网关验收另行记录）；S02 已完成（隔离开发环境验收，2026-09-27）；S03 第一/二纵切片完成（沙箱执行、独立 Runner 与 HTTP 产物链路，2026-09-28；生产部署仍待验收）；S04 第一至三纵切片完成（PIT 数据基础、交易日历与冻结快照，2026-09-27；训练 manifest 登记，2026-09-28；独立退市真相源、派生特征与多源仍待补源决策）；S05 已完成四纵切片（封存核心、Outcome 回填、评估报告、归档与监控，2026-09-27）加 S05e 证据追溯收紧（2026-09-28）；S06 第一/二纵切片完成（前向预测管线，2026-09-27；供应商更正自动触发、月度汇总与报告门控，2026-09-28；正式 campaign 启动项仍阻断；分类方案为 eodhd_sector；S06h真实panel/日历/SPY冻结、Logistic/Ridge和历史Trial已完成；候选D20未显示增量，具体release待人工决定与批准）；S03 剩余部署项与 S06 正式启动及 S07 后续切片（工具授权、镜像部署）与 S08–S11 待实施、待验收。S07k 预算/计费已按项目所有者决定整体删除（2026-09-30）。S07m 研究运行时跨容器接线（Ed25519 授权 + Runner 受控执行，S07m-1/S07m-2/S07m-3 完成）。S08 于 2026-10-01 决策改为「受控量化探索闭环（Hermes）」：MVP 暂缓接入 Pi，Hermes 作为唯一 Agent 框架，Pi 保留为可替换候选。
+状态：S00 协议已确认定稿（2026-09-27）；S01 主体完成（Tiingo 字段级验证已实测；EOD 实盘观测随 S04 首次采集、个人内部Phase 1A数据许可已确认；LLM转发许可及网关验收另行记录）；S02 已完成（隔离开发环境验收，2026-09-27）；S03 第一/二纵切片完成（沙箱执行、独立 Runner 与 HTTP 产物链路，2026-09-28；生产部署仍待验收）；S04 第一至三纵切片完成（PIT 数据基础、交易日历与冻结快照，2026-09-27；训练 manifest 登记，2026-09-28；独立退市真相源、派生特征与多源仍待补源决策）；S05 已完成四纵切片（封存核心、Outcome 回填、评估报告、归档与监控，2026-09-27）加 S05e 证据追溯收紧（2026-09-28）；S06 第一/二纵切片完成（前向预测管线，2026-09-27；供应商更正自动触发、月度汇总与报告门控，2026-09-28；正式 campaign 启动项仍阻断；分类方案为 eodhd_sector；S06h真实panel/日历/SPY冻结、Logistic/Ridge和历史Trial已完成；候选D20未显示增量，具体release待人工决定与批准）；S03 剩余部署项与 S06 正式启动及 S07 后续切片（工具授权、镜像部署）与 S08–S11 待实施、待验收。S07k 预算/计费已按项目所有者决定整体删除（2026-09-30）。S07m 研究运行时跨容器接线（Ed25519 授权 + Runner 受控执行，S07m-1/S07m-2/S07m-3 完成）。S08 于 2026-10-01 决策改为「受控量化探索闭环（Hermes）」：MVP 暂缓接入 Pi，Hermes 作为唯一 Agent 框架，Pi 保留为可替换候选。S09a 部署准备于 2026-10-02 完成（Phase 1A 去 Runner；采集调度 collect_tick、生产 Compose、Core 镜像发布 GHCR digest、deployment 校验通过）；S09b 运行接线与 S09c 运维验收待实施。
 
 ## 1. 执行规则
 
@@ -172,7 +172,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 - [ ] 评估 Open WebUI 适配或复用归档 Next.js；界面只消费 Core 接口，固定上游版本并验证身份、任务与结果契约。
 - [ ] 多用户开放前完成 RLS、对象下载、cache/session 越权测试。
 - [ ] 真实数据恢复演练、资源压测与故障注入，记录实测 RPO/RTO。
-- [ ] 使用独立构建镜像、完整 digest 与目标机验收报告生成部署清单；运行 `infra/validate_upstreams.py --mode deployment` 并验证升级/回滚兼容性。
+- [ ] 使用独立构建镜像、完整 digest 与目标机验收报告生成部署清单；运行 `infra/validate_upstreams.py --mode deployment` 并验证升级/回滚兼容性。（进展：S09a 已生成 `infra/compose/production.json` + `infra/deployment-manifest.json`，Core 镜像发布 GHCR digest `sha256:7292c853...`、postgres digest `sha256:721873c3...`，`--mode deployment` → VALID；升级/回滚兼容性验证待 S09b/S09c；详见 S09a 进度）
 
 交付：国内入口与 SG Core 主机上的可操作 MVP、部署与恢复运行记录；SG 当前基线为 DigitalOcean 4 vCPU / 7.8 GB。
 
@@ -693,3 +693,19 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
 - 12 批 cutoff（`expand_planned_cutoffs` 按 America/New_York 本地 +7 天展开，跨 DST 不漂移）：批 1–4 `10:00:00Z`（EDT），批 5–12 `11:00:00Z`（EST，11-07 DST 切换起）——2026-10-10/10-17/10-24/10-31（10:00Z）、11-07/11-14/11-21/11-28/12-05/12-12/12-19/12-26（11:00Z）。
 - `tenant_id`：待正式库部署后查询 slug `youwei-internal-research` 是否已存在（`create_tenant` 仅按 id 幂等、不按 slug，须先查询）；已存在则复用 UUID，不存在则经管理员入口创建一次，保存/登记/备份返回 UUID 后再生成最终计划 hash。不用测试租户 UUID、不重复生成。
 - 剩余：S09 部署/权限/恢复/运行验收完成后，在正式库创建/复用 tenant → 生成最终 `campaign_plan_sha256` + `scope_manifest` → 组装批准包（release hash + 计划 hash + 使用范围 + 验收证据）交项目所有者一次性确认。正式批准前若未就绪，用后续日期重新生成计划；批准登记后不自动顺延、不删除漏跑周次。
+
+### S09a 进度（2026-10-02，部署准备：采集调度 + 生产 Compose + 镜像发布）
+
+- 状态：**S09a 部署准备完成（Phase 1A 最小部署单元 + 镜像发布 + deployment 校验通过）**。决策（项目所有者 2026-10-02）：Phase 1A 暂不需要 Runner（Logistic/Ridge 在 Core 内执行；`runner_url` 空时 Worker 不建 Runner 客户端；Scheduler 已含在 Worker）；四项选择——GHCR 私有镜像仓库 + SG 容器化 PostgreSQL + 生产 Docker Compose + localhost API/SSH 隧道；备份用 pgBackRest（目标待落实）。
+- 采集调度（补工程缺口：`data.tiingo_daily` handler 原本无调度）：
+  - `youwei_core/data/collect.py`（新）：`resolve_collection_targets`（指定 release manifest 读 `panel_registration_id` + `references.benchmark_security_id`，读该 panel 的 `selected` + benchmark 去重得 21 对象，**禁止取最新 panel**，缺 ticker/歧义硬报错不换股）；`observation_slot`（America/New_York 17:30 首采 + 每 30 分钟补采至次日 05:30 ET，05:30–17:30 无 slot）；`missing_trading_days`（窗口内交易日对比实际 `price_observations` 行，`zero_volume` 也算有数据——HTTP 200/非空响应/created=False 都不等于齐全）；`collect_tick`（滚动最近 5 交易日，幂等键=租户+collect-v1+tiingo+security_id+日期范围+slot，同 slot 幂等、下一 slot 重查）。
+  - `config.py` 加 `collect_release_id`/`collect_tenant_id`/`collect_interval_seconds`；`worker/loop.py` 的 `scheduler_fn` 组合 `scheduler_tick` + `collect_tick`（采集不依赖 campaign stop，stop_new_batches 后仍服务 D20/D60 随访）。
+  - 测试：`tests/test_data_collect.py` 16 项（9 纯 slot/DST + 7 DB：named-release-not-latest、benchmark 去重、缺 release/ticker 报错、提交幂等、完整窗口跳过、缺数据下一 slot 重查）。SG PostgreSQL 真实迁移 16 passed。
+- 生产 Compose 与镜像：
+  - `infra/compose/production.json`（新）：postgres + core-api + core-worker，**去 Runner**（无 `YOUWEI_RUNNER_URL`）；API 绑 `127.0.0.1:8000`（SSH 隧道）；worker 挂 `egress` 网络访问 Tiingo；`read_only`+`tmpfs`+`cap_drop ALL`+`no-new-privileges`+资源限额（cpu/mem/pids）+`json-file` 日志轮转 10m×3+`restart: unless-stopped`；采集经 `YOUWEI_COLLECT_RELEASE_ID`/`_TENANT_ID` 启用。
+  - `infra/postgres/init/01-roles.sh`（新）：迁移账号 `youwei_migrate`（DDL，跑 Alembic）与应用账号 `youwei_app`（DML，API/Worker 连接）分离。
+  - Core 镜像：`infra/images/core.Dockerfile` 构建 `ghcr.io/youweichen0208/youwei-core`，推送 GHCR，digest `sha256:7292c8538e70750ebbd3c278ebd8572563b342ca5593981c34fc8659b9bd0e3c`；postgres:16-alpine digest `sha256:721873c3...`。验收报告 [s09a-core-image-release.md](ops/s09a-core-image-release.md)。
+  - `infra/upstreams.lock.yaml`：新增 `core`（local 0.1.0）+ `postgres`（image）组件并置 `enabled:true` + `verification:passed`（evidence 指向验收报告）；Hermes/Pi/litellm/Open WebUI/OpenViking 保持 disabled/null。
+  - `infra/deployment-manifest.json`（新）：`schema_version=1` + `lock_sha256` + `compose_sha256`（渲染后 Compose，占位环境变量不入秘密）+ `components` 精确匹配 enabled 组件。
+- 验证：`python3 infra/validate_upstreams.py --mode catalog` → VALID；`--mode deployment --compose <渲染后> --manifest infra/deployment-manifest.json` → **VALID**（sg-prod）；`docker compose config --quiet` 通过；`git diff --check` 通过。
+- 剩余限制：deployment 校验只证明文件与镜像引用一致，不替代生产运行验收（S09b：PG/API/Worker/采集/租户登记闭环）与运维验收（S09c：远端恢复、重启恢复、资源测量、告警、RPO/RTO）；Core 镜像未在生产跑通（未起 Compose 实际运行）；pgBackRest 备份目标未落实（优先复用已授权独立目标，否则 DO Spaces；同机卷/WebDAV 不构成独立故障域）；真实 GHCR 凭证已撤销（镜像按 digest 拉取仍需 read 权限 token，部署时重新配置）。
