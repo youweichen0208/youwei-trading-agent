@@ -196,7 +196,7 @@ class _FakeProcess:
         return self.returncode
 
 
-def test_fetch_proposal_drives_subprocess_and_returns_proposal():
+async def test_fetch_proposal_drives_subprocess_and_returns_proposal():
     run_id = uuid.uuid4()
     sec = str(uuid.uuid4())
     bars = [{"security_id": sec, "trade_date": "2026-09-25", "close": 100.0}]
@@ -227,7 +227,7 @@ def test_fetch_proposal_drives_subprocess_and_returns_proposal():
             timeout_seconds=30.0,
         ),
     )
-    got = asyncio.run(fetch(case, bars))
+    got = await fetch(case, bars)
     assert got.source_status == "produced"
     assert got.p_outperform == 0.6
     # the subprocess received the evidence bundle + capability token
@@ -236,7 +236,7 @@ def test_fetch_proposal_drives_subprocess_and_returns_proposal():
     assert sent["evidence"]["case"]["case_id"] == str(case["id"])
 
 
-def test_fetch_proposal_raises_on_subprocess_failure():
+async def test_fetch_proposal_raises_on_subprocess_failure():
     run_id = uuid.uuid4()
     sec = str(uuid.uuid4())
     snap = _snapshot([{"security_id": sec, "trade_date": "2026-09-25", "close": 100.0}])
@@ -253,7 +253,7 @@ def test_fetch_proposal_raises_on_subprocess_failure():
         ),
     )
     with pytest.raises(AgentRuntimeError, match="exited 1"):
-        asyncio.run(fetch(case, []))
+        await fetch(case, [])
 
 
 class _HangingProcess:
@@ -290,22 +290,20 @@ def _invocation():
     )
 
 
-def test_run_agent_research_kills_subprocess_on_timeout():
+async def test_run_agent_research_kills_subprocess_on_timeout():
     proc = _HangingProcess()
 
     async def process_factory():
         return proc
 
     with pytest.raises(AgentRuntimeError, match="exceeded"):
-        asyncio.run(
-            run_agent_research(
-                _invocation(), process_factory=process_factory, timeout_seconds=0.01
-            )
+        await run_agent_research(
+            _invocation(), process_factory=process_factory, timeout_seconds=0.01
         )
     assert proc.killed is True
 
 
-def test_run_agent_research_kills_subprocess_on_cancel():
+async def test_run_agent_research_kills_subprocess_on_cancel():
     proc = _HangingProcess()
 
     async def process_factory():
@@ -322,21 +320,19 @@ def test_run_agent_research_kills_subprocess_on_cancel():
         with pytest.raises(asyncio.CancelledError):
             await task
 
-    asyncio.run(drive())
+    await drive()
     assert proc.killed is True
 
 
-def test_run_agent_research_does_not_kill_on_normal_completion():
+async def test_run_agent_research_does_not_kill_on_normal_completion():
     proc = _FakeProcess(b'{"ok": false, "error": "E: boom"}', returncode=0)
 
     async def process_factory():
         return proc
 
     with pytest.raises(AgentRuntimeError, match="agent-runtime error"):
-        asyncio.run(
-            run_agent_research(
-                _invocation(), process_factory=process_factory, timeout_seconds=5.0
-            )
+        await run_agent_research(
+            _invocation(), process_factory=process_factory, timeout_seconds=5.0
         )
     assert proc.killed is False
 
@@ -383,7 +379,7 @@ def _fetch_for(case, snapshot, *, run_id=None):
     ), run_id
 
 
-def test_fetcher_rejects_proposal_bound_to_wrong_run():
+async def test_fetcher_rejects_proposal_bound_to_wrong_run():
     sec = str(uuid.uuid4())
     snap = _snapshot([{"security_id": sec, "trade_date": "2026-09-25", "close": 100.0}])
     case = _case(security_id=uuid.UUID(sec))
@@ -401,10 +397,10 @@ def test_fetcher_rejects_proposal_bound_to_wrong_run():
         ),
     )
     with pytest.raises(AgentRuntimeError, match="run_id/case_id"):
-        asyncio.run(fetch_with_proc(case, []))
+        await fetch_with_proc(case, [])
 
 
-def test_fetcher_rejects_proposal_bound_to_wrong_case():
+async def test_fetcher_rejects_proposal_bound_to_wrong_case():
     sec = str(uuid.uuid4())
     snap = _snapshot([{"security_id": sec, "trade_date": "2026-09-25", "close": 100.0}])
     case = _case(security_id=uuid.UUID(sec))
@@ -422,7 +418,7 @@ def test_fetcher_rejects_proposal_bound_to_wrong_case():
         ),
     )
     with pytest.raises(AgentRuntimeError, match="run_id/case_id"):
-        asyncio.run(fetch_with_proc(case, []))
+        await fetch_with_proc(case, [])
 
 
 def test_decode_result_rejects_incompatible_proposal_shape():
@@ -448,7 +444,7 @@ def test_decode_result_rejects_non_json_result():
         decode_result("not json at all")
 
 
-def test_fetcher_passes_usage_to_sink():
+async def test_fetcher_passes_usage_to_sink():
     """The fetched turn's usage report is handed to the optional usage_sink
     verbatim (source/scope/complete + counters) for observability."""
     run_id = uuid.uuid4()
@@ -489,13 +485,13 @@ def test_fetcher_passes_usage_to_sink():
         ),
         usage_sink=captured.append,
     )
-    got = asyncio.run(fetch(case, bars))
+    got = await fetch(case, bars)
     assert got.source_status == "produced"
     assert len(captured) == 1
     assert captured[0] == usage_payload
 
 
-def test_fetcher_without_sink_drops_usage_but_returns_proposal():
+async def test_fetcher_without_sink_drops_usage_but_returns_proposal():
     """Without a usage_sink the fetcher still returns the proposal (usage is
     dropped, not an error)."""
     run_id = uuid.uuid4()
@@ -523,5 +519,5 @@ def test_fetcher_without_sink_drops_usage_but_returns_proposal():
             research_config={}, process_factory=process_factory, timeout_seconds=30.0,
         ),
     )
-    got = asyncio.run(fetch(case, bars))
+    got = await fetch(case, bars)
     assert got.source_status == "produced"
