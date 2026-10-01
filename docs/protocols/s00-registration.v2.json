@@ -245,8 +245,8 @@
     }
   ],
   "candidate_preparation": {
-    "release_id": "release-logistic-ridge-candidate-20261001-v1",
-    "release_content_sha256": "06618a0c769cceb75968106897b4f3638cd6ff61de0fe3565e73fa3c1f6eceb5",
+    "release_id": "release-logistic-ridge-candidate-20261002-v1",
+    "release_content_sha256": "bdb8bbe034551d7bcc413965925dc9d7c6f52fa31d4344b8b0c199672c5b4994",
     "training_manifest_id": "tm-logistic-ridge-candidate-20261001-v1",
     "training_manifest_sha256": "febd10801f8ea99819197007805bf53b82e81b9880f2516aac02b0bee1c38098",
     "human_approval_granted": false,
@@ -255,9 +255,30 @@
     "campaigns_in_candidate_db": 0,
     "primary_test_brier_difference": 0.0030121782822447518,
     "recommendation": "no demonstrated improvement; review limitations before any prospective experiment approval",
-    "completed_at": "2026-10-01T08:13:26.545928+00:00",
+    "completed_at": "2026-10-01T16:31:31+00:00",
     "trial_report_ref": "docs/trials/trial-001-results.md",
     "private_artifact_directory": ".local/s06-candidate-20261001",
-    "historical_validation_scope": "retrospective_current_panel_not_verified_historical_pit"
-  }
+    "historical_validation_scope": "retrospective_current_panel_not_verified_historical_pit",
+    "supersedes": "release-logistic-ridge-candidate-20261001-v1",
+    "change_reason": "code_files pipeline.py/uv.lock changed after S06i/S07m; model/trial/data/protocol unchanged"
+  },
+  "candidate_preparation_history": [
+    {
+      "release_id": "release-logistic-ridge-candidate-20261001-v1",
+      "release_content_sha256": "06618a0c769cceb75968106897b4f3638cd6ff61de0fe3565e73fa3c1f6eceb5",
+      "training_manifest_id": "tm-logistic-ridge-candidate-20261001-v1",
+      "training_manifest_sha256": "febd10801f8ea99819197007805bf53b82e81b9880f2516aac02b0bee1c38098",
+      "human_approval_granted": false,
+      "formal_campaign_allowed": false,
+      "approval_records_in_candidate_db": 0,
+      "campaigns_in_candidate_db": 0,
+      "primary_test_brier_difference": 0.0030121782822447518,
+      "recommendation": "no demonstrated improvement; review limitations before any prospective experiment approval",
+      "completed_at": "2026-10-01T08:13:26.545928+00:00",
+      "trial_report_ref": "docs/trials/trial-001-results.md",
+      "private_artifact_directory": ".local/s06-candidate-20261001",
+      "historical_validation_scope": "retrospective_current_panel_not_verified_historical_pit",
+      "_status": "superseded_by_release-logistic-ridge-candidate-20261002-v1"
+    }
+  ]
 }
