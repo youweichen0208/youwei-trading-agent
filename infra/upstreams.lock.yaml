@@ -4,11 +4,11 @@
   "components": {
     "core": {
       "enabled": false,
-      "source": {"kind": "local", "path": ".", "version": null},
+      "source": {"kind": "local", "path": ".", "version": "0.1.0"},
       "integration_status": "integrated",
       "verification": {"status": "not_run", "evidence": null},
-      "deployment": {"image": null, "bindings": []},
-      "notes": "S09a: Phase 1A Core image (API + Worker, one image, youwei-api / youwei-worker entrypoints). Local source, not yet published to GHCR; deployment.image and digest stay null until the image is built and pushed (ghcr.io/youweichen0208/youwei-core). Production compose infra/compose/production.json references ghcr.io/youweichen0208/youwei-core@sha256:PLACEHOLDER_CORE_DIGEST until then."
+      "deployment": {"image": "ghcr.io/youweichen0208/youwei-core@sha256:7292c8538e70750ebbd3c278ebd8572563b342ca5593981c34fc8659b9bd0e3c", "bindings": [{"service": "core-api", "field": "image"}, {"service": "core-worker", "field": "image"}]},
+      "notes": "S09a: Phase 1A Core image (API + Worker, one image, youwei-api / youwei-worker entrypoints). Published to GHCR ghcr.io/youweichen0208/youwei-core on 2026-10-02, digest sha256:7292c8538e70750ebbd3c278ebd8572563b342ca5593981c34fc8659b9bd0e3c. Still enabled=false pending deployment-mode validation (needs the deployment manifest with compose_sha256 and verification.status=passed)."
     },
     "postgres": {
       "enabled": false,
