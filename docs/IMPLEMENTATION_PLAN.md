@@ -3,7 +3,7 @@
 日期：2026-09-27；结构优化更新：2026-09-28\
 设计依据：[ARCHITECTURE.md](ARCHITECTURE.md)\
 问题来源：[v0.2 评审](ARCHITECTURE_REVIEW_v0.2.md)\
-状态：**当前推进 S09（Phase 1A 上线前验收）**——S00–S06（含 S06j 12 批候选计划）与 S07 纵切片已完成；S09a 部署准备已收尾（采集调度 + 生产 Compose + Core 镜像发布 GHCR + deployment 校验通过）。**下一步：S09b 运行接线（PG/API/Worker/采集/租户登记，隔离验收数据验证闭环）→ 生成正式 tenant UUID 与最终 campaign_plan_sha256/scope_manifest → S09c 运维验收 → 组装批准包交项目所有者一次性确认。** 阶段详情见 [§4 完成记录](#4-完成记录)；S08（受控量化探索）已决策为 Hermes 唯一框架、Pi 暂缓，可并行推进。
+状态：**当前推进 S09（Phase 1A 上线前验收）**——S00–S06（含 S06j 12 批候选计划）与 S07 纵切片已完成；S09a 部署准备已收尾；S09b 隔离验收（合成 + 真实 Tiingo 两轮）与生产库准备完成（正式 tenant 与计划 hash 已固定，冻结候选已导入生产库）。**下一步：GHCR 凭证恢复后推送已验收镜像并更新部署文件 → 启动正式 API/Worker 与采集（S09b 收尾）→ S09c 运维验收 → 组装批准包交项目所有者一次性确认。** 阶段详情见 [§4 完成记录](#4-完成记录)；S08（受控量化探索）已决策为 Hermes 唯一框架、Pi 暂缓，可并行推进。
 
 ## 1. 执行规则
 
@@ -39,13 +39,13 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 | S07 | 纵切片完成、Phase 1B 未启用 | Hermes 研究契约/进程边界/平台工具/无头镜像；Ed25519 跨容器研究接线（S07m）；真实网关/预算/批准待后续 |
 | S08 | 已决策、未实现 | 受控量化探索闭环（Hermes 唯一框架，Pi 暂缓）；工具往返契约待 S07 收敛后设计 |
 | S09a | 完成 | 采集调度 collect_tick（16 测试）+ 生产 Compose（去 Runner）+ Core 镜像发布 GHCR + deployment 校验 VALID |
-| **S09b** | **下一步** | 运行接线：PG/API/Worker/采集/租户登记，隔离验收数据验证闭环 |
+| **S09b** | **进行中（待 GHCR 凭证）** | 隔离验收（合成 12/12 + 真实采集 45/45）与生产库准备完成：5 处部署缺陷修复、生产库初始化、冻结候选导入、tenant `f497c122…` 与计划 hash 固定；正式 API/Worker 启动待 GHCR 凭证恢复 |
 | S09c | 待 S09b | 运维验收：远端恢复、重启恢复、资源测量、告警、RPO/RTO |
 | S10–S11 | 未开始 | 评估界面/Memory/审批；候选验证与发布 |
 
-**当前阻塞正式 Campaign 启动的链：** 正式 tenant UUID（需 S09b 在正式库创建/复用 slug `youwei-internal-research`）→ 最终 `campaign_plan_sha256` + `scope_manifest`（S06j 冻结输入已备）→ 批准包（release hash + 计划 hash + 使用范围 + 验收证据）→ 项目所有者一次性批准 → 正式 Campaign。
+**当前阻塞正式 Campaign 启动的链：** GHCR 凭证恢复 → 推送已验收镜像并更新生产 Compose/upstreams.lock/deployment-manifest（S09b 收尾）→ S09c 运维验收 → 批准包（release `bdb8bbe0…` + 计划 `d403c8e5…` + scope_manifest `0b899b00…` + 使用范围 + 验收证据）→ 项目所有者一次性批准 → 正式 Campaign。正式 tenant UUID（`f497c122-45b6-497b-bb99-9c42401c3e5f`）与计划 hash 已在 S09b 固定。
 
-**下一步动作（按序）：** ① S09b 运行接线（隔离验收数据验证闭环）；② 正式库创建/复用 tenant；③ 生成最终计划 hash + scope_manifest；④ S09c 运维验收；⑤ 组装批准包交所有者确认。
+**下一步动作（按序）：** ① 恢复 GHCR 凭证（用户操作）并推送已验收镜像、更新部署文件；② 启动正式 API/Worker + 启用采集（S09b 收尾）；③ S09c 运维验收；④ 组装批准包交所有者一次性确认。
 
 ## 2. 任务清单
 
@@ -726,3 +726,27 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
   - `infra/deployment-manifest.json`（新）：`schema_version=1` + `lock_sha256` + `compose_sha256`（渲染后 Compose，占位环境变量不入秘密）+ `components` 精确匹配 enabled 组件。
 - 验证：`python3 infra/validate_upstreams.py --mode catalog` → VALID；`--mode deployment --compose <渲染后> --manifest infra/deployment-manifest.json` → **VALID**（sg-prod）；`docker compose config --quiet` 通过；`git diff --check` 通过。
 - 剩余限制：deployment 校验只证明文件与镜像引用一致，不替代生产运行验收（S09b：PG/API/Worker/采集/租户登记闭环）与运维验收（S09c：远端恢复、重启恢复、资源测量、告警、RPO/RTO）；Core 镜像未在生产跑通（未起 Compose 实际运行）；pgBackRest 备份目标未落实（优先复用已授权独立目标，否则 DO Spaces；同机卷/WebDAV 不构成独立故障域）；真实 GHCR 凭证已撤销（镜像按 digest 拉取仍需 read 权限 token，部署时重新配置）。
+
+### S09b 进度（2026-10-02，隔离验收 + 生产库准备）
+
+- 状态：**S09b 隔离验收（两轮）与生产库准备完成；生产 API/Worker 正式发布仍待 GHCR 凭证恢复**。范围：修复 S09a 部署缺陷 5 处 → 隔离验收（合成 + 真实）→ 生产库初始化 + 冻结候选导入 + tenant/计划固定。本轮不启动生产 API/Worker、不启用自动采集、不创建批准或 Campaign。
+- 修复 S09a 部署缺陷（5 处，比原报告多 1 处 internal 网络）：
+  1. `production.json` 挂载路径 `./postgres/init` → `../postgres/init`（相对 compose 文件位置解析不到脚本）。
+  2. `01-roles.sh` 的 `:'password'` 在 `DO $$…$$` 块内不插值 → `\gexec` + `format('%L', :'var')`；真实 PG 验证角色创建/密码登录/DB owner。
+  3. 迁移连接 `127.0.0.1:5432`（PG 未映射宿主端口）→ 一次性 Core 容器连 internal `core` 网络 `postgres:5432`，用 `youwei_migrate` 跑 `alembic upgrade head`（实际执行：33 表、`f9a0b1c2d3e4`）。
+  4. `youwei_core/api/main.py` 监听 `127.0.0.1` → `0.0.0.0`；宿主经映射端口 `127.0.0.1:8001` 访问 `/healthz` 返回 200。
+  5. **（新发现）** core-api 仅在 `internal:true` 的 `core` 网络，容器端口无法发布到宿主 → 加非 internal `edge` 网络（对齐 development 冒烟经验，见 runner-compose-smoke.md）。
+- 镜像：本地重新构建 Core 镜像 tag `phase1a-s09b`，image ID/索引 digest `sha256:55678d52...`、平台 manifest `sha256:0c1f2b09...`、config `sha256:f65d29fb...`。**未 push GHCR（凭证失效，push/pull 均 denied），无 registry digest**；新镜像正式发布待 GHCR 凭证恢复。
+- 部署目录 `/opt/youwei/`（production + acceptance 两环境，独立 project/卷/网络/凭证/端口）；凭证目录 `/opt/youwei/secrets/`（0700），每环境独立 0600 凭证（PG 三密码 + admin key + capability secret，各 32 字节 hex，首次生成后续复用）。部署驱动 `ops/s09b_deploy.py`。
+- 隔离验收（见 [s09b-acceptance.md](ops/s09b-acceptance.md)）：
+  - 第一轮合成数据（mock Tiingo，`ops/s09b_mock_tiingo.py`）：**12/12**——权限（401/404/跨租户）、任务提交→worker→采集→入库、幂等重放、失败处理。
+  - 第二轮真实 Tiingo（`ops/s09b_real_collect.py`）：**45/45**——SPY + 20 panel 成员最近 5 交易日，字段完整、幂等去重。验收库最终 securities 506、price_observations 110、calendar_days 3391。
+- 生产库准备（见 [s09b-production-db-prep.md](ops/s09b-production-db-prep.md)）：
+  - 独立生产 PostgreSQL + 真实 Alembic（本地新镜像）；`ops/s09b_import_candidate.py`（纯导入，逐项校验 + 幂等登记）导入冻结 panel/SPY/日历/training manifest/release。
+  - release `release-logistic-ridge-candidate-20261002-v1` content sha256 `bdb8bbe0...` 与 S06i 记录一致；导入前校验 code_files(5)/protocol_refs(4)/panel_bundle/training_manifest hash 全部匹配；幂等重跑 created=False。
+  - 正式 tenant `youwei-internal-research` = **`f497c122-45b6-497b-bb99-9c42401c3e5f`**（按 slug 幂等创建/复用）。
+  - **campaign_plan_sha256** = `d403c8e553e32e554cc4b587e7f08772f253aced70d2896062a5984aab7b1d29`；**planned_cutoffs_sha256** = `59f7aa3e1303c75da6d1795f5353628ec8dc9e54b78fcd48edbce12a3b290788`；**scope_manifest_sha256** = `0b899b003c923efca10dc7de63f4921c1e87ad5223f610caa4ee602689a11805`。12 批 cutoff 与 S06j 逐项一致。
+  - 保持 release_approvals 0、campaigns 0、formal_campaign_allowed=false。
+- 关键注意项：`primary_metric` 正式值 **`paired_brier_quant_minus_baseline`**（S06j + v2 文件）；`register_campaign` 默认参数是 `d20_paired_brier_delta`（仅测试占位），正式注册必须显式传前者否则计划 hash 不匹配。
+- 仓库同步（收尾时发现并修复）：`tests/contracts/test_upstreams.py` 的仓库 catalog 断言过期——S09a 启用 core/postgres 组件后，裸 `--mode deployment` 的报错从 "at least one enabled" 变为 "requires --compose and --manifest"（S09a 提交时未重跑该组测试）。已更新断言，意图不变：仓库 catalog 单独不构成经验证的部署。本地无 PG 测试组（pure/contracts/known_answers）183 通过；`--mode catalog` VALID。
+- 剩余限制：GHCR 凭证恢复后推送已验收镜像 → registry digest → 更新生产 Compose/upstreams.lock.yaml/deployment-manifest → 按 digest 拉取验证 → 启动正式 API/Worker；正式采集启用 collect_release_id=`release-logistic-ridge-candidate-20261002-v1`、collect_tenant_id=`f497c122-45b6-497b-bb99-9c42401c3e5f`；S09c 运维验收；组装批准包交项目所有者一次性确认。
