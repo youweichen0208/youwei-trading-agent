@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "registration_id": "s00-amendment-20260928-v2",
-  "status": "candidate_for_next_human_approved_release",
+  "status": "classification_decided_release_pending_approval",
   "usage": {
     "audience": "self_or_controlled_internal",
     "public_service": false,
@@ -170,7 +170,7 @@
     },
     {
       "path": "campaign-policy.v2.md",
-      "sha256": "609daa9a8b286702de87538b60fd3a3e31900ce5a7ac88295623fbc39bac840f"
+      "sha256": "245fbde10fc90f9fa381ecaf9637d5a1889f149988ba2680fe8d2692c5322ec4"
     },
     {
       "path": "known-answer-cases.v1.md",
@@ -178,13 +178,23 @@
     }
   ],
   "prepared_date": "2026-09-28",
+  "classification_decided_date": "2026-10-01",
+  "classification_decision": {
+    "option": "a",
+    "stratification_level": "eodhd_sector",
+    "semantics": "vendor_observed_not_official_gics",
+    "decided_by": "human_project_owner",
+    "release_approval_granted": false
+  },
   "based_on_registration": "s00-registration.v1.json",
   "based_on_sha256": "81ea5c1c145f1e31356e0f4a040187f61656df726325efe1a0bc8e1544fa08b4",
   "amendment": {
     "option": "a",
     "policy_ref": "campaign-policy.v2.md",
     "scope": "explicit_vendor_sector_classification_and_panel_evidence_requirements",
-    "human_release_approval_granted": false
+    "human_release_approval_granted": false,
+    "classification_decided": true,
+    "classification_decided_date": "2026-10-01"
   },
   "budget_proposal": {
     "phase_1a": {

@@ -3,7 +3,7 @@
 日期：2026-09-27；结构优化更新：2026-09-28\
 设计依据：[ARCHITECTURE.md](ARCHITECTURE.md)\
 问题来源：[v0.2 评审](ARCHITECTURE_REVIEW_v0.2.md)\
-状态：S00 协议已确认定稿（2026-09-27）；S01 主体完成（Tiingo 字段级验证已实测；EOD 实盘观测随 S04 首次采集、生产套餐条款确认待购买时；网关取消/用量/限额待验收）；S02 已完成（隔离开发环境验收，2026-09-27）；S03 第一/二纵切片完成（沙箱执行、独立 Runner 与 HTTP 产物链路，2026-09-28；生产部署仍待验收）；S04 第一至三纵切片完成（PIT 数据基础、交易日历与冻结快照，2026-09-27；训练 manifest 登记，2026-09-28；独立退市真相源、派生特征与多源仍待补源决策）；S05 已完成四纵切片（封存核心、Outcome 回填、评估报告、归档与监控，2026-09-27）加 S05e 证据追溯收紧（2026-09-28）；S06 第一/二纵切片完成（前向预测管线，2026-09-27；供应商更正自动触发、月度汇总与报告门控，2026-09-28；正式 campaign 启动项仍阻断）；S03 剩余部署项与 S06 正式启动及 S07 后续切片（工具授权、镜像部署）与 S08–S11 待实施、待验收。S07k 预算/计费已按项目所有者决定整体删除（2026-09-30）。S08 于 2026-10-01 决策改为「受控量化探索闭环（Hermes）」：MVP 暂缓接入 Pi，Hermes 作为唯一 Agent 框架，Pi 保留为可替换候选。
+状态：S00 协议已确认定稿（2026-09-27）；S01 主体完成（Tiingo 字段级验证已实测；EOD 实盘观测随 S04 首次采集、生产套餐条款确认待购买时；网关取消/用量/限额待验收）；S02 已完成（隔离开发环境验收，2026-09-27）；S03 第一/二纵切片完成（沙箱执行、独立 Runner 与 HTTP 产物链路，2026-09-28；生产部署仍待验收）；S04 第一至三纵切片完成（PIT 数据基础、交易日历与冻结快照，2026-09-27；训练 manifest 登记，2026-09-28；独立退市真相源、派生特征与多源仍待补源决策）；S05 已完成四纵切片（封存核心、Outcome 回填、评估报告、归档与监控，2026-09-27）加 S05e 证据追溯收紧（2026-09-28）；S06 第一/二纵切片完成（前向预测管线，2026-09-27；供应商更正自动触发、月度汇总与报告门控，2026-09-28；正式 campaign 启动项仍阻断；分类方案已于 2026-10-01 确定为 eodhd_sector 方案 (a)，候选包准备完成，正式 release 待批准）；S03 剩余部署项与 S06 正式启动及 S07 后续切片（工具授权、镜像部署）与 S08–S11 待实施、待验收。S07k 预算/计费已按项目所有者决定整体删除（2026-09-30）。S08 于 2026-10-01 决策改为「受控量化探索闭环（Hermes）」：MVP 暂缓接入 Pi，Hermes 作为唯一 Agent 框架，Pi 保留为可替换候选。
 
 ## 1. 执行规则
 
@@ -395,6 +395,18 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
 - 正式模型、training manifest、日历/tzdb、实际 panel 与政策引用准备完整后，生成具体 release hash 交项目所有者批准；Agent 不填写批准人、时间或放行标志。
 
 本轮验证：抽样已知答案 **8 passed**；本轮未改 v1 文件字节，v2 的全部协议引用 hash 已核对。另发现 `0401fd4` 曾更新时间协议状态行却未同步 v1 登记 hash；时间规则未变，v2 已记录可恢复的原提交及前后 hash，不将历史引用问题报为通过。检查文档链接与差异格式；未运行真实供应商请求、未写正式数据库、未登记 panel 或启动 campaign。后续工程实现与测试通过后再逐项勾选。
+
+### S06f 候选包准备（2026-10-01）
+
+- 状态：**分类方案定稿 + 候选包准备完成**；工程侧推进到可审阅/批准，正式 campaign 未启动、无 release 批准。
+- 交付：
+  - 分类方案定稿：`campaign-policy.v2.md` 状态由「候选修订」改为「分类方案已确定（方案 (a) eodhd_sector），实际 release 待批准」；`s00-registration.v2.json` 的 `status` 改为 `classification_decided_release_pending_approval`、新增 `classification_decision`/`classification_decided_date`，并同步 `protocol_files` 里 campaign-policy.v2.md 的新 hash `245fbde1...`；README 同步。v1 与其 hash 保留，formal_campaign_allowed 保持 false，批准字段保持空。
+  - 可执行准备入口：`ops/prepare_s06_campaign.py`——读 `EODHD_API_KEY`/`YOUWEI_DATABASE_URL` 与 `s00-registration.v2.json`（单一事实来源），串联 ingest→frame→draw→freeze→validate，输出候选包 JSON（registration_id、frame/mapping/selected hash、校验报告、remaining_missing_items）；不填批准字段、不注册 campaign、不绑定 release。
+  - 模型候选说明：`docs/trials/model-candidates.md`——明确 baseline-constant-v0/quant-momentum-v0 是工程载具（动量直接映射概率、无拟合/校准/标签成熟），列出 baseline/quant 正式化候选方向与固定步骤（Trial→设计→历史验证→manifest→release 批准），不替所有者选模型。
+  - 审阅材料：`docs/ops/s06-campaign-candidate-package.md`——汇总「已确定/待冻结/缺失项」三部分，明确 8 项阻断项与谁解除。
+  - 测试：`tests/test_s06_prepare.py` 4 个纯逻辑测试（协议读取状态、hash 与文件一致、缺失项报告含/不含校验脏标记）。
+- 验证：`tests/test_s06_prepare.py` 4 passed；`infra/validate_upstreams.py --mode catalog` VALID；v2 JSON 有效且 4 个协议文件 hash 与登记一致。
+- 剩余限制：未在真实库跑准备入口（需 EODHD 许可确认后执行）；Tiingo 生产套餐 ToS、EODHD 限额/留存权限、正式模型选择、真实 Trial 登记、实际 panel 冻结、release 批准均待项目所有者逐项解除。
 
 ### S07a 进度（2026-09-28）
 

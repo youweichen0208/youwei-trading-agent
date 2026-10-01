@@ -1,9 +1,9 @@
 # S00 协议登记
 
 登记日期：2026-09-27\
-状态：v1 于2026-09-27确认；2026-09-28已起草供应商分类候选 v2。已有真实 EODHD 采集与抽样冒烟，正式 panel/具体 release 的批准和登记仍未完成，formal_campaign_allowed=false。
+状态：v1 于2026-09-27确认；2026-10-01分类方案已确定（采用方案 (a) `eodhd_sector`，供应商分类，不宣称与官方 GICS 等价）。已有真实 EODHD 采集与抽样冒烟，正式 panel/具体 release 的批准和登记仍未完成，formal_campaign_allowed=false。
 
-v1 登记依据项目所有者的 Q1–Q9 选择；Q5 固定窗口停牌政策、Q7 区间方法与 Q9 Campaign/Batch 层级继续沿用。候选 v2 推荐方案 (a)：明示采用 `eodhd_sector`，不宣称与官方 GICS 等价。它是待绑定下一份实际 release 的准备材料，未替任何具体 release 生成批准记录。
+v1 登记依据项目所有者的 Q1–Q9 选择；Q5 固定窗口停牌政策、Q7 区间方法与 Q9 Campaign/Batch 层级继续沿用。v2 采用方案 (a)（2026-10-01 已确定）：明示采用 `eodhd_sector`，不宣称与官方 GICS 等价。它是待绑定下一份实际 release 的准备材料，未替任何具体 release 生成批准记录。
 
 | 文件 | 内容 |
 | --- | --- |
@@ -12,8 +12,8 @@ v1 登记依据项目所有者的 Q1–Q9 选择；Q5 固定窗口停牌政策�
 | [campaign-policy.v1.md](campaign-policy.v1.md) | 内部范围、总体、抽样、来源、评分、审批与 trial |
 | [known-answer-cases.v1.md](known-answer-cases.v1.md) | 协议反例与合成已知答案 |
 | [s00-registration.v1.json](s00-registration.v1.json) | 机器可读的已登记参数、阻断项和协议文件 hash |
-| [campaign-policy.v2.md](campaign-policy.v2.md) | 候选修订：供应商板块分类、首次前向时间证据、冻结映射和正式 panel 登记校验 |
-| [s00-registration.v2.json](s00-registration.v2.json) | 候选参数与文件 hash；正式引用保持空，formal_campaign_allowed=false |
+| [campaign-policy.v2.md](campaign-policy.v2.md) | 方案 (a)（已确定）：供应商板块分类、首次前向时间证据、冻结映射和正式 panel 登记校验 |
+| [s00-registration.v2.json](s00-registration.v2.json) | 已确定的分类方案与文件 hash；正式引用保持空，formal_campaign_allowed=false |
 | [Trial Registry](../trials/registry.md) | 试验登记格式与追加约束 |
 
 本轮保留 v1 文件及登记 hash，以新 v2 记录分类语义变化。一旦有 campaign 或批准记录绑定内容 hash，后续变化必须创建新版本；候选修订也要同步机器登记的文件 hash。实际引用未固定时保留空值，不能用一次性库冒烟的短 hash、示例名单或虚构批准时间填充。
@@ -27,7 +27,7 @@ v1 登记依据项目所有者的 Q1–Q9 选择；Q5 固定窗口停牌政策�
 | 项目 | 当前状态 |
 | --- | --- |
 | 使用范围、N=20、三种 horizon、周末锚定、Phase 1A 来源 | 按用户选择登记 |
-| 分类、配额、种子、规范化方式 | v1 原为 GICS；候选 v2 推荐 eodhd_sector；配额、种子和规范化算法保持原登记 |
+| 分类、配额、种子、规范化方式 | v1 原为 GICS；v2 采用 `eodhd_sector`（2026-10-01 已确定）；配额、种子和规范化算法保持原登记 |
 | Q5 停牌窗口、Q7 区间方法、Q9 Campaign/Batch 层级 | 已确认（2026-09-27） |
 | 实际成员和分类、20证券 panel | S06d 采集/抽样冒烟通过；正式源时间、映射恢复、manifest 交叉校验与完整登记仍待收尾 |
 | NYSE 日历与 tzdb 版本、SPY 永久 ID | 已有开发实现；首份实际 release 仍须固定真实引用 |
