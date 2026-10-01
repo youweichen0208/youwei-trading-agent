@@ -566,6 +566,24 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
   - 唯一失败：`test_sandbox.py::test_timeout_kills_and_removes_container` 因硬编码 `/usr/local/bin/docker`（SG 实际在 `/usr/bin/docker`）而 `FileNotFoundError`——**既有环境问题，与本次删除无关**。
 - 剩余限制：run 执行无金额上限保护；若未来需要恢复成本控制，可回滚 `f8a9b0c1d2e3` 迁移（已保留 downgrade）。S02 预算相关的历史记录保留为当时状态，不代表当前实现。
 
+### S07l 进度（2026-10-01，agent-runtime 无头镜像构建与 digest 固定）
+
+- 状态：**独立镜像构建与容器内无费用冒烟完成**；部署引用保持未就绪（尚无镜像仓库，digest 为本地 manifest，未 push）。镜像验收与 Controller 跨容器接线分开记录，构建成功不代表整个 S07 完成。
+- 交付：
+  - `infra/images/agent-runtime.Dockerfile`：精简无头镜像（非 Hermes 官方产品镜像——不用 pm/s6/Chromium/TUI）。固定基础镜像 `python:3.14-slim@sha256:51dafde8...` 与 `ghcr.io/astral-sh/uv:0.11.16@sha256:440fd647...`；Hermes 以 `git init` + `git fetch --depth 1 origin <SHA>` + `checkout FETCH_HEAD` 获取并校验 commit；`uv sync --frozen --no-dev --python /usr/local/bin/python` 装核心依赖到 `/opt/hermes/.venv`；`youwei-contracts` + `youwei-agent-runtime` 用 `uv pip install --no-deps` 装入同一 venv（避免第二锁升级 pydantic 破坏 Hermes 精确 pin）；非 root（UID 10001）；`PYTHONPATH=/opt/hermes`；ENTRYPOINT `youwei-agent-runtime`。
+  - `infra/build-agent-runtime.sh`：本地打包最小 build context（rsync 排除 .venv/__pycache__）→ 传 SG → `docker build` → 报 manifest digest。
+  - `services/agent-runtime/smoke/container_smoke.py`：容器内驱动真实 `research-once` 入口 + 本地 mock 网关，验证合法/错 tenant/缺 scope/坏签名/过期五场景。
+  - `services/agent-runtime/src/youwei_agent_runtime/main.py`：**修复 stdout 污染**——Hermes `AIAgent.__init__` 用裸 `print()` 把启动 banner/API 进度/会话日志写 stdout，破坏 `research-once` 单行 JSON 契约；`_research_once` 现在整个 turn 期间把 `sys.stdout` 重定向到 `sys.stderr`，仅写最终结果/错误前恢复。
+  - `services/agent-runtime/tests/test_main.py`：3 个纯逻辑测试钉定 stdout 纪律（结果/错误是唯一 stdout、banner 走 stderr、回合后 stdout 恢复）。
+  - `docs/ops/agent-runtime-image-build.md`：验收记录（digest、基础镜像、依赖策略、冒烟矩阵、剩余限制）。
+  - `infra/upstreams.lock.yaml`：hermes notes 记录 manifest digest 与验收文档；`deployment.image` 保持 null（未就绪）。
+- 固定信息：镜像 `youwei-agent-runtime:dev` manifest digest `sha256:31b22113b2deee2476c94ddf290aa58f9b76c647742a60e5fd5f64cffa3dd02d`（单平台、无 provenance）；OCI tar 153MB（SG `/root/agent-runtime-image/`，内容 hash `fc72bbd5...`）；Python 3.14.7、pydantic 2.13.4（Hermes 锁）。
+- 验证：
+  - 容器内冒烟 **5/5 通过**：合法令牌→produced proposal（p=0.6、1 引用、usage=session_delta 完整）；错 tenant/缺 scope/坏签名/过期四类拒绝均返回 `ok:false` 且错误片段正确。`run_agent.AIAgent` import、`snapshot_manifest` 工具注册（toolset=`youwei-research`）、隔离键（memory store None）均验证。
+  - 本机 agent-runtime（3.14）`pytest -q` → **45 passed**（42 + 新增 3）；`main import OK`（纯逻辑面无 Hermes 依赖）。
+  - `infra/validate_upstreams.py --mode catalog` → VALID。
+- 剩余限制：manifest digest 为本地 digest 非 registry 引用，尚无镜像仓库（部署引用未就绪）；真实 LLM 网关调用、取消计费语义、数据源 LLM 转发授权、Phase 1B 正式启用（新 Campaign + 人工 release 批准）仍待后续；未验证 Controller 跨容器接线、生产资源压测、gVisor 运行。
+
 ```text
 任务：
 负责人：

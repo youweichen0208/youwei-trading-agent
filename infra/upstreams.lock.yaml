@@ -19,7 +19,7 @@
         }
       },
       "deployment": {"image": null, "bindings": []},
-      "notes": "Source installation smoke-tested. S07 adapter, isolation keys, research-v1 contract and offline/no-cost smoke are complete (see docs/IMPLEMENTATION_PLAN.md S07a-g); production integration, gateway wiring, image digest and deployment acceptance remain for S09. 2026-10-01: Hermes is the sole Agent framework for MVP; S08 is now the controlled quant exploration loop implemented with Hermes research/experiment instances (see docs/research/hermes-only-runtime-assessment.md)."
+      "notes": "Source installation smoke-tested. S07 adapter, isolation keys, research-v1 contract and offline/no-cost smoke are complete (see docs/IMPLEMENTATION_PLAN.md S07a-g); production integration, gateway wiring, image digest and deployment acceptance remain for S09. 2026-10-01: Hermes is the sole Agent framework for MVP; S08 is now the controlled quant exploration loop implemented with Hermes research/experiment instances (see docs/research/hermes-only-runtime-assessment.md). Headless agent-runtime image built on sg-prod (2026-10-01): manifest digest sha256:31b22113b2deee2476c94ddf290aa58f9b76c647742a60e5fd5f64cffa3dd02d (single-platform, no provenance), base python:3.14-slim@sha256:51dafde8..., uv 0.11.16@sha256:440fd647..., in-image no-cost smoke 5/5 passed (see docs/ops/agent-runtime-image-build.md). deployment.image stays null: digest is local, no registry yet."
     },
     "pi": {
       "enabled": false,

@@ -55,13 +55,20 @@ def _capability_secret(args) -> str:
 
 async def _research_once(args) -> int:
     secret = _capability_secret(args)
-    # Register the platform research tools into Hermes's global registry once
-    # per process, before any turn. Hermes has no per-instance tool injection;
-    # tools live in the global registry and are selected via enabled_toolsets
-    # (see tools.py / runtime._register_research_tools).
-    _register_research_tools()
-    raw = sys.stdin.read()
+    # Hermes writes its init banner / API-call progress / conversation log via
+    # bare print() to stdout (agent/agent_init.py, turn_facade.py). The
+    # research-once wire contract is a single JSON object on stdout, so divert
+    # stdout to stderr for the duration of the turn and restore it only to
+    # emit the result. This keeps the response parseable by the Controller.
+    real_stdout = sys.stdout
+    sys.stdout = sys.stderr
     try:
+        # Register the platform research tools into Hermes's global registry
+        # once per process, before any turn. Hermes has no per-instance tool
+        # injection; tools live in the global registry and are selected via
+        # enabled_toolsets (see tools.py / runtime._register_research_tools).
+        _register_research_tools()
+        raw = sys.stdin.read()
         payload = decode_request(raw)
         result = await honor_request(
             payload,
@@ -70,12 +77,14 @@ async def _research_once(args) -> int:
             config_factory=ResearchConfig,
         )
     except InvocationError as exc:
-        sys.stdout.write(encode_error(exc) + "\n")
+        real_stdout.write(encode_error(exc) + "\n")
         return 2
     except Exception as exc:  # noqa: BLE001 — surface any research failure
-        sys.stdout.write(encode_error(exc) + "\n")
+        real_stdout.write(encode_error(exc) + "\n")
         return 1
-    sys.stdout.write(result + "\n")
+    finally:
+        sys.stdout = real_stdout
+    real_stdout.write(result + "\n")
     return 0
 
 
