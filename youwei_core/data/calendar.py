@@ -1,6 +1,6 @@
 """NYSE trading calendar (time-protocol.v1).
 
-Rule-based generation (nyse-rules-v1) following current NYSE practice:
+Rule-based generation (nyse-rules-v2) following current NYSE practice:
 - weekends closed
 - fixed holidays: New Year's Day, Juneteenth (2022+), Independence
   Day, Christmas. A Saturday holiday is observed the preceding Friday
@@ -12,7 +12,7 @@ Rule-based generation (nyse-rules-v1) following current NYSE practice:
 - special closures (hurricanes, national days of mourning) recorded
   explicitly in SPECIAL_CLOSURES and carried into the build
 - early closes 13:00 ET: the Friday after Thanksgiving and Dec 24
-  when it is a trading day
+  when it is a trading day; July 3 when it is a trading day (2013+)
 
 Storage model: builds are append-only and content-hashed (sealed cases
 keep their planned calendar via the version+hash recorded in their
@@ -27,6 +27,8 @@ UTC is the storage format per time-protocol §1.
 
 import hashlib
 import json
+from importlib.resources import files
+from io import BytesIO
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
@@ -37,9 +39,12 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from youwei_core.db.meta import calendar_builds, calendar_days
 
-RULES_VERSION = "nyse-rules-v1"
+RULES_VERSION = "nyse-rules-v2"
 VENUE = "XNYS"
-ET = ZoneInfo("America/New_York")
+# Load the locked package's bytes, rather than silently preferring the host's
+# potentially different TZPATH and merely reporting the package version.
+_ET_BYTES = files("tzdata.zoneinfo").joinpath("America/New_York").read_bytes()
+ET = ZoneInfo.from_file(BytesIO(_ET_BYTES), key="America/New_York")
 
 REGULAR_OPEN = time(9, 30)
 REGULAR_CLOSE = time(16, 0)
@@ -133,6 +138,10 @@ def nyse_holidays(year: int) -> dict[date, str]:
 
 
 def _is_early_close(d: date, holidays: dict[date, str]) -> bool:
+    # NYSE Independence Day eve (not the preceding Thursday when July 3
+    # is itself the observed full-day holiday). Historical scope starts 2013.
+    if d.year >= 2013 and d.month == 7 and d.day == 3 and d not in holidays:
+        return True
     # Friday after Thanksgiving
     thanksgiving = _nth_weekday(d.year, 11, 3, 4)
     if d == thanksgiving + timedelta(days=1):
@@ -185,6 +194,15 @@ def tzdb_version() -> str:
         return getattr(tzdata, "IANA_VERSION", "system-unknown")
     except ImportError:
         return "system-unknown"
+
+
+def timezone_provenance() -> dict:
+    import tzdata
+    return {
+        "source": "tzdata-package", "zone": "America/New_York",
+        "package_version": tzdata.__version__, "iana_version": tzdata.IANA_VERSION,
+        "content_sha256": hashlib.sha256(_ET_BYTES).hexdigest(),
+    }
 
 
 # --- storage ---------------------------------------------------------------

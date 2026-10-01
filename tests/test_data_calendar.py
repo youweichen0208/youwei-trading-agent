@@ -105,6 +105,24 @@ def test_generation_covers_every_weekday():
 # --- storage & queries ------------------------------------------------------
 
 
+async def test_independence_eve_regular_session_closes_at_13_et(db_engine):
+    # NYSE official 2028 calendar: Monday July 3 closes at 13:00 ET.
+    # https://www.nyse.com/trade/hours-calendars
+    await build_calendar(db_engine, year_start=2028, year_end=2028)
+    session = await session_times(db_engine, date(2028, 7, 3))
+    assert session.early_close is True
+    assert session.close_utc == datetime(2028, 7, 3, 17, tzinfo=UTC)
+
+
+def test_calendar_records_the_timezone_bytes_it_actually_uses():
+    from youwei_core.data.calendar import timezone_provenance
+    record = timezone_provenance()
+    assert record['source'] == 'tzdata-package'
+    assert record['zone'] == 'America/New_York'
+    assert record['iana_version'] != 'system-unknown'
+    assert len(record['content_sha256']) == 64
+
+
 async def test_build_is_idempotent_and_refuses_content_change(db_engine):
     b1 = await build_calendar(db_engine, year_start=2024, year_end=2027)
     b2 = await build_calendar(db_engine, year_start=2024, year_end=2027)
