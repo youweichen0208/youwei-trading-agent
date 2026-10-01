@@ -3,7 +3,7 @@
 日期：2026-09-27；结构优化更新：2026-09-28\
 设计依据：[ARCHITECTURE.md](ARCHITECTURE.md)\
 问题来源：[v0.2 评审](ARCHITECTURE_REVIEW_v0.2.md)\
-状态：S00 协议已确认定稿（2026-09-27）；S01 主体完成（Tiingo 字段级验证已实测；EOD 实盘观测随 S04 首次采集、个人内部Phase 1A数据许可已确认；LLM转发许可及网关验收另行记录）；S02 已完成（隔离开发环境验收，2026-09-27）；S03 第一/二纵切片完成（沙箱执行、独立 Runner 与 HTTP 产物链路，2026-09-28；生产部署仍待验收）；S04 第一至三纵切片完成（PIT 数据基础、交易日历与冻结快照，2026-09-27；训练 manifest 登记，2026-09-28；独立退市真相源、派生特征与多源仍待补源决策）；S05 已完成四纵切片（封存核心、Outcome 回填、评估报告、归档与监控，2026-09-27）加 S05e 证据追溯收紧（2026-09-28）；S06 第一/二纵切片完成（前向预测管线，2026-09-27；供应商更正自动触发、月度汇总与报告门控，2026-09-28；正式 campaign 启动项仍阻断；分类方案为 eodhd_sector；S06h真实panel/日历/SPY冻结、Logistic/Ridge和历史Trial已完成；候选D20未显示增量，具体release待人工决定与批准）；S03 剩余部署项与 S06 正式启动及 S07 后续切片（工具授权、镜像部署）与 S08–S11 待实施、待验收。S07k 预算/计费已按项目所有者决定整体删除（2026-09-30）。S07m 研究运行时跨容器接线（Ed25519 授权 + Runner 受控执行，S07m-1/S07m-2/S07m-3 完成）。S08 于 2026-10-01 决策改为「受控量化探索闭环（Hermes）」：MVP 暂缓接入 Pi，Hermes 作为唯一 Agent 框架，Pi 保留为可替换候选。S09a 部署准备于 2026-10-02 完成（Phase 1A 去 Runner；采集调度 collect_tick、生产 Compose、Core 镜像发布 GHCR digest、deployment 校验通过）；S09b 运行接线与 S09c 运维验收待实施。
+状态：**当前推进 S09（Phase 1A 上线前验收）**——S00–S06（含 S06j 12 批候选计划）与 S07 纵切片已完成；S09a 部署准备已收尾（采集调度 + 生产 Compose + Core 镜像发布 GHCR + deployment 校验通过）。**下一步：S09b 运行接线（PG/API/Worker/采集/租户登记，隔离验收数据验证闭环）→ 生成正式 tenant UUID 与最终 campaign_plan_sha256/scope_manifest → S09c 运维验收 → 组装批准包交项目所有者一次性确认。** 阶段详情见 [§4 完成记录](#4-完成记录)；S08（受控量化探索）已决策为 Hermes 唯一框架、Pi 暂缓，可并行推进。
 
 ## 1. 执行规则
 
@@ -29,6 +29,23 @@ S00 目标与评估协议
 ```
 
 S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 的界面可提前开发，正式联调依赖持久事件与研究结果契约。S08 与 S09 可并行。无论如何拆工，后续功能不能绕过前置的权限、预算、截止时间或提交检查。
+
+## 当前进度速览与下一步（2026-10-02 更新）
+
+| 阶段 | 状态 | 关键事实 |
+| --- | --- | --- |
+| S00–S05 | 完成 | 协议定稿；持久任务/权限；沙箱+产物链路；PIT/快照；Ledger/Outcome/评分/归档 |
+| S06 | 候选就绪、待批准 | 真实 panel/日历/SPY 冻结；Logistic/Ridge 候选 + Trial（D20 未显示增量）；候选 release `bdb8bbe0...`（`release-logistic-ridge-candidate-20261002-v1`）；12 批计划已拟定（S06j，first_cutoff `2026-10-10`） |
+| S07 | 纵切片完成、Phase 1B 未启用 | Hermes 研究契约/进程边界/平台工具/无头镜像；Ed25519 跨容器研究接线（S07m）；真实网关/预算/批准待后续 |
+| S08 | 已决策、未实现 | 受控量化探索闭环（Hermes 唯一框架，Pi 暂缓）；工具往返契约待 S07 收敛后设计 |
+| S09a | 完成 | 采集调度 collect_tick（16 测试）+ 生产 Compose（去 Runner）+ Core 镜像发布 GHCR + deployment 校验 VALID |
+| **S09b** | **下一步** | 运行接线：PG/API/Worker/采集/租户登记，隔离验收数据验证闭环 |
+| S09c | 待 S09b | 运维验收：远端恢复、重启恢复、资源测量、告警、RPO/RTO |
+| S10–S11 | 未开始 | 评估界面/Memory/审批；候选验证与发布 |
+
+**当前阻塞正式 Campaign 启动的链：** 正式 tenant UUID（需 S09b 在正式库创建/复用 slug `youwei-internal-research`）→ 最终 `campaign_plan_sha256` + `scope_manifest`（S06j 冻结输入已备）→ 批准包（release hash + 计划 hash + 使用范围 + 验收证据）→ 项目所有者一次性批准 → 正式 Campaign。
+
+**下一步动作（按序）：** ① S09b 运行接线（隔离验收数据验证闭环）；② 正式库创建/复用 tenant；③ 生成最终计划 hash + scope_manifest；④ S09c 运维验收；⑤ 组装批准包交所有者确认。
 
 ## 2. 任务清单
 
@@ -119,8 +136,8 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 
 ### S06 — 开始 baseline/quant 前向运行（Phase 1A；依赖 S05）
 
-- [ ] 发布固定 baseline 与简单量化模型，登记训练与校准版本。（进展：管线载具 baseline-constant-v0 / quant-momentum-v0 已随 S06a 落地并全量披露；Logistic/Ridge候选实现及真实Trial已完成（S06h），主D20未显示增量；正式release仍待人工批准）
-- [ ] 人工批准初始 release，按已登记规则固定20证券 panel，事前登记每批60个 case。（进展：个人内部Phase 1A许可已确认；eodhd_sector的20证券panel、完整恢复包、日历和SPY已实际冻结（S06h）；人工批准及正式Campaign未发生）
+- [ ] 发布固定 baseline 与简单量化模型，登记训练与校准版本。（进展：管线载具 baseline-constant-v0 / quant-momentum-v0 已随 S06a 落地并全量披露；Logistic/Ridge候选实现及真实Trial已完成（S06h），主D20未显示增量；候选 release 已重生成 `release-logistic-ridge-candidate-20261002-v1`（hash `bdb8bbe0...`，S06i 因 pipeline.py/uv.lock 变更重注册）；正式 release 仍待人工批准）
+- [ ] 人工批准初始 release，按已登记规则固定20证券 panel，事前登记每批60个 case。（进展：个人内部Phase 1A许可已确认；eodhd_sector的20证券panel、完整恢复包、日历和SPY已实际冻结（S06h）；12 批前向计划已拟定（S06j，first_cutoff `2026-10-10`、campaign_key `phase1a-pilot-2026q4`，最终 `campaign_plan_sha256`/`scope_manifest` 待正式 tenant UUID 后生成）；人工批准及正式Campaign未发生）
 - [ ] llm_adjusted 保留 unavailable/not_enabled，不填充伪造 LLM 结果。（管线已固定封存该位置，S06a 验收）
 - [ ] Scheduler 按周创建新批次，按交易日检查到期 Outcome。（已落地：见 S06a/S06b 进度；已 resolved Outcome 的供应商更正自动触发已于 S06b 落地）
 - [ ] 最小只读查询显示计划数、完成数、缺失、迟到、数据质量和评分适用范围。（已落地：campaign_status 服务 + 租户隔离 API，见 S06a 进度）
