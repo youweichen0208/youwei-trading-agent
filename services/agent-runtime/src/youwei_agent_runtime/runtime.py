@@ -248,7 +248,11 @@ class ResearchConfig:
     """Gateway + model wiring for a research run. base_url must be the
     OpenAI-compatible gateway endpoint (scheme A); api_key is the gateway key,
     never a supplier credential. Cost attribution and budgeting live in the
-    Controller/budget layer, not here."""
+    Controller/budget layer, not here.
+
+    ``max_output_tokens`` caps the model's output per API call: without an
+    explicit cap the provider default can truncate a verbose model's JSON
+    proposal mid-stream (observed with glm-5.3, finish_reason=length)."""
 
     base_url: str
     api_key: str
@@ -256,6 +260,7 @@ class ResearchConfig:
     provider: str = "custom"
     max_iterations: int = 8
     run_budget_seconds: float | None = None
+    max_output_tokens: int = 16384
 
 
 def _import_aiagent():
@@ -327,17 +332,29 @@ def make_agent(config: ResearchConfig, *, platform: str = "research"):
         platform=platform,
         max_iterations=config.max_iterations,
         run_budget_seconds=config.run_budget_seconds,
+        max_tokens=config.max_output_tokens,
         **ISOLATION_KWARGS,
     )
 
 
-def parse_proposal(raw: str, *, run_id, case_id) -> ResearchProposal:
+def parse_proposal(
+    raw: str,
+    *,
+    run_id,
+    case_id,
+    model_attribution: dict | None = None,
+) -> ResearchProposal:
     """Decode Hermes's textual answer and check wire/value discipline only.
 
     The model is instructed (via the research brief) to return a JSON object
     matching the research-v1 proposal shape. This boundary enforces the wire
     discipline declared in the contract. Citation checking requires the
     evidence bundle and is performed by run_research before returning.
+
+    ``model_attribution``, when provided, REPLACES any self-reported model
+    field: external text is untrusted input, so attribution comes from the
+    runtime's configuration (what was actually called), never from the
+    model's answer.
     """
     # Tolerate markdown fences / surrounding prose in a best-effort way.
     text = raw.strip()
@@ -360,6 +377,9 @@ def parse_proposal(raw: str, *, run_id, case_id) -> ResearchProposal:
 
     from youwei_agent_runtime.adapter import proposal_from_payload
 
+    if model_attribution is not None:
+        payload.pop("model", None)
+        payload["model"] = model_attribution
     return proposal_from_payload(run_id, case_id, payload)
 
 
@@ -418,7 +438,13 @@ async def run_research(
             reset_tool_context(ctx_token)
 
     after = _snapshot_session_usage(agent)
-    proposal = parse_proposal(raw, run_id=evidence.run_id, case_id=evidence.case.case_id)
+    proposal = parse_proposal(
+        raw,
+        run_id=evidence.run_id,
+        case_id=evidence.case.case_id,
+        # Attribution from configuration, never from the model's self-report.
+        model_attribution={"model_version": config.model, "provider": config.provider},
+    )
     validate_proposal_references(evidence, proposal)
     usage = _observe_usage(agent, before, after)
     return ResearchTurn(proposal=proposal, usage=usage)

@@ -176,6 +176,7 @@ async def run_research_container(
 
     started = asyncio.get_event_loop().time()
     timed_out = False
+    force_cleanup = False
     try:
         proc = await asyncio.create_subprocess_exec(
             *cmd,
@@ -194,17 +195,25 @@ async def run_research_container(
             )
         except asyncio.TimeoutError:
             timed_out = True
+            force_cleanup = True
             stdout_b, stderr_b = b"", b""
             proc.kill()
             await proc.wait()
         except asyncio.CancelledError:
+            force_cleanup = True
             proc.kill()
             await proc.wait()
             raise
     finally:
-        # --rm cleans up on normal exit; force-remove on abnormal paths so a
-        # timeout/cancel does not leak a container holding a slot.
-        if proc.returncode is None:
+        # Killing the docker-run CLIENT does not stop the container: `docker
+        # run -i` detaches and the container keeps running (observed in the
+        # S07 real-gateway verification: a timed-out turn kept calling the
+        # gateway after the Runner had already reported the timeout).
+        # Force-remove the container BY NAME unless the client exited
+        # cleanly (clean exit 0 means the container already self-removed via
+        # --rm). On failure paths the rm is a harmless no-op when the
+        # container is already gone (the error is caught below).
+        if force_cleanup or proc.returncode != 0:
             try:
                 await _run([docker, "rm", "-f", container], timeout=30.0)
             except ResearchExecutionError:
@@ -244,10 +253,24 @@ def _decode_result(
     or a non-ok result is a failure; a result over the stdout cap already
     raised before reaching here."""
     if exit_code != 0:
+        # The container writes a structured {"ok": false, "error": ...} to
+        # stdout (main.py encode_error) even on non-zero exits; prefer it over
+        # the stderr tail, which is dominated by the Hermes startup banner.
+        stdout_error = None
+        try:
+            payload = json.loads(stdout)
+            if isinstance(payload, dict) and payload.get("ok") is False:
+                stdout_error = str(payload.get("error", ""))
+        except json.JSONDecodeError:
+            pass
+        detail = stdout_error or "non-JSON stdout"
         return ResearchInvocationResult(
             ok=False, exit_code=exit_code,
             image_digest=_image_digest(config.image),
-            error=f"research container exited {exit_code}: {stderr[-500:]}",
+            error=(
+                f"research container exited {exit_code}: {detail} "
+                f"| stderr tail: {stderr[-2000:]}"
+            ),
         )
     try:
         payload = json.loads(stdout)

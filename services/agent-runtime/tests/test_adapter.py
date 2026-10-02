@@ -85,6 +85,29 @@ def test_brief_is_deterministic_for_same_evidence():
     assert b1 == b2
 
 
+def test_brief_specifies_the_response_format_contract():
+    """The brief must tell the model the exact JSON response shape: a real
+    model answered prose without it (S07 real-gateway verification finding)."""
+    brief = build_research_brief(_frozen())
+    assert "Response format" in brief
+    for token in (
+        'source_status', 'p_outperform', 'expected_excess_return',
+        'references', 'warnings', 'missing', 'quantitative_basis',
+    ):
+        assert token in brief, f"brief must name the {token} field"
+    # the runtime records model attribution; the model must not self-report
+    assert "Do not include a model field" in brief
+    # warnings are ResearchWarning objects, not plain strings (a real model
+    # followed the old "[string]" hint and failed validation)
+    assert '"kind": "insufficient_history"' in brief
+    assert '"detail"' in brief
+    # value discipline: unavailable must not carry values (a real model hedged
+    # with unavailable + p_outperform and failed validation)
+    assert "omit" in brief and "unavailable" in brief
+    # tool discoverability hint (factual, not strategy)
+    assert "snapshot_manifest" in brief
+
+
 def test_brief_contains_only_frozen_facts():
     ev = _frozen(sec="00000000-0000-0000-0000-00000000000a")
     brief = build_research_brief(ev)

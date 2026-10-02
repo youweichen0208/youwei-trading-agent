@@ -144,6 +144,46 @@ def test_parse_rejects_non_json_garbage():
         parse_proposal("no json here at all", run_id=uuid.uuid4(), case_id=uuid.uuid4())
 
 
+def test_parse_model_attribution_replaces_self_report():
+    """Attribution comes from the runtime's configuration, never from the
+    model's self-report (external text is untrusted input)."""
+    p = parse_proposal(
+        json.dumps(_payload()),  # self-reports model m1/p1
+        run_id=uuid.uuid4(), case_id=uuid.uuid4(),
+        model_attribution={"model_version": "glm-5.3", "provider": "custom"},
+    )
+    assert p.model is not None
+    assert p.model.model_version == "glm-5.3"
+    assert p.model.provider == "custom"
+
+
+def test_parse_without_attribution_keeps_self_report():
+    p = parse_proposal(json.dumps(_payload()), run_id=uuid.uuid4(), case_id=uuid.uuid4())
+    assert p.model is not None and p.model.model_version == "m1"
+
+
+def test_make_agent_passes_max_output_tokens(monkeypatch):
+    """The research runtime must cap the model's output explicitly: the API
+    default truncated glm-5.3's JSON proposal mid-stream (S07 real-gateway
+    verification finding: finish_reason=length)."""
+    import sys
+    from types import SimpleNamespace
+    import youwei_agent_runtime.runtime as runtime
+
+    seen = {}
+
+    class FakeAIAgent:
+        def __init__(self, **kwargs):
+            seen.update(kwargs)
+
+    monkeypatch.setitem(sys.modules, "run_agent", SimpleNamespace(AIAgent=FakeAIAgent))
+    runtime.make_agent(runtime.ResearchConfig(
+        base_url="http://unused.invalid", api_key="k", model="glm-5.3",
+        max_output_tokens=16384,
+    ))
+    assert seen["max_tokens"] == 16384
+
+
 @pytest.mark.parametrize("locator", [
     "row-0", "prices rose yesterday",
     "snapshot:00000000-0000-0000-0000-000000000099/rows/0",
@@ -176,6 +216,24 @@ def test_research_returns_citations_to_the_rows_actually_supplied(monkeypatch, e
     assert proposal.run_id == evidence.run_id
     assert proposal.case_id == evidence.case.case_id
     assert resolve_reference(evidence, proposal.references[0])["close"] == "103"
+
+
+def test_research_attributes_model_from_config_not_self_report(monkeypatch, evidence):
+    """The produced proposal's model attribution must come from the runtime
+    configuration (what was actually called), not the model's self-report."""
+    from youwei_agent_runtime.runtime import ResearchConfig, run_research
+
+    def respond(brief):
+        record = next(json.loads(line) for line in brief.splitlines() if line.startswith('{"locator":'))
+        return json.dumps(_payload(references=[{"kind": "evidence", "locator": record["locator"]}]))
+
+    install_external_agent(monkeypatch, respond)
+    turn = asyncio.run(run_research(evidence, ResearchConfig(
+        base_url="http://unused.invalid", api_key="unused", model="glm-5.3"
+    )))
+    assert turn.proposal.model is not None
+    assert turn.proposal.model.model_version == "glm-5.3"
+    assert turn.proposal.model.provider == "custom"
 
 
 def test_research_sets_tool_context_for_handlers_during_turn(monkeypatch, evidence):

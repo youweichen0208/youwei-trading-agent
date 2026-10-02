@@ -35,8 +35,8 @@
 ## 已知限制与待办
 
 - **公网入口（2026-10-02 上线）**：备案经运行证据确认有效（`market.youwei-agent.com` 一直从该 cn-shanghai ECS 标准 443 服务）。DNS（Cloudflare）两条 **灰云** 记录由所有者添加（初次误开橙云已纠正）：`trading A 8.159.158.155`、`sg-chat A 168.144.39.34`。两端 certbot 发证成功（均有效至 2026-12-31，systemd timer 自动续期在位）。验证：`https://trading.youwei-agent.com/health` → 200（公网路径全链：浏览器 → ECS TLS → SG TLS → Open WebUI）；未认证 websocket 被应用拒绝属预期（应用侧行为，非代理问题）；SG 侧 vhost 对非 ECS 来源 403（allowlist 生效）。配置：`infra/chat/nginx-ecs-trading.conf`（登录限流 5r/m、resolver 按请求解析、Upgrade 头透传）、`infra/chat/nginx-sg-chat.conf`（allow/deny 在 location 级，避免挡 ACME 验证；代理 127.0.0.1:8090）。
-- 成本记录：GLM/DeepSeek/Qwen 不在 LiteLLM 默认成本表，当前 spend 只记 token 不记金额；自定义 cost map + 火山计费对账为待办（llm-gateway-options 遗留项）。
-- 未测（llm-gateway-options 待测清单）：取消传播、fail-closed（计数器故障行为）、并发/速率限额生效证明——随 S07 研究链路真实网关验证批补齐。
-- LiteLLM 管理面（`/key/*`）仅绑 `127.0.0.1`，经 SSH 访问；研究链路接入时再决定 agent-runtime 网络如何到达网关。
+- 成本记录：GLM/DeepSeek/Qwen 不在 LiteLLM 默认成本表，当前 spend 只记 token 不记金额；自定义 cost map + 火山计费对账维持待办（仅为观测项：预算维度已按 2026-09-30 所有者决策删除）。
+- ~~未测（llm-gateway-options 待测清单）：取消传播、fail-closed、并发/速率限额生效证明~~ **已验证（2026-10-02）**：取消传播成立（客户端中断后 5.5s 内终止上游流，spend 记 completion=0）；fail-closed 实测为 **FAIL-OPEN**（已缓存 key 在计数库不可达时照常准入并转发）；max_parallel_requests / rpm / tpm 分别生效证明齐备（TPM 为准入前预估用量检查）。详见 [s07-real-gateway-verification](s07-real-gateway-verification.md)。
+- LiteLLM 管理面（`/key/*`）仅绑 `127.0.0.1`，经 SSH 访问；研究链路网络接线已落地（临时）：litellm 容器以别名 `litellm` 接入 `youwei-research` internal 网络（`docker network connect`，容器重建即失效，Phase 1B 需声明式化）；验证用研究虚拟 key（e2e/conc/rate/tpm 四枚）存 sg-prod `/root/youwei-research-verify/keys.env`（0600）。
 - 备份：聊天栈为可重建基础设施（openwebui 数据卷含账户/聊天记录，未纳入 pgbackrest；重要时可加 dump cron）。
 - 遗留：`market.youwei-agent.com` DNS 仍指向 ECS 且 502（旧原型已拆）；是否清理归所有者。
