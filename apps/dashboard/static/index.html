@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>youwei · 研究评估</title>
+  <style>
+    :root {
+      --bg: #0f1115; --panel: #171a21; --line: #2a2f3a;
+      --text: #e6e8ec; --dim: #9aa3b2; --accent: #6ea8fe;
+      --ok: #4ade80; --warn: #fbbf24; --bad: #f87171; --muted: #5b6270;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font: 14px/1.55 "SF Mono", ui-monospace, "Cascadia Mono", Menlo, monospace;
+      padding: 20px;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    header { display: flex; gap: 16px; align-items: baseline; margin-bottom: 18px; }
+    header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+    header .crumb { color: var(--dim); font-size: 13px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-bottom: 18px; }
+    .card {
+      background: var(--panel); border: 1px solid var(--line);
+      border-radius: 8px; padding: 12px 14px;
+    }
+    .card .k { color: var(--dim); font-size: 12px; margin-bottom: 4px; }
+    .card .v { font-size: 20px; font-weight: 600; }
+    .card .v small { font-size: 12px; color: var(--dim); font-weight: 400; }
+    table { border-collapse: collapse; width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+    th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); font-size: 13px; white-space: nowrap; }
+    th { color: var(--dim); font-weight: 500; font-size: 12px; background: #1b1f28; }
+    tr:last-child td { border-bottom: none; }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; border: 1px solid var(--line); }
+    .badge.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, transparent); }
+    .badge.warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
+    .badge.bad { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, transparent); }
+    .badge.dim { color: var(--dim); }
+    .none { color: var(--muted); }
+    .section { margin: 22px 0 10px; color: var(--dim); font-size: 13px; }
+    .pager { display: flex; gap: 10px; align-items: center; margin: 12px 0; }
+    .pager button { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 12px; cursor: pointer; }
+    .pager button:disabled { color: var(--muted); cursor: default; }
+    select, input { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
+    .error { border: 1px solid color-mix(in srgb, var(--bad) 50%, transparent); background: color-mix(in srgb, var(--bad) 10%, var(--panel)); border-radius: 8px; padding: 12px 16px; margin: 12px 0; }
+    .note { color: var(--dim); font-size: 12px; margin: 8px 0; }
+    .kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 18px; font-size: 13px; }
+    .kv .k { color: var(--dim); }
+    main { max-width: 1180px; margin: 0 auto; }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>youwei 研究评估</h1>
+      <span class="crumb" id="crumb"></span>
+    </header>
+    <div id="view"></div>
+  </main>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
