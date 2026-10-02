@@ -293,7 +293,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 
 - [ ] S12a Core 探索性研究任务与报告：新任务类型（提交/查询/取消 API + research-submit 授权）、报告存储与版本化读取、报告固定证据/量化输入/引用与 warnings；探索性研究与正式 Campaign 分开登记。
 - [ ] S12b Dashboard 探索性报告查看（消费 S12a 读取 API）。
-- [ ] S12c Open WebUI Pipe 适配器：v0.6.36 Pipe Function 形状与执行语义实测；提交→任务号→进度→摘要→详情链接；明确取消走 Core 取消接口；刷新/断线不丢任务（状态在 Core）；上线前关闭注册开放并落实入口用户→Core 授权映射。
+- [ ] S12c Open WebUI Pipe 适配器：v0.6.36 Pipe Function 形状与执行语义实测（含容器到受控 Core 接口的出口连通性实测——当前 compose 仅挂普通 chat 网络，出口来实测前不做断言；仅增加访问受控 Core 接口的通路，不加入含数据库与 Runner 的整个内部网络）；提交→任务号→进度→摘要→详情链接；明确取消走 Core 取消接口；刷新/断线不丢任务（状态在 Core）；上线前复核注册保持关闭（`ENABLE_SIGNUP=False` 已部署且 signup 403 验证过，2026-10-02）并落实入口用户→Core 授权映射。
 - [ ] S12d 真实证券端到端样例：研究网络声明式化（替换临时 `docker network connect`）+ 数据转发授权落实 + upstreams 登记（openwebui 升级 enabled，验收覆盖研究入口）。
 
 交付：从聊天入口发起、基于冻结事实、可核对引用的研究报告；Dashboard 可查完整报告。
@@ -874,7 +874,7 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
 ### 聊天栈部署与 S07 收尾（2026-10-02，LiteLLM + Open WebUI + agent-runtime 发布）
 
 - 所有者决策（2026-10-02）：火山 key 复用本地 pi 配置；子域 `trading.youwei-agent.com`；公网入口拟走国内阿里云 ECS（cn-shanghai）中转（**备案问题待确认**：未备案则非标端口或 SG 直连）；聊天不设预算上限；本轮范围 = S07 收尾 + 聊天入口，Phase 1B/S08 不动。
-- **youwei-chat 栈**（sg-prod `/opt/youwei/chat/`，[chat-stack-deployment.md](ops/chat-stack-deployment.md)）：postgres（LiteLLM 专用库，复用 pinned digest）+ LiteLLM v1.102.1（`ghcr.io/berriai/litellm@sha256:f8043697…`，火山 Anthropic 兼容端点 + Bearer，5 模型，spend logs，`127.0.0.1:4000`）+ Open WebUI v0.6.36（`@sha256:0b73f17a…`，指向网关，`127.0.0.1:8090`，注册暂开放待所有者建号后关闭）。仓库资产：`infra/compose/chat.json`、`infra/chat/litellm-config.yaml.template`、`ops/deploy_chat.sh`（幂等分相部署）。
+- **youwei-chat 栈**（sg-prod `/opt/youwei/chat/`，[chat-stack-deployment.md](ops/chat-stack-deployment.md)）：postgres（LiteLLM 专用库，复用 pinned digest）+ LiteLLM v1.102.1（`ghcr.io/berriai/litellm@sha256:f8043697…`，火山 Anthropic 兼容端点 + Bearer，5 模型，spend logs，`127.0.0.1:4000`）+ Open WebUI v0.6.36（`@sha256:0b73f17a…`，指向网关，`127.0.0.1:8090`；注册仅首启时开放，当日已关闭——见下方公网入口上线记录的 signup 403 验证）。仓库资产：`infra/compose/chat.json`、`infra/chat/litellm-config.yaml.template`、`ops/deploy_chat.sh`（幂等分相部署）。
 - 验证：5 模型列表、真实 glm-5.3 正文调用（finish=stop）、deepseek-v4-flash 流式 168 SSE chunk、spend logs 入库、chat 虚拟 key 隔离、Open WebUI /health 200。
 - **agent-runtime 镜像发布**：`ghcr.io/youweichen0208/youwei-agent-runtime:phase1a-s07`，registry digest `sha256:998f060e…`（与 S07m 本地 digest 一致），digest 拉取验证通过；upstreams hermes notes 更新（deployment.image 仍 null，归 Phase 1B 决策）。
 - upstreams：litellm 与 openwebui 组件升级为 integrated + passed（digest + 证据 = chat-stack-deployment.md），enabled 保持 false（部署校验器只覆盖研究生产 compose；启用待 S07 研究链路接线决策）。catalog + deployment 双 VALID。
