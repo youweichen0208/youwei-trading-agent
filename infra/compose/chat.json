@@ -48,7 +48,7 @@
         "OPENAI_API_BASE_URL": "http://litellm:4000/v1",
         "OPENAI_API_KEY": "${YOUWEI_CHAT_KEY:-}",
         "WEBUI_AUTH": "True",
-        "ENABLE_SIGNUP": "True"
+        "ENABLE_SIGNUP": "False"
       },
       "volumes": ["openwebui_data:/app/backend/data"],
       "networks": ["chat"],
