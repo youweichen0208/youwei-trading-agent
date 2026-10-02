@@ -7,8 +7,9 @@ the S06 checklist asks for. Pure reads; no state changes.
 """
 
 import uuid
+from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from youwei_core.db.meta import (
@@ -18,6 +19,7 @@ from youwei_core.db.meta import (
     forecast_cases,
     forecast_commit_events,
     forecast_commits,
+    monthly_summary_reports,
     outcome_revisions,
     research_releases,
 )
@@ -227,3 +229,122 @@ async def campaign_status(engine: AsyncEngine, campaign_id: uuid.UUID) -> dict |
 def timely_key(timeliness: str) -> str:
     """Map a timeliness judgment to the status-view counter key."""
     return {"on_time": "on_time", "late": "late"}.get(timeliness, "unconfirmed")
+
+
+# --- saved report reads (S10 slice 1) --------------------------------------
+#
+# Dashboard reads answer SAVED reports only: version, content sha256,
+# code versions and the frozen content. GET never regenerates, and an
+# old version keeps the outcome revisions it was computed from —
+# corrections append a new version; they never rewrite history.
+
+
+def _report_view(row, latest_version: int) -> dict:
+    return {
+        "report_id": str(row.id),
+        "campaign_id": str(row.campaign_id),
+        "report_version": row.report_version,
+        "supersedes_report_id": (
+            None if row.supersedes_report_id is None else str(row.supersedes_report_id)
+        ),
+        "release_row_id": str(row.release_row_id),
+        "scoring_code_version": row.scoring_code_version,
+        "content_sha256": row.content_sha256,
+        "created_at": row.created_at.isoformat(),
+        "is_latest_version": row.report_version == latest_version,
+        "content": row.content,
+    }
+
+
+async def _campaign_tenant(engine: AsyncEngine, campaign_id: uuid.UUID):
+    async with engine.begin() as conn:
+        return (
+            await conn.execute(
+                select(campaigns.c.tenant_id).where(campaigns.c.id == campaign_id)
+            )
+        ).scalar_one_or_none()
+
+
+async def batch_report_view(
+    engine: AsyncEngine,
+    campaign_id: uuid.UUID,
+    batch_id: uuid.UUID,
+    horizon_td: int,
+    version: int | None = None,
+) -> dict | None:
+    """One SAVED batch report. None when the campaign, batch, horizon
+    report or version does not exist, or the batch belongs to another
+    campaign. ``version=None`` reads the latest."""
+    tenant = await _campaign_tenant(engine, campaign_id)
+    if tenant is None:
+        return None
+    async with engine.begin() as conn:
+        stmt = (
+            select(evaluation_reports)
+            .join(forecast_batches, forecast_batches.c.id == evaluation_reports.c.batch_id)
+            .where(
+                evaluation_reports.c.batch_id == batch_id,
+                forecast_batches.c.campaign_id == campaign_id,
+                evaluation_reports.c.horizon_td == horizon_td,
+            )
+        )
+        if version is not None:
+            stmt = stmt.where(evaluation_reports.c.report_version == version)
+        else:
+            stmt = stmt.order_by(evaluation_reports.c.report_version.desc())
+        row = (await conn.execute(stmt.limit(1))).mappings().one_or_none()
+        if row is None:
+            return None
+        latest_version = (
+            await conn.execute(
+                select(func.max(evaluation_reports.c.report_version)).where(
+                    evaluation_reports.c.batch_id == batch_id,
+                    evaluation_reports.c.horizon_td == horizon_td,
+                )
+            )
+        ).scalar_one()
+    return {
+        **_report_view(row, latest_version),
+        "tenant_id": str(tenant),
+        "batch_id": str(batch_id),
+        "horizon_td": horizon_td,
+    }
+
+
+async def monthly_report_view(
+    engine: AsyncEngine,
+    campaign_id: uuid.UUID,
+    month: date,
+    version: int | None = None,
+) -> dict | None:
+    """One SAVED monthly summary. None when the campaign, month report
+    or version does not exist. ``version=None`` reads the latest."""
+    tenant = await _campaign_tenant(engine, campaign_id)
+    if tenant is None:
+        return None
+    async with engine.begin() as conn:
+        stmt = select(monthly_summary_reports).where(
+            monthly_summary_reports.c.campaign_id == campaign_id,
+            monthly_summary_reports.c.month == month,
+        )
+        if version is not None:
+            stmt = stmt.where(monthly_summary_reports.c.report_version == version)
+        else:
+            stmt = stmt.order_by(monthly_summary_reports.c.report_version.desc())
+        row = (await conn.execute(stmt.limit(1))).mappings().one_or_none()
+        if row is None:
+            return None
+        latest_version = (
+            await conn.execute(
+                select(func.max(monthly_summary_reports.c.report_version)).where(
+                    monthly_summary_reports.c.campaign_id == campaign_id,
+                    monthly_summary_reports.c.month == month,
+                )
+            )
+        ).scalar_one()
+    return {
+        **_report_view(row, latest_version),
+        "tenant_id": str(tenant),
+        "month": month.isoformat(),
+        "monthly_code_version": row.monthly_code_version,
+    }
