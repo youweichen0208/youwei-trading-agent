@@ -45,7 +45,7 @@ youwei-trading-agent/
   uv.lock                   # Core 运行依赖及本仓库开发依赖
 ```
 
-`services/agent-runtime/`、`integrations/pi/`、`integrations/openwebui/` 和 `integrations/openviking/` 在对应功能实际接入时创建。当前数据逻辑继续位于 `youwei_core/data/`；有独立部署需求时再提取 Data Service。Core 保持原路径，避免单纯搬目录影响现有导入、构建和迁移。
+`services/agent-runtime/`（Hermes 研究/实验实例适配器，独立 Python 3.14 环境）已随 S07 建立；`integrations/pi/`、`integrations/openwebui/` 和 `integrations/openviking/` 在对应功能实际接入时创建。当前数据逻辑继续位于 `youwei_core/data/`；有独立部署需求时再提取 Data Service。Core 保持原路径，避免单纯搬目录影响现有导入、构建和迁移。
 
 ## 2. Worker 与 Runner 的执行交接
 

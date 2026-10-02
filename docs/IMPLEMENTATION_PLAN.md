@@ -36,12 +36,12 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 | --- | --- | --- |
 | S00–S05 | 完成 | 协议定稿；持久任务/权限；沙箱+产物链路；PIT/快照；Ledger/Outcome/评分/归档 |
 | S06 | 已批准、campaign 运行中 | 真实 panel/日历/SPY 冻结；Logistic/Ridge 候选 + Trial（D20 未显示增量）；release `bdb8bbe0…` 获所有者批准（2026-10-02 package r1）；campaign `phase1a-pilot-2026q4` active、12 批 cutoff 入库、首批 cutoff `2026-10-10`（批次 1 于 10-03 06:00 ET 后预注册） |
-| S07 | 纵切片完成、Phase 1B 未启用 | Hermes 研究契约/进程边界/平台工具/无头镜像；Ed25519 跨容器接线（S07m）；真实网关研究链路验证完成（S07n：工具调用/取消/限额/fail-closed 全实测，发现修复 6 缺陷含 Runner 容器泄漏）；聊天栈上线；预算维度已删除 |
+| S07 | 纵切片完成、Phase 1B 未启用 | Hermes 研究契约/进程边界/平台工具/无头镜像；Ed25519 跨容器接线（S07m）；真实网关研究链路验证完成（S07n：工具调用/取消/限额/fail-closed 全实测，发现修复 6 缺陷含 Runner 容器泄漏）；聊天栈上线；预算维度已删除；research-v1 已修订——量化预测入研究输入 + quant_relation（S07o，候选实现待 Trial 登记） |
 | S08 | 设计已确认 + Runner 工具面 + Controller 接线 + 隔离 mock 验收完成 | 往返契约设计经所有者确认（D1=A/D2=A+五项最小要求）；`experiment-v1` 契约 + Runner 持久回执存储与工具/控制端点已落地（S08b）；S08c Controller 接线完成（Core 登记/接纳表 + 编排器 + 实验实例派发 + 研究重入 + 取消传播）；隔离 mock 验收全过（网络探针按 D1 限定、HTTP 越权 17/17、端到端闭环 7/7，修复两处真实缺陷）；真实网关闭环与 Trial 登记随 Phase 1B |
 | S09a | 完成 | 采集调度 collect_tick（16 测试）+ 生产 Compose（去 Runner）+ Core 镜像发布 GHCR + deployment 校验 VALID |
 | **S09b** | 完成 | 运行接线闭环：隔离验收（合成 12/12 + 真实 45/45）、生产库准备（tenant `f497c122…`/计划 hash 固定）、GHCR 镜像发布（r2 digest `53631663…`，含 token 日志缺陷修复）、生产 API/Worker/采集上线（105 观测、21 任务 succeeded、deployment 校验 VALID） |
 | **S09c** | 基本完成（两项搁置） | 磁盘 82%→14%、docker 级重启恢复、r2→r1→r2 回滚 drill、备份接入生产（pgBackRest 同机：WAL 归档 + 每日全量 + wal_archive 监控生效）、告警轮询上线（多格式 webhook，URL 待填）、整机重启演练 RTO≈3min；所有者决策：异地备份与负载复测搁置 |
-| S10–S11 | 未开始 | 评估界面/Memory/审批；候选验证与发布 |
+| S10–S11 | S10a Dashboard 已上线（2026-10-03，含报告指标渲染修复）；Memory/审批/候选验证未开始 | 评估界面/Memory/审批；候选验证与发布 |
 
 **当前运行状态（批准链已走完）：** release `bdb8bbe0…` 已登记批准（approver `human-owner`、scope `0b899b00…`，执行记录见 [§4 完成记录](#4-完成记录)）；campaign `phase1a-pilot-2026q4`（`a63f8494-…`）active，计划 hash `d403c8e5…` 服务端重算校验通过，12 批 planned_cutoffs 入库。批次 1（cutoff 2026-10-10 06:00 ET）由调度器于 2026-10-03 06:00 ET 后自动预注册；特征历史已回补（86 交易日 × 21 对象）且 60/60 可评分。tenant（`f497c122…`）与生产环境（core r2 `53631663…`、postgres `8d69232c…`）已固定，ops status 无告警。
 
@@ -883,6 +883,13 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
 - 部署教训（已入 commit 记录）：代理首版只挂 `youwei-production_core`——**internal 网络容器不发布端口且完全静默失败**（PortBindings 在、NetworkSettings null、无 DNAT、无任何报错）；修复照 core-api 模式同时挂 core（API 访问）+ edge（非 internal，端口发布）。排障期间对照组全部“成功”实为假象：手写测试 compose 漏了服务级 networks 键，跑在自建 default 网络上（pt1–pt17 序列）。
 - 剩余：浏览器端实际渲染验收（所有者动作，入口 `https://dash.youwei-agent.com`）；图表库按需引入（固定版本+SHA256 自托管）；不确定性估计等 S10 后续需等首批 D1 标签成熟（≈2026-10-13）。
 
+### S10a 报告指标渲染修复（2026-10-03）
+
+- 缺陷：报告视图把 metrics 的全部键按标量交给 `fmtNum`，但 `brier`/`brier_n`/`mse_expected_excess`/`rmse_expected_excess`/`mse_n` 是按来源分组的对象（`youwei_core/ledger/evaluation.py`），生产渲染为 `[object Object]`（5 键全部）；`paired_n` 等计数键同时被渲染为 6 位小数。S10a 当时只做了 JS 语法校验，渲染行为无自动化验证——本轮补上。
+- 修复（TDD，先红后绿）：`report.js` 标量键保留原表（`_n` 结尾计数键按整数渲染）；分组键渲染为「指标（按来源）」矩阵，来源列由数据并集推导（Phase 1B 加入 llm_adjusted 列无需改视图）。新增 `apps/dashboard/static/tests/report.test.mjs`（`node --test`，Node ≥ 18 内置 runner，零依赖，最小 DOM shim）+ `tests/test_dashboard_views.py` 包装（找不到 Node 时失败而非跳过）；合成报告四组断言：分组矩阵与列头、null 来源值显式 —、标量行保留、未来来源列自动扩展。
+- 验证：`node --test 'apps/dashboard/static/tests/*.test.mjs'` 4/4 通过（修复前实测 `[object Object]` × 5 红）；`uv run --frozen pytest -q tests/test_dashboard_views.py tests/test_dashboard_proxy.py` 7 passed。monthly.js 同类核查：批次行只消费标量，`summary` 块为死代码（monthly content 无该键），无同类缺陷。
+- 剩余：生产 Dashboard（SG r4）未滚动本修复——属部署动作，随下一次发布执行；浏览器端渲染验收仍待所有者。
+
 ### S07n 真实网关研究链路验证（2026-10-02，agent-runtime → LiteLLM → 火山）
 
 - 状态：**验证矩阵完成，全部实测**；发现并修复 6 项缺陷（其中 Runner 超时容器泄漏为关键项）。详见 [s07-real-gateway-verification](ops/s07-real-gateway-verification.md)（含全部证据与复现脚本）。Phase 1B 数据转发授权未取得——E2E 用合成证据，不含真实研究数据；模型选择为管线验证用车，不构成研究角色定稿。
@@ -893,3 +900,13 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
 - 新增资产：`research_real_gateway.py`（链路级 E2E 驱动，含超时击杀模式）、`gateway_matrix.py`（网关级矩阵）、`research_net_probe.py`（网络探针）、`bridge_scope_probe.py`（工具面越权探针）、`ops/gw_failclosed_drill.sh`（并行栈 fail-closed 演练，不碰生产聊天栈）；验证用研究 key 四枚（e2e/conc/rate/tpm，存 sg-prod 0600 文件）。
 - 验证：agent-runtime 3.14 → 53 passed（新 4）；本机 pure+contracts → 130 passed（新 4）；新镜像对 S07m 既有路径零回归（container_smoke 5/5、mock END_TO_END OK）；catalog + deployment 双 VALID（lock/manifest hash 级联）。
 - 剩余限制：接线为临时性（litellm 接入 youwei-research 为 `docker network connect`，容器重建即失效，Phase 1B 需声明式化）；fail-closed 语义如需收紧需另评估；单回合延迟 84-224s，Phase 1B 批量 60 case 需并发设计；S08 工具往返契约与真实证据转发仍待后续。修复镜像已重发布 GHCR（`phase1a-s07-r2`，digest `bca0a5b9…`）。
+
+### S07o 进度（2026-10-03，量化预测进入研究输入：research-v1 契约修订）
+
+- 缺陷背景：Phase 1B 的 llm_adjusted 此前是「读行情后独立生成」——`fetch_proposal(case, bars)` 不传量化结果，`research-v1` 的 FrozenEvidence 无量化字段，Hermes 从未看到它要「保持或调整」的量化预测；回退语义只存在于 Controller 侧（`apply_phase1b_fallback`）。本片把「量化预测 → 研究证据与反证 → 保持或调整 → 记录调整理由」的输入侧补齐（候选实现，正式启用仍需 Trial 登记 + release 批准）。
+- 契约修订（`contracts/src/youwei_contracts/research.py`，未被任何批准 release 绑定 hash，就地修订）：新增 `QuantPrediction`（model_version 非空、produced 必须双值且 p∈[0,1]、unavailable 必须带 reason 且禁值）；`FrozenEvidence.quant` **必填**（省略即拒绝——盲答路径在契约层关闭）；`ResearchProposal.quant_relation: "kept"|"adjusted"`，由 `validate_proposal_references` 强制：produced 提案 × produced 量化必须声明关系，其余组合出现即拒。
+- Core：`evidence.py` 新增 `build_quant_prediction`（拒绝非 quant_model 来源/缺 model_version/违反值域，包为 `EvidenceAssemblyError`）；`pipeline.py`/`research_client.py`/`experiment_orchestrator.py` 三条 fetcher 统一为 `(case, bars, quant)`，量化预测随冻结证据过边界。
+- agent-runtime：简报新增「Quant prediction (the position you adjust)」段（produced 双值 + keep/adjust 任务语义；unavailable 带理由、声明独立作答）；响应格式契约增 `quant_relation` 字段（真实模型缺字段即拒——与 S07n F1 同理）；`quantitative_basis` 要求说明保持/调整理由。
+- 同步更新：双侧 mock 网关 canned 提案补 `quant_relation`；6 个 smoke 脚本证据构造补合成 quant（**未执行**，SG 侧手动资产）；全部 FrozenEvidence 测试 fixture 更新。
+- 验证（全部先红后绿）：契约新 12 项（值域/必填/relation 三组合）；evidence 映射新 5 项；fetcher 断言量化入 wire 新 2 项；简报新 4 项。**本机全量 `uv run --frozen pytest -q` → 626 passed, 1 skipped（真实 PG 容器 + 实际 Alembic 迁移）**；agent-runtime 3.14 → **85 passed**；Runner `uv sync --frozen --no-dev` 通过。
+- 部署约束（重要）：①已批准 release 的 `code_files` 含 `pipeline.py` hash——下一次生产 Core 部署前须注册新 release 并获所有者批准（或所有者明确决策接受差异）；Phase 1A 行为不变（provider 未接线时仍封 unavailable/not_enabled，本次仅改 Phase 1B 路径）。②`research-v1` wire 变更且 `extra=forbid`：Core/Runner/agent-runtime 镜像须同步升级后 Phase 1B 研究请求才可流动（Runner 解析 `ResearchInvocationRequest`）。③`quant_relation` 尚未持久化到封存记录（提案持久化是 S07 既有未竟项，随其补齐）。④prompt/角色比较的 Trial 事前登记与正式模型选择仍待所有者。

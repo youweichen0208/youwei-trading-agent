@@ -140,7 +140,7 @@ Execution.cancel(job_id, attempt_token) -> cancellation_result
 
 标准 quant 与探索生成代码共享执行约束。调用方不能指定任意镜像、宿主路径、挂载参数或网络模式。
 
-独立 Runner 的 HTTP 契约为 `POST /v1/executions`、`GET /v1/executions/{job_id}/{attempt_no}` 和同路径 `DELETE`。Core Worker 校验作业及快照授权，推送冻结内容和 hash；请求签名绑定 tenant、job、attempt、请求体 hash 及租约截止时间。Worker 持续轮询并按协议续租，Runner 在租约或执行时限到期后停止计算。Runner 返回经过边界校验的产物字节和清单，Worker 在当前 attempt 的 fencing 检查通过后保存业务产物。
+独立 Runner 的 HTTP 契约：标准执行面为 `POST /v1/executions`、`GET /v1/executions/{job_id}/{attempt_no}` 和同路径 `DELETE`；研究面为 `/v1/research-invocations`；受控探索的实验面为 `/v1/experiment-authorizations`（控制面）、`/v1/experiment-computations`（工具面）与 `/v1/experiment-invocations`（实例派发）。Core Worker 校验作业及快照授权，推送冻结内容和 hash；请求签名绑定 tenant、job、attempt、请求体 hash 及租约截止时间。Worker 持续轮询并按协议续租，Runner 在租约或执行时限到期后停止计算。Runner 返回经过边界校验的产物字节和清单，Worker 在当前 attempt 的 fencing 检查通过后保存业务产物。实验面的授权登记与计算回执在 Runner 侧持久化（追加式存储；重启后 running 改写为 failed(interrupted) 留痕，同 id 幂等重放，绝不静默重执行）；业务状态的权威仍是 Core 的 PG 登记/接纳表，Runner 回执仅是执行证据。
 
 ### 3.4 封存
 
@@ -313,7 +313,7 @@ Phase 1A 的主问题是同一预登记 case 集上的 quant_model 相对 baseli
 
 固定一项主指标和主 horizon，额外切片标注探索性。trial 登记从第一次用于选模型/改 prompt 的比较开始，记录失败与放弃的试验。Deflated Sharpe 对应收益策略选择问题，不能代替 Brier 改善检验。[原始论文](https://doi.org/10.2139/ssrn.2460551)
 
-初期 trial 载体为 [docs/trials/registry.md](trials/registry.md)，采用追加约定与 Git 版本审计；本地 Git 不保证历史不可重写，正式运行前落实受控写入及独立归档。当前尚无真实试验或 release 批准记录。
+初期 trial 载体为 [docs/trials/registry.md](trials/registry.md)，采用追加约定与 Git 版本审计；本地 Git 不保证历史不可重写，正式运行前落实受控写入及独立归档。已登记试验与 release 批准的当前状态以 [实施计划](IMPLEMENTATION_PLAN.md) 为准，不在本文件重复维护。
 
 纯量化策略使用训练、验证、purge/embargo、walk-forward 与独立 holdout。LLM 生成历史策略可能带入未来知识，所以历史结果仅用于筛选候选，正式能力依据仍然是后续 shadow。
 
@@ -325,7 +325,7 @@ Phase 1A 的主问题是同一预登记 case 集上的 quant_model 相对 baseli
 
 任务状态：queued -> running -> succeeded / failed / cancelled / expired。attempt 与业务 job 分开。
 
-PG 保存业务执行状态，Runner 中的执行状态仅为短期缓存。Runner 重启后无法恢复的执行由 Core 认定原 attempt 失败或过期，再用新 attempt 重试；不靠 Runner 缓存恢复业务，也不承诺外部计算只发生一次。
+PG 保存业务执行状态；Runner 不保存业务状态。标准执行面的执行状态仅为短期缓存，Runner 重启后无法恢复的执行由 Core 认定原 attempt 失败或过期，再用新 attempt 重试；不靠 Runner 缓存恢复业务，也不承诺外部计算只发生一次。实验面（S08）在 Runner 侧持久化的授权与回执仅是执行证据与幂等重放依据，业务权威仍在 Core 的 PG 登记/接纳表；重启不触发静默重执行，中断如实落回执。
 
 PG 用短事务领取任务，原子更新 lease_owner、lease_expires_at 与递增 attempt_token；可用 FOR UPDATE SKIP LOCKED 降低消费者锁竞争。不能持有事务跨越 LLM 调用。[PostgreSQL 16 文档](https://www.postgresql.org/docs/16/sql-select.html)
 
