@@ -31,10 +31,37 @@
 - 验证：`compose_env(\"production\")` 解析出采集配置与 Tiingo token、`compose_env(\"acceptance\")` 采集为空；`--force-recreate core-worker` 不带导出重建后容器内采集配置在位；healthz 200、数据完好。
 - 运维规则（记录）：生产任何 `up -d`/重建后必须核验 worker env（采集配置 + token）；采集静默跳过不产生日志，禁用不会自报。
 
-## 五、剩余（待决策/待做）
+## 五、pgBackRest 自定义镜像（2026-10-02，已发布待接入）
 
-- pgBackRest：自定义 postgres 镜像（pinned 基底 + 源码编译 pgbackrest，保持 musl 基底不变避免 collation 迁移）、备份/恢复/PITR 演练（repo 类型待定：DO Spaces S3 / 已有独立目标 / 先本地后异地）、生产启用（WAL 归档 + 定时备份 + `/v1/ops/status` wal_archive 生效）。
-- 告警外发：`/v1/ops/status` 阈值评估已就绪、无投递通道；通道待定（webhook/邮件/其他）。
+- 镜像：`infra/images/postgres-pgbackrest.Dockerfile`——pinned `postgres:16-alpine@sha256:721873c3...`（PostgreSQL 16.15，musl）基底 + 源码编译 pgBackRest **2.59.2**（meson/alpine 3.24 构建阶段）。**同基底同 libc**：容器换镜像不变 collation，存量 PGDATA 无需 dump/restore（切 glibc 基底则需要）。
+- 新增运行时库（alpine 3.24，随镜像 digest 固定）：`libbz2 1.0.8-r6`、`xz-libs 5.8.4-r0`、`yaml 0.2.5-r2`；libpq 用基底自带 `/usr/local/lib/libpq.so.5`。镜像 428MB（基底 420MB + 8MB）。
+- 构建时验证：ldd 无缺失库、`pgbackrest --version`、`postgres --version` 一致。
+- 已推送 GHCR：`ghcr.io/youweichen0208/youwei-postgres:phase1a-s09c`，**registry digest（OCI index）`sha256:8d69232c1d2b7771ae8f9dbb04cd56bbd6334972f37e90956f6a5bad05382053`**，按 digest 拉取验证通过。
+- 未接入生产（upstreams.lock 的 postgres 组件待生产换镜像时更新）；接入时 postgres 服务需重启（archive_mode 是启动参数）。
+
+## 六、pgBackRest 备份/恢复/PITR 演练（posix repo，2026-10-02）
+
+脚本：[ops/backup/pgbackrest_drill.sh](../../ops/backup/pgbackrest_drill.sh)（SG 上通过）。与 S02b pitr_drill 同一 marker 证明结构（A 在备份内、B 在备份后目标前、C 在目标后），机制换为 pgBackRest：
+
+- 源库：自定义镜像，`archive_mode=on` + `archive_command='pgbackrest archive-push'`（共享 socket 目录 /socket 供 backup/check 命令连接；pg1-user/pg1-database 需匹配集群超管名）。
+- 验证链：stanza-create → `check`（归档往返）→ 真实迁移（alembic head `f9a0b1c2d3e4`）+ 真实提交路径种子（submit_run）→ 全量备份 → marker B/C → WAL 经 pgBackRest 归档（`pg_stat_archiver` 7 archived）。
+- **PITR 恢复**（目标时间）：fresh 目录 `restore --type=time --target-action=promote` → A+B 在、C 不在、alembic head ✓。
+- **全量丢失恢复**（无 target）：A+B+C 全在 ✓。
+- 实测（31MB 小库，机制级非容量级）：全量备份 **30s**（4MB 备份集）；PITR 恢复+回放+promote **9s**。
+- 演练观察：initdb 阶段的临时服务器也会应答 `pg_isready`，就绪等待必须用真实库连接（脚本已修）；stanza-create 前的 WAL 归档失败属预期（repo 路径未建，postgres 重试后成功）。
+- repo 类型为 posix（本地目录）；**S3 repo 仅差 `[global]` 配置**，待备份目标决策后验证。
+
+## 七、告警外发轮询（2026-10-02，通道待定但框架已上线）
+
+- 脚本：[ops/ops_status_poll.sh](../../ops/ops_status_poll.sh)，部署于 SG `/opt/youwei/production/ops_status_poll.sh`；root cron 每 5 分钟（`*/5 * * * *`，日志 `/var/log/youwei-alert-poll.log`）。
+- 行为：每轮心跳写入 `alert-state/last-poll`；**alert 集变化时投递一次**（新增或解除，稳态不重复）；API 不可达本身作为 `api_unreachable` 告警（fail closed）；每日一条 ok 心跳到 `/var/log/youwei-alerts.log`。
+- 通道：`/opt/youwei/production/alert-channel.env` 里 `YOUWEI_ALERT_WEBHOOK_URL` 配置后 POST `{"text":...}`（通道定后可调 payload）；未配置时投递到本地告警日志。
+- 验证：真实 API ok 路径（心跳+无重复）；stub 触发 `wal_archive_stale` → 投递+状态更新 → 真实运行解除 → 投递 RESOLVED，两态转换各一次。
+
+## 八、剩余（待决策/待做）
+
+- 备份目标决策后：S3（或已有目标）repo 配置 + 重复演练 + 生产接入（compose 换 postgres 镜像 + archive_mode + 备份定时任务 + `/v1/ops/status` wal_archive 生效 + upstreams.lock 更新；接入批次顺带加 core-worker `init: true` 修 PID1 信号问题——见 §二）。
+- 告警通道决策后：写 `/opt/youwei/production/alert-channel.env`（如需非通用 payload 一并调整脚本）。
 - droplet 整机重启演练：待项目所有者确认（影响同机 webdav 等服务）。
-- 资源测量：当前为空闲/静默采集期基线（worker 130MiB/768M、api 59MiB/384M、pg 36MiB/1G、内存 available 6.3G）；采集高峰与首批 Campaign 负载下复测。
-- RPO/RTO：随备份演练记录实测值。
+- 资源测量：静默采集期基线已录（§四/实施计划）；采集高峰与首批 Campaign 负载下复测。
+- RPO/RTO：机制级已录（§六）；容量级与生产配置（archive_timeout=60）下的实测待生产接入后记录。
