@@ -26,6 +26,7 @@ S00 目标与评估协议
   → S09 国内入口与完整 MVP 验收
   → S10 评估界面、Memory 与审批
   → S11 前向候选验证与人工发布
+  → S12 探索性研究闭环（Open WebUI 发起 / Core 执行 / Dashboard 查看；依赖 S07 研究运行时与 S10a，可与 S10/S11 并行）
 ```
 
 S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 的界面可提前开发，正式联调依赖持久事件与研究结果契约。S08 与 S09 可并行。无论如何拆工，后续功能不能绕过前置的权限、预算、截止时间或提交检查。
@@ -42,6 +43,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 | **S09b** | 完成 | 运行接线闭环：隔离验收（合成 12/12 + 真实 45/45）、生产库准备（tenant `f497c122…`/计划 hash 固定）、GHCR 镜像发布（r2 digest `53631663…`，含 token 日志缺陷修复）、生产 API/Worker/采集上线（105 观测、21 任务 succeeded、deployment 校验 VALID） |
 | **S09c** | 基本完成（两项搁置） | 磁盘 82%→14%、docker 级重启恢复、r2→r1→r2 回滚 drill、备份接入生产（pgBackRest 同机：WAL 归档 + 每日全量 + wal_archive 监控生效）、告警轮询上线（多格式 webhook，URL 待填）、整机重启演练 RTO≈3min；所有者决策：异地备份与负载复测搁置 |
 | S10–S11 | S10a Dashboard 已上线（2026-10-03，含报告指标渲染修复）；Memory/审批/候选验证未开始 | 评估界面/Memory/审批；候选验证与发布 |
+| S12 | 方向已登记（2026-10-03 所有者），未开始 | 探索性研究闭环：Open WebUI 发起、Core 执行、Dashboard 查看 |
 
 **当前运行状态（批准链已走完）：** release `bdb8bbe0…` 已登记批准（approver `human-owner`、scope `0b899b00…`，执行记录见 [§4 完成记录](#4-完成记录)）；campaign `phase1a-pilot-2026q4`（`a63f8494-…`）active，计划 hash `d403c8e5…` 服务端重算校验通过，12 批 planned_cutoffs 入库。批次 1（cutoff 2026-10-10 06:00 ET）由调度器于 2026-10-03 06:00 ET 后自动预注册；特征历史已回补（86 交易日 × 21 对象）且 60/60 可评分。tenant（`f497c122…`）与生产环境（core r2 `53631663…`、postgres `8d69232c…`）已固定，ops status 无告警。
 
@@ -241,7 +243,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 - [ ] CN 拉取持久事件，在本地事务更新镜像与 cursor；浏览器通过 SSE 收进度。
 - [ ] cursor 缺口/过期、跨境断线、请求超时能重新对账。
 - [ ] Web 展示数据截止、来源、三组状态、数据质量及授权允许的产物。（成本展示已随 2026-09-30 预算维度删除而移除；展示层已由 S10a Dashboard 落地，见 S10a 进度）
-- [x] 评估 Open WebUI 适配或复用归档 Next.js；界面只消费 Core 接口，固定上游版本并验证身份、任务与结果契约。（2026-10-02 所有者决策：归档原型已拆除且对接旧 OSS 架构不可复用；Open WebUI 为聊天形态不作 Dashboard 载体；定案轻量自建静态 SPA（`apps/dashboard/`，原生 ES modules 无构建链）+ 同源只读代理（Basic Auth + GET 白名单 + 服务端持 tenant key）——已随 S10a 落地）
+- [x] 评估 Open WebUI 适配或复用归档 Next.js；界面只消费 Core 接口，固定上游版本并验证身份、任务与结果契约。（2026-10-02 所有者决策：归档原型已拆除且对接旧 OSS 架构不可复用；Open WebUI 为聊天形态不作 Dashboard 载体；定案轻量自建静态 SPA（`apps/dashboard/`，原生 ES modules 无构建链）+ 同源只读代理（Basic Auth + GET 白名单 + 服务端持 tenant key）——已随 S10a 落地。注：本决策仅约束 Dashboard 载体选型；Open WebUI 作为研究发起入口的接入另见 S12，2026-10-03 所有者已定方向）
 - [ ] 多用户开放前完成 RLS、对象下载、cache/session 越权测试。
 - [ ] 真实数据恢复演练、资源压测与故障注入，记录实测 RPO/RTO。
 - [ ] 使用独立构建镜像、完整 digest 与目标机验收报告生成部署清单；运行 `infra/validate_upstreams.py --mode deployment` 并验证升级/回滚兼容性。（进展：S09a 已生成 `infra/compose/production.json` + `infra/deployment-manifest.json`，Core 镜像发布 GHCR digest `sha256:7292c853...`、postgres digest `sha256:721873c3...`，`--mode deployment` → VALID；升级/回滚兼容性验证待 S09b/S09c；详见 S09a 进度）
@@ -276,6 +278,29 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 交付：可审计的候选比较、批准和回滚流程。
 
 验收：修改 prompt/model/memory/工具/降级政策均产生新版本；未批准候选不能影响生产预测；历史模拟与正式前向结果清晰区分。
+
+### S12 — 探索性研究闭环：Open WebUI 发起、Core 执行、Dashboard 查看（方向已定 2026-10-03，未实施）
+
+定位：把「用户发起美股研究并拿到有证据的报告」作为共享的 Core 能力交付。2026-10-02 的 Open WebUI 决策只约束 Dashboard 载体选型；架构 §8 要求分别衡量研究工具价值与预测增量——探索性研究属于前者，不进入正式预测 Campaign。方向（所有者 2026-10-03）：保留 Dashboard 作研究与评估详情视图；Open WebUI 经薄适配器发起研究并展示摘要；聊天历史不自动进入正式预测上下文。
+
+| 模块 | 职责 |
+| --- | --- |
+| Open WebUI（v0.6.36，digest 固定） | 输入问题、发起研究、查看进度与报告摘要（Pipe Function 薄适配器；兼容性按固定版本实测） |
+| 薄适配器 | 仅提交/查询/取消/摘要渲染；服务端持 Core key（同 dashboard proxy 先例）；不实现研究编排，不 fork Open WebUI |
+| Core | 身份授权、持久任务、冻结证据（复用 S07o 的 FrozenEvidence 含量化预测）、报告保存与版本化读取 |
+| Dashboard | 完整报告、证据引用、批次、预测与评估表格 |
+| Hermes | 受控运行时内完成研究（Runner 链路） |
+
+- [ ] S12a Core 探索性研究任务与报告：新任务类型（提交/查询/取消 API + research-submit 授权）、报告存储与版本化读取、报告固定证据/量化输入/引用与 warnings；探索性研究与正式 Campaign 分开登记。
+- [ ] S12b Dashboard 探索性报告查看（消费 S12a 读取 API）。
+- [ ] S12c Open WebUI Pipe 适配器：v0.6.36 Pipe Function 形状与执行语义实测；提交→任务号→进度→摘要→详情链接；明确取消走 Core 取消接口；刷新/断线不丢任务（状态在 Core）；上线前关闭注册开放并落实入口用户→Core 授权映射。
+- [ ] S12d 真实证券端到端样例：研究网络声明式化（替换临时 `docker network connect`）+ 数据转发授权落实 + upstreams 登记（openwebui 升级 enabled，验收覆盖研究入口）。
+
+交付：从聊天入口发起、基于冻结事实、可核对引用的研究报告；Dashboard 可查完整报告。
+
+验收：任务状态持久（刷新/断线不丢）且取消语义明确；报告固定证据与代码版本；研究 LLM 调用走研究 key 限额（不并入 chat key 无预算策略）；聊天上下文不进入正式预测链路；公网入口的研究发起有授权与费用控制。
+
+前置依赖（所有者）：数据源 LLM 转发授权；探索性研究的登记形态（是否绑 Trial/release 及审批边界）；正式模型与 prompt 定稿（Trial 登记）；公网入口研究发起的安全策略。
 
 ## 3. 评审问题到实施任务的映射
 
