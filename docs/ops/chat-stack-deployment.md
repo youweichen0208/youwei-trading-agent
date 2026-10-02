@@ -34,8 +34,9 @@
 
 ## 已知限制与待办
 
-- **公网入口未接**：等所有者回答备案问题；方案 A（ECS 443，需备案）/ B（ECS 8443 非标端口）/ C（SG 直连 443）。DNS `trading.youwei-agent.com` A 记录由所有者添加。
+- **公网入口（预置完成，待 DNS）**：备案经运行证据确认有效（`market.youwei-agent.com` 一直从该 cn-shanghai ECS 标准 443 服务）。DNS 托管在 **Cloudflare**（treasure/olof.ns.cloudflare.com）；待所有者在 CF 控制台加两条 **仅 DNS（灰云）** 记录：`trading A 8.159.158.155`、`sg-chat A 168.144.39.34`；随后两端 certbot 发证（--nginx 自动加 TLS 块）。预置：`infra/chat/nginx-ecs-trading.conf`（已部署 ECS：公网入口、登录限流 5r/m、resolver 按请求解析 upstream、WebSocket/SSE 友好）、`infra/chat/nginx-sg-chat.conf`（已部署 SG：仅接受 ECS 来源 IP，代理 127.0.0.1:8090）。
 - 成本记录：GLM/DeepSeek/Qwen 不在 LiteLLM 默认成本表，当前 spend 只记 token 不记金额；自定义 cost map + 火山计费对账为待办（llm-gateway-options 遗留项）。
 - 未测（llm-gateway-options 待测清单）：取消传播、fail-closed（计数器故障行为）、并发/速率限额生效证明——随 S07 研究链路真实网关验证批补齐。
 - LiteLLM 管理面（`/key/*`）仅绑 `127.0.0.1`，经 SSH 访问；研究链路接入时再决定 agent-runtime 网络如何到达网关。
 - 备份：聊天栈为可重建基础设施（openwebui 数据卷含账户/聊天记录，未纳入 pgbackrest；重要时可加 dump cron）。
+- 遗留：`market.youwei-agent.com` DNS 仍指向 ECS 且 502（旧原型已拆）；是否清理归所有者。
