@@ -168,12 +168,12 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 
 > 2026-10-01 决策：MVP 暂缓接入 Pi，Hermes 作为唯一 Agent 框架；研究角色与实验角色由独立 Hermes 实例实现。依据 [hermes-only-runtime-assessment](research/hermes-only-runtime-assessment.md)。Pi 保留为可替换的实验 Agent 适配器候选，版本锁不变，仅在 Hermes 暴露具体缺口时经预登记比较后再评估接入。
 
-- [ ] **设计「研究请求 → Controller 授权 → 执行 → 产物引用」的往返契约**：Hermes 研究实例经 Controller 受控接口申请计算、查询状态、读取产物；提交、状态查询、产物读取分别授权；标准 quant 不经 Agent 模型循环，artifact_read 为读取操作；不预先承诺必须实现 quant_run/sandbox_submit/sandbox_status/artifact_read 这四个名称，按一个完整探索用例决定工具接口（S07 收敛决定）。
-- [ ] 库未覆盖时，Controller 启动独立 Hermes 实验实例，输入冻结快照说明与明确问题；生成代码作为不可信作业输入，交 Sandbox Runner 执行。研究/实验实例不共享可自动演化的记忆。
-- [ ] 固定 Job/Artifact 契约，覆盖取消、partial、timeout、warnings、代码与环境引用；提交、状态查询、产物读取分别授权。
-- [ ] 实验输出由研究实例消费，再返回 Proposal；Controller 继续掌握任务状态、租约、截止时间与正式封存。
-- [ ] 选择一个 quant 库未覆盖的探索问题，生成代码后在沙箱执行，完成从 Hermes 提议到沙箱结果、研究引用的完整样例。
-- [ ] 实验候选登记 trial；禁止把生成代码热加载为 Extension 或生产 quant 库。
+- [x] **设计「研究请求 → Controller 授权 → 执行 → 产物引用」的往返契约**：Hermes 研究实例经 Controller 受控接口申请计算、查询状态、读取产物；提交、状态查询、产物读取分别授权；标准 quant 不经 Agent 模型循环，artifact_read 为读取操作；不预先承诺必须实现 quant_run/sandbox_submit/sandbox_status/artifact_read 这四个名称，按一个完整探索用例决定工具接口（S07 收敛决定）。（S08a 设计定稿经所有者确认 D1=A/D2=A+五项最小要求；`experiment-v1` 契约落地，工具面由用例定为 sandbox_submit/status/read 三操作，见 S08a/S08b 记录）
+- [x] 库未覆盖时，Controller 启动独立 Hermes 实验实例，输入冻结快照说明与明确问题；生成代码作为不可信作业输入，交 Sandbox Runner 执行。研究/实验实例不共享可自动演化的记忆。（S08b/S08c：Runner `/v1/experiment-invocations` 派发 + agent-runtime `experiment-once`/youwei-experiment 工具集；实例只收快照 manifest 不收内容，快照由 Runner 注入沙箱；隔离 memory 键同研究实例；隔离 mock 验收端到端实测）
+- [x] 固定 Job/Artifact 契约，覆盖取消、partial、timeout、warnings、代码与环境引用；提交、状态查询、产物读取分别授权。（experiment-v1：取消传播至实例与计算、partial 语义、timeout 回执、warnings、code_sha256+镜像+SBX_* env 引用；越权矩阵 17/17 实测提交/状态/读取分别授权）
+- [x] 实验输出由研究实例消费，再返回 Proposal；Controller 继续掌握任务状态、租约、截止时间与正式封存。（S08c：ExperimentContext 重入 + Core 登记/接纳 fencing；编排器持有租约重签与终止传播；封存仍走 seal_commit 的 fencing/窗口/evidence 纪律）
+- [ ] 选择一个 quant 库未覆盖的探索问题，生成代码后在沙箱执行，完成从 Hermes 提议到沙箱结果、研究引用的完整样例。（进展：隔离 mock 验收已用 mock 模型走通全链（vol-ratio 分位数用例，沙箱真容器产出 ratio.json，重入提案 kind="code" 引用并解析）；真实网关+真实冻结快照的小样本端到端随 Phase 1B）
+- [ ] 实验候选登记 trial；禁止把生成代码热加载为 Extension 或生产 quant 库。（禁止热加载已为不变式并经隔离验收佐证；trial 登记随真实探索用例归 Phase 1B）
 
 交付：从 Hermes 研究提议到实验实例、沙箱执行、结果回收、研究引用的完整样例。
 
@@ -203,7 +203,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 
 ### S08c 进度（2026-10-03，Controller 接线：登记/接纳 + 实验实例派发 + 研究重入）
 
-- 状态：**Controller 接线代码与隔离开发测试完成**（按所有者确认的推进顺序，设计修订与 Runner 工具端点之后的第一步实现；**隔离环境 mock 验收——网络探针 + HTTP 越权实测——待执行**，真实快照接线后端到端样例与 Trial 登记归后续）。
+- 状态：**Controller 接线代码与隔离开发测试完成；隔离 mock 验收亦已完成（见下节）**（按所有者确认的推进顺序：设计修订 → Runner 工具端点 → Controller 接线 → 隔离 mock 验收，全部落地；真实快照接线后真实网关端到端样例与 Trial 登记归 Phase 1B）。
 - 契约补齐（`youwei_contracts`）：
   - `research_capability.py`：新 audience `runtime-experiment`（Controller → 实验容器授权）与新 scope `experiment:run`（派发，aud=runner-exec；容器授权同 scope，镜像 research:run 双用法）+ `experiment:run_status`（轮询派发状态）。
   - `agent_runtime.py`：`ResearchInvocationResult` 携带 proposal **XOR** `experiment_request`（互斥校验）；`ResearchInvocationRequest` 增 `experiments`（重入回合携带已接纳实验结果，上限 4）。
