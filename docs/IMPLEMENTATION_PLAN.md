@@ -3,7 +3,7 @@
 日期：2026-09-27；结构优化更新：2026-09-28\
 设计依据：[ARCHITECTURE.md](ARCHITECTURE.md)\
 问题来源：[v0.2 评审](ARCHITECTURE_REVIEW_v0.2.md)\
-状态：**Phase 1A 前向实验已批准并注册，运行中**——所有者 2026-10-02 批准（package r1）；campaign `phase1a-pilot-2026q4`（`a63f8494-4730-4cc7-bf2d-0b29e895aa3c`）active，12 批 cutoff 已入库，首个 cutoff **2026-10-10 06:00 ET**（批次于 10-03 06:00 ET 后由调度器预注册）——S00–S06 完成（Phase 1A 批次运行中）；S07 收尾（真实网关研究链路验证完成，聊天栈上线；Phase 1B 未启用）；S09a/S09b 完成；S09c 实质验收完成（磁盘治理、重启/回滚 drill、备份接入生产、告警轮询、整机重启演练 RTO≈3min；剩余 webhook URL 与负载复测按所有者决策 2026-10-02 搁置）。**下一步：S08c Controller 接线与隔离 mock 验收均已完成（网络探针 + HTTP 越权 17/17 + 端到端冒烟全过，验收中修复两处真实缺陷，见 S08c 进度与 [s08-mock-acceptance](ops/s08-mock-acceptance.md)）；聊天栈备份已上线（每日 cron，7 日备 + 4 周备，密钥单独受控，告警三路径与隔离恢复验证全过，同机风险如实记录）；WAL 归档告警已改积压驱动并部署（core r3，旧 wall-clock 规则的空闲库误报解除，告警已清）；S10a Dashboard 只读层三片完成（报告/月报读取 API、冻结计划分母/Case 明细 API、同源只读代理+静态 SPA，608 passed，生产部署待入口决策）；批次 1 预注册核查 2026-10-03 18:00（北京时间）后执行，cutoff 2026-10-10 06:00 ET。** 阶段详情见 [§4 完成记录](#4-完成记录)；S08（受控量化探索）已决策为 Hermes 唯一框架、Pi 暂缓。
+状态：**Phase 1A 前向实验已批准并注册，运行中**——所有者 2026-10-02 批准（package r1）；campaign `phase1a-pilot-2026q4`（`a63f8494-4730-4cc7-bf2d-0b29e895aa3c`）active，12 批 cutoff 已入库，首个 cutoff **2026-10-10 06:00 ET**（批次于 10-03 06:00 ET 后由调度器预注册）——S00–S06 完成（Phase 1A 批次运行中）；S07 收尾（真实网关研究链路验证完成，聊天栈上线；Phase 1B 未启用）；S09a/S09b 完成；S09c 实质验收完成（磁盘治理、重启/回滚 drill、备份接入生产、告警轮询、整机重启演练 RTO≈3min；剩余 webhook URL 与负载复测按所有者决策 2026-10-02 搁置）。**下一步：S08c Controller 接线与隔离 mock 验收均已完成（网络探针 + HTTP 越权 17/17 + 端到端冒烟全过，验收中修复两处真实缺陷，见 S08c 进度与 [s08-mock-acceptance](ops/s08-mock-acceptance.md)）；聊天栈备份已上线（每日 cron，7 日备 + 4 周备，密钥单独受控，告警三路径与隔离恢复验证全过，同机风险如实记录）；WAL 归档告警已改积压驱动并部署（core r3，旧 wall-clock 规则的空闲库误报解除，告警已清）；S10a Dashboard 已上线（ECS 中转入口 `https://dash.youwei-agent.com`，Basic Auth + 只读代理 + r4，全链验证过，浏览器渲染验收待所有者）；批次 1 预注册核查 2026-10-03 18:00（北京时间）后执行，cutoff 2026-10-10 06:00 ET。** 阶段详情见 [§4 完成记录](#4-完成记录)；S08（受控量化探索）已决策为 Hermes 唯一框架、Pi 暂缓。
 
 ## 1. 执行规则
 
@@ -45,7 +45,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 
 **当前运行状态（批准链已走完）：** release `bdb8bbe0…` 已登记批准（approver `human-owner`、scope `0b899b00…`，执行记录见 [§4 完成记录](#4-完成记录)）；campaign `phase1a-pilot-2026q4`（`a63f8494-…`）active，计划 hash `d403c8e5…` 服务端重算校验通过，12 批 planned_cutoffs 入库。批次 1（cutoff 2026-10-10 06:00 ET）由调度器于 2026-10-03 06:00 ET 后自动预注册；特征历史已回补（86 交易日 × 21 对象）且 60/60 可评分。tenant（`f497c122…`）与生产环境（core r2 `53631663…`、postgres `8d69232c…`）已固定，ops status 无告警。
 
-**下一步动作（按序）：** ① 批次 1 预注册核查（2026-10-03 18:00 北京时间后，只读四项：正确 campaign 1 批次/60 case/窗口正确/无重复）并在 2026-10-10 06:00 ET cutoff 窗口确认预测封存与及时确认；② 待所有者决策：S10a Dashboard 生产入口（公网暴露方式：ECS 中转新子域/SG 直连/仅内网，涉及 DNS、证书与暴露面，需所有者定；代理 Basic Auth 凭证由部署时生成）。聊天栈备份（2026-10-02）与 WAL 归档告警积压驱动修复（2026-10-02，core r3，含部署事故与恢复记录）均已完成，见对应完成小节。S08 隔离 mock 验收已完成，真实快照接线后端到端样例与 Trial 登记随 Phase 1B 推进。
+**下一步动作（按序）：** ① 批次 1 预注册核查（2026-10-03 18:00 北京时间后，只读四项：正确 campaign 1 批次/60 case/窗口正确/无重复）并在 2026-10-10 06:00 ET cutoff 窗口确认预测封存与及时确认；② S10a 浏览器渲染验收（所有者打开 `https://dash.youwei-agent.com`，凭证见 `sg-prod:/opt/youwei/secrets/dashboard.password`）；③ 聊天栈备份首次 cron 自动运行确认（2026-10-03 03:40 UTC 后，heartbeat 更新且无告警）。聊天栈备份（2026-10-02）、WAL 归档告警积压驱动修复（2026-10-02，core r3）、S10a Dashboard（2026-10-02/03，三片 + r4 + 公网入口）均已完成，见对应完成小节。S08 隔离 mock 验收已完成，真实快照接线后端到端样例与 Trial 登记随 Phase 1B 推进（启用依赖所有者：数据源 LLM 转发授权、新 Campaign、release 批准）。
 
 ## 2. 任务清单
 
@@ -879,7 +879,9 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
   2. 冻结计划与 Case 明细 API（commit 5cf0e7f）——`campaign_status` 新增 `plan` 节（12 批×20 证券×3 窗口=720 case 分母；registered/pending_registration/overdue_unregistered/backfilled 分类）与逐批 phase（awaiting_cutoff/in_window/sealed/missed）；新增 `GET /v1/campaigns/{id}/cases`（分页≤500、batch/horizon 过滤、当前 ticker、各来源仓位（llm_adjusted 以 unavailable/not_enabled 如实呈现）、当前 outcome 头 vs `scored_against_revision` 分离）。
   3. 只读代理 + 静态页（commit 220cc17）——`apps/dashboard/proxy.py`（Basic Auth 常数时间 scrypt 校验、GET 白名单精确 UUID 形状、tenant key 仅存代理 env、静态文件与 /api/config 同样在认证后）+ `apps/dashboard/static/`（无构建链无 CDN；总览→批次→Case→报告/月报视图，待状态渲染为 待/—）。
 - 验证：本机全量 **608 passed, 1 skipped**（新增 18：报告读取 6 + 计划/Case 6 + 代理 6 含真 Core 端到端链）；全部 JS 模块 node 语法校验通过；端到端链验证 plan 分母与待态 null 穿透全程、未评分报告为 404 而非假零。
-- 剩余：生产部署（Basic Auth 凭证生成、sg-prod 部署、nginx 入口与 DNS/证书）待所有者定公网入口方式；浏览器端实际渲染验收待部署后进行；图表库按需引入（固定版本+SHA256 自托管）。
+- 生产部署（2026-10-03，commit ea9bf43）：入口方式所有者选定 ECS 中转（与 trading 同模式）。Core 滚动至 **r4**（`sha256:54df4db5…`，tag `phase1a-r4`，push + digest 拉取验证；S10a API 进生产）；`youwei-dashboard` compose 项目上线（Core 镜像 + 只读挂载 + env_file 持服务端 tenant key，专用 key `dashboard-readonly-20261002`，Basic Auth 凭证 scrypt 存 SG 0600）；两端 nginx（ECS `dash.youwei-agent.com` 全站限流 60r/m + SNI 回源；SG `sg-dash.youwei-agent.com` 仅允许 ECS IP）；两端 certbot 发证（2026-12-31 到期，自动续期）。全链实测：公网 401/带凭证 200、**plan 12 批/720 case（registered 0/pending 12/overdue 0/backfilled 0）经完整公网链验证**、静态页 200、写路径 405、SG 直连非 ECS 403。
+- 部署教训（已入 commit 记录）：代理首版只挂 `youwei-production_core`——**internal 网络容器不发布端口且完全静默失败**（PortBindings 在、NetworkSettings null、无 DNAT、无任何报错）；修复照 core-api 模式同时挂 core（API 访问）+ edge（非 internal，端口发布）。排障期间对照组全部“成功”实为假象：手写测试 compose 漏了服务级 networks 键，跑在自建 default 网络上（pt1–pt17 序列）。
+- 剩余：浏览器端实际渲染验收（所有者动作，入口 `https://dash.youwei-agent.com`）；图表库按需引入（固定版本+SHA256 自托管）；不确定性估计等 S10 后续需等首批 D1 标签成熟（≈2026-10-13）。
 
 ### S07n 真实网关研究链路验证（2026-10-02，agent-runtime → LiteLLM → 火山）
 
