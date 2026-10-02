@@ -36,10 +36,17 @@ def _content_sha(bars):
     return hashlib.sha256(data).hexdigest()
 
 
-def _frozen(sec="00000000-0000-0000-0000-00000000000a", bars=None):
+def _frozen(sec="00000000-0000-0000-0000-00000000000a", bars=None, quant=None):
     from youwei_contracts.research import FrozenEvidence
 
     bars = _bars(sec) if bars is None else bars
+    if quant is None:
+        quant = {
+            "model_version": "quant-momentum-v0",
+            "source_status": "produced",
+            "p_outperform": 0.55,
+            "expected_excess_return": 0.01,
+        }
     return FrozenEvidence(
         run_id=uuid.uuid4(),
         tenant_id=uuid.uuid4(),
@@ -66,7 +73,45 @@ def _frozen(sec="00000000-0000-0000-0000-00000000000a", bars=None):
         },
         target_policy_sha256="d" * 64,
         batch_manifest={"calendar_version": "nyse-rules-v1"},
+        quant=quant,
     )
+
+
+def test_brief_presents_the_quant_prediction_to_adjust():
+    """The quant prediction rides the evidence; the brief must surface it.
+    The llm_adjusted position is keep-or-adjust RELATIVE to this prediction —
+    a research role that never sees quant cannot implement that semantics."""
+    brief = build_research_brief(_frozen())
+    assert "Quant prediction" in brief
+    assert "quant-momentum-v0" in brief
+    assert "0.55" in brief
+    assert "0.01" in brief
+
+
+def test_brief_presents_unavailable_quant_with_reason():
+    """An unavailable quant is honest input: the brief shows the reason so
+    the model answers independently knowing exactly why quant could not."""
+    brief = build_research_brief(_frozen(quant={
+        "model_version": "quant-momentum-v0",
+        "source_status": "unavailable",
+        "reason": "insufficient_history",
+    }))
+    assert "unavailable" in brief
+    assert "insufficient_history" in brief
+
+
+def test_brief_requires_quant_relation_in_response_format():
+    """A produced proposal over a produced quant must state its relation
+    (kept/adjusted) — validate_proposal_references rejects the proposal
+    without it, so the brief must name the field or real turns fail."""
+    brief = build_research_brief(_frozen())
+    assert "quant_relation" in brief
+    assert '"kept"' in brief and '"adjusted"' in brief
+
+
+def test_brief_task_states_keep_or_adjust_semantics():
+    brief = build_research_brief(_frozen())
+    assert "keep" in brief and "adjust" in brief
 
 
 def test_isolation_disables_implicit_state():

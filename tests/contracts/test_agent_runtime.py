@@ -46,6 +46,12 @@ def _evidence(tenant_id=None, run_id=None, case_id=None) -> FrozenEvidence:
         },
         target_policy_sha256="p" * 64,
         batch_manifest={"version": "1"},
+        quant={
+            "model_version": "quant-momentum-v0",
+            "source_status": "produced",
+            "p_outperform": 0.55,
+            "expected_excess_return": 0.01,
+        },
     )
 
 

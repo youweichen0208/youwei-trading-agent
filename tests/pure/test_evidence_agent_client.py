@@ -65,6 +65,19 @@ def _snapshot(content: list[dict], *, mode="forward") -> dict:
     }
 
 
+def _quant(**overrides) -> dict:
+    """A quant SourcePrediction-shaped input (the position Hermes adjusts)."""
+    base = {
+        "source": "quant_model",
+        "source_status": "produced",
+        "p_outperform": 0.55,
+        "expected_excess_return": 0.01,
+        "model_version": "quant-momentum-v0",
+    }
+    base.update(overrides)
+    return base
+
+
 def test_build_frozen_evidence_assembles_bundle():
     sec = str(uuid.uuid4())
     bars = [{"security_id": sec, "trade_date": "2026-09-25", "close": 100.0}]
@@ -76,6 +89,7 @@ def test_build_frozen_evidence_assembles_bundle():
         case=case,
         snapshot=snap,
         batch_manifest={"calendar_version": "nyse-rules-v1"},
+        quant=_quant(),
     )
     assert evidence.case.case_id == case["id"]
     assert evidence.case.horizon_td == 20
@@ -84,6 +98,50 @@ def test_build_frozen_evidence_assembles_bundle():
     assert evidence.evidence.mode == "forward"
     assert evidence.evidence.content == bars
     assert evidence.batch_manifest == {"calendar_version": "nyse-rules-v1"}
+    assert evidence.quant.model_version == "quant-momentum-v0"
+    assert evidence.quant.p_outperform == 0.55
+
+
+def test_build_frozen_evidence_maps_unavailable_quant_with_reason():
+    snap = _snapshot([{"security_id": "x", "trade_date": "2026-09-25", "close": 1.0}])
+    evidence = build_frozen_evidence(
+        run_id=uuid.uuid4(), tenant_id=uuid.uuid4(),
+        case=_case(), snapshot=snap, batch_manifest={},
+        quant=_quant(source_status="unavailable", reason="insufficient_history",
+                     p_outperform=None, expected_excess_return=None),
+    )
+    assert evidence.quant.source_status == "unavailable"
+    assert evidence.quant.reason == "insufficient_history"
+    assert evidence.quant.p_outperform is None
+
+
+def test_build_frozen_evidence_requires_quant_input():
+    snap = _snapshot([{"security_id": "x", "trade_date": "2026-09-25", "close": 1.0}])
+    with pytest.raises(EvidenceAssemblyError, match="quant"):
+        build_frozen_evidence(
+            run_id=uuid.uuid4(), tenant_id=uuid.uuid4(),
+            case=_case(), snapshot=snap, batch_manifest={}, quant=None,
+        )
+
+
+def test_build_frozen_evidence_rejects_quant_without_model_version():
+    snap = _snapshot([{"security_id": "x", "trade_date": "2026-09-25", "close": 1.0}])
+    with pytest.raises(EvidenceAssemblyError, match="model_version"):
+        build_frozen_evidence(
+            run_id=uuid.uuid4(), tenant_id=uuid.uuid4(),
+            case=_case(), snapshot=snap, batch_manifest={},
+            quant=_quant(model_version=None),
+        )
+
+
+def test_build_frozen_evidence_rejects_non_quant_source():
+    snap = _snapshot([{"security_id": "x", "trade_date": "2026-09-25", "close": 1.0}])
+    with pytest.raises(EvidenceAssemblyError, match="quant_model"):
+        build_frozen_evidence(
+            run_id=uuid.uuid4(), tenant_id=uuid.uuid4(),
+            case=_case(), snapshot=snap, batch_manifest={},
+            quant=_quant(source="baseline"),
+        )
 
 
 def test_build_frozen_evidence_rejects_non_forward_snapshot():
@@ -91,7 +149,7 @@ def test_build_frozen_evidence_rejects_non_forward_snapshot():
     with pytest.raises(EvidenceAssemblyError, match="forward"):
         build_frozen_evidence(
             run_id=uuid.uuid4(), tenant_id=uuid.uuid4(),
-            case=_case(), snapshot=snap, batch_manifest={},
+            case=_case(), snapshot=snap, batch_manifest={}, quant=_quant(),
         )
 
 
@@ -101,7 +159,7 @@ def test_build_frozen_evidence_rejects_tampered_content():
     with pytest.raises(Exception):  # pydantic hash validation
         build_frozen_evidence(
             run_id=uuid.uuid4(), tenant_id=uuid.uuid4(),
-            case=_case(), snapshot=snap, batch_manifest={},
+            case=_case(), snapshot=snap, batch_manifest={}, quant=_quant(),
         )
 
 
@@ -124,6 +182,7 @@ def test_encode_request_and_decode_result_roundtrip():
     case = _case(security_id=uuid.UUID(sec))
     evidence = build_frozen_evidence(
         run_id=run_id, tenant_id=uuid.uuid4(), case=case, snapshot=snap, batch_manifest={},
+        quant=_quant(),
     )
     inv = ResearchInvocation(
         capability_token="ywc_dummy", evidence=evidence, config={"base_url": "x", "api_key": "k", "model": "m"},
@@ -227,13 +286,16 @@ async def test_fetch_proposal_drives_subprocess_and_returns_proposal():
             timeout_seconds=30.0,
         ),
     )
-    got = await fetch(case, bars)
+    got = await fetch(case, bars, _quant())
     assert got.source_status == "produced"
     assert got.p_outperform == 0.6
     # the subprocess received the evidence bundle + capability token
     sent = json.loads(captured["proc"].received)
     assert sent["capability_token"] == "ywc_dummy"
     assert sent["evidence"]["case"]["case_id"] == str(case["id"])
+    # the quant prediction rides the evidence: Hermes sees what it adjusts
+    assert sent["evidence"]["quant"]["p_outperform"] == 0.55
+    assert sent["evidence"]["quant"]["model_version"] == "quant-momentum-v0"
 
 
 async def test_fetch_proposal_raises_on_subprocess_failure():
@@ -253,7 +315,7 @@ async def test_fetch_proposal_raises_on_subprocess_failure():
         ),
     )
     with pytest.raises(AgentRuntimeError, match="exited 1"):
-        await fetch(case, [])
+        await fetch(case, [], _quant())
 
 
 class _HangingProcess:
@@ -283,6 +345,7 @@ def _invocation():
     case = _case(security_id=uuid.UUID(sec))
     evidence = build_frozen_evidence(
         run_id=uuid.uuid4(), tenant_id=uuid.uuid4(), case=case, snapshot=snap, batch_manifest={},
+        quant=_quant(),
     )
     return ResearchInvocation(
         capability_token="ywc_dummy", evidence=evidence,
@@ -397,7 +460,7 @@ async def test_fetcher_rejects_proposal_bound_to_wrong_run():
         ),
     )
     with pytest.raises(AgentRuntimeError, match="run_id/case_id"):
-        await fetch_with_proc(case, [])
+        await fetch_with_proc(case, [], _quant())
 
 
 async def test_fetcher_rejects_proposal_bound_to_wrong_case():
@@ -418,7 +481,7 @@ async def test_fetcher_rejects_proposal_bound_to_wrong_case():
         ),
     )
     with pytest.raises(AgentRuntimeError, match="run_id/case_id"):
-        await fetch_with_proc(case, [])
+        await fetch_with_proc(case, [], _quant())
 
 
 def test_decode_result_rejects_incompatible_proposal_shape():
@@ -485,7 +548,7 @@ async def test_fetcher_passes_usage_to_sink():
         ),
         usage_sink=captured.append,
     )
-    got = await fetch(case, bars)
+    got = await fetch(case, bars, _quant())
     assert got.source_status == "produced"
     assert len(captured) == 1
     assert captured[0] == usage_payload
@@ -519,5 +582,44 @@ async def test_fetcher_without_sink_drops_usage_but_returns_proposal():
             research_config={}, process_factory=process_factory, timeout_seconds=30.0,
         ),
     )
-    got = await fetch(case, bars)
+    got = await fetch(case, bars, _quant())
     assert got.source_status == "produced"
+
+
+async def test_fetch_proposal_unavailable_quant_rides_evidence_too():
+    """An unavailable quant is honest input: the bundle carries the reason,
+    so Hermes can answer independently knowing exactly why quant could not."""
+    run_id = uuid.uuid4()
+    sec = str(uuid.uuid4())
+    bars = [{"security_id": sec, "trade_date": "2026-09-25", "close": 100.0}]
+    snap = _snapshot(bars)
+    case = _case(security_id=uuid.UUID(sec))
+    proposal = _proposal(run_id, case["id"])
+    result_line = json.dumps(
+        {"ok": True, "proposal": proposal.model_dump(mode="json")},
+        sort_keys=True, separators=(",", ":"),
+    ).encode()
+
+    captured = {}
+
+    async def process_factory():
+        proc = _FakeProcess(result_line)
+        captured["proc"] = proc
+        return proc
+
+    fetch = make_phase1b_llm_fetcher(
+        run_id=run_id, tenant_id=uuid.uuid4(), snapshot=snap, batch_manifest={},
+        capability_token="ywc_dummy",
+        agent_runtime=AgentRuntimeConfig(
+            research_config={}, process_factory=process_factory, timeout_seconds=30.0,
+        ),
+    )
+    got = await fetch(
+        case, bars,
+        _quant(source_status="unavailable", reason="insufficient_history",
+               p_outperform=None, expected_excess_return=None),
+    )
+    assert got.source_status == "produced"
+    sent = json.loads(captured["proc"].received)
+    assert sent["evidence"]["quant"]["source_status"] == "unavailable"
+    assert sent["evidence"]["quant"]["reason"] == "insufficient_history"

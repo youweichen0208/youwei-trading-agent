@@ -93,6 +93,32 @@ def build_research_brief(evidence: FrozenEvidence) -> str:
         f"- entry: {case.entry_at_utc}",
         f"- exit: {case.exit_at_utc}",
         "",
+        "## Quant prediction (the position you adjust)",
+        f"- model_version: {evidence.quant.model_version}",
+    ]
+    if evidence.quant.source_status == "produced":
+        lines += [
+            f"- p_outperform: {evidence.quant.p_outperform}",
+            f"- expected_excess_return: {evidence.quant.expected_excess_return}",
+            "",
+            "Your llm_adjusted position is defined RELATIVE to this quant",
+            "prediction: keep it (quant_relation=\"kept\") when the evidence",
+            "supports it, or adjust it (quant_relation=\"adjusted\") with",
+            "grounded reasons citing the frozen rows below. A bare independent",
+            "answer that ignores the quant prediction does not satisfy the task.",
+        ]
+    else:
+        lines += [
+            f"- status: unavailable (reason: {evidence.quant.reason})",
+            "",
+            "The quant model could not produce a position for this case. You",
+            "may still answer from the evidence alone; state that you are doing",
+            "so and why the evidence supports a probability despite the quant",
+            "model's limitation. Omit quant_relation in that case.",
+        ]
+
+    lines += [
+        "",
         "## Observed bars (own security)",
     ]
     if own_bars:
@@ -116,10 +142,12 @@ def build_research_brief(evidence: FrozenEvidence) -> str:
         "## Task",
         "Produce a forward probability p_outperform and expected excess return",
         "for this security vs the benchmark over the stated horizon, grounded",
-        "ONLY in the frozen evidence above. Cite each quantitative claim with a",
-        "reference using the exact snapshot row locator above. If the evidence",
-        "is insufficient, return source_status=unavailable with a reason and the",
-        "missing fields — never fabricate a probability.",
+        "ONLY in the frozen evidence above. The quant prediction above is the",
+        "position you adjust: keep or adjust it with grounded reasons, and",
+        "record how you decided (quant_relation). Cite each quantitative claim",
+        "with a reference using the exact snapshot row locator above. If the",
+        "evidence is insufficient, return source_status=unavailable with a",
+        "reason and the missing fields — never fabricate a probability.",
         "",
         "## Response format (required)",
         "Respond with ONLY a single JSON object — no prose, no markdown fence —",
@@ -131,7 +159,8 @@ def build_research_brief(evidence: FrozenEvidence) -> str:
         '- references: [{"kind": "evidence", "locator": "<exact snapshot row locator>", "note": "..."}]',
         '- warnings: [{"kind": "insufficient_history"|"missing_data"|"low_confidence"|"other", "detail": "..."}]',
         "- missing: [string] (fields you could not ground in the evidence)",
-        "- quantitative_basis: string (how the numbers derive from the cited rows)",
+        "- quantitative_basis: string (how the numbers derive from the cited rows; when you keep or adjust the quant prediction, why)",
+        '- quant_relation: "kept" or "adjusted" (required when the quant prediction above was produced and you return produced; omit otherwise)',
         "Do not include a model field; the runtime records the model attribution.",
         '- Value discipline: when source_status is "unavailable", omit',
         '  p_outperform and expected_excess_return entirely (values are only',

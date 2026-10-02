@@ -155,7 +155,13 @@ def make_probe_evidence() -> FrozenEvidence:
                   "content_sha256": sha, "content": bars,
                   "manifest": {"code_version": "daily-bars-snapshot-v1"}},
         target_policy_sha256="d" * 64,
-        batch_manifest={"calendar_version": "nyse-rules-v1"})
+        batch_manifest={"calendar_version": "nyse-rules-v1"},
+        quant={
+            "model_version": "quant-momentum-v0",
+            "source_status": "produced",
+            "p_outperform": 0.55,
+            "expected_excess_return": 0.01,
+        },)
 
 
 def main() -> int:

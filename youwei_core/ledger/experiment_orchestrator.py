@@ -134,7 +134,7 @@ def make_experiment_fetcher(
     research_client: ResearchRunnerClient,
     research_config: dict,
 ):
-    """Build a ``fetch_proposal(case, bars)`` that runs the exploration loop.
+    """Build a ``fetch_proposal(case, bars, quant)`` that runs the exploration loop.
 
     Each case starts with a plain research turn; an ExperimentRequest answer
     triggers the registered->dispatched->verified->accepted experiment, and
@@ -143,13 +143,14 @@ def make_experiment_fetcher(
     """
     snapshot_id = uuid.UUID(snapshot["id"])
 
-    async def fetch_proposal(case, bars):
+    async def fetch_proposal(case, bars, quant):
         evidence = build_frozen_evidence(
             run_id=run_id,
             tenant_id=tenant_id,
             case=case,
             snapshot=snapshot,
             batch_manifest=batch_manifest,
+            quant=quant,
         )
         ev_sha = evidence_sha256(evidence)
 

@@ -87,6 +87,12 @@ def _evidence(**overrides) -> FrozenEvidence:
         },
         target_policy_sha256="d" * 64,
         batch_manifest={},
+        quant={
+            "model_version": "quant-momentum-v0",
+            "source_status": "produced",
+            "p_outperform": 0.55,
+            "expected_excess_return": 0.01,
+        },
     )
     base.update(overrides)
     return FrozenEvidence(**base)
@@ -210,6 +216,12 @@ def test_snapshot_manifest_handler_uses_content_length_when_row_count_absent(ctx
         },
         target_policy_sha256="d" * 64,
         batch_manifest={},
+        quant={
+            "model_version": "quant-momentum-v0",
+            "source_status": "produced",
+            "p_outperform": 0.55,
+            "expected_excess_return": 0.01,
+        },
     )
     token = _token(priv, ev2)
     tc = ToolContext(evidence=ev2, capability_token=token, public_keys={"k1": pub})

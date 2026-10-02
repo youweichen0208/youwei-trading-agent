@@ -45,6 +45,12 @@ def evidence():
             "content": rows, "manifest": {},
         },
         target_policy_sha256="a" * 64, batch_manifest={},
+        quant={
+            "model_version": "quant-momentum-v0",
+            "source_status": "produced",
+            "p_outperform": 0.55,
+            "expected_excess_return": 0.01,
+        },
     )
 
 
@@ -102,6 +108,8 @@ def _payload(**overrides):
         "references": [{"kind": "evidence", "locator": "row-0"}],
         "warnings": [],
         "missing": [],
+        "quantitative_basis": "momentum",
+        "quant_relation": "kept",
         "quantitative_basis": "momentum",
         "model": {"model_version": "m1", "provider": "p1"},
     }

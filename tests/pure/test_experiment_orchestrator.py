@@ -236,6 +236,16 @@ def _case():
     }
 
 
+def _quant():
+    return {
+        "source": "quant_model",
+        "source_status": "produced",
+        "p_outperform": 0.55,
+        "expected_excess_return": 0.01,
+        "model_version": "quant-momentum-v0",
+    }
+
+
 class TestExplorationLoop:
     async def test_experiment_round_trip_then_proposal(self, monkeypatch):
         """Turn 1 asks for an experiment; the loop registers -> dispatches ->
@@ -250,7 +260,7 @@ class TestExplorationLoop:
         harness = Harness(monkeypatch, turn_outputs=[ask, reentry_proposal])
         fetch = harness.fetcher()
 
-        proposal = await fetch(_case(), [])
+        proposal = await fetch(_case(), [], _quant())
         assert proposal.source_status == "produced"
         # Core registration: bound to the claimed attempt + case + snapshot
         reg = harness.registered[0]
@@ -274,7 +284,7 @@ class TestExplorationLoop:
     async def test_first_turn_proposal_skips_experiments(self, monkeypatch):
         harness = Harness(monkeypatch, turn_outputs=[_proposal()])
         fetch = harness.fetcher()
-        proposal = await fetch(_case(), [])
+        proposal = await fetch(_case(), [], _quant())
         assert proposal.source_status == "produced"
         assert harness.registered == []
         assert harness.plane.calls == []
@@ -289,7 +299,7 @@ class TestExplorationLoop:
         monkeypatch.setattr(orch, "run_experiment_instance", failing_instance)
         fetch = harness.fetcher()
         with pytest.raises(orch.ExperimentRunnerError):
-            await fetch(_case(), [])
+            await fetch(_case(), [], _quant())
         # the experiment was terminated on the Runner before propagating
         assert harness.terminate_calls == [
             harness.registered[0].experiment_invocation_id
@@ -306,7 +316,7 @@ class TestExplorationLoop:
         monkeypatch.setattr(orch, "run_experiment_instance", cancelled_instance)
         fetch = harness.fetcher()
         with pytest.raises(asyncio.CancelledError):
-            await fetch(_case(), [])
+            await fetch(_case(), [], _quant())
         assert harness.terminate_calls == [
             harness.registered[0].experiment_invocation_id
         ]
@@ -331,7 +341,7 @@ class TestExplorationLoop:
         monkeypatch.setattr(orch, "register_experiment", capping_register)
         fetch = harness.fetcher()
         with pytest.raises(ExperimentCapReachedError):
-            await fetch(_case(), [])
+            await fetch(_case(), [], _quant())
         # two experiments ran; the third turn's ask hit the cap
         assert calls["n"] == 3
         assert len(harness.terminate_calls) == 2
@@ -345,4 +355,4 @@ class TestExplorationLoop:
         harness = Harness(monkeypatch, turn_outputs=[ask, citing_proposal])
         fetch = harness.fetcher()
         with pytest.raises(Exception, match="not.*part of this case"):
-            await fetch(_case(), [])
+            await fetch(_case(), [], _quant())

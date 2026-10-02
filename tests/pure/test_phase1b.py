@@ -151,7 +151,7 @@ async def test_phase1a_provider_fixes_unavailable_not_enabled():
 
 
 async def test_phase1b_provider_maps_produced_proposal():
-    async def fetch(case, bars):
+    async def fetch(case, bars, quant):
         return _proposal("produced")
 
     provider = make_phase1b_llm_adjusted_provider(fetch)
@@ -165,7 +165,7 @@ async def test_phase1b_provider_maps_produced_proposal():
 
 
 async def test_phase1b_provider_falls_back_to_quant_on_unavailable():
-    async def fetch(case, bars):
+    async def fetch(case, bars, quant):
         return _proposal("unavailable", reason="timeout")
 
     provider = make_phase1b_llm_adjusted_provider(fetch)
@@ -177,7 +177,7 @@ async def test_phase1b_provider_falls_back_to_quant_on_unavailable():
 
 
 async def test_phase1b_provider_marks_runtime_error_unavailable():
-    async def fetch(case, bars):
+    async def fetch(case, bars, quant):
         raise RuntimeError("agent runtime down")
 
     provider = make_phase1b_llm_adjusted_provider(fetch)

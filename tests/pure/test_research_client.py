@@ -70,6 +70,12 @@ def _evidence(tenant_id, run_id, case_id):
         },
         target_policy_sha256="p" * 64,
         batch_manifest={"version": "1"},
+        quant={
+            "model_version": "quant-momentum-v0",
+            "source_status": "produced",
+            "p_outperform": 0.55,
+            "expected_excess_return": 0.01,
+        },
     )
 
 
@@ -299,7 +305,11 @@ async def test_make_runner_research_fetcher_roundtrip(signing_key):
         expiry_provider=expiry,
         research_config={"model": "m"},
     )
-    proposal = await fetch(case, None)
+    proposal = await fetch(case, None, {
+        "source": "quant_model", "source_status": "produced",
+        "p_outperform": 0.55, "expected_excess_return": 0.01,
+        "model_version": "quant-momentum-v0",
+    })
     await client.aclose()
     assert proposal.run_id == run
     assert proposal.case_id == case["id"]

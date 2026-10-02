@@ -111,7 +111,7 @@ async def _phase1a_llm_adjusted(case, bars, quant, evidence_snapshot_id) -> Sour
 def make_phase1b_llm_adjusted_provider(fetch_proposal):
     """Build an llm_adjusted provider from a proposal fetcher.
 
-    ``fetch_proposal`` is an async callable ``(case, bars) ->
+    ``fetch_proposal`` is an async callable ``(case, bars, quant) ->
     ResearchProposal | None``. ``None`` means no proposal was produced
     (e.g. the agent runtime was unavailable), which maps to unavailable
     with a reason. Otherwise the proposal is mapped through the Phase 1B
@@ -121,7 +121,7 @@ def make_phase1b_llm_adjusted_provider(fetch_proposal):
 
     async def provider(case, bars, quant, evidence_snapshot_id) -> SourcePrediction:
         try:
-            proposal = await fetch_proposal(case, bars)
+            proposal = await fetch_proposal(case, bars, quant)
         except Exception as exc:  # noqa: BLE001 — LLM/runtime failure -> unavailable
             return SourcePrediction(
                 source="llm_adjusted",
@@ -176,22 +176,24 @@ def make_phase1b_llm_fetcher(
 
     Each case shares the batch's single frozen snapshot (S06a); only the
     case plan differs. The Controller assembles the FrozenEvidence bundle
-    (its own snapshot + case plan + batch manifest) and sends it across the
-    subprocess boundary with the per-job capability token (signed by the
-    worker loop when it claimed the job).
+    (its own snapshot + case plan + batch manifest + the case's quant
+    prediction) and sends it across the subprocess boundary with the
+    per-job capability token (signed by the worker loop when it claimed
+    the job).
 
     ``usage_sink``, when provided, receives the decoded usage report dict
     after each turn for observability; it is optional so the pure codec/fetch
     tests and the sealing path can run without it.
     """
 
-    async def fetch_proposal(case, bars):
+    async def fetch_proposal(case, bars, quant):
         evidence = build_frozen_evidence(
             run_id=run_id,
             tenant_id=tenant_id,
             case=case,
             snapshot=snapshot,
             batch_manifest=batch_manifest,
+            quant=quant,
         )
         invocation = ResearchInvocation(
             capability_token=capability_token,
@@ -261,7 +263,8 @@ async def run_batch_predictions(
     unavailable/not_enabled. When the campaign is Phase 1B and either
     ``agent_runtime`` (local subprocess, S07h) or ``runner_research``
     (Runner-controlled container, S07m) is provided, the provider fetches a
-    proposal across the corresponding boundary; without wiring it still seals
+    proposal across the corresponding boundary — carrying the case's quant
+    prediction inside the frozen evidence; without wiring it still seals
     llm_adjusted as unavailable (agent_runtime_unavailable) — never a fake
     LLM value."""
     async with engine.begin() as conn:

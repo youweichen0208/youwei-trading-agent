@@ -79,6 +79,37 @@ class EvidenceSnapshot(WireModel):
         return self
 
 
+class QuantPrediction(WireModel):
+    """The registered quant model's frozen prediction for this case.
+
+    Research INPUT, not output: the llm_adjusted position is defined
+    relative to this prediction — keep it, adjust it with grounded
+    reasons, or (when the quant could not run) answer independently. An
+    unavailable quant is honest input and carries its reason, so Hermes
+    always sees exactly what the quant position said and why.
+    """
+
+    model_version: str = Field(min_length=1)
+    source_status: Literal["produced", "unavailable"]
+    p_outperform: float | None = None
+    expected_excess_return: float | None = None
+    reason: str | None = None
+
+    @model_validator(mode="after")
+    def value_discipline(self):
+        if self.source_status == "produced":
+            if self.p_outperform is None or self.expected_excess_return is None:
+                raise ValueError("produced quant prediction requires both values")
+            if not (0.0 <= self.p_outperform <= 1.0):
+                raise ValueError("p_outperform must be in [0, 1]")
+        else:  # unavailable
+            if self.p_outperform is not None or self.expected_excess_return is not None:
+                raise ValueError("unavailable quant prediction must not carry values")
+            if self.reason is None:
+                raise ValueError("unavailable quant prediction requires a reason")
+        return self
+
+
 class FrozenEvidence(WireModel):
     """The complete, read-only research input for one case.
 
@@ -94,6 +125,7 @@ class FrozenEvidence(WireModel):
     evidence: EvidenceSnapshot
     target_policy_sha256: str  # target-spec content hash the campaign registered
     batch_manifest: dict  # BatchTimes manifest incl. calendar version/hash
+    quant: QuantPrediction  # the frozen quant position Hermes adjusts (never blind)
 
 
 # --- research proposal (Hermes -> Controller) -----------------------------
@@ -173,6 +205,7 @@ class ResearchProposal(WireModel):
     warnings: list[ResearchWarning] = Field(default_factory=list)
     missing: list[str] = Field(default_factory=list)
     quantitative_basis: str | None = None
+    quant_relation: Literal["kept", "adjusted"] | None = None
     model: ProposalModel | None = None
 
     @model_validator(mode="after")
@@ -258,6 +291,23 @@ def validate_proposal_references(
         raise ValueError("proposal run_id does not match frozen evidence")
     if proposal.case_id != evidence.case.case_id:
         raise ValueError("proposal case_id does not match frozen evidence")
+    # quant relation discipline: a produced proposal over a produced quant
+    # must state how it relates to the quant prediction (kept / adjusted);
+    # in any other combination the field is meaningless and rejected.
+    if (
+        evidence.quant.source_status == "produced"
+        and proposal.source_status == "produced"
+    ):
+        if proposal.quant_relation is None:
+            raise ValueError(
+                "produced proposal over a produced quant prediction must state "
+                "quant_relation (kept or adjusted)"
+            )
+    elif proposal.quant_relation is not None:
+        raise ValueError(
+            "quant_relation only applies when both the quant prediction and "
+            "the proposal are produced"
+        )
     evidence.evidence.verify_content_hash()
     resolved = []
     for reference in proposal.references:

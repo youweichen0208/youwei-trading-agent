@@ -307,7 +307,7 @@ def make_runner_research_fetcher(
     expiry_provider: Callable[[], Awaitable[datetime]],
     research_config: dict,
 ):
-    """Build a ``fetch_proposal(case, bars) -> ResearchProposal`` over the
+    """Build a ``fetch_proposal(case, bars, quant) -> ResearchProposal`` over the
     Runner's research entry (one invocation per case).
 
     Each case shares the batch's single frozen snapshot (S06a); only the case
@@ -317,13 +317,14 @@ def make_runner_research_fetcher(
     from youwei_core.ledger.evidence import build_frozen_evidence
     from youwei_core.ledger.agent_client import AgentRuntimeError
 
-    async def fetch_proposal(case, bars):
+    async def fetch_proposal(case, bars, quant):
         evidence = build_frozen_evidence(
             run_id=run_id,
             tenant_id=tenant_id,
             case=case,
             snapshot=snapshot,
             batch_manifest=batch_manifest,
+            quant=quant,
         )
         request = build_research_request(
             invocation_id=uuid.uuid4(),

@@ -272,6 +272,7 @@ class Handler(BaseHTTPRequestHandler):
             "warnings": [],
             "missing": [],
             "quantitative_basis": "experiment outcome cited as the quantitative basis",
+            "quant_relation": "kept",
         }
         out.write(_sse_content(json.dumps(proposal)))
         out.write(_sse_content("", finish="stop"))

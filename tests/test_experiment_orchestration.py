@@ -238,7 +238,11 @@ async def test_exploration_loop_registers_and_accepts_in_db(db_engine, loop_env)
         "target_spec_sha256": "a" * 64,
         "benchmark_security_id": uuid.uuid4(),
     }
-    proposal = await fetch(case, [])
+    proposal = await fetch(case, [], {
+        "source": "quant_model", "source_status": "produced",
+        "p_outperform": 0.55, "expected_excess_return": 0.01,
+        "model_version": "quant-momentum-v0",
+    })
     assert proposal.source_status == "produced"
 
     # the experiment was registered AND accepted in the DB
