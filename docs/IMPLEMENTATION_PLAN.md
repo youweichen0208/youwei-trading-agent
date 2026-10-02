@@ -3,7 +3,7 @@
 日期：2026-09-27；结构优化更新：2026-09-28\
 设计依据：[ARCHITECTURE.md](ARCHITECTURE.md)\
 问题来源：[v0.2 评审](ARCHITECTURE_REVIEW_v0.2.md)\
-状态：**批准包 r1 修订完成，待项目所有者批准**（初版审阅三项意见已处理：历史回补 + 60/60 可评分性验证 + 随访日期/示例修正，hash 集不变）——S00–S07 完成；S09a/S09b 完成；S09c 实质验收完成（磁盘治理、重启/回滚 drill、备份接入生产、告警轮询、整机重启演练 RTO≈3min；剩余 webhook URL 与负载复测按所有者决策 2026-10-02 搁置）。**下一步：所有者审阅并批准 [phase1a-campaign-approval-20261002](ops/phase1a-campaign-approval-20261002.md) → 登记 release 批准 + 注册 Campaign（首个 cutoff 2026-10-10 06:00 ET）→ 批次运行与随访；S08 可并行。** 阶段详情见 [§4 完成记录](#4-完成记录)；S08（受控量化探索）已决策为 Hermes 唯一框架、Pi 暂缓。
+状态：**Phase 1A 前向实验已批准并注册，运行中**——所有者 2026-10-02 批准（package r1）；campaign `phase1a-pilot-2026q4`（`a63f8494-4730-4cc7-bf2d-0b29e895aa3c`）active，12 批 cutoff 已入库，首个 cutoff **2026-10-10 06:00 ET**（批次于 10-03 06:00 ET 后由调度器预注册）——S00–S07 完成；S09a/S09b 完成；S09c 实质验收完成（磁盘治理、重启/回滚 drill、备份接入生产、告警轮询、整机重启演练 RTO≈3min；剩余 webhook URL 与负载复测按所有者决策 2026-10-02 搁置）。**下一步：所有者审阅并批准 [phase1a-campaign-approval-20261002](ops/phase1a-campaign-approval-20261002.md) → 登记 release 批准 + 注册 Campaign（首个 cutoff 2026-10-10 06:00 ET）→ 批次运行与随访；S08 可并行。** 阶段详情见 [§4 完成记录](#4-完成记录)；S08（受控量化探索）已决策为 Hermes 唯一框架、Pi 暂缓。
 
 ## 1. 执行规则
 
@@ -781,3 +781,12 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
   3. **随访时间线修正**：末批入场 2026-12-28、D60 出场 2027-03-24 收盘、宽限期至 2027-04-01 收盘（含 2027-03-26 耶稣受难日休市，按冻结日历重算）；采集与随访覆盖至此之后。
   4. `approve_release` 示例补必填 `scope` 审计文本参数。
 - 状态：待所有者对 r1 的明确批准；批准后按包内 §6 机制执行（approve_release → register_campaign 显式 primary_metric）。
+
+### Phase 1A 批准执行与 Campaign 注册（2026-10-02，所有者批准后）
+
+- **所有者批准**："批准"（2026-10-02，对 package r1 的 hash 集）。`ops/approve_phase1a_campaign.py` 执行（一次性容器，三项 hash 钉死校验通过后写入）：
+  - `release_approvals`：approver `human-owner`、release content `bdb8bbe0…`、**scope_sha256 `0b899b00…`**（结构化 scope 绑定 tenant/campaign_key/release/plan hash）、basis "phase1a-pilot-2026q4 one-time approval 2026-10-02 (package r1)"。
+  - `campaigns`：`phase1a-pilot-2026q4` = `a63f8494-4730-4cc7-bf2d-0b29e895aa3c`，active，primary_metric `paired_brier_quant_minus_baseline`（显式传入），12 批 planned_cutoffs 入库；服务端从实际参数重算 plan hash `d403c8e5…` 校验通过。
+- 调度：`next_weekly_cutoff` 语义为"严格晚于现在的首个周六 06:00 ET"——批次 1（cutoff 2026-10-10）将于 2026-10-03 06:00 ET 后预注册，2026-10-10 06:00 ET 窗口内冻结输入、生成并原子封存预测。特征历史已回补且 60/60 可用（见批准包 §4.1）；cutoff 前余 6 个交易日由滚动采集覆盖。
+- 状态：生产库 release_approvals=1、campaigns=1、forecast_batches=0（待调度器预注册）；ops status ok 无告警。批准包文档按定稿冻结不作修改，执行记录以本节为准。
+- 后续：批次运行与随访（采集/结果随访覆盖至 2027-04-01 之后）；D1/D20/D60 标签成熟后评分；月度汇总按协议追加。
