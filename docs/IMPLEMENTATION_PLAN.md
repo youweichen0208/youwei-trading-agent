@@ -3,7 +3,7 @@
 日期：2026-09-27；结构优化更新：2026-09-28\
 设计依据：[ARCHITECTURE.md](ARCHITECTURE.md)\
 问题来源：[v0.2 评审](ARCHITECTURE_REVIEW_v0.2.md)\
-状态：**当前推进 S09（Phase 1A 上线前验收）**——S00–S06（含 S06j 12 批候选计划）与 S07 纵切片已完成；S09a 部署准备已收尾；**S09b 运行接线完成**（隔离验收两轮 + 生产库准备 + 镜像发布 + 生产 API/Worker/采集上线，含 token 日志缺陷修复与 r2 重发布）。**下一步：S09c 运维验收（远端恢复、重启恢复、资源测量、告警、RPO/RTO、pgBackRest 目标落实）→ 组装批准包交项目所有者一次性确认。** 阶段详情见 [§4 完成记录](#4-完成记录)；S08（受控量化探索）已决策为 Hermes 唯一框架、Pi 暂缓，可并行推进。
+状态：**批准包已组装，待项目所有者一次性批准**——S00–S07 完成；S09a/S09b 完成；S09c 实质验收完成（磁盘治理、重启/回滚 drill、备份接入生产、告警轮询、整机重启演练 RTO≈3min；剩余 webhook URL 与负载复测按所有者决策 2026-10-02 搁置）。**下一步：所有者审阅并批准 [phase1a-campaign-approval-20261002](ops/phase1a-campaign-approval-20261002.md) → 登记 release 批准 + 注册 Campaign（首个 cutoff 2026-10-10 06:00 ET）→ 批次运行与随访；S08 可并行。** 阶段详情见 [§4 完成记录](#4-完成记录)；S08（受控量化探索）已决策为 Hermes 唯一框架、Pi 暂缓。
 
 ## 1. 执行规则
 
@@ -40,12 +40,12 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 | S08 | 已决策、未实现 | 受控量化探索闭环（Hermes 唯一框架，Pi 暂缓）；工具往返契约待 S07 收敛后设计 |
 | S09a | 完成 | 采集调度 collect_tick（16 测试）+ 生产 Compose（去 Runner）+ Core 镜像发布 GHCR + deployment 校验 VALID |
 | **S09b** | 完成 | 运行接线闭环：隔离验收（合成 12/12 + 真实 45/45）、生产库准备（tenant `f497c122…`/计划 hash 固定）、GHCR 镜像发布（r2 digest `53631663…`，含 token 日志缺陷修复）、生产 API/Worker/采集上线（105 观测、21 任务 succeeded、deployment 校验 VALID） |
-| **S09c** | **下一步** | 运维验收：远端恢复、重启恢复、资源测量、告警、RPO/RTO |
+| **S09c** | 基本完成（两项搁置） | 磁盘 82%→14%、docker 级重启恢复、r2→r1→r2 回滚 drill、备份接入生产（pgBackRest 同机：WAL 归档 + 每日全量 + wal_archive 监控生效）、告警轮询上线（多格式 webhook，URL 待填）、整机重启演练 RTO≈3min；所有者决策：异地备份与负载复测搁置 |
 | S10–S11 | 未开始 | 评估界面/Memory/审批；候选验证与发布 |
 
-**当前阻塞正式 Campaign 启动的链：** S09c 运维验收 → 批准包（release `bdb8bbe0…` + 计划 `d403c8e5…` + scope_manifest `0b899b00…` + 使用范围 + 验收证据）→ 项目所有者一次性批准 → 正式 Campaign。tenant UUID（`f497c122-45b6-497b-bb99-9c42401c3e5f`）、计划 hash 与生产运行环境（Core 镜像 r2 digest `53631663…`）已在 S09b 固定。
+**当前阻塞正式 Campaign 启动的链：** 项目所有者一次性批准（批准包 [phase1a-campaign-approval-20261002](ops/phase1a-campaign-approval-20261002.md)：release `bdb8bbe0…` + 计划 `d403c8e5…` + scope_manifest `0b899b00…` + 使用范围 + 验收证据，全部断言已对照生产库与重算核验）→ `approve_release` 登记 → `register_campaign` → Batch 1（2026-10-10 06:00 ET）。tenant（`f497c122…`）、计划 hash 与生产环境（core `53631663…`、postgres `8d69232c…`）均已固定。
 
-**下一步动作（按序）：** ① S09c 运维验收（含 pgBackRest 备份目标落实）；② 组装批准包交所有者一次性确认；③ 批准后正式注册 Campaign（`primary_metric` 显式传 `paired_brier_quant_minus_baseline`，否则计划 hash 不匹配）。
+**下一步动作（按序）：** ① 所有者审阅批准包并表态；② 批准 → `approve_release`（principal `human-owner`、scope 绑定计划 hash）+ `register_campaign`（**`primary_metric` 显式传 `paired_brier_quant_minus_baseline`**，否则计划 hash 不匹配）；③ 首批 cutoff（2026-10-10）运行与随访；④ S08（可并行）或批准前的任何疑问解答。
 
 ## 2. 任务清单
 
