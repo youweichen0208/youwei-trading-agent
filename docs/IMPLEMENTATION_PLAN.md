@@ -3,7 +3,7 @@
 日期：2026-09-27；结构优化更新：2026-09-28\
 设计依据：[ARCHITECTURE.md](ARCHITECTURE.md)\
 问题来源：[v0.2 评审](ARCHITECTURE_REVIEW_v0.2.md)\
-状态：**Phase 1A 前向实验已批准并注册，运行中**——所有者 2026-10-02 批准（package r1）；campaign `phase1a-pilot-2026q4`（`a63f8494-4730-4cc7-bf2d-0b29e895aa3c`）active，12 批 cutoff 已入库，首个 cutoff **2026-10-10 06:00 ET**（批次于 10-03 06:00 ET 后由调度器预注册）——S00–S06 完成（Phase 1A 批次运行中）；S07 收尾（真实网关研究链路验证完成，聊天栈上线；Phase 1B 未启用）；S09a/S09b 完成；S09c 实质验收完成（磁盘治理、重启/回滚 drill、备份接入生产、告警轮询、整机重启演练 RTO≈3min；剩余 webhook URL 与负载复测按所有者决策 2026-10-02 搁置）。**下一步：S08c Controller 接线与隔离 mock 验收均已完成（网络探针 + HTTP 越权 17/17 + 端到端冒烟全过，验收中修复两处真实缺陷，见 S08c 进度与 [s08-mock-acceptance](ops/s08-mock-acceptance.md)）；聊天栈备份已确认（每日，7 日备+4 周备，含一次隔离恢复验证）待实施；批次 1 预注册核查 2026-10-03 18:00（北京时间）后执行，cutoff 2026-10-10 06:00 ET。** 阶段详情见 [§4 完成记录](#4-完成记录)；S08（受控量化探索）已决策为 Hermes 唯一框架、Pi 暂缓。
+状态：**Phase 1A 前向实验已批准并注册，运行中**——所有者 2026-10-02 批准（package r1）；campaign `phase1a-pilot-2026q4`（`a63f8494-4730-4cc7-bf2d-0b29e895aa3c`）active，12 批 cutoff 已入库，首个 cutoff **2026-10-10 06:00 ET**（批次于 10-03 06:00 ET 后由调度器预注册）——S00–S06 完成（Phase 1A 批次运行中）；S07 收尾（真实网关研究链路验证完成，聊天栈上线；Phase 1B 未启用）；S09a/S09b 完成；S09c 实质验收完成（磁盘治理、重启/回滚 drill、备份接入生产、告警轮询、整机重启演练 RTO≈3min；剩余 webhook URL 与负载复测按所有者决策 2026-10-02 搁置）。**下一步：S08c Controller 接线与隔离 mock 验收均已完成（网络探针 + HTTP 越权 17/17 + 端到端冒烟全过，验收中修复两处真实缺陷，见 S08c 进度与 [s08-mock-acceptance](ops/s08-mock-acceptance.md)）；聊天栈备份已上线（每日 cron，7 日备 + 4 周备，密钥单独受控，告警三路径与隔离恢复验证全过，同机风险如实记录）；批次 1 预注册核查 2026-10-03 18:00（北京时间）后执行，cutoff 2026-10-10 06:00 ET。** 阶段详情见 [§4 完成记录](#4-完成记录)；S08（受控量化探索）已决策为 Hermes 唯一框架、Pi 暂缓。
 
 ## 1. 执行规则
 
@@ -45,7 +45,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 
 **当前运行状态（批准链已走完）：** release `bdb8bbe0…` 已登记批准（approver `human-owner`、scope `0b899b00…`，执行记录见 [§4 完成记录](#4-完成记录)）；campaign `phase1a-pilot-2026q4`（`a63f8494-…`）active，计划 hash `d403c8e5…` 服务端重算校验通过，12 批 planned_cutoffs 入库。批次 1（cutoff 2026-10-10 06:00 ET）由调度器于 2026-10-03 06:00 ET 后自动预注册；特征历史已回补（86 交易日 × 21 对象）且 60/60 可评分。tenant（`f497c122…`）与生产环境（core r2 `53631663…`、postgres `8d69232c…`）已固定，ops status 无告警。
 
-**下一步动作（按序）：** ① 聊天栈备份（所有者已确认 2026-10-02：每日 1 次保留 7 日备+4 周备；LiteLLM PG 备份 + Open WebUI 库/附件/配置（SQLite 需一致性备份）；密钥单独受控；失败入现有监控；一次隔离恢复验证；异地备份维持暂缓并如实记录同机风险）；② 批次 1 预注册核查（2026-10-03 18:00 北京时间后，只读四项：正确 campaign 1 批次/60 case/窗口正确/无重复）并在 2026-10-10 06:00 ET cutoff 窗口确认预测封存与及时确认。S08 隔离 mock 验收已完成，真实快照接线后端到端样例与 Trial 登记随 Phase 1B 推进。
+**下一步动作（按序）：** ① 批次 1 预注册核查（2026-10-03 18:00 北京时间后，只读四项：正确 campaign 1 批次/60 case/窗口正确/无重复）并在 2026-10-10 06:00 ET cutoff 窗口确认预测封存与及时确认；② 待所有者决策：生产 PG `wal_archive_stale` 告警在空闲库上的误报处理（当前监控以 wall-clock 归档新鲜度驱动，空闲库无 WAL 产生时持续告警；可选项：改按 LSN 差判断/调阈值/接受，不影响数据安全——全量备份与已有 WAL 均完好）。聊天栈备份已完成（2026-10-02：每日 cron + 监控接入 + 隔离恢复验证，见 S07 聊天栈备份小节）。S08 隔离 mock 验收已完成，真实快照接线后端到端样例与 Trial 登记随 Phase 1B 推进。
 
 ## 2. 任务清单
 
@@ -197,7 +197,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
   - `app.py` 实验面：控制面 `POST/DELETE /v1/experiment-authorizations`（aud=runner-exec + experiment:admin；登记绑定校验；终止=拒新增+取消在运行任务+**兜底回执更新**（任务未启动即被取消的窗口））与 `GET .../receipts`（证据回执）；工具面 `POST /v1/experiment-computations`（aud=runner-tools + experiment:submit；限额四项 + 全局并发 + 幂等/冲突）、`GET .../{ids}`（status）、`GET .../artifacts/{path}`（read，回执内路径才可读，内容 hash 重验）；执行任务复用沙箱执行器（合成 SandboxRequest，**快照由 Runner 从授权注入**），exit≠0 带产物标 partial，超时/取消/异常均落回执；`settings.experiment_store_dir`（空=入口 503）。
   - timeout 回执无产物（现行沙箱执行器超时路径不回收产物 tar）——timeout-partial 留作执行器后续增强，不阻塞本片。
 - 验证：`tests/pure/test_experiment_store.py` 11 项（登记幂等/终止持久/回执重启存活/中断改写二次加载一致/末行胜出/产物往返+篡改检出/路径穿越拒绝/同路径异内容拒绝）；`tests/contracts/test_experiment_runner_http.py` 9 项（假执行器全链：登记→提交→status→read→回执证据；幂等重放/异 payload 409；限额：次数/并发/时长预算；终止：在运行任务 cancelled + 新提交 403；**重启存活：新 app 同目录重载，中断回执幂等重放**；越权矩阵：工具令牌×/v1/executions 403、工具令牌×/v1/research-invocations 403、控制令牌×工具端点 403、scope 缺失 403、跨实验绑定 403、未登记 404；未配置 503）。本机全量 **230 passed**；agent-runtime **53 passed** 无回归。
-- 剩余：Controller 接线（S08c：派发前 Core 登记 + Runner 授权登记调用、实验实例派发（youwei-experiment toolset + 工具令牌签发/续期）、回执核验+fencing 再校验接纳、研究重入编排、父任务取消/租约失效/attempt 更替→terminate）；隔离环境 mock 验收（含网络探针扩展与 HTTP 越权实测）；真实快照接线后端到端样例与 Trial 登记；聊天栈备份与批次 1 核查按所有者指示另行推进。
+- 剩余：Controller 接线（S08c：派发前 Core 登记 + Runner 授权登记调用、实验实例派发（youwei-experiment toolset + 工具令牌签发/续期）、回执核验+fencing 再校验接纳、研究重入编排、父任务取消/租约失效/attempt 更替→terminate）；隔离环境 mock 验收（含网络探针扩展与 HTTP 越权实测）；真实快照接线后端到端样例与 Trial 登记；批次 1 核查按所有者指示另行推进（聊天栈备份已上线，见 S07 聊天栈备份小节）。
 
 验收：本地 shell、RPC 管理命令、加载扩展、跨作业文件请求均无法突破允许范围；标准 quant 任务继续直接执行库函数；Hermes 内置 `execute_code` 不得替代 gVisor Sandbox Runner——研究/实验实例维持明确工具允许列表，生成代码一律经 Controller 授权进入 Runner。
 
@@ -854,7 +854,15 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
 - **agent-runtime 镜像发布**：`ghcr.io/youweichen0208/youwei-agent-runtime:phase1a-s07`，registry digest `sha256:998f060e…`（与 S07m 本地 digest 一致），digest 拉取验证通过；upstreams hermes notes 更新（deployment.image 仍 null，归 Phase 1B 决策）。
 - upstreams：litellm 与 openwebui 组件升级为 integrated + passed（digest + 证据 = chat-stack-deployment.md），enabled 保持 false（部署校验器只覆盖研究生产 compose；启用待 S07 研究链路接线决策）。catalog + deployment 双 VALID。
 - 公网入口上线（2026-10-02）：`https://trading.youwei-agent.com`（Cloudflare 灰云 DNS：`trading A 8.159.158.155`、`sg-chat A 168.144.39.34`；两端 certbot 证书有效至 2026-12-31、systemd 续期在位；公网 `/health` 200 全链验证；SG vhost 对非 ECS 来源 403，allow/deny 置 location 级避免挡 ACME）。所有者建号完成、`ENABLE_SIGNUP=False`（signup 403 验证）。
-- 剩余：聊天栈备份策略（当前可重建 + openwebui 数据卷未纳入 pgbackrest，重要时可加 dump cron）。agent-runtime 修复镜像已重发布 GHCR（`phase1a-s07-r2`，digest `bca0a5b9…`，2026-10-02）。
+- 剩余：agent-runtime 修复镜像已重发布 GHCR（`phase1a-s07-r2`，digest `bca0a5b9…`，2026-10-02）。
+
+### 聊天栈备份上线（2026-10-02，每日 dump + 监控接入 + 隔离恢复验证）
+
+- 规格（所有者 2026-10-02 确认）：每日 1 次保留 7 日备 + 4 周备；LiteLLM PG + Open WebUI 库/附件/配置（SQLite 一致性备份）；密钥单独受控；失败入现有监控；一次隔离恢复验证；异地备份维持暂缓。
+- 实现：`ops/backup/chat_backup.sh`（部署副本 `/opt/youwei/chat/chat_backup.sh`，cron `40 3 * * * UTC`）——LiteLLM PG `pg_dump -Fc`；Open WebUI 容器内 Python `sqlite3.backup()` 一致性副本（镜像无 sqlite3 CLI）+ `uploads/`/`vector_db/`（缺失即报错，不静默跳过；`cache/` 排除）+ 部署时 `compose.json`；密钥（`secrets.env` + 渲染后 `config.yaml` 含 VOLC key）单独存 `/opt/youwei/backups/chat-secrets/`（0700/0600），不进常规备份目录；周日复制到 `weekly/`，daily/weekly 各留 7/4 份。
+- 监控接入：`ops/ops_status_poll.sh` 新增 heartbeat 检查（`/opt/youwei/chat/backup-state/`）→ `chat_backup_missing`/`chat_backup_stale`（>26h）/`chat_backup_failed` 告警，走现有告警集合投递机制（webhook 配置后自动生效；部署副本已同步，旧版备份为 `ops_status_poll.sh.bak-20261002`）。
+- 验证（全部 sg-prod 实测）：首次备份全产物非空；`ops/backup/chat_backup_verify.sh` 隔离恢复——一次性容器 pg_restore（SpendLogs 56 行/VerificationToken 5 行）、webui.db `integrity_check` + 25 表 + chat 行、uploads/vector_db 在归档、secrets 0600；告警三路径（failed 注入→告警、stale 回填→告警、恢复→RESOLVED）；保留轮换（伪旧目录 10→7 精确裁剪 + weekly 复制分支）；无临时容器/目录残留。
+- 剩余限制：**同机风险如实记录**——备份存 sg-prod 本机（`/opt/youwei/backups/`），与栈同故障域，异地备份按所有者决策维持暂缓；Open WebUI 当前数据量小（webui.db ~278KB），量级增长后需复测备份时长与容量。
 
 ### S07n 真实网关研究链路验证（2026-10-02，agent-runtime → LiteLLM → 火山）
 

@@ -20,9 +20,21 @@
 # The poll fails closed: if the API is unreachable, that is itself an
 # alert ("api_unreachable") and is delivered like any other.
 #
+# It also watches the chat stack backup heartbeat written by
+# ops/backup/chat_backup.sh (daily cron):
+#   - no heartbeat yet            -> chat_backup_missing
+#   - last success older than 26h -> chat_backup_stale (cron dead / silent fail)
+#   - last status not "ok"        -> chat_backup_failed (last run failed)
+# These join the same alert-set delivery (webhook + log), so a failed
+# backup notifies exactly like an ops-status alert and resolves the
+# same way.
+#
 # Install (sg-prod, root cron, every 5 minutes):
 #   */5 * * * * /opt/youwei/production/ops_status_poll.sh \
 #             >> /var/log/youwei-alert-poll.log 2>&1
+# Chat stack daily backup (heartbeat watched above):
+#   40 3 * * * /opt/youwei/chat/chat_backup.sh \
+#             >> /var/log/youwei-chat-backup.log 2>&1
 # Channel configuration (optional, 0600):
 #   /opt/youwei/<env>/alert-channel.env:  YOUWEI_ALERT_WEBHOOK_URL=...
 # Repo source of truth: ops/ops_status_poll.sh; deployed copy lives in
@@ -67,6 +79,24 @@ if d.get("status") not in ("ok", None) and not alerts:
     alerts = ["status_" + str(d.get("status"))]
 print("\n".join(sorted(alerts)))
 ')
+# Chat stack backup health (heartbeat from chat_backup.sh).
+chat_state="$BASE/chat/backup-state"
+chat_alert=""
+if [ ! -f "$chat_state/last-success" ]; then
+    chat_alert="chat_backup_missing"
+else
+    ok_epoch=$(date -u -d "$(cat "$chat_state/last-success")" +%s 2>/dev/null || echo 0)
+    age=$(( $(date -u +%s) - ok_epoch ))
+    if [ "$age" -gt $((26 * 3600)) ]; then
+        chat_alert="chat_backup_stale"
+    elif [ "$(head -1 "$chat_state/last-status" 2>/dev/null || true)" != "ok" ]; then
+        chat_alert="chat_backup_failed"
+    fi
+fi
+if [ -n "$chat_alert" ]; then
+    alerts="${alerts}${alerts:+$'\n'}$chat_alert"
+fi
+
 last=$(cat "$STATE_DIR/last-alerts")
 
 if [ "$alerts" != "$last" ]; then
