@@ -26,7 +26,7 @@ import pytest
 from sqlalchemy import select, text
 
 import quant.models as quant_module
-from conftest import make_campaign_plan
+from campaign_plan_helper import make_campaign_plan
 from youwei_core.db.meta import research_releases
 from youwei_core.ledger.service import (
     CampaignValidationError,

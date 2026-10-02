@@ -3,7 +3,7 @@
 日期：2026-09-27；结构优化更新：2026-09-28\
 设计依据：[ARCHITECTURE.md](ARCHITECTURE.md)\
 问题来源：[v0.2 评审](ARCHITECTURE_REVIEW_v0.2.md)\
-状态：**Phase 1A 前向实验已批准并注册，运行中**——所有者 2026-10-02 批准（package r1）；campaign `phase1a-pilot-2026q4`（`a63f8494-4730-4cc7-bf2d-0b29e895aa3c`）active，12 批 cutoff 已入库，首个 cutoff **2026-10-10 06:00 ET**（批次于 10-03 06:00 ET 后由调度器预注册）——S00–S06 完成（Phase 1A 批次运行中）；S07 收尾（真实网关研究链路验证完成，聊天栈上线；Phase 1B 未启用）；S09a/S09b 完成；S09c 实质验收完成（磁盘治理、重启/回滚 drill、备份接入生产、告警轮询、整机重启演练 RTO≈3min；剩余 webhook URL 与负载复测按所有者决策 2026-10-02 搁置）。**下一步：S08c Controller 接线（按所有者确认的推进顺序：设计修订 → Runner 工具端点 → Controller 接线 → 隔离 mock 验收，前两步已完成）→ 隔离环境 mock 验收；聊天栈备份已确认（每日，7 日备+4 周备，含一次隔离恢复验证）待实施；批次 1 预注册核查 2026-10-03 18:00（北京时间）后执行，cutoff 2026-10-10 06:00 ET。** 阶段详情见 [§4 完成记录](#4-完成记录)；S08（受控量化探索）已决策为 Hermes 唯一框架、Pi 暂缓。
+状态：**Phase 1A 前向实验已批准并注册，运行中**——所有者 2026-10-02 批准（package r1）；campaign `phase1a-pilot-2026q4`（`a63f8494-4730-4cc7-bf2d-0b29e895aa3c`）active，12 批 cutoff 已入库，首个 cutoff **2026-10-10 06:00 ET**（批次于 10-03 06:00 ET 后由调度器预注册）——S00–S06 完成（Phase 1A 批次运行中）；S07 收尾（真实网关研究链路验证完成，聊天栈上线；Phase 1B 未启用）；S09a/S09b 完成；S09c 实质验收完成（磁盘治理、重启/回滚 drill、备份接入生产、告警轮询、整机重启演练 RTO≈3min；剩余 webhook URL 与负载复测按所有者决策 2026-10-02 搁置）。**下一步：S08c Controller 接线代码与测试完成（见 S08c 进度；隔离 mock 验收待执行）→ 隔离环境 mock 验收（网络探针 + HTTP 越权实测）；聊天栈备份已确认（每日，7 日备+4 周备，含一次隔离恢复验证）待实施；批次 1 预注册核查 2026-10-03 18:00（北京时间）后执行，cutoff 2026-10-10 06:00 ET。** 阶段详情见 [§4 完成记录](#4-完成记录)；S08（受控量化探索）已决策为 Hermes 唯一框架、Pi 暂缓。
 
 ## 1. 执行规则
 
@@ -37,7 +37,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 | S00–S05 | 完成 | 协议定稿；持久任务/权限；沙箱+产物链路；PIT/快照；Ledger/Outcome/评分/归档 |
 | S06 | 已批准、campaign 运行中 | 真实 panel/日历/SPY 冻结；Logistic/Ridge 候选 + Trial（D20 未显示增量）；release `bdb8bbe0…` 获所有者批准（2026-10-02 package r1）；campaign `phase1a-pilot-2026q4` active、12 批 cutoff 入库、首批 cutoff `2026-10-10`（批次 1 于 10-03 06:00 ET 后预注册） |
 | S07 | 纵切片完成、Phase 1B 未启用 | Hermes 研究契约/进程边界/平台工具/无头镜像；Ed25519 跨容器接线（S07m）；真实网关研究链路验证完成（S07n：工具调用/取消/限额/fail-closed 全实测，发现修复 6 缺陷含 Runner 容器泄漏）；聊天栈上线；预算维度已删除 |
-| S08 | 设计已确认 + Runner 工具面落地 | 往返契约设计经所有者确认（D1=A：实验容器=网关+工具端点，越权面需实测；D2=A+五项最小要求）；`experiment-v1` 契约 + Runner 持久回执存储与工具/控制端点（submit/status/read + 登记/终止/回执）已落地；Controller 接线待做 |
+| S08 | 设计已确认 + Runner 工具面 + Controller 接线落地 | 往返契约设计经所有者确认（D1=A/D2=A+五项最小要求）；`experiment-v1` 契约 + Runner 持久回执存储与工具/控制端点已落地（S08b）；S08c Controller 接线完成：Core 登记/接纳表 + 编排器 + 实验实例派发（Runner `/v1/experiment-invocations` + agent-runtime `experiment-once` + youwei-experiment 工具集）+ 研究重入 + 取消传播，全量测试通过；隔离 mock 验收（网络探针 + HTTP 越权实测）待执行 |
 | S09a | 完成 | 采集调度 collect_tick（16 测试）+ 生产 Compose（去 Runner）+ Core 镜像发布 GHCR + deployment 校验 VALID |
 | **S09b** | 完成 | 运行接线闭环：隔离验收（合成 12/12 + 真实 45/45）、生产库准备（tenant `f497c122…`/计划 hash 固定）、GHCR 镜像发布（r2 digest `53631663…`，含 token 日志缺陷修复）、生产 API/Worker/采集上线（105 观测、21 任务 succeeded、deployment 校验 VALID） |
 | **S09c** | 基本完成（两项搁置） | 磁盘 82%→14%、docker 级重启恢复、r2→r1→r2 回滚 drill、备份接入生产（pgBackRest 同机：WAL 归档 + 每日全量 + wal_archive 监控生效）、告警轮询上线（多格式 webhook，URL 待填）、整机重启演练 RTO≈3min；所有者决策：异地备份与负载复测搁置 |
@@ -45,7 +45,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 
 **当前运行状态（批准链已走完）：** release `bdb8bbe0…` 已登记批准（approver `human-owner`、scope `0b899b00…`，执行记录见 [§4 完成记录](#4-完成记录)）；campaign `phase1a-pilot-2026q4`（`a63f8494-…`）active，计划 hash `d403c8e5…` 服务端重算校验通过，12 批 planned_cutoffs 入库。批次 1（cutoff 2026-10-10 06:00 ET）由调度器于 2026-10-03 06:00 ET 后自动预注册；特征历史已回补（86 交易日 × 21 对象）且 60/60 可评分。tenant（`f497c122…`）与生产环境（core r2 `53631663…`、postgres `8d69232c…`）已固定，ops status 无告警。
 
-**下一步动作（按序）：** ① S08c Controller 接线（派发前登记/实验实例派发/回执核验接纳/研究重入，见 S08b 剩余项）→ 隔离环境 mock 验收（网络探针 + HTTP 越权实测）；② 聊天栈备份（所有者已确认 2026-10-02：每日 1 次保留 7 日备+4 周备；LiteLLM PG 备份 + Open WebUI 库/附件/配置（SQLite 需一致性备份）；密钥单独受控；失败入现有监控；一次隔离恢复验证；异地备份维持暂缓并如实记录同机风险）；③ 批次 1 预注册核查（2026-10-03 18:00 北京时间后，只读四项：正确 campaign 1 批次/60 case/窗口正确/无重复）并在 2026-10-10 06:00 ET cutoff 窗口确认预测封存与及时确认。
+**下一步动作（按序）：** ① S08 隔离环境 mock 验收（网络探针 + HTTP 越权实测；Controller 接线已完成，见 S08c 进度）；② 聊天栈备份（所有者已确认 2026-10-02：每日 1 次保留 7 日备+4 周备；LiteLLM PG 备份 + Open WebUI 库/附件/配置（SQLite 需一致性备份）；密钥单独受控；失败入现有监控；一次隔离恢复验证；异地备份维持暂缓并如实记录同机风险）；③ 批次 1 预注册核查（2026-10-03 18:00 北京时间后，只读四项：正确 campaign 1 批次/60 case/窗口正确/无重复）并在 2026-10-10 06:00 ET cutoff 窗口确认预测封存与及时确认。
 
 ## 2. 任务清单
 
@@ -200,6 +200,29 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 - 剩余：Controller 接线（S08c：派发前 Core 登记 + Runner 授权登记调用、实验实例派发（youwei-experiment toolset + 工具令牌签发/续期）、回执核验+fencing 再校验接纳、研究重入编排、父任务取消/租约失效/attempt 更替→terminate）；隔离环境 mock 验收（含网络探针扩展与 HTTP 越权实测）；真实快照接线后端到端样例与 Trial 登记；聊天栈备份与批次 1 核查按所有者指示另行推进。
 
 验收：本地 shell、RPC 管理命令、加载扩展、跨作业文件请求均无法突破允许范围；标准 quant 任务继续直接执行库函数；Hermes 内置 `execute_code` 不得替代 gVisor Sandbox Runner——研究/实验实例维持明确工具允许列表，生成代码一律经 Controller 授权进入 Runner。
+
+### S08c 进度（2026-10-03，Controller 接线：登记/接纳 + 实验实例派发 + 研究重入）
+
+- 状态：**Controller 接线代码与隔离开发测试完成**（按所有者确认的推进顺序，设计修订与 Runner 工具端点之后的第一步实现；**隔离环境 mock 验收——网络探针 + HTTP 越权实测——待执行**，真实快照接线后端到端样例与 Trial 登记归后续）。
+- 契约补齐（`youwei_contracts`）：
+  - `research_capability.py`：新 audience `runtime-experiment`（Controller → 实验容器授权）与新 scope `experiment:run`（派发，aud=runner-exec；容器授权同 scope，镜像 research:run 双用法）+ `experiment:run_status`（轮询派发状态）。
+  - `agent_runtime.py`：`ResearchInvocationResult` 携带 proposal **XOR** `experiment_request`（互斥校验）；`ResearchInvocationRequest` 增 `experiments`（重入回合携带已接纳实验结果，上限 4）。
+  - `experiment.py`：实验实例派发 wire（`ExperimentInvocationRequest/Result/Status/Envelope` + digest）与重入上下文（`ExperimentContext/ExperimentContextComputation` + `experiment_context_from_result`——只携带身份/hash/manifest，不携带代码体，ledger 持有代码）。
+  - `research.py`：`validate_proposal_references` 接受可选 `experiments`——kind="code" 引用解析到所携实验的 artifact manifest（无实验时仍拒绝）；新增 `resolve_experiment_reference`。
+- Core 侧交付：
+  - 迁移 `a1b2c3d4e5f6`（upgrade/downgrade/upgrade 实测，6 触发器在位）：`experiment_records`（派发前登记：绑定 tenant/run/job/attempt/case + 证据 hash + 问题 + 限额 + 快照引用；append-only）与 `experiment_outcomes`（接纳：result + 回执 + 镜像 + 快照 hash + fencing 尝试；append-only）。同步 meta 与测试清表清单。
+  - `youwei_core/ledger/experiment_records.py`：`register_experiment`（幂等/冲突、fencing（当前运行尝试+存活租约+deadline 检查）、逐 case 上限 K=2、跨租户拒绝、快照存在性）、`accept_experiment`（纯逻辑回执↔结果核验：逐计算 code hash/终态/artifact manifest 全等、快照 hash 一致、单一镜像、无 running 残留；fencing 写边界再校验且必须是登记尝试；幂等/冲突）、`verify_experiment_evidence`/`resolve_experiment_reference`/`resolve_experiment_artifact`（locator → 已接纳回执内的 manifest）。
+  - `youwei_core/ledger/experiment_client.py`：控制面客户端（登记/终止/回执，逐次活跃租约重签）+ `sign_experiment_dispatch_tokens`（runner-exec 派发 / runtime-experiment 容器 / runner-tools 工具三令牌；工具令牌 exp = 派发 + 限额时长 + 300s 裕量，作为 terminate 之后的纵深）+ `run_experiment_instance`（提交→轮询至终态）。
+  - `youwei_core/ledger/experiment_orchestrator.py`：探索循环编排——研究回合返回实验请求时：Core 登记 → Runner 授权登记 → 实例派发 → 回执取回 → 接纳核验 → `ExperimentContext` 重入下一回合；逐 case 上限自然终止（CapReached → unavailable）；任何失败/取消（含 CancelledError）后 best-effort Runner terminate（拒新增+清容器）再传播；`active_lease_expiry` 从 attempts 表重读存活租约（心跳保活，修复 claim-time 快照在多回合长 case 上的陈旧问题）；最终 proposal 的 kind="code" 引用对已接纳集合再校验。
+  - `pipeline.py`/`worker/loop.py`/`config.py`：`RunnerResearchConfig` 增 `experiment_client`+`experiment_limits`（同生同灭），`experiment_exploration_enabled` + 四项限额模板设置；Phase 1B 且接线存在时 fetcher 走编排器；顺手修复既有潜伏缺陷——pipeline 引用 `signing_key` 但类字段名为 `key`（Phase 1B 未启用故未触发），并清理 research_client 中重复的类定义。
+- Runner 侧交付：`experiment_instance.py`（镜像 research.py 纪律：固定镜像、非 root 只读、cap-drop、资源限额、超时按容器名强杀、字节上限、入口 `experiment-once`；**网络 = `youwei-experiment`（网关 + 本 Runner 工具端点，D1=A；研究容器维持 youwei-research 仅网关）**；stdin wire 携带完整 request（绑定字段供容器验签）+ Runner 注入的网关与工具端点，快照绝不入 wire）；`app.py` 新增 `/v1/experiment-invocations`（submit：aud=runner-exec + experiment:run + 绑定校验 + 登记前置 + 幂等/409 + 容量；status：experiment:run_status；terminate 传播：终止实验时同时取消运行中的实例派发任务）。
+- agent-runtime 侧交付：`experiment_tools.py`（`youwei-experiment` 工具集：sandbox_submit/sandbox_status/artifact_read 为 HTTP 工具（同步 httpx），computation_id 由工具生成、experiment_invocation_id 取自上下文（模型不可遗）；令牌逐调用重验（audience/scope/绑定）；HTTP 错误作为工具输出返回模型（可自适应），本地授权失败抛错；**ComputationJournal 记录实际提交的代码与末次观察状态——最终 `ExperimentResult.computations` 由日志组装而非模型自报**，running 条目不入结果（仅回执侧体现））；`experiment.py`（确定性实验简报：问题 + 快照 manifest（内容绝不给实例）+ 沙箱契约 + 输出格式；findings 解析（JSON/围栏容忍）；`run_experiment` 隔离构造 + 回合后从日志组装结果；wire codec：runtime-experiment 授权验签（绑定全量比对）+ 编码）；`main.py` 新增 `experiment-once` 入口（stdout 纪律同 research-once：banner 转 stderr、stdin/stdout 字节上限）；httpx 入依赖（0.28.x）。
+- 验证：
+  - 本机（3.13）：`tests/pure + tests/contracts + tests/known_answers` → **288 passed**（新增：experiment_evidence 19、experiment_client 8、experiment_orchestrator 6、experiment_invocation 契约 11、experiment_invocation_http 14、experiment_runner_http 回归 9）。
+  - **SG 真实 PostgreSQL 全量：`.venv/bin/pytest -q` → 585 passed（含 test_experiment_records 20 项 DB 级 + test_experiment_orchestration 2 项 DB 级）**；迁移 `a1b2c3d4e5f6` 在一次性 PG 容器 upgrade/downgrade/upgrade 实测，6 触发器在位。
+  - agent-runtime（3.14 自有环境）→ **81 passed**（新增 test_experiment_runtime 25 + test_main 增 3）；Runner 独立锁 `uv sync --no-dev` 通过、独立导入通过。
+  - 修复过程中全量收集暴露既有问题：5 个测试文件 `from conftest import make_campaign_plan` 与 `tests/pure/conftest.py` 模块名冲突（违反“不直接导入 conftest”规则），全仓收集时 16 个文件报错——已将帮助函数移入 `tests/campaign_plan_helper.py` 并重指向（此为既有缺陷，与 S08 无关但阻断全量验证）。
+- 剩余限制：隔离环境 mock 验收（`youwei-experiment` 网络探针：实验容器仅网关+Runner 工具端点、研究容器不可达 Runner；HTTP 越权实测：实验令牌 × 控制端点/研究入口、控制令牌 × 工具/派发端点）待执行；agent-runtime 镜像需重建发布（`experiment-once` 入口 + httpx 依赖）；Runner 生产部署需 `experiment_store_dir`/`experiment_tool_base_url`/`youwei-experiment` 网络接入配置（生产模式已强制校验）；实验实例结果 stdout 上限 1MB——超限如实失败（代码体大时可能触达，探索用例通常远小）；`ExperimentInvocationRequest.config` 的 model 由编排器从 research 配置传入，实验实例与研究生成的模型选择末级统一待 Phase 1B 启用时定稿。
 
 ### S09 — 完成国内入口与 MVP 运维验收（Phase 1B；依赖 S02、S07，可与 S08 并行）
 

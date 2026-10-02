@@ -192,22 +192,85 @@ class ResearchProposal(WireModel):
         return self
 
 
-def validate_proposal_references(
-    evidence: FrozenEvidence, proposal: ResearchProposal
-) -> list[dict]:
-    """Check question binding and resolve citations against trusted evidence.
+def resolve_experiment_reference(
+    experiments: "list", reference: "ResearchReference"
+) -> dict:
+    """Resolve a kind="code" reference against the EXPERIMENT outcomes
+    carried in this turn's request (S08 re-entry turns). The locator must
+    name an artifact manifest of one of the carried experiments; the
+    Controller independently re-verifies against its accepted records at
+    seal, so this is the runtime-side half of the check."""
+    from youwei_contracts.experiment import (
+        ExperimentContext,
+        parse_experiment_locator,
+    )
 
-    Only snapshot evidence can be checked with this bundle. Other reference
-    kinds need a separately authorized resolver and are rejected here. This
-    checks cited locations, not whether the claims follow from those rows.
-    The Controller must still authorize the bundle and enforce its seal gates.
-    """
+    if reference.kind != "code":
+        raise ValueError(
+            f"unsupported reference kind; expected code, got {reference.kind!r}"
+        )
+    try:
+        experiment_id, computation_id, path = parse_experiment_locator(
+            reference.locator
+        )
+    except ValueError as exc:
+        raise ValueError(f"invalid experiment locator: {exc}") from exc
+    for exp in experiments:
+        context = (
+            exp
+            if isinstance(exp, ExperimentContext)
+            else ExperimentContext.model_validate(exp)
+        )
+        if context.experiment_invocation_id != experiment_id:
+            continue
+        for computation in context.computations:
+            if computation.computation_id != computation_id:
+                continue
+            for artifact in computation.artifacts:
+                if artifact.path == path:
+                    return {
+                        "experiment_invocation_id": str(experiment_id),
+                        "computation_id": str(computation_id),
+                        "artifact": artifact.model_dump(mode="json"),
+                    }
+    raise ValueError(
+        "experiment reference does not name an artifact of the carried experiments"
+    )
+
+
+def validate_proposal_references(
+    evidence: FrozenEvidence,
+    proposal: ResearchProposal,
+    *,
+    experiments: "list | None" = None,
+) -> list[dict]:
+    """Check question binding and resolve citations against trusted inputs.
+
+    snapshot references resolve against the frozen evidence (kind="evidence").
+    When ``experiments`` (accepted outcomes carried on the request, S08) is
+    provided, kind="code" references resolve against their artifact
+    manifests; without carried experiments, kind="code" is rejected. Other
+    reference kinds need a separately authorized resolver and are rejected
+    here. This checks cited locations, not whether the claims follow from
+    those rows. The Controller must still authorize the bundle and enforce
+    its seal gates."""
     if proposal.run_id != evidence.run_id:
         raise ValueError("proposal run_id does not match frozen evidence")
     if proposal.case_id != evidence.case.case_id:
         raise ValueError("proposal case_id does not match frozen evidence")
     evidence.evidence.verify_content_hash()
-    return [resolve_reference(evidence, reference) for reference in proposal.references]
+    resolved = []
+    for reference in proposal.references:
+        if reference.kind == "evidence":
+            resolved.append(resolve_reference(evidence, reference))
+        elif reference.kind == "code" and experiments:
+            resolved.append(resolve_experiment_reference(experiments, reference))
+        else:
+            raise ValueError(
+                f"unsupported reference kind {reference.kind!r}; "
+                "no authorized resolver for it in this turn"
+            )
+    return resolved
 
 
 def proposal_digest(proposal: ResearchProposal) -> str:

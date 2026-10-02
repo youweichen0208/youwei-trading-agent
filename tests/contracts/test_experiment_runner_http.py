@@ -114,7 +114,7 @@ class Ctx:
         return base
 
 
-def _app(keys, store_dir, *, executor=None):
+def _app(keys, store_dir, *, executor=None, experiment_instance_executor=None):
     from youwei_runner.app import create_app
     from youwei_runner.settings import RunnerSettings
 
@@ -125,9 +125,14 @@ def _app(keys, store_dir, *, executor=None):
         agent_runtime_gateway_url="http://gateway:8000",
         agent_runtime_public_keys={"k1": keys[1]},
         experiment_store_dir=str(store_dir),
+        experiment_tool_base_url="http://runner:8000",
         image="python:3.13-alpine",
     )
-    return create_app(settings, executor=executor)
+    return create_app(
+        settings,
+        executor=executor,
+        experiment_instance_executor=experiment_instance_executor,
+    )
 
 
 def _client(app):

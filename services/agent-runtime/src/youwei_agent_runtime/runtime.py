@@ -17,7 +17,11 @@ from dataclasses import dataclass
 from youwei_contracts.research import (
     FrozenEvidence, ResearchProposal, validate_proposal_references,
 )
-from youwei_agent_runtime.adapter import ISOLATION_KWARGS, build_research_brief
+from youwei_agent_runtime.adapter import (
+    ISOLATION_KWARGS,
+    append_experiment_guidance,
+    build_research_brief,
+)
 from youwei_agent_runtime.tools import (
     RESEARCH_TOOLSET,
     ToolContext,
@@ -234,13 +238,19 @@ def _from_last_call(agent) -> UsageReport:
 
 @dataclass(frozen=True)
 class ResearchTurn:
-    """One research turn's validated proposal plus the observed gateway usage.
-    ``usage`` is a ``UsageReport`` (never a bare dict) so the Controller can
-    settle cost from a labeled, completeness-aware observation rather than an
-    ambiguous token blob."""
+    """One research turn's validated output plus the observed gateway usage.
 
-    proposal: ResearchProposal
+    A turn carries EITHER a proposal (the final llm_adjusted answer) OR an
+    experiment_request (S08 exploration loop: the research instance asks the
+    Controller to run a computation it cannot do with the available tools;
+    the Controller orchestrates the experiment and re-enters the turn with
+    the accepted outcome). ``usage`` is a ``UsageReport`` (never a bare dict)
+    so the Controller can settle cost from a labeled, completeness-aware
+    observation rather than an ambiguous token blob."""
+
+    proposal: ResearchProposal | None
     usage: UsageReport
+    experiment_request: "object | None" = None  # contracts ExperimentRequest
 
 
 @dataclass(frozen=True)
@@ -383,12 +393,41 @@ def parse_proposal(
     return proposal_from_payload(run_id, case_id, payload)
 
 
+def parse_experiment_request_output(raw: str):
+    """Parse the model's answer as an experiment request (the exploration
+    loop's turn output). Same fence tolerance as parse_proposal."""
+    from youwei_contracts.experiment import ExperimentRequest
+
+    text = raw.strip()
+    if text.startswith("```"):
+        first_newline = text.find("\n")
+        if first_newline != -1:
+            text = text[first_newline + 1 :]
+        stripped = text.rstrip()
+        if stripped.endswith("```"):
+            text = stripped[: stripped.rfind("```")]
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        start = text.find("{")
+        end = text.rfind("}")
+        if start == -1 or end <= start:
+            raise ValueError("experiment request response is not JSON: " + raw[:200])
+        payload = json.loads(text[start : end + 1])
+    if not isinstance(payload, dict):
+        raise ValueError("experiment request must be a JSON object")
+    if "experiment_request" in payload:
+        payload = payload["experiment_request"]
+    return ExperimentRequest.model_validate(payload)
+
+
 async def run_research(
     evidence: FrozenEvidence,
     config: ResearchConfig,
     *,
     capability_token: str | None = None,
     public_keys: dict[str, str] | None = None,
+    experiments: list | None = None,
 ) -> ResearchTurn:
     """Run one research turn and return a validated proposal plus usage.
 
@@ -415,6 +454,7 @@ async def run_research(
     """
     agent = make_agent(config)
     brief = build_research_brief(evidence)
+    brief = append_experiment_guidance(brief, experiments)
 
     if capability_token is not None and public_keys is not None:
         tool_ctx = ToolContext(
@@ -438,14 +478,23 @@ async def run_research(
             reset_tool_context(ctx_token)
 
     after = _snapshot_session_usage(agent)
-    proposal = parse_proposal(
-        raw,
-        run_id=evidence.run_id,
-        case_id=evidence.case.case_id,
-        # Attribution from configuration, never from the model's self-report.
-        model_attribution={"model_version": config.model, "provider": config.provider},
-    )
-    validate_proposal_references(evidence, proposal)
+    try:
+        proposal = parse_proposal(
+            raw,
+            run_id=evidence.run_id,
+            case_id=evidence.case.case_id,
+            # Attribution from configuration, never from the model's self-report.
+            model_attribution={"model_version": config.model, "provider": config.provider},
+        )
+    except ValueError:
+        # not a proposal — an experiment request (the brief documents this
+        # alternative output; a malformed answer fails in the parser below)
+        experiment_request = parse_experiment_request_output(raw)
+        usage = _observe_usage(agent, before, after)
+        return ResearchTurn(
+            proposal=None, usage=usage, experiment_request=experiment_request
+        )
+    validate_proposal_references(evidence, proposal, experiments=experiments)
     usage = _observe_usage(agent, before, after)
     return ResearchTurn(proposal=proposal, usage=usage)
 

@@ -346,18 +346,49 @@ async def run_batch_predictions(
         if runner_research is not None:
             # S07m: research runs in the Runner-controlled container, one
             # invocation per case, authorized by the Controller's Ed25519 key.
-            fetch = make_runner_research_fetcher(
-                run_id=claimed.run_id,
-                tenant_id=claimed.tenant_id,
-                job_id=claimed.job_id,
-                attempt_no=claimed.attempt_no,
-                snapshot=frozen,
-                batch_manifest=batch.batch_manifest,
-                client=runner_research.client,
-                key=runner_research.signing_key,
-                expiry_provider=lambda: _lease_expiry(claimed),
-                research_config=runner_research.research_config,
-            )
+            # S08c-3: with experiment wiring attached, the fetcher runs the
+            # exploration loop (experiment request -> registered -> sandbox
+            # -> verified -> accepted -> re-entry) instead of a single turn.
+            if (
+                runner_research.experiment_client is not None
+                and runner_research.experiment_limits is not None
+            ):
+                from youwei_core.ledger.experiment_orchestrator import (
+                    ExperimentWiring,
+                    make_experiment_fetcher,
+                )
+
+                wiring = ExperimentWiring(
+                    engine=engine,
+                    client=runner_research.experiment_client,
+                    key=runner_research.key,
+                    limits=runner_research.experiment_limits,
+                )
+                fetch = make_experiment_fetcher(
+                    wiring=wiring,
+                    run_id=claimed.run_id,
+                    tenant_id=claimed.tenant_id,
+                    job_id=claimed.job_id,
+                    attempt_id=claimed.attempt_id,
+                    attempt_no=claimed.attempt_no,
+                    snapshot=frozen,
+                    batch_manifest=batch.batch_manifest,
+                    research_client=runner_research.client,
+                    research_config=runner_research.research_config,
+                )
+            else:
+                fetch = make_runner_research_fetcher(
+                    run_id=claimed.run_id,
+                    tenant_id=claimed.tenant_id,
+                    job_id=claimed.job_id,
+                    attempt_no=claimed.attempt_no,
+                    snapshot=frozen,
+                    batch_manifest=batch.batch_manifest,
+                    client=runner_research.client,
+                    key=runner_research.key,
+                    expiry_provider=lambda: _lease_expiry(claimed),
+                    research_config=runner_research.research_config,
+                )
             provider = make_phase1b_llm_adjusted_provider(fetch)
         elif agent_runtime is not None and claimed.capability_token is not None:
             fetch = make_phase1b_llm_fetcher(

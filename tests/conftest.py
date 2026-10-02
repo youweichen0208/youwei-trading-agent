@@ -18,6 +18,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 PG_IMAGE = "postgres:16-alpine"
 
 ALL_TABLES = (
+    "experiment_outcomes, experiment_records, "
     "monthly_summary_reports, batch_report_input_state, monthly_report_input_state, "
     "artifacts, evaluation_reports, outcome_revisions, forecast_commit_events, "
     "predictions, forecast_commits, ledger_chains, forecast_cases, "
@@ -40,60 +41,6 @@ def _free_port() -> int:
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
         return s.getsockname()[1]
-
-
-def make_campaign_plan(
-    *,
-    tenant_id,
-    campaign_key,
-    release_content_sha256,
-    benchmark_security_id,
-    panel_security_ids,
-    target_specs,
-    time_protocol_sha256,
-    first_cutoff=None,
-    batch_count=12,
-    phase="1a",
-    fallback_policy="phase1a-none",
-    enabled_sources=None,
-):
-    """Shared S06i test helper: build a frozen campaign plan and its structured
-    approval scope (prepare -> scope manifest -> register order)."""
-    from datetime import UTC, datetime
-
-    from youwei_core.data.calendar import next_weekly_cutoff
-    from youwei_core.ledger.plan import CampaignPlanScope, prepare_campaign_plan
-
-    # Default anchor: the FIRST coming Saturday cutoff. The 12-week frozen
-    # plan therefore starts in the future and contains exactly the cutoffs the
-    # scheduler/plan_batch tests plan against, with no past weeks to backfill.
-    # (A fixed 2026-01-03 anchor ended the plan in March 2026 and rejected the
-    # Sept/Oct-2026 cutoffs; an anchor BEFORE now backfilled past weeks.)
-    first = first_cutoff or next_weekly_cutoff(datetime.now(UTC))
-    plan = prepare_campaign_plan(
-        tenant_id=tenant_id,
-        campaign_key=campaign_key,
-        release_content_sha256=release_content_sha256,
-        phase=phase,
-        first_cutoff=first,
-        batch_count=batch_count,
-        panel_security_ids=[str(s) for s in panel_security_ids],
-        benchmark_security_id=str(benchmark_security_id),
-        target_specs=target_specs,
-        enabled_sources=enabled_sources or ["baseline", "quant_model"],
-        fallback_policy=fallback_policy,
-        primary_metric="d20_paired_brier_delta",
-        time_protocol_ref="time-protocol-v1",
-        time_protocol_sha256=time_protocol_sha256,
-    )
-    scope = CampaignPlanScope(
-        phase=phase,
-        tenant_id=tenant_id,
-        campaign_key=campaign_key,
-        release_content_sha256=release_content_sha256,
-        campaign_plan_sha256=plan["campaign_plan_sha256"],
-    )
-    return plan, scope
 
 
 @pytest.fixture(scope="session")

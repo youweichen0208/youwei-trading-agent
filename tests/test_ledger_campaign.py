@@ -16,7 +16,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy import select, text
 
-from conftest import make_campaign_plan
+from campaign_plan_helper import make_campaign_plan
 from youwei_core.data.calendar import (
     ET,
     CalendarError,

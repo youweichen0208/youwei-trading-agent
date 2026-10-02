@@ -333,12 +333,36 @@ def _build_runner_research(settings: Settings) -> RunnerResearchConfig | None:
         return None
     return RunnerResearchConfig(
         client=ResearchRunnerClient(settings.runner_url),
-        signing_key=ResearchSigningKey(
+        key=ResearchSigningKey(
             kid=settings.research_signing_kid,
             private_key_pem=settings.research_signing_private_key,
             exec_config_version=settings.research_exec_config_version,
         ),
         research_config={"model": settings.research_model},
+        **(
+            _experiment_wiring(settings)
+            if settings.experiment_exploration_enabled
+            else {}
+        ),
+    )
+
+
+def _experiment_wiring(settings: Settings) -> dict:
+    """The S08 exploration-loop attachments for RunnerResearchConfig (both
+    or neither: the orchestrator needs the control-plane client and the
+    limits template together)."""
+    from youwei_contracts.experiment import ExperimentLimits
+
+    from youwei_core.ledger.experiment_client import ExperimentRunnerClient
+
+    return dict(
+        experiment_client=ExperimentRunnerClient(settings.runner_url),
+        experiment_limits=ExperimentLimits(
+            max_computations=settings.experiment_limits_max_computations,
+            max_concurrent=settings.experiment_limits_max_concurrent,
+            max_total_duration_seconds=settings.experiment_limits_max_total_duration_seconds,
+            max_artifact_bytes=settings.experiment_limits_max_artifact_bytes,
+        ),
     )
 
 

@@ -290,17 +290,39 @@ def _decode_result(
 
     try:
         proposal = ResearchProposal.model_validate(payload["proposal"])
+    except KeyError:
+        proposal = None
     except Exception as exc:
         return ResearchInvocationResult(
             ok=False, exit_code=exit_code,
             image_digest=_image_digest(config.image),
             error=f"research container returned invalid proposal: {exc}"[:500],
         )
+    experiment_request = None
+    if proposal is None:
+        from youwei_contracts.experiment import ExperimentRequest
+
+        raw_request = payload.get("experiment_request")
+        if raw_request is None:
+            return ResearchInvocationResult(
+                ok=False, exit_code=exit_code,
+                image_digest=_image_digest(config.image),
+                error="research container returned neither proposal nor experiment_request",
+            )
+        try:
+            experiment_request = ExperimentRequest.model_validate(raw_request)
+        except Exception as exc:
+            return ResearchInvocationResult(
+                ok=False, exit_code=exit_code,
+                image_digest=_image_digest(config.image),
+                error=f"research container returned invalid experiment_request: {exc}"[:500],
+            )
     usage = payload.get("usage")
     if not isinstance(usage, dict):
         usage = None
     return ResearchInvocationResult(
-        ok=True, proposal=proposal, usage=usage, exit_code=exit_code,
+        ok=True, proposal=proposal, experiment_request=experiment_request,
+        usage=usage, exit_code=exit_code,
         image_digest=_image_digest(config.image),
     )
 

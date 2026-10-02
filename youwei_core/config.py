@@ -86,6 +86,15 @@ class Settings(BaseSettings):
     research_exec_config_version: str = "research-exec-v1"
     research_model: str = ""
 
+    # --- S08 exploration loop (experiment orchestration) ---
+    # Enabled only when the Runner experiment surface + research link are
+    # both wired; the limits are the template every experiment registers.
+    experiment_exploration_enabled: bool = False
+    experiment_limits_max_computations: int = 2
+    experiment_limits_max_concurrent: int = 1
+    experiment_limits_max_total_duration_seconds: float = 600.0
+    experiment_limits_max_artifact_bytes: int = 16 * 1024 * 1024
+
     # S09a: daily collection scheduler (collect_tick). The collection set
     # is fixed by ONE named release; its manifest names the panel
     # registration + benchmark. The collect tenant owns the submitted

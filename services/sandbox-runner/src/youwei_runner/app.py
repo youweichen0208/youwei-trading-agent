@@ -25,12 +25,19 @@ from youwei_contracts.experiment import (
     ExperimentComputationReceipt,
     ExperimentComputationRequest,
     ExperimentComputationStatus,
+    ExperimentInvocationEnvelope,
+    ExperimentInvocationRequest,
+    ExperimentInvocationResult,
+    ExperimentInvocationStatus,
+    experiment_invocation_digest,
 )
 from youwei_contracts.research_capability import (
     AUD_RUNNER_EXEC,
     AUD_RUNNER_TOOLS,
     SCOPE_EXPERIMENT_ADMIN,
     SCOPE_EXPERIMENT_READ,
+    SCOPE_EXPERIMENT_RUN,
+    SCOPE_EXPERIMENT_RUN_STATUS,
     SCOPE_EXPERIMENT_STATUS,
     SCOPE_EXPERIMENT_SUBMIT,
     SCOPE_RESEARCH_CANCEL,
@@ -83,6 +90,24 @@ Executor = Callable[[SandboxRequest], Awaitable[ExecutionResult]]
 ResearchExecutor = Callable[
     [ResearchInvocationRequest], Awaitable[ResearchInvocationResult]
 ]
+ExperimentInstanceExecutor = Callable[
+    [ExperimentInvocationRequest, str, str], Awaitable[ExperimentInvocationResult]
+]
+
+
+@dataclass
+class ExperimentInvocationRecord:
+    """In-memory handle for one running/finished experiment instance
+    dispatch (the container turn). The durable experiment evidence lives in
+    the persistent store (authorizations + computation receipts); this record
+    only carries the live task and the latest status view."""
+
+    request: ExperimentInvocationRequest
+    runtime_token: str
+    tool_token: str
+    view: ExperimentInvocationStatus
+    expires_at: datetime
+    task: asyncio.Task | None = None
 
 
 def create_app(
@@ -90,6 +115,7 @@ def create_app(
     *,
     executor: Executor | None = None,
     research_executor: ResearchExecutor | None = None,
+    experiment_instance_executor: ExperimentInstanceExecutor | None = None,
 ) -> FastAPI:
     records: dict[tuple, Record] = {}
     research_records: dict[uuid.UUID, ResearchRecord] = {}
@@ -107,6 +133,7 @@ def create_app(
         # failed(interrupted) and stay idempotent.
         experiment_store.open()
     experiment_records: dict[tuple[uuid.UUID, uuid.UUID], ExperimentRecord] = {}
+    experiment_invocation_records: dict[uuid.UUID, ExperimentInvocationRecord] = {}
 
     @asynccontextmanager
     async def lifespan(app):
@@ -119,6 +146,10 @@ def create_app(
             tasks = [r.task for r in records.values() if r.task is not None]
             tasks += [r.task for r in research_records.values() if r.task is not None]
             tasks += [r.task for r in experiment_records.values() if r.task is not None]
+            tasks += [
+                r.task for r in experiment_invocation_records.values()
+                if r.task is not None
+            ]
             for task in tasks:
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
@@ -482,6 +513,16 @@ def create_app(
                     update={"status": "cancelled", "partial": False}
                 )
                 store.save_receipt(record.receipt)
+        # Termination also reaches the experiment INSTANCE dispatch (S08c):
+        # a running instance container is cancelled too — its tool calls
+        # would all be rejected from here on anyway.
+        instance = experiment_invocation_records.get(experiment_id)
+        if (instance is not None and instance.task is not None
+                and not instance.task.done()):
+            instance.task.cancel()
+            await asyncio.gather(instance.task, return_exceptions=True)
+            if instance.view.status == "running":
+                instance.view.status = "cancelled"
         return {"status": "terminated"}
 
     @app.get("/v1/experiment-authorizations/{experiment_id}/receipts")
@@ -668,6 +709,153 @@ def create_app(
         except ExperimentStoreError:
             raise HTTPException(410, "artifact unreadable (missing or hash mismatch)") from None
         return artifact
+
+    # --- experiment instance dispatch (S08c-2) ------------------------------
+    # The Controller dispatches ONE experiment instance per experiment
+    # (keyed by experiment_invocation_id): a fixed agent-runtime container
+    # whose tools are exactly {sandbox_submit, sandbox_status, artifact_read}
+    # against the tool plane above. Dispatch authorization is aud=runner-exec
+    # with scope experiment:run — a DIFFERENT scope from experiment:admin, so
+    # a registration/termination grant cannot spawn instances and a dispatch
+    # grant cannot touch the control plane.
+
+    async def execute_experiment_instance(record: ExperimentInvocationRecord):
+        work = None
+        try:
+            if experiment_instance_executor is not None:
+                work = asyncio.create_task(
+                    experiment_instance_executor(
+                        record.request, record.runtime_token, record.tool_token
+                    )
+                )
+            else:
+                from youwei_runner.experiment_instance import (
+                    build_experiment_run_config,
+                    execute_experiment_invocation,
+                )
+
+                config = build_experiment_run_config(settings)
+                work = asyncio.create_task(
+                    execute_experiment_invocation(
+                        record.request,
+                        config,
+                        runtime_token=record.runtime_token,
+                        tool_token=record.tool_token,
+                    )
+                )
+            while not work.done():
+                if record.expires_at <= datetime.now(UTC):
+                    raise asyncio.CancelledError
+                await asyncio.wait({work}, timeout=0.05)
+            result = work.result()
+            if result.ok and result.result is not None:
+                record.view.result = result
+                record.view.status = "succeeded"
+            else:
+                record.view.status = "failed"
+                record.view.error = (result.error or "experiment instance failed")[:500]
+                record.view.result = result
+        except asyncio.CancelledError:
+            record.view.status = "cancelled"
+        except Exception as exc:
+            record.view.status = "failed"
+            record.view.error = str(exc)[:500]
+        finally:
+            if work is not None and not work.done():
+                work.cancel()
+                await asyncio.gather(work, return_exceptions=True)
+
+    @app.post("/v1/experiment-invocations")
+    async def experiment_invocation_submit(request: Request):
+        cap = authorize_research(request, SCOPE_EXPERIMENT_RUN)
+        store = _require_experiment_store()
+        raw = bytearray()
+        async for chunk in request.stream():
+            raw.extend(chunk)
+            if len(raw) > settings.max_request_bytes:
+                raise HTTPException(413, "experiment invocation too large")
+        try:
+            envelope = ExperimentInvocationEnvelope.model_validate_json(raw)
+        except ValidationError:
+            raise HTTPException(422, "invalid experiment-v1 envelope") from None
+        req = envelope.request
+        digest = experiment_invocation_digest(req)
+        if (
+            cap.invocation_id != req.experiment_invocation_id
+            or cap.tenant_id != req.tenant_id
+            or cap.run_id != req.run_id
+            or cap.job_id != req.job_id
+            or cap.attempt_no != req.attempt_no
+            or cap.case_id != req.case_id
+            or cap.evidence_sha256 != req.evidence_sha256
+            or cap.exec_config_version != req.exec_config_version
+        ):
+            raise HTTPException(403, "experiment capability binding mismatch")
+        # The experiment must be REGISTERED here before an instance may run:
+        # the tool plane binds every computation to the registered
+        # authorization (limits + the Runner-injected snapshot).
+        auth = store.authorization(req.experiment_invocation_id)
+        if auth is None:
+            raise HTTPException(404, "experiment not registered")
+        if store.is_terminated(req.experiment_invocation_id):
+            raise HTTPException(403, "experiment terminated")
+        if (
+            auth.tenant_id != req.tenant_id
+            or auth.run_id != req.run_id
+            or auth.job_id != req.job_id
+            or auth.attempt_no != req.attempt_no
+            or auth.case_id != req.case_id
+            or auth.evidence_sha256 != req.evidence_sha256
+            or auth.exec_config_version != req.exec_config_version
+        ):
+            raise HTTPException(403, "experiment invocation does not match its registration")
+        key = req.experiment_invocation_id
+        existing = experiment_invocation_records.get(key)
+        if existing is not None:
+            if existing.view.request_sha256 != digest:
+                raise HTTPException(409, "invocation already bound to another payload")
+            existing.expires_at = max(existing.expires_at, cap.exp)
+            return JSONResponse(existing.view.model_dump(mode="json"))
+        running_instances = sum(
+            r.task is not None and not r.task.done()
+            for r in experiment_invocation_records.values()
+        )
+        if running_instances >= settings.max_parallel:
+            raise HTTPException(429, "experiment runner at capacity")
+        if len(experiment_invocation_records) >= settings.max_records:
+            for old_key, old in list(experiment_invocation_records.items()):
+                if (old.task is not None and old.task.done()
+                        and old.expires_at < datetime.now(UTC)):
+                    del experiment_invocation_records[old_key]
+            if len(experiment_invocation_records) >= settings.max_records:
+                raise HTTPException(503, "experiment invocation capacity reached")
+        record = ExperimentInvocationRecord(
+            req,
+            envelope.runtime_token,
+            envelope.tool_token,
+            ExperimentInvocationStatus(
+                invocation_id=req.experiment_invocation_id,
+                request_sha256=digest,
+                status="running",
+            ),
+            cap.exp,
+        )
+        experiment_invocation_records[key] = record
+        record.task = asyncio.create_task(execute_experiment_instance(record))
+        return JSONResponse(record.view.model_dump(mode="json"), status_code=202)
+
+    @app.get("/v1/experiment-invocations/{experiment_id}")
+    async def experiment_invocation_status(
+        experiment_id: uuid.UUID, request: Request
+    ):
+        cap = authorize_research(request, SCOPE_EXPERIMENT_RUN_STATUS)
+        if cap.invocation_id != experiment_id:
+            raise HTTPException(403, "experiment capability scope mismatch")
+        record = experiment_invocation_records.get(experiment_id)
+        if record is None:
+            raise HTTPException(404, "experiment invocation unavailable; recover through Core")
+        record.expires_at = max(record.expires_at, cap.exp)
+        return record.view
 
     @app.get("/healthz")
     async def health():

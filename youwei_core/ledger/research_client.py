@@ -48,20 +48,6 @@ class ResearchRunnerError(Exception):
 
 
 @dataclass(frozen=True)
-class RunnerResearchConfig:
-    """Controller-side wiring for the Runner research link (S07m).
-
-    ``client`` reaches the Runner's research entry; ``signing_key`` holds the
-    Controller's Ed25519 private key; ``research_config`` carries model/
-    iterations (gateway endpoint/key are injected by the Runner).
-    """
-
-    client: "ResearchRunnerClient"
-    signing_key: ResearchSigningKey
-    research_config: dict
-
-
-@dataclass(frozen=True)
 class ResearchSigningKey:
     """Controller-side Ed25519 signing material for the research link.
 
@@ -83,11 +69,18 @@ class RunnerResearchConfig:
     parameters (model/provider/iterations — the gateway endpoint/key are
     injected by the Runner, never carried here). The per-batch token expiry is
     derived inside ``run_batch_predictions`` by re-checking the current
-    attempt's lease (the Controller never extends a grant past the lease)."""
+    attempt's lease (the Controller never extends a grant past the lease).
+
+    ``experiment_client`` + ``experiment_limits`` (both or neither) enable the
+    S08 exploration loop: research turns may answer with an experiment
+    request, which the orchestrator runs through the Runner's experiment
+    surface before re-entering the turn."""
 
     client: "ResearchRunnerClient"
     key: ResearchSigningKey
     research_config: dict
+    experiment_client: "object | None" = None  # ExperimentRunnerClient
+    experiment_limits: "object | None" = None  # contracts ExperimentLimits
 
 
 def sign_invocation_tokens(

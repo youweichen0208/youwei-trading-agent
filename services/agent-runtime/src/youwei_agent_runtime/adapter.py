@@ -145,6 +145,61 @@ def build_research_brief(evidence: FrozenEvidence) -> str:
     return "\n".join(lines)
 
 
+def append_experiment_guidance(
+    brief: str, experiments: list | None
+) -> str:
+    """Append the exploration-loop guidance to a research brief (S08).
+
+    Always documents the experiment-request option; when ``experiments``
+    (accepted outcomes of experiments this case already ran) is non-empty,
+    also renders their findings/artifact locators so the model can cite
+    them (kind "code") or build on them in its final proposal."""
+    from youwei_contracts.experiment import ExperimentContext
+
+    lines = [
+        "",
+        "## Exploration loop (optional experiment request)",
+        "If — and only if — a computation the available tools cannot cover is",
+        "genuinely necessary for the prediction, you may instead return a",
+        "single JSON object with exactly these fields (no proposal fields):",
+        '- question: string (<= 2000 chars, the precise statistical question)',
+        '- motivation: string (<= 2000 chars, why it matters for this case)',
+        '- requested_shape: string (<= 2000 chars, the exact output shape)',
+        "The Controller runs the computation in an isolated sandbox against",
+        "this same frozen snapshot and returns the outcome; you then answer",
+        "with the normal proposal format. Use this sparingly — a proposal",
+        "grounded in the evidence above is always acceptable.",
+    ]
+    if experiments:
+        lines += [
+            "",
+            "## Experiment outcomes from earlier turns (citable)",
+            "These experiments ran against this case's frozen snapshot; cite",
+            "their artifacts with kind=\"code\" using the exact locators below.",
+        ]
+        for exp in experiments:
+            context = (
+                exp
+                if isinstance(exp, ExperimentContext)
+                else ExperimentContext.model_validate(exp)
+            )
+            lines.append("")
+            lines.append(f"### experiment {context.experiment_invocation_id}")
+            lines.append(f"- question: {context.question}")
+            lines.append(f"- findings: {context.findings}")
+            for warning in context.warnings:
+                lines.append(f"- warning: {warning}")
+            for computation in context.computations:
+                for artifact in computation.artifacts:
+                    lines.append(
+                        f"- artifact: experiment:{context.experiment_invocation_id}"
+                        f"/computations/{computation.computation_id}"
+                        f"/artifacts/{artifact.path} "
+                        f"({computation.status}, sha256 {artifact.sha256[:12]}...)"
+                    )
+    return brief + "\n".join([""] + lines)
+
+
 def proposal_from_payload(run_id, case_id, payload: dict):
     """Construct a ResearchProposal from an adapter payload, enforcing the
     wire discipline declared in youwei_contracts.research. Returns the

@@ -193,7 +193,6 @@ class ExperimentResult(WireModel):
             raise ValueError("duplicate computation id")
         return self
 
-
 # --- Controller -> Runner: experiment authorization (control plane) ---------
 
 
@@ -317,4 +316,167 @@ def canonical_json(model: BaseModel) -> str:
     return json.dumps(
         model.model_dump(mode="json"), sort_keys=True,
         separators=(",", ":"), ensure_ascii=False,
+    )
+
+
+# --- experiment instance dispatch (Controller -> Runner -> container) --------
+
+
+class ExperimentRuntimeConfig(WireModel):
+    """The caller-authorized experiment instance parameters. Gateway
+    endpoint and key are NOT here — the Runner injects those from deployment
+    config, exactly like the research link."""
+
+    model: str
+    provider: str = "custom"
+    max_iterations: int = Field(default=8, ge=1, le=64)
+    run_budget_seconds: float | None = Field(default=None, ge=1.0)
+
+
+class ExperimentInvocationRequest(WireModel):
+    """One experiment instance dispatch, keyed by ``experiment_invocation_id``
+    (the same id as the registered authorization — one instance per
+    experiment).
+
+    The instance never receives the snapshot CONTENT: it receives the
+    research instance's ask (``question``) and the frozen snapshot's manifest
+    (``snapshot_manifest`` — the description of what sandbox computations
+    will see). The Runner injects the snapshot itself into every computation
+    from the registered authorization; the instance cannot redirect its own
+    input.
+    """
+
+    contract_version: Literal["experiment-v1"] = "experiment-v1"
+    experiment_invocation_id: uuid.UUID
+    tenant_id: uuid.UUID
+    run_id: uuid.UUID
+    job_id: uuid.UUID
+    attempt_no: int = Field(gt=0)
+    case_id: uuid.UUID
+    evidence_sha256: str
+    exec_config_version: str
+    question: ExperimentRequest
+    snapshot_manifest: dict
+    config: ExperimentRuntimeConfig
+
+    @model_validator(mode="after")
+    def verify_request(self):
+        if not re.fullmatch(r"[0-9a-f]{64}", self.evidence_sha256):
+            raise ValueError("evidence_sha256 must be a lowercase hex digest")
+        return self
+
+
+def experiment_invocation_digest(request: ExperimentInvocationRequest) -> str:
+    """Canonical digest of the dispatch request (idempotency: same
+    invocation + same content hashes identically; a retry with different
+    content is detectable and rejected by the Runner)."""
+    return hashlib.sha256(canonical_json(request).encode("utf-8")).hexdigest()
+
+
+class ExperimentInvocationResult(WireModel):
+    """The experiment container's output, returned through the Runner.
+    ``image_digest`` records the agent-runtime image that actually ran.
+    A non-zero exit or a non-ok result is a failure, not a result."""
+
+    ok: bool
+    result: ExperimentResult | None = None
+    usage: dict | None = None
+    error: str | None = None
+    exit_code: int
+    image_digest: str
+
+
+class ExperimentInvocationStatus(WireModel):
+    """Runner-side status for one experiment instance dispatch."""
+
+    contract_version: Literal["experiment-v1"] = "experiment-v1"
+    invocation_id: uuid.UUID
+    request_sha256: str
+    status: Literal["running", "succeeded", "failed", "cancelled"]
+    result: ExperimentInvocationResult | None = None
+    error: str | None = None
+
+
+class ExperimentInvocationEnvelope(WireModel):
+    """The HTTP body a Controller sends to the Runner's experiment dispatch
+    entry. ``request`` is the stable content (digest drives idempotency);
+    ``runtime_token`` (aud=runtime-experiment) authorizes the container's
+    turn and ``tool_token`` (aud=runner-tools, experiment:submit/status/read)
+    authorizes the container's tool-plane calls. Both are auth material kept
+    separate from the stable content so renewing them does not change the
+    request digest."""
+
+    request: ExperimentInvocationRequest
+    runtime_token: str = Field(min_length=1)
+    tool_token: str = Field(min_length=1)
+
+
+# --- re-entry context (Controller -> research instance, turn N+1) -------------
+
+
+class ExperimentContextComputation(WireModel):
+    """One computation of an accepted experiment, as carried back into the
+    research turn's context: identity + code hash + terminal status +
+    artifact manifests. The CODE itself is not carried (the ledger holds it);
+    the manifests are what ``experiment:...`` citations resolve against."""
+
+    computation_id: uuid.UUID
+    code_sha256: str
+    status: Literal["succeeded", "failed", "cancelled", "timeout"]
+    artifacts: list[ArtifactManifest] = Field(default_factory=list, max_length=50)
+
+    @model_validator(mode="after")
+    def validate_computation(self):
+        if not re.fullmatch(r"[0-9a-f]{64}", self.code_sha256):
+            raise ValueError("code_sha256 must be a lowercase hex digest")
+        if len({a.path for a in self.artifacts}) != len(self.artifacts):
+            raise ValueError("duplicate artifact path")
+        return self
+
+
+class ExperimentContext(WireModel):
+    """An ACCEPTED experiment outcome, attached to the research turn's
+    re-entry request (design §2: 回合 N+1 实验结果附入上下文). The research
+    instance may cite its artifacts as
+    ``experiment:<id>/computations/<cid>/artifacts/<path>`` (kind "code")."""
+
+    contract_version: Literal["experiment-v1"] = "experiment-v1"
+    experiment_invocation_id: uuid.UUID
+    question: str = Field(min_length=1, max_length=2000)
+    findings: str = Field(min_length=1, max_length=20000)
+    warnings: list[str] = Field(default_factory=list, max_length=32)
+    computations: list[ExperimentContextComputation] = Field(
+        default_factory=list, max_length=16
+    )
+
+    @model_validator(mode="after")
+    def validate_context(self):
+        if any(len(w) > 500 for w in self.warnings):
+            raise ValueError("experiment warning too long")
+        if len({c.computation_id for c in self.computations}) != len(self.computations):
+            raise ValueError("duplicate computation id")
+        return self
+
+
+def experiment_context_from_result(
+    experiment_invocation_id: uuid.UUID,
+    question: str,
+    result: "ExperimentResult",
+) -> ExperimentContext:
+    """Assemble the re-entry context from an accepted result (drops the
+    code bodies; keeps identity + hashes + manifests)."""
+    return ExperimentContext(
+        experiment_invocation_id=experiment_invocation_id,
+        question=question,
+        findings=result.findings,
+        warnings=list(result.warnings),
+        computations=[
+            ExperimentContextComputation(
+                computation_id=c.computation_id,
+                code_sha256=c.code_sha256,
+                status=c.status,
+                artifacts=list(c.artifacts),
+            )
+            for c in result.computations
+        ],
     )

@@ -14,7 +14,7 @@ from datetime import UTC, date, datetime, timedelta
 import pytest
 from sqlalchemy import select, text
 
-from conftest import make_campaign_plan
+from campaign_plan_helper import make_campaign_plan
 from youwei_core.auth.service import create_tenant
 from youwei_core.data.calendar import build_calendar, next_weekly_cutoff
 from youwei_core.data.snapshots import freeze_daily_bars

@@ -92,6 +92,18 @@ def _request(signing_key):
         config={"model": "m"},
     )
 
+def _proposal():
+    """A minimal valid unavailable proposal (fixtures only need a well-formed
+    output since the S08 contract requires proposal XOR experiment_request)."""
+    from youwei_contracts.research import ResearchProposal
+
+    return ResearchProposal(
+        run_id=uuid.uuid4(),
+        case_id=uuid.uuid4(),
+        source_status="unavailable",
+        reason="not_enabled",
+    )
+
 
 def test_sign_invocation_tokens_mints_two_audiences(signing_key):
     req = _request(signing_key)
@@ -127,7 +139,7 @@ def test_build_research_request_binds_identity(signing_key):
 
 async def test_run_research_via_runner_submit_and_poll(signing_key):
     req = _request(signing_key)
-    result = ResearchInvocationResult(ok=True, exit_code=0, image_digest="sha256:" + "a" * 64)
+    result = ResearchInvocationResult(ok=True, exit_code=0, image_digest="sha256:" + "a" * 64, proposal=_proposal())
 
     state = {"submits": 0, "polls": 0}
 

@@ -31,6 +31,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from youwei_contracts.experiment import ExperimentContext, ExperimentRequest
 from youwei_contracts.research import FrozenEvidence, ResearchProposal
 
 
@@ -54,6 +55,9 @@ class ResearchInvocationRequest(WireModel):
 
     ``evidence_sha256`` must equal the canonical hash of ``evidence``; the
     Runner re-checks it and rejects a mismatch before starting a container.
+    ``experiments`` carries the ACCEPTED outcomes of experiments this case's
+    research already ran (re-entry turns only; the first turn sends none) —
+    the research instance may cite their artifacts (kind "code").
     """
 
     contract_version: Literal["agent-runtime-v1"] = "agent-runtime-v1"
@@ -67,6 +71,7 @@ class ResearchInvocationRequest(WireModel):
     evidence_sha256: str
     exec_config_version: str
     config: ResearchRuntimeConfig
+    experiments: list[ExperimentContext] = Field(default_factory=list, max_length=4)
 
     @model_validator(mode="after")
     def verify_evidence_hash(self):
@@ -99,14 +104,30 @@ class ResearchInvocationResult(WireModel):
     ``image_digest`` records the actual image that ran (from the Runner's own
     deployment config), so the Controller can attribute the result to a fixed
     build. ``exit_code`` is the container's exit; a non-zero exit or a
-    non-``ok`` result is a failure, not a proposal."""
+    non-``ok`` result is a failure, not a proposal.
+
+    A successful turn carries EITHER a ``proposal`` OR an ``experiment_request``
+    (the exploration loop, S08: the research instance asks the Controller to
+    run a computation the tools do not cover; the Controller orchestrates the
+    experiment and re-enters the turn with the accepted outcome)."""
 
     ok: bool
     proposal: ResearchProposal | None = None
+    experiment_request: ExperimentRequest | None = None
     usage: dict | None = None
     error: str | None = None
     exit_code: int
     image_digest: str
+
+    @model_validator(mode="after")
+    def validate_output(self):
+        if self.ok and self.proposal is None and self.experiment_request is None:
+            raise ValueError("an ok result must carry a proposal or an experiment_request")
+        if self.proposal is not None and self.experiment_request is not None:
+            raise ValueError("a result cannot carry both a proposal and an experiment_request")
+        if not self.ok and (self.proposal is not None or self.experiment_request is not None):
+            raise ValueError("a failed result carries no proposal or experiment_request")
+        return self
 
 
 class ResearchInvocationStatus(WireModel):

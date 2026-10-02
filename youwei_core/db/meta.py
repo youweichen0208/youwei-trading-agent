@@ -783,3 +783,53 @@ monthly_report_input_state = Table(
     CheckConstraint("inputs_sha256 ~ '^[0-9a-f]{64}$'", name="inputs_sha_format"),
     CheckConstraint("EXTRACT(DAY FROM month) = 1", name="month_first_day"),
 )
+
+# --- S08: controlled quant exploration (experiment records) -----------------
+# The Controller's pre-dispatch registration of one experiment (D2 minimal
+# requirement 1): bindings (tenant/run/job/attempt/case), the parent research
+# turn's evidence hash, the frozen snapshot the Runner injects, the limits
+# the Runner enforces, and the research instance's ask. One row per
+# experiment_invocation_id, INSERT-only (append-only triggers, migration).
+experiment_records = Table(
+    "experiment_records",
+    meta,
+    Column("id", UUID(as_uuid=True), primary_key=True),
+    Column("tenant_id", UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False),
+    Column("run_id", UUID(as_uuid=True), ForeignKey("runs.id"), nullable=False),
+    Column("job_id", UUID(as_uuid=True), ForeignKey("jobs.id"), nullable=False),
+    Column("attempt_id", UUID(as_uuid=True), ForeignKey("attempts.id"), nullable=False),
+    Column("attempt_no", Integer, nullable=False),
+    Column("case_id", UUID(as_uuid=True), ForeignKey("forecast_cases.id"), nullable=False),
+    Column("evidence_sha256", Text, nullable=False),
+    Column("exec_config_version", Text, nullable=False),
+    Column("question", Text, nullable=False),
+    Column("motivation", Text, nullable=False),
+    Column("requested_shape", Text, nullable=False),
+    Column("limits", JSONB, nullable=False),
+    Column("snapshot_id", UUID(as_uuid=True), ForeignKey("snapshots.id"), nullable=False),
+    Column("registered_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
+    CheckConstraint("evidence_sha256 ~ '^[0-9a-f]{64}$'", name="ck_experiment_records_evidence_sha_format"),
+    CheckConstraint("attempt_no > 0", name="ck_experiment_records_attempt_no_positive"),
+    Index("ix_experiment_records_case", "case_id"),
+)
+
+# The accepted outcome of one experiment (D2 requirement 4): the instance's
+# result verified against the Runner's receipts at the write boundary, with
+# the fencing attempt re-checked. One row per experiment, INSERT-only; the
+# pair (registration, outcome) is the append-only experiment record that
+# `experiment:<id>/computations/<cid>/artifacts/<path>` citations resolve
+# against.
+experiment_outcomes = Table(
+    "experiment_outcomes",
+    meta,
+    Column("experiment_invocation_id", UUID(as_uuid=True), ForeignKey("experiment_records.id"), primary_key=True),
+    Column("result", JSONB, nullable=False),
+    Column("receipts", JSONB, nullable=False),
+    Column("image", Text, nullable=False),
+    Column("snapshot_sha256", Text, nullable=False),
+    Column("accepted_attempt_id", UUID(as_uuid=True), ForeignKey("attempts.id"), nullable=False),
+    Column("accepted_attempt_no", Integer, nullable=False),
+    Column("accepted_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
+    CheckConstraint("snapshot_sha256 ~ '^[0-9a-f]{64}$'", name="ck_experiment_outcomes_snapshot_sha_format"),
+    CheckConstraint("accepted_attempt_no > 0", name="ck_experiment_outcomes_attempt_no_positive"),
+)

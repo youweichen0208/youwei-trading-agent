@@ -94,18 +94,22 @@ def decode_request(raw: str) -> dict:
 def encode_result(turn) -> str:
     """Serialize a successful research turn for the Controller to parse.
 
-    ``turn`` is a ``runtime.ResearchTurn`` (proposal + usage report). The wire
-    carries the usage report verbatim (labeled with source/scope/complete) so
-    the Controller can settle actual cost; cost settlement itself lives in the
-    Controller/budget layer.
+    ``turn`` is a ``runtime.ResearchTurn`` (proposal OR experiment request +
+    usage report). The wire carries the usage report verbatim (labeled with
+    source/scope/complete) so the Controller can settle actual cost; cost
+    settlement itself lives in the Controller/budget layer.
     """
     usage = turn.usage.to_dict() if hasattr(turn.usage, "to_dict") else dict(turn.usage or {})
+    payload = {
+        "ok": True,
+        "usage": usage,
+    }
+    if getattr(turn, "experiment_request", None) is not None:
+        payload["experiment_request"] = turn.experiment_request.model_dump(mode="json")
+    else:
+        payload["proposal"] = turn.proposal.model_dump(mode="json")
     return json.dumps(
-        {
-            "ok": True,
-            "proposal": turn.proposal.model_dump(mode="json"),
-            "usage": usage,
-        },
+        payload,
         sort_keys=True, separators=(",", ":"), ensure_ascii=False,
     )
 
