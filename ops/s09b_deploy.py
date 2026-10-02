@@ -244,6 +244,17 @@ def compose_env(env: str, extra: dict[str, str] | None = None) -> dict[str, str]
     merged = os.environ.copy()
     for k, v in read_secrets(env).items():
         merged[k] = v
+    # Per-environment non-secret configuration (e.g. the collection
+    # release/tenant IDs) lives in BASE/<env>/config.env so that
+    # ``up`` recreations keep it even when the operator does not export
+    # the variables. Explicit shell exports still win (setdefault).
+    config = BASE / env / "config.env"
+    if config.exists():
+        for line in config.read_text().splitlines():
+            line = line.strip()
+            if "=" in line and not line.startswith("#"):
+                k, v = line.split("=", 1)
+                merged.setdefault(k, v)
     # Real vendor credentials (Tiingo token) live in the repo .env, not in
     # the generated secrets. Merge them so compose interpolation succeeds;
     # register them for redaction too.
@@ -255,7 +266,8 @@ def compose_env(env: str, extra: dict[str, str] | None = None) -> dict[str, str]
                 k, v = line.split("=", 1)
                 merged.setdefault(k, v)
                 _register_secret(v)
-    # Collection stays off until explicitly configured (candidate import).
+    # Collection stays off until explicitly configured (candidate import):
+    # via config.env for steady state, or an ad-hoc export for drills.
     merged.setdefault("YOUWEI_COLLECT_RELEASE_ID", "")
     merged.setdefault("YOUWEI_COLLECT_TENANT_ID", "")
     for k, v in (extra or {}).items():

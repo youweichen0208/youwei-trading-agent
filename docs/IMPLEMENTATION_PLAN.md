@@ -755,3 +755,13 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
   - **缺陷与修复**：httpx INFO 日志打印完整 URL，token 作为 query 参数明文入 worker 日志；改为 `Authorization: Token` 头（真实调用验证 200/403，[tiingo-token-verification §8](research/tiingo-token-verification.md)），SG 真实 PG 31 测试通过，重建 r2 镜像 `phase1a-s09b2`（registry digest `53631663...`）重新发布并重部署；旧容器（含 token 日志）随重建删除，新日志 0 处 token，`raw_objects` 与数据库本就不含 token。
   - 最终状态：production.json / upstreams.lock.yaml / deployment-manifest 固定 r2 digest；SG deployment + catalog 双 VALID；`ops/s09b_deploy.py` LOCAL_CORE_TAG → `phase1a-s09b2`；生产三服务健康（restarts=0）。
 - 剩余限制：S09c 运维验收（远端恢复、重启恢复、资源测量、告警、RPO/RTO、pgBackRest 目标落实）；acceptance 环境留存/拆除随 S09c 决定；下一交易日 ET 17:30 首采为头认证采集的自然确认点；组装批准包交项目所有者一次性确认。
+
+### S09c 进度（2026-10-02 起，运维验收进行中）
+
+- 状态：**S09c 第一批完成**（磁盘治理、重启恢复、升级/回滚 drill、采集配置持久化修复）；pgBackRest 演练/生产备份启用、告警外发、整机重启演练、负载下资源复测待做（详见 [s09c-ops-acceptance.md](ops/s09c-ops-acceptance.md)）。分段记录：
+  - 磁盘治理：根分区 82% → **14%**（回收 108.9G 构建缓存 + 73 个未用匿名卷 ~4.2G；Docker 29 镜像/缓存存于系统 containerd `/var/lib/containerd` namespace moby，du docker 目录不反映占用）。
+  - 重启恢复（docker 级）：stop → start 三服务按依赖门控恢复，数据完好（105 行/21 任务），采集配置保留；worker stop 超宽限被 SIGKILL（exit 137）——租约机制按崩溃安全覆盖；整机重启演练待所有者确认。
+  - 升级/回滚兼容性：r2→r1→r2 drill 通过（两版对当前生产库均健康，同 alembic head 无 schema 差异）；仓库部署文件保持 r2。
+  - 缺陷修复：`up -d` 重建会静默禁用采集（env 未持久）——`s09b_deploy.py` 增加按环境 `config.env`（setdefault 合并，shell 导出可覆盖），SG 已写 `/opt/youwei/production/config.env`；force-recreate 不带导出验证采集配置在位。
+  - 资源基线（静默期）：worker 130MiB/768M、api 59MiB/384M、pg 36MiB/1G、内存 available 6.3G；负载下复测待做。
+- 待决策（项目所有者）：① pgBackRest 备份目标（DO Spaces S3 ~$5/月 / 已有独立目标 / 先本地后异地）；② 告警外发通道（webhook 种类 / 邮件 / 其他）；③ droplet 整机重启演练是否执行。
