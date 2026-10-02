@@ -37,7 +37,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 | S00–S05 | 完成 | 协议定稿；持久任务/权限；沙箱+产物链路；PIT/快照；Ledger/Outcome/评分/归档 |
 | S06 | 已批准、campaign 运行中 | 真实 panel/日历/SPY 冻结；Logistic/Ridge 候选 + Trial（D20 未显示增量）；release `bdb8bbe0…` 获所有者批准（2026-10-02 package r1）；campaign `phase1a-pilot-2026q4` active、12 批 cutoff 入库、首批 cutoff `2026-10-10`（批次 1 于 10-03 06:00 ET 后预注册） |
 | S07 | 纵切片完成、Phase 1B 未启用 | Hermes 研究契约/进程边界/平台工具/无头镜像；Ed25519 跨容器接线（S07m）；真实网关研究链路验证完成（S07n：工具调用/取消/限额/fail-closed 全实测，发现修复 6 缺陷含 Runner 容器泄漏）；聊天栈上线；预算维度已删除 |
-| S08 | 已决策、未实现 | 受控量化探索闭环（Hermes 唯一框架，Pi 暂缓）；工具往返契约待 S07 收敛后设计 |
+| S08 | 设计定稿待确认 + 契约首切片落地 | 往返契约设计完成（[s08-exploration-loop-design](research/s08-exploration-loop-design.md)，两个决策点待所有者确认：工具通路/执行归属）；`experiment-v1` wire 契约 + runner-tools audience/scopes + 纯逻辑测试已落地 |
 | S09a | 完成 | 采集调度 collect_tick（16 测试）+ 生产 Compose（去 Runner）+ Core 镜像发布 GHCR + deployment 校验 VALID |
 | **S09b** | 完成 | 运行接线闭环：隔离验收（合成 12/12 + 真实 45/45）、生产库准备（tenant `f497c122…`/计划 hash 固定）、GHCR 镜像发布（r2 digest `53631663…`，含 token 日志缺陷修复）、生产 API/Worker/采集上线（105 观测、21 任务 succeeded、deployment 校验 VALID） |
 | **S09c** | 基本完成（两项搁置） | 磁盘 82%→14%、docker 级重启恢复、r2→r1→r2 回滚 drill、备份接入生产（pgBackRest 同机：WAL 归档 + 每日全量 + wal_archive 监控生效）、告警轮询上线（多格式 webhook，URL 待填）、整机重启演练 RTO≈3min；所有者决策：异地备份与负载复测搁置 |
@@ -176,6 +176,17 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 - [ ] 实验候选登记 trial；禁止把生成代码热加载为 Extension 或生产 quant 库。
 
 交付：从 Hermes 研究提议到实验实例、沙箱执行、结果回收、研究引用的完整样例。
+
+### S08a 进度（2026-10-02，设计定稿 + 契约首切片）
+
+- 状态：**往返契约设计完成（两个决策点待所有者确认）+ `experiment-v1` wire 契约与授权扩展落地**。设计文档：[s08-exploration-loop-design](research/s08-exploration-loop-design.md)——完整探索用例（滚动波动率比/分位数）驱动接口；编排 = 研究→实验（独立实例、无共享记忆）→沙箱→引用→研究重入；不变式与切片计划在文档内。
+- 待所有者确认（改变隔离/权限语义）：**D1 工具通路**（建议：批准出口扩为 {网关, Runner 工具端点}，与研究网关接线同模式；备选 Unix socket 侧信道保持仅网关出口）；**D2 计算执行归属**（建议：Runner 按实验键直接执行 + Controller 统一登记 append-only 实验记录；备选每次计算走完整 Core job）。
+- 交付（不依赖 D1/D2 的部分）：
+  - `contracts/src/youwei_contracts/experiment.py`（新）：`ExperimentRequest`（研究实例的提问，有界声明式，无代码）、`ExperimentComputationRequest`（代码/argv/SBX_* env/期望扩展/超时，**无快照字段——Runner 注入**，边界对齐 sandbox-v1）、`ArtifactManifest`（无内容的产物身份）、`ExperimentComputationStatus`（running/succeeded/failed/cancelled/timeout + partial 语义：终态失败且已有产物才可标 partial）、`ExperimentResult`（findings/warnings/computations，逐项 code_sha256 一致性、去重、终态约束）、`experiment_artifact_locator`/`parse_experiment_locator`（`experiment:<uuid>/artifacts/<path>` 引用形态）。
+  - `research_capability.py`：新增 `AUD_RUNNER_TOOLS` audience 与 `experiment:submit/status/read` 三 scope（提交/状态/读取分别授权）；旧 audience/令牌行为不变（回归测试覆盖）。
+  - `sandbox.py`：argv/env 规则提取为共享 `check_argv_env`（sandbox-v1 与 experiment-v1 同源），新增 `ARTIFACT_EXTENSIONS` 常量。
+- 验证：本机 `tests/pure`+`tests/contracts`+`tests/known_answers` → **209 passed**（新增 `test_experiment.py` 22 项：locator 往返/拒绝、请求边界（代码/env/argv/扩展/超时/禁额外字段）、partial 一致性（终态才可 partial、partial 必有产物）、结果 code hash 一致/去重/禁 running 条目、runner-tools audience 往返 + 旧 audience 回归）；agent-runtime 3.14 → **53 passed** 无回归（contracts editable 安装直接生效）。
+- 剩余限制：Runner 工具端点、Controller 编排（实验派发/记录/研究重入）、端到端样例与 Trial 登记归后续切片，待 D1/D2 确认后按设计文档 §6 顺序推进。
 
 验收：本地 shell、RPC 管理命令、加载扩展、跨作业文件请求均无法突破允许范围；标准 quant 任务继续直接执行库函数；Hermes 内置 `execute_code` 不得替代 gVisor Sandbox Runner——研究/实验实例维持明确工具允许列表，生成代码一律经 Controller 授权进入 Runner。
 

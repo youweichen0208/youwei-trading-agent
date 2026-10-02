@@ -13,6 +13,23 @@ class WireModel(BaseModel):
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
 
+def check_argv_env(argv: list[str], env: dict[str, str]) -> None:
+    """Shared argument/environment rules for sandboxed execution (used by
+    sandbox-v1 SandboxRequest and experiment-v1 computation requests).
+    Environment customization must not replace interpreter/loader paths."""
+    if len(argv) > 100 or any(len(v) > 4096 or "\0" in v for v in argv):
+        raise ValueError("invalid sandbox argument")
+    if len(env) > 32 or any(
+        not re.fullmatch(r"SBX_[A-Z0-9_]+", k) or len(v) > 4096 or "\0" in v
+        for k, v in env.items()
+    ):
+        raise ValueError("sandbox environment requires bounded SBX_* names")
+
+
+# Artifact extensions the sandbox may produce.
+ARTIFACT_EXTENSIONS = (".json", ".csv", ".txt", ".md")
+
+
 class SnapshotBundle(WireModel):
     snapshot_id: uuid.UUID
     content: str = Field(max_length=6 * 1024 * 1024)
@@ -40,12 +57,7 @@ class SandboxRequest(WireModel):
 
     @model_validator(mode="after")
     def validate_arguments(self):
-        if any(len(v) > 4096 or "\0" in v for v in self.argv):
-            raise ValueError("invalid sandbox argument")
-        # Environment customization must not replace interpreter/loader paths.
-        if any(not re.fullmatch(r"SBX_[A-Z0-9_]+", k) or len(v) > 4096 or "\0" in v
-               for k, v in self.env.items()):
-            raise ValueError("sandbox environment requires bounded SBX_* names")
+        check_argv_env(self.argv, self.env)
         return self
 
 

@@ -42,16 +42,27 @@ from datetime import UTC, datetime
 # Audience values: which half of the research link a token authorizes.
 AUD_RUNNER_EXEC = "runner-exec"          # Controller -> Runner research entry
 AUD_RUNTIME_RESEARCH = "runtime-research"  # Controller -> agent-runtime research grant
+AUD_RUNNER_TOOLS = "runner-tools"        # agent-runtime experiment container -> Runner tool endpoint (S08)
 
 # Scope values granted on the research link.
 SCOPE_RESEARCH_RUN = "research:run"        # run one research turn
 SCOPE_RESEARCH_STATUS = "research:status"  # poll a research invocation
 SCOPE_RESEARCH_CANCEL = "research:cancel"  # cancel a research invocation
 
+# Scope values for the S08 experiment tool surface (aud=runner-tools).
+# Submit / status / read are separately authorized by design: the experiment
+# instance holds distinct tokens per operation class, all bound to its
+# experiment invocation (invocation_id) and frozen evidence hash.
+SCOPE_EXPERIMENT_SUBMIT = "experiment:submit"  # submit one sandboxed computation
+SCOPE_EXPERIMENT_STATUS = "experiment:status"  # poll a computation
+SCOPE_EXPERIMENT_READ = "experiment:read"      # read one artifact
+
 # The only accepted algorithm/version. Anything else is rejected (no downgrade).
 TOKEN_ALG = "EdDSA"
 TOKEN_TYP = "research-v1"
 TOKEN_PREFIX = "ywr_"
+
+_ACCEPTED_AUDIENCES = (AUD_RUNNER_EXEC, AUD_RUNTIME_RESEARCH, AUD_RUNNER_TOOLS)
 
 
 class ResearchCapabilityError(Exception):
@@ -169,7 +180,7 @@ def sign_research_token(
     resulting token carries ``kid`` in the clear (the verifier selects the
     trusted public key by it) but never carries a key or download URL.
     """
-    if aud not in (AUD_RUNNER_EXEC, AUD_RUNTIME_RESEARCH):
+    if aud not in _ACCEPTED_AUDIENCES:
         raise ResearchCapabilityError(f"unknown audience {aud!r}")
     payload = {
         "alg": TOKEN_ALG,
@@ -242,7 +253,7 @@ def verify_research_token(
         raise ResearchCapabilityError("research token signature mismatch") from exc
 
     aud = payload.get("aud")
-    if aud not in (AUD_RUNNER_EXEC, AUD_RUNTIME_RESEARCH):
+    if aud not in _ACCEPTED_AUDIENCES:
         raise ResearchCapabilityError("unknown research token audience")
 
     now = (now or datetime.now(UTC)).astimezone(UTC)
