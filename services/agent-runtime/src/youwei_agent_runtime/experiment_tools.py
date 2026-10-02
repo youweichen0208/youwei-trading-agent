@@ -230,9 +230,10 @@ def sandbox_submit_schema() -> dict:
         "description": (
             "Submit ONE sandboxed computation: your Python code runs in an "
             "isolated sandbox (no network, no secrets) against the frozen "
-            "snapshot described in the brief. The snapshot is injected "
-            "server-side — you cannot choose or read it directly; write "
-            "code against the documented input path. Poll with "
+            "snapshot (mounted read-only at /inputs/snapshot/content.json). "
+            "Write artifacts to /outputs/ — only files there with the "
+            "declared extensions are collected. The snapshot is injected "
+            "server-side; you cannot choose or redirect it. Poll with "
             "sandbox_status; read produced files with artifact_read. "
             "Returns the computation's status as JSON (initially running)."
         ),

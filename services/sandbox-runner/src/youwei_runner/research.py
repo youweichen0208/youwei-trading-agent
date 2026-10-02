@@ -394,6 +394,10 @@ async def execute_research_request(
     wire = {
         "capability_token": capability_token,
         "evidence": request.evidence.model_dump(mode="json"),
+        # S08 re-entry turns: the accepted experiment outcomes ride the wire so
+        # the runtime can render them into the brief and resolve kind="code"
+        # citations against them.
+        "experiments": [e.model_dump(mode="json") for e in request.experiments],
         "config": {
             "base_url": config.gateway_url,
             "api_key": _gateway_credential(),

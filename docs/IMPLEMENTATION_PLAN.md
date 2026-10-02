@@ -3,7 +3,7 @@
 日期：2026-09-27；结构优化更新：2026-09-28\
 设计依据：[ARCHITECTURE.md](ARCHITECTURE.md)\
 问题来源：[v0.2 评审](ARCHITECTURE_REVIEW_v0.2.md)\
-状态：**Phase 1A 前向实验已批准并注册，运行中**——所有者 2026-10-02 批准（package r1）；campaign `phase1a-pilot-2026q4`（`a63f8494-4730-4cc7-bf2d-0b29e895aa3c`）active，12 批 cutoff 已入库，首个 cutoff **2026-10-10 06:00 ET**（批次于 10-03 06:00 ET 后由调度器预注册）——S00–S06 完成（Phase 1A 批次运行中）；S07 收尾（真实网关研究链路验证完成，聊天栈上线；Phase 1B 未启用）；S09a/S09b 完成；S09c 实质验收完成（磁盘治理、重启/回滚 drill、备份接入生产、告警轮询、整机重启演练 RTO≈3min；剩余 webhook URL 与负载复测按所有者决策 2026-10-02 搁置）。**下一步：S08c Controller 接线代码与测试完成（见 S08c 进度；隔离 mock 验收待执行）→ 隔离环境 mock 验收（网络探针 + HTTP 越权实测）；聊天栈备份已确认（每日，7 日备+4 周备，含一次隔离恢复验证）待实施；批次 1 预注册核查 2026-10-03 18:00（北京时间）后执行，cutoff 2026-10-10 06:00 ET。** 阶段详情见 [§4 完成记录](#4-完成记录)；S08（受控量化探索）已决策为 Hermes 唯一框架、Pi 暂缓。
+状态：**Phase 1A 前向实验已批准并注册，运行中**——所有者 2026-10-02 批准（package r1）；campaign `phase1a-pilot-2026q4`（`a63f8494-4730-4cc7-bf2d-0b29e895aa3c`）active，12 批 cutoff 已入库，首个 cutoff **2026-10-10 06:00 ET**（批次于 10-03 06:00 ET 后由调度器预注册）——S00–S06 完成（Phase 1A 批次运行中）；S07 收尾（真实网关研究链路验证完成，聊天栈上线；Phase 1B 未启用）；S09a/S09b 完成；S09c 实质验收完成（磁盘治理、重启/回滚 drill、备份接入生产、告警轮询、整机重启演练 RTO≈3min；剩余 webhook URL 与负载复测按所有者决策 2026-10-02 搁置）。**下一步：S08c Controller 接线与隔离 mock 验收均已完成（网络探针 + HTTP 越权 17/17 + 端到端冒烟全过，验收中修复两处真实缺陷，见 S08c 进度与 [s08-mock-acceptance](ops/s08-mock-acceptance.md)）；聊天栈备份已确认（每日，7 日备+4 周备，含一次隔离恢复验证）待实施；批次 1 预注册核查 2026-10-03 18:00（北京时间）后执行，cutoff 2026-10-10 06:00 ET。** 阶段详情见 [§4 完成记录](#4-完成记录)；S08（受控量化探索）已决策为 Hermes 唯一框架、Pi 暂缓。
 
 ## 1. 执行规则
 
@@ -37,7 +37,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 | S00–S05 | 完成 | 协议定稿；持久任务/权限；沙箱+产物链路；PIT/快照；Ledger/Outcome/评分/归档 |
 | S06 | 已批准、campaign 运行中 | 真实 panel/日历/SPY 冻结；Logistic/Ridge 候选 + Trial（D20 未显示增量）；release `bdb8bbe0…` 获所有者批准（2026-10-02 package r1）；campaign `phase1a-pilot-2026q4` active、12 批 cutoff 入库、首批 cutoff `2026-10-10`（批次 1 于 10-03 06:00 ET 后预注册） |
 | S07 | 纵切片完成、Phase 1B 未启用 | Hermes 研究契约/进程边界/平台工具/无头镜像；Ed25519 跨容器接线（S07m）；真实网关研究链路验证完成（S07n：工具调用/取消/限额/fail-closed 全实测，发现修复 6 缺陷含 Runner 容器泄漏）；聊天栈上线；预算维度已删除 |
-| S08 | 设计已确认 + Runner 工具面 + Controller 接线落地 | 往返契约设计经所有者确认（D1=A/D2=A+五项最小要求）；`experiment-v1` 契约 + Runner 持久回执存储与工具/控制端点已落地（S08b）；S08c Controller 接线完成：Core 登记/接纳表 + 编排器 + 实验实例派发（Runner `/v1/experiment-invocations` + agent-runtime `experiment-once` + youwei-experiment 工具集）+ 研究重入 + 取消传播，全量测试通过；隔离 mock 验收（网络探针 + HTTP 越权实测）待执行 |
+| S08 | 设计已确认 + Runner 工具面 + Controller 接线 + 隔离 mock 验收完成 | 往返契约设计经所有者确认（D1=A/D2=A+五项最小要求）；`experiment-v1` 契约 + Runner 持久回执存储与工具/控制端点已落地（S08b）；S08c Controller 接线完成（Core 登记/接纳表 + 编排器 + 实验实例派发 + 研究重入 + 取消传播）；隔离 mock 验收全过（网络探针按 D1 限定、HTTP 越权 17/17、端到端闭环 7/7，修复两处真实缺陷）；真实网关闭环与 Trial 登记随 Phase 1B |
 | S09a | 完成 | 采集调度 collect_tick（16 测试）+ 生产 Compose（去 Runner）+ Core 镜像发布 GHCR + deployment 校验 VALID |
 | **S09b** | 完成 | 运行接线闭环：隔离验收（合成 12/12 + 真实 45/45）、生产库准备（tenant `f497c122…`/计划 hash 固定）、GHCR 镜像发布（r2 digest `53631663…`，含 token 日志缺陷修复）、生产 API/Worker/采集上线（105 观测、21 任务 succeeded、deployment 校验 VALID） |
 | **S09c** | 基本完成（两项搁置） | 磁盘 82%→14%、docker 级重启恢复、r2→r1→r2 回滚 drill、备份接入生产（pgBackRest 同机：WAL 归档 + 每日全量 + wal_archive 监控生效）、告警轮询上线（多格式 webhook，URL 待填）、整机重启演练 RTO≈3min；所有者决策：异地备份与负载复测搁置 |
@@ -45,7 +45,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 
 **当前运行状态（批准链已走完）：** release `bdb8bbe0…` 已登记批准（approver `human-owner`、scope `0b899b00…`，执行记录见 [§4 完成记录](#4-完成记录)）；campaign `phase1a-pilot-2026q4`（`a63f8494-…`）active，计划 hash `d403c8e5…` 服务端重算校验通过，12 批 planned_cutoffs 入库。批次 1（cutoff 2026-10-10 06:00 ET）由调度器于 2026-10-03 06:00 ET 后自动预注册；特征历史已回补（86 交易日 × 21 对象）且 60/60 可评分。tenant（`f497c122…`）与生产环境（core r2 `53631663…`、postgres `8d69232c…`）已固定，ops status 无告警。
 
-**下一步动作（按序）：** ① S08 隔离环境 mock 验收（网络探针 + HTTP 越权实测；Controller 接线已完成，见 S08c 进度）；② 聊天栈备份（所有者已确认 2026-10-02：每日 1 次保留 7 日备+4 周备；LiteLLM PG 备份 + Open WebUI 库/附件/配置（SQLite 需一致性备份）；密钥单独受控；失败入现有监控；一次隔离恢复验证；异地备份维持暂缓并如实记录同机风险）；③ 批次 1 预注册核查（2026-10-03 18:00 北京时间后，只读四项：正确 campaign 1 批次/60 case/窗口正确/无重复）并在 2026-10-10 06:00 ET cutoff 窗口确认预测封存与及时确认。
+**下一步动作（按序）：** ① 聊天栈备份（所有者已确认 2026-10-02：每日 1 次保留 7 日备+4 周备；LiteLLM PG 备份 + Open WebUI 库/附件/配置（SQLite 需一致性备份）；密钥单独受控；失败入现有监控；一次隔离恢复验证；异地备份维持暂缓并如实记录同机风险）；② 批次 1 预注册核查（2026-10-03 18:00 北京时间后，只读四项：正确 campaign 1 批次/60 case/窗口正确/无重复）并在 2026-10-10 06:00 ET cutoff 窗口确认预测封存与及时确认。S08 隔离 mock 验收已完成，真实快照接线后端到端样例与 Trial 登记随 Phase 1B 推进。
 
 ## 2. 任务清单
 
@@ -222,7 +222,17 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
   - **SG 真实 PostgreSQL 全量：`.venv/bin/pytest -q` → 585 passed（含 test_experiment_records 20 项 DB 级 + test_experiment_orchestration 2 项 DB 级；修复后配置下复跑确认）**；迁移 `a1b2c3d4e5f6` 在一次性 PG 容器 upgrade/downgrade/upgrade 实测，6 触发器在位。（SG 测试副本修复：其根 `pyproject.toml` 曾被早期同步覆盖为 contracts 包 stub（缺 `[tool.pytest.ini_options]`，asyncio 退回 strict 模式），且因 mtime 较新被 rsync 静默跳过——已用 checksum 同步修复并全量复跑；后续同步 SG 副本应用 `-c` 或经 git。）
   - agent-runtime（3.14 自有环境）→ **81 passed**（新增 test_experiment_runtime 25 + test_main 增 3）；Runner 独立锁 `uv sync --no-dev` 通过、独立导入通过。
   - 修复过程中全量收集暴露既有问题：5 个测试文件 `from conftest import make_campaign_plan` 与 `tests/pure/conftest.py` 模块名冲突（违反“不直接导入 conftest”规则），全仓收集时 16 个文件报错——已将帮助函数移入 `tests/campaign_plan_helper.py` 并重指向（此为既有缺陷，与 S08 无关但阻断全量验证）。
-- 剩余限制：隔离环境 mock 验收（`youwei-experiment` 网络探针：实验容器仅网关+Runner 工具端点、研究容器不可达 Runner；HTTP 越权实测：实验令牌 × 控制端点/研究入口、控制令牌 × 工具/派发端点）待执行；agent-runtime 镜像需重建发布（`experiment-once` 入口 + httpx 依赖）；Runner 生产部署需 `experiment_store_dir`/`experiment_tool_base_url`/`youwei-experiment` 网络接入配置（生产模式已强制校验）；实验实例结果 stdout 上限 1MB——超限如实失败（代码体大时可能触达，探索用例通常远小）；`ExperimentInvocationRequest.config` 的 model 由编排器从 research 配置传入，实验实例与研究生成的模型选择末级统一待 Phase 1B 启用时定稿。
+- 剩余限制：真实 LLM 网关下的探索闭环（真实模型驱动工具循环、真实费用与取消计费语义）随 Phase 1B 启用另行验收；agent-runtime 镜像为本地 tag（`youwei/agent-runtime:s08c`，digest `sha256:66899225…`，未推 registry）；Runner 生产部署需 `experiment_store_dir`/`experiment_tool_base_url`/`youwei-experiment` 网络接入配置（生产模式已强制校验）；实验实例结果 stdout 上限 1MB——超限如实失败（代码体大时可能触达，探索用例通常远小）；`ExperimentInvocationRequest.config` 的 model 由编排器从 research 配置传入，实验实例与研究生成的模型选择末级统一待 Phase 1B 启用时定稿。
+
+### S08 隔离 mock 验收（2026-10-03，网络探针 + HTTP 越权 + 端到端冒烟）
+
+- 状态：**三阶段全部通过（0 失败）**，见 [s08-mock-acceptance](ops/s08-mock-acceptance.md)。隔离拓扑（internal 网络 + 一次性 Runner 容器 + 脚本化 SSE mock 网关，零 LLM 费用）：
+  - **网络探针**：实验容器（youwei-experiment）仅可达 {mock 网关, Runner 工具端点}——外网/docker socket/宿主/跨网络全阻断；研究容器（youwei-research）可达网关、**Runner 别名不可解析**（D1 限定成立）。
+  - **HTTP 越权矩阵 17/17**：工具令牌 × 控制/派发/研究/沙箱入口全 403（工具面对照组 404 证明过了授权门）；admin/派发/research 令牌交叉全 403；scope 缺失、跨实验绑定、伪造签名全 403。
+  - **端到端闭环 7/7**：研究回合 → ExperimentRequest → 授权登记 → 实验实例（真容器；工具经 Tool Search 桥 `tool_call` 真实调用工具面：submit→轮询至终态→artifact_read）→ 沙箱计算（真容器 `--network none`，Runner 注入快照，实测 1.9s 产出 `ratio.json`）→ 回执核验（代码 hash/终态/产物/快照 hash/镜像一致）→ 研究重入提案 kind="code" 引用 → 引用解析到回执产物。
+- **验收发现并修复两个真实代码缺陷**：①实验简报沙箱契约与真实执行不符（SBX_INPUT_PATH 环境变量 → 实际 `/inputs/snapshot/content.json` 只读挂载 + 产物必须写 `/outputs/`，根只读）；②重入回合实验上下文未贯通——Runner research wire 与 `honor_request→run_research` 均未传 `experiments`（重入拿不到已接纳结果）。均已修复 + 测试更新 + 镜像重建。
+- 新增可复现资产：`services/sandbox-runner/smoke/experiment_net_probe.py`、`experiment_mock_gateway.py`、`experiment_e2e.py`（驱动自建自拆拓扑，三阶段一命令复现）。
+- 已知部署事实：internal 网络上 docker-proxy 端口发布不可靠（宿主直连容器 IP 正常），驱动改用容器 IP；SG 已创建 `youwei-experiment`（internal、无成员，与生产命名一致）。
 
 ### S09 — 完成国内入口与 MVP 运维验收（Phase 1B；依赖 S02、S07，可与 S08 并行）
 

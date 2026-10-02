@@ -147,10 +147,12 @@ async def honor_request(
     _check_capability(public_keys, token, evidence)
 
     config = config_factory(**config_raw)
+    experiments = payload.get("experiments") or None
     turn = await run_research(
         evidence, config,
         capability_token=token,
         public_keys=public_keys,
+        experiments=experiments,
     )
     # The wire now carries the turn's usage report alongside the proposal
     # (source/scope/complete + token counters) for Controller cost settlement.

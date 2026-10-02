@@ -143,7 +143,8 @@ class TestBrief:
         # the manifest's JSON is embedded verbatim
         assert json.dumps(_manifest(), sort_keys=True, ensure_ascii=False, indent=1) in brief
         # the sandbox contract and output format are pinned
-        assert "SBX_INPUT_PATH" in brief
+        assert "/inputs/snapshot/content.json" in brief
+        assert "/outputs/" in brief
         assert '"findings"' in brief
 
     def test_brief_deterministic(self):
