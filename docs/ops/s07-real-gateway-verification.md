@@ -49,7 +49,7 @@ youwei-research (docker network create --internal, 172.27.0.0/16)
 
 ## 镜像与代码状态
 
-- 验证镜像：`youwei/agent-runtime@sha256:bca0a5b9…`（SG 本地 manifest digest，含 F1-F3 修复；由 `infra/build-agent-runtime.sh` 从当前工作树构建）。**GHCR 仍为旧 digest `998f060e…`（phase1a-s07），修复镜像重发布待凭证**。
+- 验证镜像：`ghcr.io/youweichen0208/youwei-agent-runtime:phase1a-s07-r2`，registry digest `sha256:bca0a5b9…`（与 SG 本地 manifest digest 一致，含 F1-F3 修复；push + `imagetools inspect` 验证 2026-10-02）。旧 digest `998f060e…`（tag `phase1a-s07`）保留为历史。
 - 新增可复现资产：`services/sandbox-runner/smoke/research_real_gateway.py`（链路级 E2E 驱动，含超时击杀模式）、`gateway_matrix.py`（网关级矩阵）、`research_net_probe.py`（受限网络探针）、`services/agent-runtime/smoke/bridge_scope_probe.py`（工具面越权探针）、`ops/gw_failclosed_drill.sh`（fail-closed 并行栈演练）。
 - 测试：agent-runtime 3.14 → **53 passed**（新增 4：简报格式契约、归因覆盖 ×2、max_tokens 传递）；本机 pure+contracts → **130 passed**（新增 4：Runner 容器生命周期回归）。
 
@@ -59,7 +59,7 @@ research-e2e key 全程 40 请求 / prompt 179,074 / completion 72,711 tokens（
 
 ## 剩余限制
 
-- 修复镜像未发布 GHCR（无 registry 引用，`upstreams.lock` 的 `deployment.image` 保持 null）；发布后应同步更新登记。
+- ~~修复镜像未发布 GHCR~~ **已发布（2026-10-02）**：`ghcr.io/youweichen0208/youwei-agent-runtime:phase1a-s07-r2`，registry digest `bca0a5b9…`（push + imagetools inspect 验证）；`upstreams.lock` 的 `deployment.image` 保持 null（是否/何时进入研究部署仍归 Phase 1B 决策）。
 - 研究链路到网关的接线是临时 `docker network connect`，litellm 容器重建即失效；Phase 1B 部署时需声明式化（compose 共享网络或等价物）。
 - fail-closed 结论限定「已缓存 key」；DB 故障期间限额执行行为未实测；若需 fail-closed 语义需评估 LiteLLM 配置或外加防护。
 - 辅助请求（无 tools/messages 的首个请求）的身份与触发条件未完全钉定（仅真实模型出现、计数与 spend 均覆盖）；Phase 1B 接入时观测其 token 占比。

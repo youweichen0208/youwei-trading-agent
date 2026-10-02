@@ -3,7 +3,7 @@
 日期：2026-09-27；结构优化更新：2026-09-28\
 设计依据：[ARCHITECTURE.md](ARCHITECTURE.md)\
 问题来源：[v0.2 评审](ARCHITECTURE_REVIEW_v0.2.md)\
-状态：**Phase 1A 前向实验已批准并注册，运行中**——所有者 2026-10-02 批准（package r1）；campaign `phase1a-pilot-2026q4`（`a63f8494-4730-4cc7-bf2d-0b29e895aa3c`）active，12 批 cutoff 已入库，首个 cutoff **2026-10-10 06:00 ET**（批次于 10-03 06:00 ET 后由调度器预注册）——S00–S06 完成（Phase 1A 批次运行中）；S07 收尾（真实网关研究链路验证完成，聊天栈上线；Phase 1B 未启用）；S09a/S09b 完成；S09c 实质验收完成（磁盘治理、重启/回滚 drill、备份接入生产、告警轮询、整机重启演练 RTO≈3min；剩余 webhook URL 与负载复测按所有者决策 2026-10-02 搁置）。**下一步：批次 1 于 2026-10-03 06:00 ET 后由调度器预注册（cutoff 2026-10-10 06:00 ET）→ 批次运行与随访；agent-runtime 修复镜像重发布 GHCR；聊天栈备份策略；S08 可并行。** 阶段详情见 [§4 完成记录](#4-完成记录)；S08（受控量化探索）已决策为 Hermes 唯一框架、Pi 暂缓。
+状态：**Phase 1A 前向实验已批准并注册，运行中**——所有者 2026-10-02 批准（package r1）；campaign `phase1a-pilot-2026q4`（`a63f8494-4730-4cc7-bf2d-0b29e895aa3c`）active，12 批 cutoff 已入库，首个 cutoff **2026-10-10 06:00 ET**（批次于 10-03 06:00 ET 后由调度器预注册）——S00–S06 完成（Phase 1A 批次运行中）；S07 收尾（真实网关研究链路验证完成，聊天栈上线；Phase 1B 未启用）；S09a/S09b 完成；S09c 实质验收完成（磁盘治理、重启/回滚 drill、备份接入生产、告警轮询、整机重启演练 RTO≈3min；剩余 webhook URL 与负载复测按所有者决策 2026-10-02 搁置）。**下一步：批次 1 于 2026-10-03 06:00 ET 后由调度器预注册（cutoff 2026-10-10 06:00 ET）→ 批次运行与随访；聊天栈备份策略；S08 可并行。** 阶段详情见 [§4 完成记录](#4-完成记录)；S08（受控量化探索）已决策为 Hermes 唯一框架、Pi 暂缓。
 
 ## 1. 执行规则
 
@@ -45,7 +45,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 
 **当前运行状态（批准链已走完）：** release `bdb8bbe0…` 已登记批准（approver `human-owner`、scope `0b899b00…`，执行记录见 [§4 完成记录](#4-完成记录)）；campaign `phase1a-pilot-2026q4`（`a63f8494-…`）active，计划 hash `d403c8e5…` 服务端重算校验通过，12 批 planned_cutoffs 入库。批次 1（cutoff 2026-10-10 06:00 ET）由调度器于 2026-10-03 06:00 ET 后自动预注册；特征历史已回补（86 交易日 × 21 对象）且 60/60 可评分。tenant（`f497c122…`）与生产环境（core r2 `53631663…`、postgres `8d69232c…`）已固定，ops status 无告警。
 
-**下一步动作（按序）：** ① 验证批次 1 预注册落地（2026-10-03 06:00 ET 后调度器自动执行，60 case）并在 2026-10-10 06:00 ET cutoff 窗口确认预测封存与及时确认；② agent-runtime 修复镜像（`bca0a5b9…`）重发布 GHCR（待凭证）；③ 聊天栈备份策略（所有者决定聊天记录重要性，可加 dump cron）；④ S08（可并行）。
+**下一步动作（按序）：** ① 验证批次 1 预注册落地（2026-10-03 06:00 ET 后调度器自动执行，60 case）并在 2026-10-10 06:00 ET cutoff 窗口确认预测封存与及时确认；② 聊天栈备份策略（所有者决定聊天记录重要性，可加 dump cron）；③ S08（可并行）。
 
 ## 2. 任务清单
 
@@ -799,7 +799,7 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
 - **agent-runtime 镜像发布**：`ghcr.io/youweichen0208/youwei-agent-runtime:phase1a-s07`，registry digest `sha256:998f060e…`（与 S07m 本地 digest 一致），digest 拉取验证通过；upstreams hermes notes 更新（deployment.image 仍 null，归 Phase 1B 决策）。
 - upstreams：litellm 与 openwebui 组件升级为 integrated + passed（digest + 证据 = chat-stack-deployment.md），enabled 保持 false（部署校验器只覆盖研究生产 compose；启用待 S07 研究链路接线决策）。catalog + deployment 双 VALID。
 - 公网入口上线（2026-10-02）：`https://trading.youwei-agent.com`（Cloudflare 灰云 DNS：`trading A 8.159.158.155`、`sg-chat A 168.144.39.34`；两端 certbot 证书有效至 2026-12-31、systemd 续期在位；公网 `/health` 200 全链验证；SG vhost 对非 ECS 来源 403，allow/deny 置 location 级避免挡 ACME）。所有者建号完成、`ENABLE_SIGNUP=False`（signup 403 验证）。
-- 剩余：聊天栈备份策略（当前可重建 + openwebui 数据卷未纳入 pgbackrest，重要时可加 dump cron）；修复后 agent-runtime 镜像重发布 GHCR（待凭证）。
+- 剩余：聊天栈备份策略（当前可重建 + openwebui 数据卷未纳入 pgbackrest，重要时可加 dump cron）。agent-runtime 修复镜像已重发布 GHCR（`phase1a-s07-r2`，digest `bca0a5b9…`，2026-10-02）。
 
 ### S07n 真实网关研究链路验证（2026-10-02，agent-runtime → LiteLLM → 火山）
 
@@ -810,4 +810,4 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
 - 缺陷修复（全部 TDD 先红后绿）：①简报缺响应格式契约（真实模型散文回答 → parse 失败；补 JSON 格式段含 warnings 对象形状与值域纪律）；②提案 model 归因信模型自报（改为运行时配置注入）；③无输出上限（glm-5.3 撞 API 默认 max_tokens 截断；`max_output_tokens=16384`）；④**Runner 超时只杀 docker 客户端、容器泄漏并继续调网关**（改为按容器名 `docker rm -f`，假 docker 回归测试 4 项 + SG 真实 Docker 复验）；⑤失败诊断被 banner 淹没（优先取 stdout 结构化错误）；⑥smoke 硬编码旧子网 IP。
 - 新增资产：`research_real_gateway.py`（链路级 E2E 驱动，含超时击杀模式）、`gateway_matrix.py`（网关级矩阵）、`research_net_probe.py`（网络探针）、`bridge_scope_probe.py`（工具面越权探针）、`ops/gw_failclosed_drill.sh`（并行栈 fail-closed 演练，不碰生产聊天栈）；验证用研究 key 四枚（e2e/conc/rate/tpm，存 sg-prod 0600 文件）。
 - 验证：agent-runtime 3.14 → 53 passed（新 4）；本机 pure+contracts → 130 passed（新 4）；新镜像对 S07m 既有路径零回归（container_smoke 5/5、mock END_TO_END OK）；catalog + deployment 双 VALID（lock/manifest hash 级联）。
-- 剩余限制：修复镜像 `sha256:bca0a5b9…` 仅存 SG 本地（GHCR 仍为旧 digest `998f060e…`，重发布待凭证）；接线为临时性；fail-closed 语义如需收紧需另评估；单回合延迟 84-224s，Phase 1B 批量 60 case 需并发设计；S08 工具往返契约与真实证据转发仍待后续。
+- 剩余限制：接线为临时性（litellm 接入 youwei-research 为 `docker network connect`，容器重建即失效，Phase 1B 需声明式化）；fail-closed 语义如需收紧需另评估；单回合延迟 84-224s，Phase 1B 批量 60 case 需并发设计；S08 工具往返契约与真实证据转发仍待后续。修复镜像已重发布 GHCR（`phase1a-s07-r2`，digest `bca0a5b9…`）。

@@ -62,10 +62,9 @@ from youwei_runner.research import ResearchRunConfig, execute_research_request
 EXEC_CONFIG_VERSION = "research-exec-v1"
 AGENT_RUNTIME_IMAGE = (
     # Verified against the real gateway 2026-10-02 (brief response-format
-    # contract + config-injected model attribution + explicit output cap).
-    # SG-local manifest digest; GHCR still serves the older phase1a-s07
-    # digest until the fixed image is republished.
-    "youwei/agent-runtime@sha256:"
+    # contract + config-injected model attribution + explicit output cap)
+    # and republished the same day: registry digest == local manifest digest.
+    "ghcr.io/youweichen0208/youwei-agent-runtime@sha256:"
     "bca0a5b9cecf5fdc2c1adfa4ac44dbe76a30be040f688f0ddf0cdd5ed9631f8a"
 )
 
