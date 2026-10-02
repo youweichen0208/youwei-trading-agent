@@ -144,6 +144,32 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail="campaign not found")
         return view
 
+    # --- case listing (S10 slice 2: dashboard, read-only) -------------------
+
+    @app.get("/v1/campaigns/{campaign_id}/cases")
+    async def list_campaign_cases(
+        campaign_id: UUID4,
+        request: Request,
+        tenant_id: Annotated[uuid.UUID, Depends(require_tenant)],
+        batch_id: Annotated[UUID4 | None, Query()] = None,
+        horizon_td: Annotated[int | None, Query()] = None,
+        page: Annotated[int, Query(ge=1)] = 1,
+        page_size: Annotated[int, Query(ge=1, le=500)] = 100,
+    ):
+        from youwei_core.ledger.status import campaign_cases_view
+
+        view = await campaign_cases_view(
+            request.app.state.engine,
+            campaign_id,
+            batch_id=batch_id,
+            horizon_td=horizon_td,
+            page=page,
+            page_size=page_size,
+        )
+        if view is None or view["tenant_id"] != str(tenant_id):
+            raise HTTPException(status_code=404, detail="campaign not found")
+        return view
+
     # --- saved report reads (S10 slice 1: dashboard, read-only) -------------
 
     @app.get("/v1/campaigns/{campaign_id}/batches/{batch_id}/reports/{horizon_td}")
