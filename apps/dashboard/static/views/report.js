@@ -33,12 +33,54 @@ export async function renderReport(el, campaignId, batchId, horizon, body) {
           .join(" · ")}</div></div>
     </div>`;
 
-  const metricRows = Object.entries(m)
+  // metrics mix scalar keys (mean_paired_brier_delta, paired_n) with
+  // per-source grouped keys (brier, brier_n, mse_expected_excess,
+  // rmse_expected_excess, mse_n) whose values are {source: value} objects
+  // (youwei_core/ledger/evaluation.py). Grouped keys render as a source-
+  // keyed matrix; sources are derived from the data, so a Phase 1B
+  // llm_adjusted column appears without a view change.
+  const scalarMetrics = {};
+  const groupedMetrics = {};
+  for (const [k, v] of Object.entries(m)) {
+    if (v !== null && typeof v === "object") groupedMetrics[k] = v;
+    else scalarMetrics[k] = v;
+  }
+  const metricSources = [];
+  for (const bySource of Object.values(groupedMetrics))
+    for (const s of Object.keys(bySource))
+      if (!metricSources.includes(s)) metricSources.push(s);
+
+  // counts (keys ending in _n) are integers by construction — no 6-decimal
+  // floats; decimal metrics are decimal_str strings and pass through as stored.
+  const fmtMetric = (k, v) =>
+    fmtNum(v, k.endsWith("_n") ? 0 : 6);
+
+  const metricRows = Object.entries(scalarMetrics)
     .map(
       ([k, v]) =>
-        `<tr><td>${esc(k)}</td><td class="num">${v === null ? span("NA", "none") : fmtNum(v, 6)}</td></tr>`
+        `<tr><td>${esc(k)}</td><td class="num">${v === null ? span("NA", "none") : fmtMetric(k, v)}</td></tr>`
     )
     .join("");
+
+  const groupedMetricRows = Object.entries(groupedMetrics)
+    .map(
+      ([k, bySource]) =>
+        `<tr><td>${esc(k)}</td>${metricSources
+          .map((s) => {
+            const v = bySource[s];
+            return `<td class="num">${v === undefined || v === null ? span("—", "none") : fmtMetric(k, v)}</td>`;
+          })
+          .join("")}</tr>`
+    )
+    .join("");
+
+  const groupedMetricTable = metricSources.length
+    ? `<div class="section">指标（按来源）</div>
+    <table>
+      <thead><tr><th></th>${metricSources.map((s) => `<th class="num">${esc(s)}</th>`).join("")}</tr></thead>
+      <tbody>${groupedMetricRows}</tbody>
+    </table>`
+    : "";
 
   const caseRows = c.cases
     .map((row) => {
@@ -67,6 +109,7 @@ export async function renderReport(el, campaignId, batchId, horizon, body) {
     ${coverageCards}
     <div class="section">指标</div>
     <table style="max-width:520px"><tbody>${metricRows}</tbody></table>
+    ${groupedMetricTable}
     <div class="section">case 行（结果列为报告采用版本）</div>
     <table>
       <thead><tr>

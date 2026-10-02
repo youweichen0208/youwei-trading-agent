@@ -21,6 +21,7 @@
 ## 测试
 
 `tests/test_dashboard_proxy.py`（repo 根目录）：认证、白名单与零泄漏、静态/配置鉴权、常数时间校验、真 Core 端到端链。
+`tests/test_dashboard_views.py` + `apps/dashboard/static/tests/*.test.mjs`：视图渲染行为（`node --test`，Node ≥ 18 内置 runner，零依赖；包装测试找不到 Node 时失败而非跳过）。单独运行：`node --test 'apps/dashboard/static/tests/*.test.mjs'`。
 
 ## 部署注意
 
