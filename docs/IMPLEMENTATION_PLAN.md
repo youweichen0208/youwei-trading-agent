@@ -3,7 +3,7 @@
 日期：2026-09-27；结构优化更新：2026-09-28\
 设计依据：[ARCHITECTURE.md](ARCHITECTURE.md)\
 问题来源：[v0.2 评审](ARCHITECTURE_REVIEW_v0.2.md)\
-状态：**Phase 1A 前向实验已批准并注册，运行中**——所有者 2026-10-02 批准（package r1）；campaign `phase1a-pilot-2026q4`（`a63f8494-4730-4cc7-bf2d-0b29e895aa3c`）active，12 批 cutoff 已入库，首个 cutoff **2026-10-10 06:00 ET**（批次于 10-03 06:00 ET 后由调度器预注册）——S00–S07 完成；S09a/S09b 完成；S09c 实质验收完成（磁盘治理、重启/回滚 drill、备份接入生产、告警轮询、整机重启演练 RTO≈3min；剩余 webhook URL 与负载复测按所有者决策 2026-10-02 搁置）。**下一步：所有者审阅并批准 [phase1a-campaign-approval-20261002](ops/phase1a-campaign-approval-20261002.md) → 登记 release 批准 + 注册 Campaign（首个 cutoff 2026-10-10 06:00 ET）→ 批次运行与随访；S08 可并行。** 阶段详情见 [§4 完成记录](#4-完成记录)；S08（受控量化探索）已决策为 Hermes 唯一框架、Pi 暂缓。
+状态：**Phase 1A 前向实验已批准并注册，运行中**——所有者 2026-10-02 批准（package r1）；campaign `phase1a-pilot-2026q4`（`a63f8494-4730-4cc7-bf2d-0b29e895aa3c`）active，12 批 cutoff 已入库，首个 cutoff **2026-10-10 06:00 ET**（批次于 10-03 06:00 ET 后由调度器预注册）——S00–S06 完成（Phase 1A 批次运行中）；S07 收尾（聊天栈上线，真实网关研究链路验证待做，Phase 1B 未启用）；S09a/S09b 完成；S09c 实质验收完成（磁盘治理、重启/回滚 drill、备份接入生产、告警轮询、整机重启演练 RTO≈3min；剩余 webhook URL 与负载复测按所有者决策 2026-10-02 搁置）。**下一步：批次 1 于 2026-10-03 06:00 ET 后由调度器预注册（cutoff 2026-10-10 06:00 ET）→ 批次运行与随访；S07 真实网关研究链路验证与聊天栈备份策略；S08 可并行。** 阶段详情见 [§4 完成记录](#4-完成记录)；S08（受控量化探索）已决策为 Hermes 唯一框架、Pi 暂缓。
 
 ## 1. 执行规则
 
@@ -35,17 +35,17 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 | 阶段 | 状态 | 关键事实 |
 | --- | --- | --- |
 | S00–S05 | 完成 | 协议定稿；持久任务/权限；沙箱+产物链路；PIT/快照；Ledger/Outcome/评分/归档 |
-| S06 | 候选就绪、待批准 | 真实 panel/日历/SPY 冻结；Logistic/Ridge 候选 + Trial（D20 未显示增量）；候选 release `bdb8bbe0...`（`release-logistic-ridge-candidate-20261002-v1`）；12 批计划已拟定（S06j，first_cutoff `2026-10-10`） |
-| S07 | 纵切片完成、Phase 1B 未启用 | Hermes 研究契约/进程边界/平台工具/无头镜像；Ed25519 跨容器研究接线（S07m）；真实网关/预算/批准待后续 |
+| S06 | 已批准、campaign 运行中 | 真实 panel/日历/SPY 冻结；Logistic/Ridge 候选 + Trial（D20 未显示增量）；release `bdb8bbe0…` 获所有者批准（2026-10-02 package r1）；campaign `phase1a-pilot-2026q4` active、12 批 cutoff 入库、首批 cutoff `2026-10-10`（批次 1 于 10-03 06:00 ET 后预注册） |
+| S07 | 纵切片完成、Phase 1B 未启用 | Hermes 研究契约/进程边界/平台工具/无头镜像（GHCR digest `998f060e…`）；Ed25519 跨容器研究接线（S07m）；聊天栈上线（LiteLLM + Open WebUI + 公网入口）；预算维度已删除（2026-09-30 所有者决定）；真实网关研究链路验证待做 |
 | S08 | 已决策、未实现 | 受控量化探索闭环（Hermes 唯一框架，Pi 暂缓）；工具往返契约待 S07 收敛后设计 |
 | S09a | 完成 | 采集调度 collect_tick（16 测试）+ 生产 Compose（去 Runner）+ Core 镜像发布 GHCR + deployment 校验 VALID |
 | **S09b** | 完成 | 运行接线闭环：隔离验收（合成 12/12 + 真实 45/45）、生产库准备（tenant `f497c122…`/计划 hash 固定）、GHCR 镜像发布（r2 digest `53631663…`，含 token 日志缺陷修复）、生产 API/Worker/采集上线（105 观测、21 任务 succeeded、deployment 校验 VALID） |
 | **S09c** | 基本完成（两项搁置） | 磁盘 82%→14%、docker 级重启恢复、r2→r1→r2 回滚 drill、备份接入生产（pgBackRest 同机：WAL 归档 + 每日全量 + wal_archive 监控生效）、告警轮询上线（多格式 webhook，URL 待填）、整机重启演练 RTO≈3min；所有者决策：异地备份与负载复测搁置 |
 | S10–S11 | 未开始 | 评估界面/Memory/审批；候选验证与发布 |
 
-**当前阻塞正式 Campaign 启动的链：** 项目所有者一次性批准（批准包 [phase1a-campaign-approval-20261002](ops/phase1a-campaign-approval-20261002.md)：release `bdb8bbe0…` + 计划 `d403c8e5…` + scope_manifest `0b899b00…` + 使用范围 + 验收证据，全部断言已对照生产库与重算核验）→ `approve_release` 登记 → `register_campaign` → Batch 1（2026-10-10 06:00 ET）。tenant（`f497c122…`）、计划 hash 与生产环境（core `53631663…`、postgres `8d69232c…`）均已固定。
+**当前运行状态（批准链已走完）：** release `bdb8bbe0…` 已登记批准（approver `human-owner`、scope `0b899b00…`，执行记录见 [§4 完成记录](#4-完成记录)）；campaign `phase1a-pilot-2026q4`（`a63f8494-…`）active，计划 hash `d403c8e5…` 服务端重算校验通过，12 批 planned_cutoffs 入库。批次 1（cutoff 2026-10-10 06:00 ET）由调度器于 2026-10-03 06:00 ET 后自动预注册；特征历史已回补（86 交易日 × 21 对象）且 60/60 可评分。tenant（`f497c122…`）与生产环境（core r2 `53631663…`、postgres `8d69232c…`）已固定，ops status 无告警。
 
-**下一步动作（按序）：** ① 所有者审阅批准包并表态；② 批准 → `approve_release`（principal `human-owner`、scope 绑定计划 hash）+ `register_campaign`（**`primary_metric` 显式传 `paired_brier_quant_minus_baseline`**，否则计划 hash 不匹配）；③ 首批 cutoff（2026-10-10）运行与随访；④ S08（可并行）或批准前的任何疑问解答。
+**下一步动作（按序）：** ① 验证批次 1 预注册落地（2026-10-03 06:00 ET 后调度器自动执行，60 case）并在 2026-10-10 06:00 ET cutoff 窗口确认预测封存与及时确认；② S07 真实网关研究链路验证（agent-runtime → LiteLLM → 火山：工具调用/取消/fail-closed/并发限额）；③ 聊天栈备份策略（所有者决定聊天记录重要性，可加 dump cron）；④ S08（可并行）。
 
 ## 2. 任务清单
 
@@ -136,8 +136,8 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 
 ### S06 — 开始 baseline/quant 前向运行（Phase 1A；依赖 S05）
 
-- [ ] 发布固定 baseline 与简单量化模型，登记训练与校准版本。（进展：管线载具 baseline-constant-v0 / quant-momentum-v0 已随 S06a 落地并全量披露；Logistic/Ridge候选实现及真实Trial已完成（S06h），主D20未显示增量；候选 release 已重生成 `release-logistic-ridge-candidate-20261002-v1`（hash `bdb8bbe0...`，S06i 因 pipeline.py/uv.lock 变更重注册）；正式 release 仍待人工批准）
-- [ ] 人工批准初始 release，按已登记规则固定20证券 panel，事前登记每批60个 case。（进展：个人内部Phase 1A许可已确认；eodhd_sector的20证券panel、完整恢复包、日历和SPY已实际冻结（S06h）；12 批前向计划已拟定（S06j，first_cutoff `2026-10-10`、campaign_key `phase1a-pilot-2026q4`，最终 `campaign_plan_sha256`/`scope_manifest` 待正式 tenant UUID 后生成）；人工批准及正式Campaign未发生）
+- [ ] 发布固定 baseline 与简单量化模型，登记训练与校准版本。（进展：管线载具 baseline-constant-v0 / quant-momentum-v0 已随 S06a 落地并全量披露；Logistic/Ridge候选实现及真实Trial已完成（S06h），主D20未显示增量；候选 release 已重生成 `release-logistic-ridge-candidate-20261002-v1`（hash `bdb8bbe0...`，S06i 因 pipeline.py/uv.lock 变更重注册）；正式 release 已获所有者批准（2026-10-02，package r1）并随 campaign 注册生效）
+- [ ] 人工批准初始 release，按已登记规则固定20证券 panel，事前登记每批60个 case。（进展：所有者 2026-10-02 批准 package r1；campaign `phase1a-pilot-2026q4`（`a63f8494-…`）已注册 active——`campaign_plan_sha256`=`d403c8e5…`、`scope_manifest_sha256`=`0b899b00…`（生产 tenant `f497c122…`）；eodhd_sector 的 20 证券 panel、完整恢复包、日历和 SPY 已实际冻结（S06h）；12 批 planned_cutoffs 已入库，批次 1（60 case）于 2026-10-03 06:00 ET 后由调度器自动预注册——首批落地后本项关闭）
 - [ ] llm_adjusted 保留 unavailable/not_enabled，不填充伪造 LLM 结果。（管线已固定封存该位置，S06a 验收）
 - [ ] Scheduler 按周创建新批次，按交易日检查到期 Outcome。（已落地：见 S06a/S06b 进度；已 resolved Outcome 的供应商更正自动触发已于 S06b 落地）
 - [ ] 最小只读查询显示计划数、完成数、缺失、迟到、数据质量和评分适用范围。（已落地：campaign_status 服务 + 租户隔离 API，见 S06a 进度）
@@ -798,4 +798,5 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
 - 验证：5 模型列表、真实 glm-5.3 正文调用（finish=stop）、deepseek-v4-flash 流式 168 SSE chunk、spend logs 入库、chat 虚拟 key 隔离、Open WebUI /health 200。
 - **agent-runtime 镜像发布**：`ghcr.io/youweichen0208/youwei-agent-runtime:phase1a-s07`，registry digest `sha256:998f060e…`（与 S07m 本地 digest 一致），digest 拉取验证通过；upstreams hermes notes 更新（deployment.image 仍 null，归 Phase 1B 决策）。
 - upstreams：litellm 与 openwebui 组件升级为 integrated + passed（digest + 证据 = chat-stack-deployment.md），enabled 保持 false（部署校验器只覆盖研究生产 compose；启用待 S07 研究链路接线决策）。catalog + deployment 双 VALID。
-- 剩余：公网入口（备案确认 + DNS + ECS/SG nginx + certbot）；S07 研究链路真实网关验证（agent-runtime → LiteLLM → 火山：工具调用/取消/fail-closed/并发限额/cost map 对账）；openwebui 建号后 `ENABLE_SIGNUP=False`；聊天栈备份策略（当前可重建 + 数据卷未纳入备份）。
+- 公网入口上线（2026-10-02）：`https://trading.youwei-agent.com`（Cloudflare 灰云 DNS：`trading A 8.159.158.155`、`sg-chat A 168.144.39.34`；两端 certbot 证书有效至 2026-12-31、systemd 续期在位；公网 `/health` 200 全链验证；SG vhost 对非 ECS 来源 403，allow/deny 置 location 级避免挡 ACME）。所有者建号完成、`ENABLE_SIGNUP=False`（signup 403 验证）。
+- 剩余：S07 研究链路真实网关验证（agent-runtime → LiteLLM → 火山：工具调用/取消/fail-closed/并发限额；cost map 对账缩减为 LiteLLM spend 金额观测——GLM/DeepSeek/Qwen 不在默认成本表、spend 只记 token；Core 预算维度已删除）；聊天栈备份策略（当前可重建 + openwebui 数据卷未纳入 pgbackrest，重要时可加 dump cron）。
