@@ -1,0 +1,61 @@
+# LiteLLM gateway configuration for the youwei chat stack.
+#
+# Rendered by ops/deploy_chat.sh into /opt/youwei/chat/config.yaml with
+# the real Volcengine key (the file is 0600 on the target host; the
+# template itself contains no secrets).
+#
+# Upstream: Volcengine API gateway, Anthropic-compatible endpoint
+# (verified on sg-prod 2026-09-27: plain x-api-key is rejected, the
+# Authorization: Bearer header is required — docs/research/
+# llm-gateway-options.md, s01-target-verification.md §4).
+#
+# Cost map: GLM / DeepSeek / Qwen are not in LiteLLM's default cost
+# table; per-token prices are left unset until reconciled against the
+# actual Volcengine billing (pending item from llm-gateway-options).
+# Spend logs still record token usage per request/key.
+
+model_list:
+  - model_name: glm-5.3
+    litellm_params:
+      model: anthropic/glm-5.3
+      api_base: https://st8tp3ajl0df3n8b8l8qu.apigateway-cn-beijing.volceapi.com/compatible/anthropic
+      api_key: os.environ/VOLC_API_KEY
+      extra_headers:
+        Authorization: "Bearer __VOLC_KEY__"
+  - model_name: glm-5.3-flash
+    litellm_params:
+      model: anthropic/glm-5.3-flash
+      api_base: https://st8tp3ajl0df3n8b8l8qu.apigateway-cn-beijing.volceapi.com/compatible/anthropic
+      api_key: os.environ/VOLC_API_KEY
+      extra_headers:
+        Authorization: "Bearer __VOLC_KEY__"
+  - model_name: deepseek-v4-flash
+    litellm_params:
+      model: anthropic/deepseek-v4-flash
+      api_base: https://st8tp3ajl0df3n8b8l8qu.apigateway-cn-beijing.volceapi.com/compatible/anthropic
+      api_key: os.environ/VOLC_API_KEY
+      extra_headers:
+        Authorization: "Bearer __VOLC_KEY__"
+  - model_name: deepseek-v4-pro
+    litellm_params:
+      model: anthropic/deepseek-v4-pro
+      api_base: https://st8tp3ajl0df3n8b8l8qu.apigateway-cn-beijing.volceapi.com/compatible/anthropic
+      api_key: os.environ/VOLC_API_KEY
+      extra_headers:
+        Authorization: "Bearer __VOLC_KEY__"
+  - model_name: qwen3.8-flash
+    litellm_params:
+      model: anthropic/qwen3.8-flash
+      api_base: https://st8tp3ajl0df3n8b8l8qu.apigateway-cn-beijing.volceapi.com/compatible/anthropic
+      api_key: os.environ/VOLC_API_KEY
+      extra_headers:
+        Authorization: "Bearer __VOLC_KEY__"
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL
+
+litellm_settings:
+  # Open WebUI / clients send params the Anthropic path may not accept
+  # (frequency_penalty etc.); drop them instead of erroring.
+  drop_params: true

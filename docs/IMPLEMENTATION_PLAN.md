@@ -790,3 +790,12 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
 - 调度：`next_weekly_cutoff` 语义为"严格晚于现在的首个周六 06:00 ET"——批次 1（cutoff 2026-10-10）将于 2026-10-03 06:00 ET 后预注册，2026-10-10 06:00 ET 窗口内冻结输入、生成并原子封存预测。特征历史已回补且 60/60 可用（见批准包 §4.1）；cutoff 前余 6 个交易日由滚动采集覆盖。
 - 状态：生产库 release_approvals=1、campaigns=1、forecast_batches=0（待调度器预注册）；ops status ok 无告警。批准包文档按定稿冻结不作修改，执行记录以本节为准。
 - 后续：批次运行与随访（采集/结果随访覆盖至 2027-04-01 之后）；D1/D20/D60 标签成熟后评分；月度汇总按协议追加。
+
+### 聊天栈部署与 S07 收尾（2026-10-02，LiteLLM + Open WebUI + agent-runtime 发布）
+
+- 所有者决策（2026-10-02）：火山 key 复用本地 pi 配置；子域 `trading.youwei-agent.com`；公网入口拟走国内阿里云 ECS（cn-shanghai）中转（**备案问题待确认**：未备案则非标端口或 SG 直连）；聊天不设预算上限；本轮范围 = S07 收尾 + 聊天入口，Phase 1B/S08 不动。
+- **youwei-chat 栈**（sg-prod `/opt/youwei/chat/`，[chat-stack-deployment.md](ops/chat-stack-deployment.md)）：postgres（LiteLLM 专用库，复用 pinned digest）+ LiteLLM v1.102.1（`ghcr.io/berriai/litellm@sha256:f8043697…`，火山 Anthropic 兼容端点 + Bearer，5 模型，spend logs，`127.0.0.1:4000`）+ Open WebUI v0.6.36（`@sha256:0b73f17a…`，指向网关，`127.0.0.1:8090`，注册暂开放待所有者建号后关闭）。仓库资产：`infra/compose/chat.json`、`infra/chat/litellm-config.yaml.template`、`ops/deploy_chat.sh`（幂等分相部署）。
+- 验证：5 模型列表、真实 glm-5.3 正文调用（finish=stop）、deepseek-v4-flash 流式 168 SSE chunk、spend logs 入库、chat 虚拟 key 隔离、Open WebUI /health 200。
+- **agent-runtime 镜像发布**：`ghcr.io/youweichen0208/youwei-agent-runtime:phase1a-s07`，registry digest `sha256:998f060e…`（与 S07m 本地 digest 一致），digest 拉取验证通过；upstreams hermes notes 更新（deployment.image 仍 null，归 Phase 1B 决策）。
+- upstreams：litellm 与 openwebui 组件升级为 integrated + passed（digest + 证据 = chat-stack-deployment.md），enabled 保持 false（部署校验器只覆盖研究生产 compose；启用待 S07 研究链路接线决策）。catalog + deployment 双 VALID。
+- 剩余：公网入口（备案确认 + DNS + ECS/SG nginx + certbot）；S07 研究链路真实网关验证（agent-runtime → LiteLLM → 火山：工具调用/取消/fail-closed/并发限额/cost map 对账）；openwebui 建号后 `ENABLE_SIGNUP=False`；聊天栈备份策略（当前可重建 + 数据卷未纳入备份）。

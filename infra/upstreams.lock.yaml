@@ -35,7 +35,7 @@
         }
       },
       "deployment": {"image": null, "bindings": []},
-      "notes": "Source installation smoke-tested. S07 adapter, isolation keys, research-v1 contract and offline/no-cost smoke are complete (see docs/IMPLEMENTATION_PLAN.md S07a-g); production integration, gateway wiring, image digest and deployment acceptance remain for S09. 2026-10-01: Hermes is the sole Agent framework for MVP; S08 is now the controlled quant exploration loop implemented with Hermes research/experiment instances (see docs/research/hermes-only-runtime-assessment.md). Headless agent-runtime image built on sg-prod (2026-10-01): manifest digest sha256:31b22113b2deee2476c94ddf290aa58f9b76c647742a60e5fd5f64cffa3dd02d (single-platform, no provenance), base python:3.14-slim@sha256:51dafde8..., uv 0.11.16@sha256:440fd647..., in-image no-cost smoke 5/5 passed (see docs/ops/agent-runtime-image-build.md). deployment.image stays null: digest is local, no registry yet. S07m (2026-10-01): research link switched to Ed25519 (research_capability.py); image rebuilt with cryptography 50.0.1 (Hermes uv.lock pins it transitively; Dockerfile VERIFIES the version rather than installing a second copy). New manifest digest sha256:998f060eb0f7fadaa1712e9540370a4dc1e79995b56f1a41a9c1f7b1e892f153 (tag youwei/agent-runtime:dev). In-image Ed25519 smoke 5/5 passed (valid-grant/wrong-tenant/missing-scope/bad-signature/expired). Restricted egress (gateway-only) and end-to-end Controller/Runner/container wiring remain for S07m-3c."
+      "notes": "Source installation smoke-tested. S07 adapter, isolation keys, research-v1 contract and offline/no-cost smoke are complete (see docs/IMPLEMENTATION_PLAN.md S07a-g); production integration, gateway wiring, image digest and deployment acceptance remain for S09. 2026-10-01: Hermes is the sole Agent framework for MVP; S08 is now the controlled quant exploration loop implemented with Hermes research/experiment instances (see docs/research/hermes-only-runtime-assessment.md). Headless agent-runtime image built on sg-prod (2026-10-01): manifest digest sha256:31b22113b2deee2476c94ddf290aa58f9b76c647742a60e5fd5f64cffa3dd02d (single-platform, no provenance), base python:3.14-slim@sha256:51dafde8..., uv 0.11.16@sha256:440fd647..., in-image no-cost smoke 5/5 passed (see docs/ops/agent-runtime-image-build.md). deployment.image stays null until the Phase 1B deployment decision, but the image is now published: ghcr.io/youweichen0208/youwei-agent-runtime:phase1a-s07, registry digest sha256:998f060eb0f7fadaa1712e9540370a4dc1e79995b56f1a41a9c1f7b1e892f153 (push + digest pull verified 2026-10-02). S07m (2026-10-01): research link switched to Ed25519 (research_capability.py); image rebuilt with cryptography 50.0.1 (Hermes uv.lock pins it transitively; Dockerfile VERIFIES the version rather than installing a second copy). New manifest digest sha256:998f060eb0f7fadaa1712e9540370a4dc1e79995b56f1a41a9c1f7b1e892f153 (tag youwei/agent-runtime:dev). In-image Ed25519 smoke 5/5 passed (valid-grant/wrong-tenant/missing-scope/bad-signature/expired). Restricted egress (gateway-only) and end-to-end Controller/Runner/container wiring remain for S07m-3c."
     },
     "pi": {
       "enabled": false,
@@ -56,24 +56,30 @@
       "enabled": false,
       "source": {"kind": "pypi", "package": "litellm", "version": "1.102.1"},
       "runtime": {"python_exact": null},
-      "integration_status": "not_integrated",
+      "integration_status": "integrated",
       "verification": {
-        "status": "not_run",
+        "status": "passed",
         "evidence": {
-          "path": "docs/research/llm-gateway-options.md",
-          "sha256": "b2cc39aea6288bba8aa968264e7d6633593240f3f5786b408bb79d50e07a8e0b"
+          "path": "docs/ops/chat-stack-deployment.md",
+          "sha256": "72a211792fbdb9a0e0054c437e6392f78aaf5adeab3b3ca21280e0ad4c6c57f2"
         }
       },
-      "deployment": {"image": null, "bindings": []},
-      "notes": "Version is a documented candidate. Prior main-stable image smoke does not prove this exact package version or deployable digest."
+      "deployment": {"image": "ghcr.io/berriai/litellm@sha256:f8043697479513b9ae6f3abac8e62d61b908cfd31541cc3c3c994e16a28d784e", "bindings": []},
+      "notes": "Deployed 2026-10-02 in the youwei-chat stack (infra/compose/chat.json, sg-prod): OpenAI-compatible gateway over the Volcengine Anthropic-compatible endpoint (Bearer auth, S01-verified pattern), 5 models, spend logs in its own postgres, virtual-key isolation (chat key, no budget cap per owner decision). Real chat + streaming + usage verified (docs/ops/chat-stack-deployment.md). Stays enabled:false because the deployment validator covers the research production compose only; enabling awaits the S07 research-chain wiring decision (agent-runtime gateway access + Phase 1B). Pending: cost map vs Volcengine billing, cancellation, fail-closed behavior, concurrency/rate-limit proof (llm-gateway-options checklist)."
     },
     "openwebui": {
       "enabled": false,
-      "source": {"kind": "git", "url": "https://github.com/open-webui/open-webui", "revision": null},
-      "integration_status": "not_integrated",
-      "verification": {"status": "not_run", "evidence": null},
-      "deployment": {"image": null, "bindings": []},
-      "notes": "S09 integration candidate; no version, image or deployment has been selected."
+      "source": {"kind": "image", "image": "ghcr.io/open-webui/open-webui:v0.6.36"},
+      "integration_status": "integrated",
+      "verification": {
+        "status": "passed",
+        "evidence": {
+          "path": "docs/ops/chat-stack-deployment.md",
+          "sha256": "72a211792fbdb9a0e0054c437e6392f78aaf5adeab3b3ca21280e0ad4c6c57f2"
+        }
+      },
+      "deployment": {"image": "ghcr.io/open-webui/open-webui@sha256:0b73f17a1e63c024ec6bb80a2c0d4a6d79dfd798a5b608531c52e340e6ef168f", "bindings": []},
+      "notes": "Deployed 2026-10-02 as the owner's personal LLM chat UI in the youwei-chat stack (sg-prod, 127.0.0.1:8090, backed by the LiteLLM gateway; public entry via trading.youwei-agent.com pending the CN-ECS relay decision). This is the personal-chat use, distinct from the S09 evaluation-dashboard role (consume Core APIs) which remains unevaluated. First registered account becomes admin; ENABLE_SIGNUP flips to False after the owner's first login."
     },
     "openviking": {
       "enabled": false,

@@ -1,0 +1,71 @@
+{
+  "name": "youwei-chat",
+  "services": {
+    "postgres": {
+      "image": "postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea",
+      "environment": {
+        "POSTGRES_USER": "litellm",
+        "POSTGRES_DB": "litellm",
+        "POSTGRES_PASSWORD": "${LITELLM_PG_PASSWORD:?set the litellm postgres password}"
+      },
+      "volumes": ["postgres_data:/var/lib/postgresql/data"],
+      "networks": ["chat"],
+      "restart": "unless-stopped",
+      "healthcheck": {
+        "test": ["CMD-SHELL", "pg_isready -U litellm -d litellm"],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 30,
+        "start_period": "10s"
+      },
+      "cpus": "0.5",
+      "mem_limit": "512m",
+      "pids_limit": 128,
+      "logging": {"driver": "json-file", "options": {"max-size": "10m", "max-file": "3"}}
+    },
+    "litellm": {
+      "image": "ghcr.io/berriai/litellm@sha256:f8043697479513b9ae6f3abac8e62d61b908cfd31541cc3c3c994e16a28d784e",
+      "command": ["--config", "/app/config.yaml", "--port", "4000"],
+      "environment": {
+        "LITELLM_MASTER_KEY": "${LITELLM_MASTER_KEY:?set the litellm master key}",
+        "VOLC_API_KEY": "${VOLC_API_KEY:?set the volcengine api key}",
+        "DATABASE_URL": "postgresql://litellm:${LITELLM_PG_PASSWORD:?}@postgres:5432/litellm",
+        "STORE_MODEL_IN_DB": "True"
+      },
+      "volumes": ["./config.yaml:/app/config.yaml:ro"],
+      "networks": ["chat"],
+      "ports": ["127.0.0.1:4000:4000"],
+      "depends_on": {"postgres": {"condition": "service_healthy"}},
+      "restart": "unless-stopped",
+      "cpus": "1.0",
+      "mem_limit": "1g",
+      "pids_limit": 256,
+      "logging": {"driver": "json-file", "options": {"max-size": "10m", "max-file": "3"}}
+    },
+    "openwebui": {
+      "image": "ghcr.io/open-webui/open-webui@sha256:0b73f17a1e63c024ec6bb80a2c0d4a6d79dfd798a5b608531c52e340e6ef168f",
+      "environment": {
+        "OPENAI_API_BASE_URL": "http://litellm:4000/v1",
+        "OPENAI_API_KEY": "${YOUWEI_CHAT_KEY:-}",
+        "WEBUI_AUTH": "True",
+        "ENABLE_SIGNUP": "True"
+      },
+      "volumes": ["openwebui_data:/app/backend/data"],
+      "networks": ["chat"],
+      "ports": ["127.0.0.1:8090:8080"],
+      "depends_on": {"litellm": {"condition": "service_started"}},
+      "restart": "unless-stopped",
+      "cpus": "0.5",
+      "mem_limit": "768m",
+      "pids_limit": 256,
+      "logging": {"driver": "json-file", "options": {"max-size": "10m", "max-file": "3"}}
+    }
+  },
+  "networks": {
+    "chat": {}
+  },
+  "volumes": {
+    "postgres_data": {},
+    "openwebui_data": {}
+  }
+}
