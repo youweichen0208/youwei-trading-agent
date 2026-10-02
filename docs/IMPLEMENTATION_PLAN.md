@@ -45,7 +45,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 
 **当前运行状态（批准链已走完）：** release `bdb8bbe0…` 已登记批准（approver `human-owner`、scope `0b899b00…`，执行记录见 [§4 完成记录](#4-完成记录)）；campaign `phase1a-pilot-2026q4`（`a63f8494-…`）active，计划 hash `d403c8e5…` 服务端重算校验通过，12 批 planned_cutoffs 入库。批次 1（cutoff 2026-10-10 06:00 ET）由调度器于 2026-10-03 06:00 ET 后自动预注册；特征历史已回补（86 交易日 × 21 对象）且 60/60 可评分。tenant（`f497c122…`）与生产环境（core r2 `53631663…`、postgres `8d69232c…`）已固定，ops status 无告警。
 
-**下一步动作（按序）：** ① 批次 1 预注册核查（2026-10-03 18:00 北京时间后，只读四项：正确 campaign 1 批次/60 case/窗口正确/无重复）并在 2026-10-10 06:00 ET cutoff 窗口确认预测封存与及时确认；② S10a 浏览器渲染验收（所有者打开 `https://dash.youwei-agent.com`，凭证见 `sg-prod:/opt/youwei/secrets/dashboard.password`）；③ 聊天栈备份首次 cron 自动运行确认（2026-10-03 03:40 UTC 后，heartbeat 更新且无告警）。聊天栈备份（2026-10-02）、WAL 归档告警积压驱动修复（2026-10-02，core r3）、S10a Dashboard（2026-10-02/03，三片 + r4 + 公网入口）均已完成，见对应完成小节。S08 隔离 mock 验收已完成，真实快照接线后端到端样例与 Trial 登记随 Phase 1B 推进（启用依赖所有者：数据源 LLM 转发授权、新 Campaign、release 批准）。
+**下一步动作（按序）：** ① 批次 1 预注册核查（2026-10-03 18:00 北京时间后，只读四项：正确 campaign 1 批次/60 case/窗口正确/无重复）并在 2026-10-10 06:00 ET cutoff 窗口确认预测封存与及时确认。（窗口前就绪核查已于 10-03 07:15 北京完成，只读：campaign active、12 planned cutoffs（首 2026-10-10 10:00Z）且 0 批 0 case 符合预期；worker tick 健康——采集 276/276 全 succeeded、无错误无重启，注册前静默为 complete-skip 正常路径；周五 10-02 数据 21/21 证券已收；磁盘 27%/内存 5.2G 可用；调度器 60s 间隔，注册将在 10:00Z 后首个 tick 内发生）② S10a 浏览器渲染验收（所有者打开 `https://dash.youwei-agent.com`，凭证见 `sg-prod:/opt/youwei/secrets/dashboard.password`）；③ 聊天栈备份首次 cron 自动运行确认（2026-10-03 03:40 UTC 后，heartbeat 更新且无告警）。聊天栈备份（2026-10-02）、WAL 归档告警积压驱动修复（2026-10-02，core r3）、S10a Dashboard（2026-10-02/03，三片 + r4 + 公网入口）均已完成，见对应完成小节。S08 隔离 mock 验收已完成，真实快照接线后端到端样例与 Trial 登记随 Phase 1B 推进（启用依赖所有者：数据源 LLM 转发授权、新 Campaign、release 批准）。
 
 ## 2. 任务清单
 
