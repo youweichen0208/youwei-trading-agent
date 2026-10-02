@@ -79,7 +79,9 @@ async def test_ops_status_empty_system_ok(client, admin_headers):
     assert body["runs"]["over_deadline"] == 0
     # the test container runs with archiving off: reported, not alerted
     assert body["wal_archive"]["enabled"] is False
+    assert body["wal_archive"]["pending_wal_files"] == 0
     assert "wal_archive_stale" not in body["alerts"]
+    assert "wal_archive_monitor_error" not in body["alerts"]
 
 
 # --- reported signals ----------------------------------------------------
@@ -159,6 +161,25 @@ async def test_stale_ages_alert_under_strict_thresholds(pg_url, tenant_headers, 
 
 
 # --- WAL archive alert logic (not producible on the test container) -------
+#
+# The alert is driven by archive BACKLOG, not by wall-clock time since
+# the last successful archive: an idle database produces no WAL and
+# has nothing to archive, so a purely time-based rule fired forever on
+# the idle production DB (owner decision 2026-10-02: fix the rule, do
+# not raise the threshold).
+#
+#   wal_archive_stale         archiving on AND pending WAL exists AND
+#                             the oldest pending file has waited past
+#                             the threshold (or its age is unreadable
+#                             — never silently "fresh")
+#   wal_archive_monitor_error WAL metrics could not be read at all;
+#                             an unreadable backlog is never treated
+#                             as zero
+#
+# last_archived_age / counts / LSN / stats_reset stay in the snapshot
+# as diagnostics only.
+
+THRESHOLD = 1800
 
 
 def _snap(**wal) -> dict:
@@ -170,31 +191,74 @@ def _snap(**wal) -> dict:
         "runs": {"over_deadline": 0, "oldest_over_deadline_age_seconds": None},
         "wal_archive": {
             "enabled": False,
+            "pending_wal_files": 0,
+            "oldest_pending_age_seconds": None,
             "archived_count": 0,
             "failed_count": 0,
             "last_archived_age_seconds": None,
+            "stats_reset": None,
+            "current_lsn": None,
             **wal,
         },
     }
 
 
-def test_wal_archive_alert_only_when_enabled():
-    disabled = _snap(enabled=False)
-    assert "wal_archive_stale" not in evaluate_alerts(
-        disabled, Settings(alert_wal_archive_stale_seconds=1800)
-    )
+def _alerts(snap):
+    return evaluate_alerts(snap, Settings(alert_wal_archive_stale_seconds=THRESHOLD))
 
-    never_archived = _snap(enabled=True)
-    assert "wal_archive_stale" in evaluate_alerts(
-        never_archived, Settings(alert_wal_archive_stale_seconds=1800)
-    )
 
-    fresh = _snap(enabled=True, last_archived_age_seconds=30.0)
-    assert "wal_archive_stale" not in evaluate_alerts(
-        fresh, Settings(alert_wal_archive_stale_seconds=1800)
-    )
+def test_wal_archive_idle_database_does_not_alert():
+    """No pending WAL = nothing to archive, however long ago the last
+    archive was (the idle production DB case; old rule fired forever)."""
+    idle = _snap(enabled=True, pending_wal_files=0, last_archived_age_seconds=99999.0)
+    assert "wal_archive_stale" not in _alerts(idle)
+    assert "wal_archive_monitor_error" not in _alerts(idle)
 
-    stale = _snap(enabled=True, last_archived_age_seconds=9999.0)
-    assert "wal_archive_stale" in evaluate_alerts(
-        stale, Settings(alert_wal_archive_stale_seconds=1800)
+
+def test_wal_archive_pending_within_grace_does_not_alert():
+    fresh_backlog = _snap(
+        enabled=True, pending_wal_files=3, oldest_pending_age_seconds=600.0
     )
+    assert "wal_archive_stale" not in _alerts(fresh_backlog)
+
+
+def test_wal_archive_pending_past_threshold_alerts():
+    stuck = _snap(
+        enabled=True, pending_wal_files=2, oldest_pending_age_seconds=2000.0
+    )
+    assert "wal_archive_stale" in _alerts(stuck)
+
+
+def test_wal_archive_recovers_after_backlog_clears():
+    """The very snapshot that used to be alerting stops alerting once
+    the backlog is archived (delivery of RESOLVED stays with the
+    polling layer's alert-set diff)."""
+    stuck = _snap(
+        enabled=True, pending_wal_files=2, oldest_pending_age_seconds=2000.0
+    )
+    assert "wal_archive_stale" in _alerts(stuck)
+    recovered = _snap(enabled=True, pending_wal_files=0, last_archived_age_seconds=30.0)
+    assert "wal_archive_stale" not in _alerts(recovered)
+
+
+def test_wal_archive_pending_with_unknown_age_alerts_conservatively():
+    """Pending WAL whose wait time could not be determined is treated
+    as stale — an unreadable age must not read as fresh."""
+    unknown = _snap(enabled=True, pending_wal_files=1, oldest_pending_age_seconds=None)
+    assert "wal_archive_stale" in _alerts(unknown)
+
+
+def test_wal_archive_disabled_is_never_alerted():
+    disabled = _snap(
+        enabled=False, pending_wal_files=5, oldest_pending_age_seconds=99999.0
+    )
+    assert "wal_archive_stale" not in _alerts(disabled)
+
+
+def test_wal_archive_monitor_error_alerts_and_never_means_zero_backlog():
+    """Unreadable WAL metrics are their own alert; the backlog is
+    unknown, not zero, and must not be reported as healthy."""
+    unreadable = _snap(enabled=True, monitor_error="permission denied for function")
+    alerts = _alerts(unreadable)
+    assert "wal_archive_monitor_error" in alerts
+    assert "wal_archive_stale" not in alerts

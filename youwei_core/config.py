@@ -44,6 +44,10 @@ class Settings(BaseSettings):
     # (expired leases, overdue runs) alert on any occurrence.
     alert_queue_backlog_age_seconds: float = 300.0
     alert_unpublished_events_age_seconds: float = 60.0
+    # WAL archive: alert when the oldest PENDING WAL file (.ready in
+    # pg_wal/archive_status) has waited longer than this. Not wall-clock
+    # since the last archive — an idle database produces no WAL and is
+    # healthy (owner decision 2026-10-02).
     alert_wal_archive_stale_seconds: float = 1800.0
 
     # S04: Tiingo collection (token lives in the gitignored .env).
