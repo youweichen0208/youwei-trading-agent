@@ -34,7 +34,7 @@
 
 ## 已知限制与待办
 
-- **公网入口（预置完成，待 DNS）**：备案经运行证据确认有效（`market.youwei-agent.com` 一直从该 cn-shanghai ECS 标准 443 服务）。DNS 托管在 **Cloudflare**（treasure/olof.ns.cloudflare.com）；待所有者在 CF 控制台加两条 **仅 DNS（灰云）** 记录：`trading A 8.159.158.155`、`sg-chat A 168.144.39.34`；随后两端 certbot 发证（--nginx 自动加 TLS 块）。预置：`infra/chat/nginx-ecs-trading.conf`（已部署 ECS：公网入口、登录限流 5r/m、resolver 按请求解析 upstream、WebSocket/SSE 友好）、`infra/chat/nginx-sg-chat.conf`（已部署 SG：仅接受 ECS 来源 IP，代理 127.0.0.1:8090）。
+- **公网入口（2026-10-02 上线）**：备案经运行证据确认有效（`market.youwei-agent.com` 一直从该 cn-shanghai ECS 标准 443 服务）。DNS（Cloudflare）两条 **灰云** 记录由所有者添加（初次误开橙云已纠正）：`trading A 8.159.158.155`、`sg-chat A 168.144.39.34`。两端 certbot 发证成功（均有效至 2026-12-31，systemd timer 自动续期在位）。验证：`https://trading.youwei-agent.com/health` → 200（公网路径全链：浏览器 → ECS TLS → SG TLS → Open WebUI）；未认证 websocket 被应用拒绝属预期（应用侧行为，非代理问题）；SG 侧 vhost 对非 ECS 来源 403（allowlist 生效）。配置：`infra/chat/nginx-ecs-trading.conf`（登录限流 5r/m、resolver 按请求解析、Upgrade 头透传）、`infra/chat/nginx-sg-chat.conf`（allow/deny 在 location 级，避免挡 ACME 验证；代理 127.0.0.1:8090）。
 - 成本记录：GLM/DeepSeek/Qwen 不在 LiteLLM 默认成本表，当前 spend 只记 token 不记金额；自定义 cost map + 火山计费对账为待办（llm-gateway-options 遗留项）。
 - 未测（llm-gateway-options 待测清单）：取消传播、fail-closed（计数器故障行为）、并发/速率限额生效证明——随 S07 研究链路真实网关验证批补齐。
 - LiteLLM 管理面（`/key/*`）仅绑 `127.0.0.1`，经 SSH 访问；研究链路接入时再决定 agent-runtime 网络如何到达网关。

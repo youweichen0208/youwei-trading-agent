@@ -61,7 +61,7 @@
         "status": "passed",
         "evidence": {
           "path": "docs/ops/chat-stack-deployment.md",
-          "sha256": "260647045cadf45ab90703c9686edf0851e5ab7cf42bad2cdf4798452cdd73c0"
+          "sha256": "81b40bca82fa949d637ec1e1de4b0a12d2ff3c80ea97bfa40098514a6104c94b"
         }
       },
       "deployment": {"image": "ghcr.io/berriai/litellm@sha256:f8043697479513b9ae6f3abac8e62d61b908cfd31541cc3c3c994e16a28d784e", "bindings": []},
@@ -75,7 +75,7 @@
         "status": "passed",
         "evidence": {
           "path": "docs/ops/chat-stack-deployment.md",
-          "sha256": "260647045cadf45ab90703c9686edf0851e5ab7cf42bad2cdf4798452cdd73c0"
+          "sha256": "81b40bca82fa949d637ec1e1de4b0a12d2ff3c80ea97bfa40098514a6104c94b"
         }
       },
       "deployment": {"image": "ghcr.io/open-webui/open-webui@sha256:0b73f17a1e63c024ec6bb80a2c0d4a6d79dfd798a5b608531c52e340e6ef168f", "bindings": []},
