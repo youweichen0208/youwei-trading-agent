@@ -3,7 +3,7 @@
 日期：2026-09-27；结构优化更新：2026-09-28\
 设计依据：[ARCHITECTURE.md](ARCHITECTURE.md)\
 问题来源：[v0.2 评审](ARCHITECTURE_REVIEW_v0.2.md)\
-状态：**Phase 1A 前向实验已批准并注册，运行中**——所有者 2026-10-02 批准（package r1）；campaign `phase1a-pilot-2026q4`（`a63f8494-4730-4cc7-bf2d-0b29e895aa3c`）active，12 批 cutoff 已入库，首个 cutoff **2026-10-10 06:00 ET**（批次于 10-03 06:00 ET 后由调度器预注册）——S00–S06 完成（Phase 1A 批次运行中）；S07 收尾（真实网关研究链路验证完成，聊天栈上线；Phase 1B 未启用）；S09a/S09b 完成；S09c 实质验收完成（磁盘治理、重启/回滚 drill、备份接入生产、告警轮询、整机重启演练 RTO≈3min；剩余 webhook URL 与负载复测按所有者决策 2026-10-02 搁置）。**下一步：S08c Controller 接线与隔离 mock 验收均已完成（网络探针 + HTTP 越权 17/17 + 端到端冒烟全过，验收中修复两处真实缺陷，见 S08c 进度与 [s08-mock-acceptance](ops/s08-mock-acceptance.md)）；聊天栈备份已上线（每日 cron，7 日备 + 4 周备，密钥单独受控，告警三路径与隔离恢复验证全过，同机风险如实记录）；批次 1 预注册核查 2026-10-03 18:00（北京时间）后执行，cutoff 2026-10-10 06:00 ET。** 阶段详情见 [§4 完成记录](#4-完成记录)；S08（受控量化探索）已决策为 Hermes 唯一框架、Pi 暂缓。
+状态：**Phase 1A 前向实验已批准并注册，运行中**——所有者 2026-10-02 批准（package r1）；campaign `phase1a-pilot-2026q4`（`a63f8494-4730-4cc7-bf2d-0b29e895aa3c`）active，12 批 cutoff 已入库，首个 cutoff **2026-10-10 06:00 ET**（批次于 10-03 06:00 ET 后由调度器预注册）——S00–S06 完成（Phase 1A 批次运行中）；S07 收尾（真实网关研究链路验证完成，聊天栈上线；Phase 1B 未启用）；S09a/S09b 完成；S09c 实质验收完成（磁盘治理、重启/回滚 drill、备份接入生产、告警轮询、整机重启演练 RTO≈3min；剩余 webhook URL 与负载复测按所有者决策 2026-10-02 搁置）。**下一步：S08c Controller 接线与隔离 mock 验收均已完成（网络探针 + HTTP 越权 17/17 + 端到端冒烟全过，验收中修复两处真实缺陷，见 S08c 进度与 [s08-mock-acceptance](ops/s08-mock-acceptance.md)）；聊天栈备份已上线（每日 cron，7 日备 + 4 周备，密钥单独受控，告警三路径与隔离恢复验证全过，同机风险如实记录）；WAL 归档告警已改积压驱动并部署（core r3，旧 wall-clock 规则的空闲库误报解除，告警已清）；批次 1 预注册核查 2026-10-03 18:00（北京时间）后执行，cutoff 2026-10-10 06:00 ET。** 阶段详情见 [§4 完成记录](#4-完成记录)；S08（受控量化探索）已决策为 Hermes 唯一框架、Pi 暂缓。
 
 ## 1. 执行规则
 
@@ -45,7 +45,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 
 **当前运行状态（批准链已走完）：** release `bdb8bbe0…` 已登记批准（approver `human-owner`、scope `0b899b00…`，执行记录见 [§4 完成记录](#4-完成记录)）；campaign `phase1a-pilot-2026q4`（`a63f8494-…`）active，计划 hash `d403c8e5…` 服务端重算校验通过，12 批 planned_cutoffs 入库。批次 1（cutoff 2026-10-10 06:00 ET）由调度器于 2026-10-03 06:00 ET 后自动预注册；特征历史已回补（86 交易日 × 21 对象）且 60/60 可评分。tenant（`f497c122…`）与生产环境（core r2 `53631663…`、postgres `8d69232c…`）已固定，ops status 无告警。
 
-**下一步动作（按序）：** ① 批次 1 预注册核查（2026-10-03 18:00 北京时间后，只读四项：正确 campaign 1 批次/60 case/窗口正确/无重复）并在 2026-10-10 06:00 ET cutoff 窗口确认预测封存与及时确认；② 待所有者决策：生产 PG `wal_archive_stale` 告警在空闲库上的误报处理（当前监控以 wall-clock 归档新鲜度驱动，空闲库无 WAL 产生时持续告警；可选项：改按 LSN 差判断/调阈值/接受，不影响数据安全——全量备份与已有 WAL 均完好）。聊天栈备份已完成（2026-10-02：每日 cron + 监控接入 + 隔离恢复验证，见 S07 聊天栈备份小节）。S08 隔离 mock 验收已完成，真实快照接线后端到端样例与 Trial 登记随 Phase 1B 推进。
+**下一步动作（按序）：** ① 批次 1 预注册核查（2026-10-03 18:00 北京时间后，只读四项：正确 campaign 1 批次/60 case/窗口正确/无重复）并在 2026-10-10 06:00 ET cutoff 窗口确认预测封存与及时确认。聊天栈备份（2026-10-02）与 WAL 归档告警积压驱动修复（2026-10-02，core r3，含部署事故与恢复记录）均已完成，见对应完成小节。S08 隔离 mock 验收已完成，真实快照接线后端到端样例与 Trial 登记随 Phase 1B 推进。
 
 ## 2. 任务清单
 
@@ -87,7 +87,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 - [x] Idempotency-Key 绑定租户及 payload hash；同键不同输入拒绝。
 - [x] 身份来自鉴权；按 job 签发能力令牌，限制快照、工具、租户和有效期（令牌机制与 scope 已落地；Runner 的快照内容/hash 范围绑定已于 S03b 接入；Hermes 范围接线待 S07）。
 - [x] run 级原子费用预留、结算、最大尝试数、墙钟期限、取消传播和结构化日志（墙钟期限由 claim 路径 reaper 执行，超期 run 取消、在造 attempt 结果被 fence）。
-- [x] 从第一版设置备份、任务积压、磁盘、WAL、预算与错误告警（备份/PITR 演练、/v1/ops/status 队列积压/待对账预算/未发布事件/未收割过期租约/超期 run/WAL 归档延迟告警；磁盘水位为宿主层监控，随 S09 部署验收落实）。
+- [x] 从第一版设置备份、任务积压、磁盘、WAL、预算与错误告警（备份/PITR 演练、/v1/ops/status 队列积压/待对账预算/未发布事件/未收割过期租约/超期 run/WAL 归档告警；磁盘水位为宿主层监控，随 S09 部署验收落实。WAL 告警 2026-10-02 改为积压驱动——旧 wall-clock 规则在空闲库上持续误报，见 [wal-alert-fix](ops/wal-alert-fix-20261002.md)）。
 
 交付：可独立运行的确定性执行控制与任务查询接口。
 
@@ -857,12 +857,19 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
 - 剩余：agent-runtime 修复镜像已重发布 GHCR（`phase1a-s07-r2`，digest `bca0a5b9…`，2026-10-02）。
 
 ### 聊天栈备份上线（2026-10-02，每日 dump + 监控接入 + 隔离恢复验证）
-
 - 规格（所有者 2026-10-02 确认）：每日 1 次保留 7 日备 + 4 周备；LiteLLM PG + Open WebUI 库/附件/配置（SQLite 一致性备份）；密钥单独受控；失败入现有监控；一次隔离恢复验证；异地备份维持暂缓。
 - 实现：`ops/backup/chat_backup.sh`（部署副本 `/opt/youwei/chat/chat_backup.sh`，cron `40 3 * * * UTC`）——LiteLLM PG `pg_dump -Fc`；Open WebUI 容器内 Python `sqlite3.backup()` 一致性副本（镜像无 sqlite3 CLI）+ `uploads/`/`vector_db/`（缺失即报错，不静默跳过；`cache/` 排除）+ 部署时 `compose.json`；密钥（`secrets.env` + 渲染后 `config.yaml` 含 VOLC key）单独存 `/opt/youwei/backups/chat-secrets/`（0700/0600），不进常规备份目录；周日复制到 `weekly/`，daily/weekly 各留 7/4 份。
 - 监控接入：`ops/ops_status_poll.sh` 新增 heartbeat 检查（`/opt/youwei/chat/backup-state/`）→ `chat_backup_missing`/`chat_backup_stale`（>26h）/`chat_backup_failed` 告警，走现有告警集合投递机制（webhook 配置后自动生效；部署副本已同步，旧版备份为 `ops_status_poll.sh.bak-20261002`）。
 - 验证（全部 sg-prod 实测）：首次备份全产物非空；`ops/backup/chat_backup_verify.sh` 隔离恢复——一次性容器 pg_restore（SpendLogs 56 行/VerificationToken 5 行）、webui.db `integrity_check` + 25 表 + chat 行、uploads/vector_db 在归档、secrets 0600；告警三路径（failed 注入→告警、stale 回填→告警、恢复→RESOLVED）；保留轮换（伪旧目录 10→7 精确裁剪 + weekly 复制分支）；无临时容器/目录残留。
 - 剩余限制：**同机风险如实记录**——备份存 sg-prod 本机（`/opt/youwei/backups/`），与栈同故障域，异地备份按所有者决策维持暂缓；Open WebUI 当前数据量小（webui.db ~278KB），量级增长后需复测备份时长与容量。
+
+### WAL 归档告警判定修复（2026-10-02，积压驱动替代 wall-clock，core r3）
+
+- 决策（所有者 2026-10-02）：修正判定逻辑而非调阈值——旧规则“距上次归档超 1800s”在生产空闲库上持续误报（空闲库无 WAL 产生，`archive_timeout` 不触发）；新主条件为**归档启用且存在待归档 WAL 且最老等待 >1800s**；`last_archived_age`/LSN/计数/`stats_reset` 降为诊断；指标读取失败报 `wal_archive_monitor_error`（绝不当作积压为零）。
+- 实现（commit 27c7f3d）：`ops_snapshot` WAL 块重写（`pg_stat_archiver` + `pg_ls_archive_statusdir` `.ready` + `pg_current_wal_lsn`，守护块失败→monitor_error 快照）；`evaluate_alerts` 新判定；TDD 七场景（含旧规则失败案例的空闲不告警、未知等待保守告警、监测异常绝不读作健康）+ 集成新字段断言，本机全量 590 passed。详见 [wal-alert-fix-20261002](ops/wal-alert-fix-20261002.md)。
+- 部署：SG 构建 + GHCR 推送（tag `phase1a-r3`，digest `sha256:71d15917…`，拉取验证）；`GRANT pg_monitor TO youwei_app`（statusdir 读取所需，只读角色）；生产滚动更新。**事故如实记录**：首次部署整文件覆盖了路径适配的部署副本 compose，postgres 挂载错误目录致 PG 重启循环约 2 分钟（14:29–14:31 UTC，轮询 fail-closed 捕获 `api_unreachable`）；还原副本后仅字段级替换 digest 恢复。教训已登记 upstreams notes：部署副本只能字段级替换，禁整文件覆盖。
+- 部署后验证：ops status `ok` 无告警、`pending_wal_files=0`、无 monitor_error、诊断字段全在位；归档恢复推送（`archived_count` 51→52）；轮询 RESOLVED 投递；worker 调度循环正常；catalog + deployment 双 VALID（lock/compose/manifest 级联更新）。
+- 剩余：真实归档故障场景的自然触发未发生（故意故障模拟会扰动生产归档，未执行）；部署副本/仓库 compose 路径差异收敛归后续部署工作。
 
 ### S07n 真实网关研究链路验证（2026-10-02，agent-runtime → LiteLLM → 火山）
 
