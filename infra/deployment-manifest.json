@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "lock_sha256": "dc72239e4d2d0bcf04666c271bdd970438316bf080b24493f0c52e4149b9d0bd",
-  "compose_sha256": "f58086664fdc174aee14e1ab2dc5af5ac1712c89ab8e272a87ae1c90131d0f16",
+  "lock_sha256": "941a64e1ffd21bc52cee5ceed1d6d141fdc2db75ec064c97c15917297925a015",
+  "compose_sha256": "af485459805b31a429e6ed9796c6a8c9d6151386309e073bf87987d452c6a38a",
   "components": {
     "core": {
       "image": "ghcr.io/youweichen0208/youwei-core@sha256:53631663f04096f3bcb19d4ee14d1c5598785f1bb39a12c75a736691d9cc1848",
@@ -17,7 +17,7 @@
       ]
     },
     "postgres": {
-      "image": "postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea",
+      "image": "ghcr.io/youweichen0208/youwei-postgres@sha256:8d69232c1d2b7771ae8f9dbb04cd56bbd6334972f37e90956f6a5bad05382053",
       "bindings": [
         {
           "service": "postgres",

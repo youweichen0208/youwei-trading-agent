@@ -144,17 +144,21 @@ def _load_production_compose() -> dict:
     return json.loads(src.read_text())
 
 
-def _fix_postgres_mount(compose: dict) -> None:
-    """The repository compose uses ``../postgres/init`` (relative to
-    infra/compose/). In the deploy directory the compose file sits next to
-    ``postgres/init``, so the mount must be ``./postgres/init``."""
-    for vol in compose["services"]["postgres"].get("volumes", []):
+def _fix_bind_paths(compose: dict) -> None:
+    """The repository compose uses ``../<dir>/...`` paths (resolved
+    relative to infra/compose/). In the deploy directory the compose
+    file sits next to those directories, so ``../postgres/init`` and
+    ``../pgbackrest/*`` must become ``./postgres/init`` and
+    ``./pgbackrest/*``."""
+    volumes = compose["services"]["postgres"]["volumes"]
+    fixed = []
+    for vol in volumes:
         if isinstance(vol, str) and vol.startswith("../postgres/init"):
-            compose["services"]["postgres"]["volumes"].remove(vol)
-            compose["services"]["postgres"]["volumes"].append(
-                "./postgres/init:/docker-entrypoint-initdb.d:ro"
-            )
-            return
+            vol = "./postgres/init:/docker-entrypoint-initdb.d:ro"
+        elif isinstance(vol, str) and vol.startswith("../pgbackrest/"):
+            vol = "./pgbackrest/" + vol[len("../pgbackrest/"):]
+        fixed.append(vol)
+    compose["services"]["postgres"]["volumes"] = fixed
 
 
 def init_dirs(env: str) -> None:
@@ -169,13 +173,27 @@ def init_dirs(env: str) -> None:
     src = REPO / "infra" / "postgres" / "init" / "01-roles.sh"
     _write_if_different(init_dir / "01-roles.sh", src.read_text(), 0o755)
 
+    # pgBackRest: runtime dirs (repo/socket/log, owned by the postgres
+    # uid inside the image) plus the checked-in configuration. The
+    # deploy compose references these as ./pgbackrest/*.
+    pgbr = d / "pgbackrest"
+    for sub in ("repo", "socket", "log"):
+        p = pgbr / sub
+        p.mkdir(mode=0o755, parents=True, exist_ok=True)
+        try:
+            os.chown(p, 70, 70)  # postgres uid in the alpine image
+        except OSError:
+            pass  # not root (local dev); docker may map uids anyway
+    conf_src = REPO / "infra" / "pgbackrest" / "pgbackrest.conf"
+    _write_if_different(pgbr / "pgbackrest.conf", conf_src.read_text(), 0o644)
+
     if env == "production":
         prod = _load_production_compose()
-        _fix_postgres_mount(prod)
+        _fix_bind_paths(prod)
         _write_if_different(compose_file(env), json.dumps(prod, indent=2) + "\n")
     else:
         prod = _load_production_compose()
-        _fix_postgres_mount(prod)
+        _fix_bind_paths(prod)
         acc = render_acceptance_compose(prod)
         _write_if_different(compose_file(env), json.dumps(acc, indent=2) + "\n")
 
@@ -331,6 +349,33 @@ def down(env: str) -> None:
     _dc(env, "down")
 
 
+def pgbackrest(env: str, args: list[str]) -> None:
+    """Run a pgBackRest command (stanza-create / check / backup / info /
+    ...) against the environment's stanza in a one-shot container.
+
+    No secrets are needed: commands reach the database through the
+    shared unix-socket directory and read the data directory from its
+    named volume; the repo and config are the deploy-dir binds."""
+    compose = json.loads(compose_file(env).read_text())
+    image = compose["services"]["postgres"]["image"]
+    pgbr = BASE / env / "pgbackrest"
+    result = _sh([
+        "docker", "run", "--rm", "-u", "70:70",
+        "-v", f"{project_name(env)}_postgres_data:/var/lib/postgresql/data",
+        "-v", f"{pgbr}/repo:/repo",
+        "-v", f"{pgbr}/socket:/socket",
+        "-v", f"{pgbr}/log:/var/log/pgbackrest",
+        "-v", f"{pgbr}/pgbackrest.conf:/etc/pgbackrest/pgbackrest.conf:ro",
+        image,
+        "pgbackrest", "--stanza=youwei", "--log-level-console=info", *args,
+    ])
+    # Backup/restore output is operational evidence; echo it (the
+    # _redact machinery keeps any secrets out if one ever appears).
+    sys.stdout.write(_redact(result.stdout))
+    if result.stderr:
+        sys.stderr.write(_redact(result.stderr))
+
+
 def status(env: str) -> None:
     r = _dc(env, "ps", check=False)
     sys.stdout.write(r.stdout)
@@ -347,6 +392,10 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("up")
     sub.add_parser("down")
     sub.add_parser("status")
+    pgbr_parser = sub.add_parser(
+        "pgbackrest", help="run a pgbackrest command in a one-shot container"
+    )
+    pgbr_parser.add_argument("pgbr_args", nargs=argparse.REMAINDER)
     args = ap.parse_args(argv)
 
     try:
@@ -367,6 +416,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"stopped {args.env}")
         elif args.command == "status":
             status(args.env)
+        elif args.command == "pgbackrest":
+            pgbackrest(args.env, args.pgbr_args)
     except DeployError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1

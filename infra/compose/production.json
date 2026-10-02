@@ -2,7 +2,15 @@
   "name": "youwei-production-phase1a",
   "services": {
     "postgres": {
-      "image": "postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea",
+      "image": "ghcr.io/youweichen0208/youwei-postgres@sha256:8d69232c1d2b7771ae8f9dbb04cd56bbd6334972f37e90956f6a5bad05382053",
+      "command": [
+        "postgres",
+        "-c", "wal_level=replica",
+        "-c", "archive_mode=on",
+        "-c", "archive_timeout=60",
+        "-c", "unix_socket_directories=/var/run/postgresql,/socket",
+        "-c", "archive_command=pgbackrest --stanza=youwei archive-push %p"
+      ],
       "environment": {
         "POSTGRES_USER": "youwei_owner",
         "POSTGRES_DB": "youwei",
@@ -12,7 +20,11 @@
       },
       "volumes": [
         "postgres_data:/var/lib/postgresql/data",
-        "../postgres/init:/docker-entrypoint-initdb.d:ro"
+        "../postgres/init:/docker-entrypoint-initdb.d:ro",
+        "../pgbackrest/repo:/repo",
+        "../pgbackrest/socket:/socket",
+        "../pgbackrest/log:/var/log/pgbackrest",
+        "../pgbackrest/pgbackrest.conf:/etc/pgbackrest/pgbackrest.conf:ro"
       ],
       "networks": ["core"],
       "restart": "unless-stopped",
@@ -65,6 +77,7 @@
     "core-worker": {
       "image": "ghcr.io/youweichen0208/youwei-core@sha256:53631663f04096f3bcb19d4ee14d1c5598785f1bb39a12c75a736691d9cc1848",
       "command": ["youwei-worker"],
+      "init": true,
       "environment": {
         "YOUWEI_DATABASE_URL": "postgresql+asyncpg://youwei_app:${YOUWEI_POSTGRES_APP_PASSWORD:?set the app role password}@postgres:5432/youwei",
         "YOUWEI_CAPABILITY_SECRET": "${YOUWEI_CAPABILITY_SECRET:?set the Core job capability signing secret}",

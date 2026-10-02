@@ -58,10 +58,23 @@
 - 通道：`/opt/youwei/production/alert-channel.env` 里 `YOUWEI_ALERT_WEBHOOK_URL` 配置后 POST `{"text":...}`（通道定后可调 payload）；未配置时投递到本地告警日志。
 - 验证：真实 API ok 路径（心跳+无重复）；stub 触发 `wal_archive_stale` → 投递+状态更新 → 真实运行解除 → 投递 RESOLVED，两态转换各一次。
 
-## 八、剩余（待决策/待做）
+## 八、生产备份接入（2026-10-02，posix repo 同机副本）
 
-- 备份目标决策后：S3（或已有目标）repo 配置 + 重复演练 + 生产接入（compose 换 postgres 镜像 + archive_mode + 备份定时任务 + `/v1/ops/status` wal_archive 生效 + upstreams.lock 更新；接入批次顺带加 core-worker `init: true` 修 PID1 信号问题——见 §二）。
+- 范围声明：本节把备份/恢复机制接入生产（同机 posix repo）——防应用级数据丢失（误迁移、误删表、库损坏），**不满足独立故障域**（宿主机丢失不防护）；异地副本（S3/已有目标）待备份目标决策，仅差 `[global]` repo1-* 配置。
+- 接入内容：
+  - `infra/pgbackrest/pgbackrest.conf`（仓库内配置，驱动部署到 `/opt/youwei/<env>/pgbackrest/`；pg1-user=youwei_owner）；repo/socket/log 运行目录由驱动 `init` 创建（uid 70）。
+  - production.json：postgres 镜像 → `youwei-postgres@sha256:8d69232c...`（§五）；`archive_mode=on` + `archive_timeout=60`（S02b 生产要求）+ 共享 socket 目录 + repo/log/conf 挂载；core-worker 加 `init: true`（修 PID1 信号问题，§二——worker 容器内现为 docker-init 作 PID1，SIGTERM 可这达）。
+  - `s09b_deploy.py`：`_fix_postgres_mount` 泛化为 `_fix_bind_paths`（../postgres/init 与 ../pgbackrest/* 两类）；`init` 生成 pgbackrest 目录+配置；新增 `pgbackrest` 子命令（一次性容器跑 stanza-create/check/backup/info，免密钥——共享 socket + 数据卷，输出回显且过脱敏）。
+- 演进切换（生产 PGDATA 免 dump/restore：同基底同 libc）：`up` 重建 postgres（新镜像+归档参数）与 worker（init:true），api 未动且全程 healthz 200（`pool_pre_ping` 生效）；数据完好（105 行/21 任务）；采集配置经 config.env 保留。
+- 初始化：stanza-create → check → 首个全量备份 **20261002-022932F**（7s，32.9MB→4.3MB）。
+- 监控生效：`/v1/ops/status` `wal_archive` 段 `enabled=true`（archived 4 / failed 0，last_archived_age 秒级）——S02b 要求的 WAL 归档告警接线至此在生产真实生效（`wal_archive_stale` 阈值 1800s）。
+- 定时任务（SG root cron）：每日 11:15 UTC 全量备份（日志 `/var/log/youwei-pgbackrest.log`）；每周日 12:15 UTC `check`；告警轮询每 5 分钟（§七）。保留策略 `repo1-retention-full=7`。
+- 观察项：`archive_timeout=60` 并不产生空段垃圾——PG 的 XLogArchiveTimeout 仅在**有新 WAL** 时才强制切换；空闲期 3 分钟零增长、archived_count 不变。即：活跃期 RPO ≤ ~1 分钟，空闲期零浪费。repo 现今 14MB（4.3MB 备份 + ~4MB 压缩 WAL + 结构）。
+
+## 九、剩余（待决策/待做）
+
+- 备份目标决策后：S3（或已有目标）repo 配置 + 演练（同 §六流程 + 异地恢复验证）+ 驱动/配置更新；独立故障域要求至此闭环。
 - 告警通道决策后：写 `/opt/youwei/production/alert-channel.env`（如需非通用 payload 一并调整脚本）。
 - droplet 整机重启演练：待项目所有者确认（影响同机 webdav 等服务）。
-- 资源测量：静默采集期基线已录（§四/实施计划）；采集高峰与首批 Campaign 负载下复测。
-- RPO/RTO：机制级已录（§六）；容量级与生产配置（archive_timeout=60）下的实测待生产接入后记录。
+- 资源测量：静默采集期基线已录；采集高峰与首批 Campaign 负载下复测。
+- RPO/RTO：机制级已录（§六）；生产配置下的定期恢复演练（每季度/重大变更，S02b 要求）自本接入起算。

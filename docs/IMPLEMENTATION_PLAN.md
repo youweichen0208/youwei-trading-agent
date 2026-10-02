@@ -758,7 +758,7 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
 
 ### S09c 进度（2026-10-02 起，运维验收进行中）
 
-- 状态：**S09c 第二批完成**（磁盘治理、重启恢复、升级/回滚 drill、采集配置持久化修复、pgBackRest 镜像+posix 演练、告警轮询框架上线）；待备份目标决策后接入生产备份，待告警通道决策后配置投递，整机重启演练待确认。详见 [s09c-ops-acceptance.md](ops/s09c-ops-acceptance.md)。分段记录：
+- 状态：**S09c 第三批完成**（磁盘治理、重启恢复、升级/回滚 drill、采集配置持久化修复、pgBackRest 镜像+演练、告警轮询上线、**生产备份接入**）；同机备份已运行（wal_archive 监控生效、每日全量+保留 7），待异地目标决策、告警通道决策、整机重启演练确认。详见 [s09c-ops-acceptance.md](ops/s09c-ops-acceptance.md)。分段记录：
   - 磁盘治理：根分区 82% → **14%**（回收 108.9G 构建缓存 + 73 个未用匿名卷 ~4.2G；Docker 29 镜像/缓存存于系统 containerd `/var/lib/containerd` namespace moby，du docker 目录不反映占用）。
   - 重启恢复（docker 级）：stop → start 三服务按依赖门控恢复，数据完好（105 行/21 任务），采集配置保留；worker stop 超宽限被 SIGKILL（exit 137）——租约机制按崩溃安全覆盖；整机重启演练待所有者确认。
   - 升级/回滚兼容性：r2→r1→r2 drill 通过（两版对当前生产库均健康，同 alembic head 无 schema 差异）；仓库部署文件保持 r2。
@@ -767,4 +767,5 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
   - pgBackRest 镜像（第二批）：`infra/images/postgres-pgbackrest.Dockerfile`——pinned alpine 基底（16.15，musl，同基底避免 collation 迁移）+ 源码编译 pgBackRest 2.59.2；已推 GHCR digest `sha256:8d69232c...`（拉取验证通过）；未接入生产（lock 待接入时更新）。
   - pgBackRest 演练（第二批）：[ops/backup/pgbackrest_drill.sh](../ops/backup/pgbackrest_drill.sh) posix repo 全链通过——stanza/check/全量备份（30s，31MB→4MB）/PITR（A+B 在 C 不在，9s promote）/全量丢失恢复（A+B+C 全在）/alembic head；S3 repo 仅差配置，待目标决策。
   - 告警轮询（第二批）：`ops/ops_status_poll.sh` 上线 SG cron（每 5 分钟）——alert 集变化投递一次（fail closed 含 api_unreachable），本地告警日志+心跳；两态转换验证；webhook 通道待配置 `alert-channel.env`。
-- 待决策（项目所有者）：① pgBackRest 备份目标（DO Spaces S3 ~$5/月 / 已有独立目标 / 先本地后异地）——决策后：S3 repo 配置+演练、生产接入（换 postgres 镜像+archive_mode+备份定时+lock 更新，顺带 core-worker `init:true` 修 PID1 信号问题）；② 告警外发通道（webhook 种类 / 邮件 / 其他）；③ droplet 整机重启演练是否执行。
+  - 生产备份接入（第三批）：postgres 换自定义镜像（同基底免 dump/restore，api 全程未断、数据完好）；`archive_mode=on`+`archive_timeout=60`+posix repo；stanza/check/首个全量备份 7s（32.9MB→4.3MB）；`/v1/ops/status` `wal_archive` 生产真实生效（enabled=true，4 archived/0 failed）；cron 每日 11:15 UTC 全量（保留 7）+周日 check；worker `init:true` 修 PID1 信号；观察：空闲期 XLogArchiveTimeout 不切空段（零浪费），活跃期 RPO ≤ ~1 分钟；upstreams.lock postgres 组件更新（source=local、evidence=s09c 文档）+ deployment 校验双 VALID。
+- 待决策（项目所有者）：① 备份异地目标（DO Spaces S3 ~$5/月 / 已有独立目标）——同机副本已运行，决策后仅差 repo1-* 配置+异地演练；② 告警外发通道（webhook 种类 / 邮件 / 其他）；③ droplet 整机重启演练是否执行。

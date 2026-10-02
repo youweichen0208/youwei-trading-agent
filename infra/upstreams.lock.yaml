@@ -12,11 +12,11 @@
     },
     "postgres": {
       "enabled": true,
-      "source": {"kind": "image", "image": "postgres:16-alpine"},
+      "source": {"kind": "local", "path": "infra/images", "version": "16.15.0-pgbr-2.59.2"},
       "integration_status": "integrated",
-      "verification": {"status": "passed", "evidence": {"path": "docs/ops/s09a-core-image-release.md", "sha256": "789130bb710e8870e0b9a40aa03de93298a4d22f531537e64c087921073233f3"}},
-      "deployment": {"image": "postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea", "bindings": [{"service": "postgres", "field": "image"}]},
-      "notes": "S09a: Phase 1A production PostgreSQL 16 (server 16.14), containerized on SG with a dedicated volume. Migration role (youwei_migrate, DDL) and app role (youwei_app, DML) are separated via infra/postgres/init/01-roles.sh. Digest is the current postgres:16-alpine digest (pinned in production compose)."
+      "verification": {"status": "passed", "evidence": {"path": "docs/ops/s09c-ops-acceptance.md", "sha256": "fcafd41f1adfbf1c484cb7090b2632dc3e35cd89690527fe667a3ec27cca4bde"}},
+      "deployment": {"image": "ghcr.io/youweichen0208/youwei-postgres@sha256:8d69232c1d2b7771ae8f9dbb04cd56bbd6334972f37e90956f6a5bad05382053", "bindings": [{"service": "postgres", "field": "image"}]},
+      "notes": "S09c: custom postgres image built in-repo (infra/images/postgres-pgbackrest.Dockerfile) from the pinned official postgres:16-alpine@sha256:721873c3... (server 16.15, musl; same base keeps libc/collation so PGDATA survives image swaps without dump/restore) plus pgBackRest 2.59.2 built from source and libbz2/xz-libs/yaml (alpine 3.24). Published to GHCR as youwei-postgres:phase1a-s09c, registry digest sha256:8d69232c... (pull-by-digest verified). In production since 2026-10-02 with archive_mode=on (archive_timeout=60), posix-repo backups (daily full at 11:15 UTC, retention 7, weekly check) and live wal_archive monitoring; backup/restore/PITR drill passed (docs/ops/s09c-ops-acceptance.md). Independent-failure-domain off-site copy pending the backup-target decision. Migration/app role separation via infra/postgres/init/01-roles.sh unchanged."
     },
     "hermes": {
       "enabled": false,
