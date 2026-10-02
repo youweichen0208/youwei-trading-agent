@@ -3,7 +3,7 @@
 日期：2026-09-27；结构优化更新：2026-09-28\
 设计依据：[ARCHITECTURE.md](ARCHITECTURE.md)\
 问题来源：[v0.2 评审](ARCHITECTURE_REVIEW_v0.2.md)\
-状态：**批准包已组装，待项目所有者一次性批准**——S00–S07 完成；S09a/S09b 完成；S09c 实质验收完成（磁盘治理、重启/回滚 drill、备份接入生产、告警轮询、整机重启演练 RTO≈3min；剩余 webhook URL 与负载复测按所有者决策 2026-10-02 搁置）。**下一步：所有者审阅并批准 [phase1a-campaign-approval-20261002](ops/phase1a-campaign-approval-20261002.md) → 登记 release 批准 + 注册 Campaign（首个 cutoff 2026-10-10 06:00 ET）→ 批次运行与随访；S08 可并行。** 阶段详情见 [§4 完成记录](#4-完成记录)；S08（受控量化探索）已决策为 Hermes 唯一框架、Pi 暂缓。
+状态：**批准包 r1 修订完成，待项目所有者批准**（初版审阅三项意见已处理：历史回补 + 60/60 可评分性验证 + 随访日期/示例修正，hash 集不变）——S00–S07 完成；S09a/S09b 完成；S09c 实质验收完成（磁盘治理、重启/回滚 drill、备份接入生产、告警轮询、整机重启演练 RTO≈3min；剩余 webhook URL 与负载复测按所有者决策 2026-10-02 搁置）。**下一步：所有者审阅并批准 [phase1a-campaign-approval-20261002](ops/phase1a-campaign-approval-20261002.md) → 登记 release 批准 + 注册 Campaign（首个 cutoff 2026-10-10 06:00 ET）→ 批次运行与随访；S08 可并行。** 阶段详情见 [§4 完成记录](#4-完成记录)；S08（受控量化探索）已决策为 Hermes 唯一框架、Pi 暂缓。
 
 ## 1. 执行规则
 
@@ -771,3 +771,13 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
   - 整机重启演练（第四批）：reboot → SSH 恢复 2 分 10 秒 → 40 秒内 9 容器全部自愈（含 webdav）→ nginx/docker/cron active、数据完好、采集配置保留、归档器恢复；**实测 RTO ≈ 3 分钟**无人工干预。
   - 告警 webhook 多格式（第四批）：`generic|slack|discord|feishu|wecom|telegram` 六格式就绪，只差 URL。
 - 所有者决策（2026-10-02）：① 备份异地目标暂不考虑（同机副本保持）；② 告警通道推进中（待 URL）；③ 整机重启演练已完成。剩余：告警 webhook URL、采集高峰/首批 Campaign 负载下资源复测。
+
+### Phase 1A 批准包（2026-10-02，r1 修订待批）
+
+- 初版组装（`docs/ops/phase1a-campaign-approval-20261002.md`）：release `bdb8bbe0…` + 计划 `d403c8e5…` + scope_manifest `0b899b00…`，全部断言对照生产库与 make_plan 重算核验；所有者审阅后**暂不批准**，指出三项问题（审阅意见不构成批准记录）。
+- r1 修订（同日，hash 集不变）：
+  1. **历史回补（原阻断项）**：`ops/backfill_history.py` 经标准 ingest 路径回补 2026-06-01 → 2026-10-01 共 86 个已完成交易日 × 21 对象（零缺口对照冻结日历；`ingested_at`/`usable_at` 为实际时间，均早于首个 cutoff）；生产库 price_observations 105 → 1911（版本化重叠按 PIT 读取取最新）。
+  2. **可评分性验证**：`ops/verify_prediction_coverage.py`（只读）按批次同路径（build_release_predictor + daily_bars_asof + predict_case）验证——模拟 cutoff 2026-10-01：**60/60 quant 预测可用**；批次 1 窗口（61 session，2026-07-16 → 10-09）已覆盖 55，余 6 个（10-02 → 10-09）由滚动采集在 cutoff 前落地。
+  3. **随访时间线修正**：末批入场 2026-12-28、D60 出场 2027-03-24 收盘、宽限期至 2027-04-01 收盘（含 2027-03-26 耶稣受难日休市，按冻结日历重算）；采集与随访覆盖至此之后。
+  4. `approve_release` 示例补必填 `scope` 审计文本参数。
+- 状态：待所有者对 r1 的明确批准；批准后按包内 §6 机制执行（approve_release → register_campaign 显式 primary_metric）。
