@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "lock_sha256": "ff714af0eed22ab9a1a5474e7d1769585d4155c45a614b0b5abd96d98a70d562",
-  "compose_sha256": "60e51f29cef0295c92514dfae62a49e2bea288a09a1813bbcdb6351100494338",
+  "lock_sha256": "34c2b9487a34a77487a24504ba2d1de604e69574058689042480e28610d7a991",
+  "compose_sha256": "25a4e5eb2c76f36fe841a069d702b5ee8847bcb252ce646e5c37714aca1e669a",
   "components": {
     "core": {
-      "image": "ghcr.io/youweichen0208/youwei-core@sha256:71d15917270c9eda7c8bcf5cc906c7e21222780eac23313bb188c7b09c33f2d6",
+      "image": "ghcr.io/youweichen0208/youwei-core@sha256:54df4db578b05327dee233a962260599077a561a32a8ce9118b0086aa255dad4",
       "bindings": [
         {
           "service": "core-api",

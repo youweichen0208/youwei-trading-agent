@@ -44,7 +44,7 @@
       }
     },
     "core-api": {
-      "image": "ghcr.io/youweichen0208/youwei-core@sha256:71d15917270c9eda7c8bcf5cc906c7e21222780eac23313bb188c7b09c33f2d6",
+      "image": "ghcr.io/youweichen0208/youwei-core@sha256:54df4db578b05327dee233a962260599077a561a32a8ce9118b0086aa255dad4",
       "command": ["youwei-api"],
       "environment": {
         "YOUWEI_DATABASE_URL": "postgresql+asyncpg://youwei_app:${YOUWEI_POSTGRES_APP_PASSWORD:?set the app role password}@postgres:5432/youwei",
@@ -75,7 +75,7 @@
       }
     },
     "core-worker": {
-      "image": "ghcr.io/youweichen0208/youwei-core@sha256:71d15917270c9eda7c8bcf5cc906c7e21222780eac23313bb188c7b09c33f2d6",
+      "image": "ghcr.io/youweichen0208/youwei-core@sha256:54df4db578b05327dee233a962260599077a561a32a8ce9118b0086aa255dad4",
       "command": ["youwei-worker"],
       "init": true,
       "environment": {

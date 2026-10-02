@@ -1,0 +1,38 @@
+{
+  "name": "youwei-dashboard",
+  "services": {
+    "dashboard": {
+      "image": "ghcr.io/youweichen0208/youwei-core@sha256:71d15917270c9eda7c8bcf5cc906c7e21222780eac23313bb188c7b09c33f2d6",
+      "command": ["python", "/app/dashboard/proxy.py"],
+      "env_file": ["/opt/youwei/secrets/dashboard.env"],
+      "volumes": [
+        "/opt/youwei/dashboard/app:/app/dashboard:ro"
+      ],
+      "networks": ["core", "edge"],
+      "ports": [
+        "127.0.0.1:8081:8080"
+      ],
+      "restart": "unless-stopped",
+      "cpus": 0.3,
+      "mem_limit": "256m",
+      "pids_limit": 128,
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      }
+    }
+  },
+  "networks": {
+    "core": {
+      "name": "youwei-production_core",
+      "external": true
+    },
+    "edge": {
+      "name": "youwei-production_edge",
+      "external": true
+    }
+  }
+}
