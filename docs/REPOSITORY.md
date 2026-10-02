@@ -1,6 +1,6 @@
 # 仓库边界与外部组件接入
 
-更新：2026-09-28。本文用于修改模块、依赖环境或部署边界时定位职责；实施进度与验证结果以 [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) 为准，领域术语见 [CONTEXT.md](../CONTEXT.md)。
+更新：2026-09-28；2026-10-02 增 `apps/dashboard/`（S10a）。本文用于修改模块、依赖环境或部署边界时定位职责；实施进度与验证结果以 [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) 为准，领域术语见 [CONTEXT.md](../CONTEXT.md)。
 
 ## 1. 一个业务仓库，按权限独立运行
 
@@ -13,6 +13,7 @@
 | `contracts/src/youwei_contracts/` | Core 与 Runner 共享的执行、冻结输入和产物传输结构 | 轻量独立包；不导入 Core、数据库模型或上游 Agent SDK |
 | `services/sandbox-runner/src/youwei_runner/` | 执行 HTTP 接口、签名与租约检查、受限容器生命周期、输入与产物边界校验 | 独立 `pyproject.toml` 与 `uv.lock`；持有受限运行时权限，无业务数据库或供应商凭证 |
 | `youwei_core/sandbox/` | Worker 侧授权、HTTP 客户端、当前 attempt 的产物接纳和查询 | 使用 Core 事务与 fencing；不执行生成代码、不访问容器运行时 socket |
+| `apps/dashboard/` | 评估界面：同源只读代理（Basic Auth + GET 白名单，服务端持 tenant key）与原生 ES modules 静态页 | 不入库、不写 Core；依赖随 Core 环境（FastAPI/httpx），静态资产无构建链、无外部 CDN |
 | Alembic 迁移 | Core 业务表、约束与版本演进 | 保留单一迁移链；Runner 不建第二份业务任务库 |
 
 以上是本次收敛的代码边界。独立安装、测试和目标机部署的完成证据分别记录，不能根据目录或锁文件存在认定服务已验收。冻结证据与研究提案的业务含义已确定，Hermes 适配器的完整实现仍随 S07 接入。
@@ -26,6 +27,8 @@ youwei-trading-agent/
   contracts/                # 独立轻量 Python 包，共享 DTO 与能力令牌
   services/
     sandbox-runner/         # 独立 Python 包、依赖锁与 HTTP 执行服务
+  apps/
+    dashboard/              # 评估界面：只读代理 + 原生 ES modules 静态页（S10a）
   migrations/               # Core 唯一迁移链
   infra/
     images/                 # Core / Runner 独立镜像

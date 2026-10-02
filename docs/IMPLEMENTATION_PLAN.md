@@ -3,7 +3,7 @@
 日期：2026-09-27；结构优化更新：2026-09-28\
 设计依据：[ARCHITECTURE.md](ARCHITECTURE.md)\
 问题来源：[v0.2 评审](ARCHITECTURE_REVIEW_v0.2.md)\
-状态：**Phase 1A 前向实验已批准并注册，运行中**——所有者 2026-10-02 批准（package r1）；campaign `phase1a-pilot-2026q4`（`a63f8494-4730-4cc7-bf2d-0b29e895aa3c`）active，12 批 cutoff 已入库，首个 cutoff **2026-10-10 06:00 ET**（批次于 10-03 06:00 ET 后由调度器预注册）——S00–S06 完成（Phase 1A 批次运行中）；S07 收尾（真实网关研究链路验证完成，聊天栈上线；Phase 1B 未启用）；S09a/S09b 完成；S09c 实质验收完成（磁盘治理、重启/回滚 drill、备份接入生产、告警轮询、整机重启演练 RTO≈3min；剩余 webhook URL 与负载复测按所有者决策 2026-10-02 搁置）。**下一步：S08c Controller 接线与隔离 mock 验收均已完成（网络探针 + HTTP 越权 17/17 + 端到端冒烟全过，验收中修复两处真实缺陷，见 S08c 进度与 [s08-mock-acceptance](ops/s08-mock-acceptance.md)）；聊天栈备份已上线（每日 cron，7 日备 + 4 周备，密钥单独受控，告警三路径与隔离恢复验证全过，同机风险如实记录）；WAL 归档告警已改积压驱动并部署（core r3，旧 wall-clock 规则的空闲库误报解除，告警已清）；批次 1 预注册核查 2026-10-03 18:00（北京时间）后执行，cutoff 2026-10-10 06:00 ET。** 阶段详情见 [§4 完成记录](#4-完成记录)；S08（受控量化探索）已决策为 Hermes 唯一框架、Pi 暂缓。
+状态：**Phase 1A 前向实验已批准并注册，运行中**——所有者 2026-10-02 批准（package r1）；campaign `phase1a-pilot-2026q4`（`a63f8494-4730-4cc7-bf2d-0b29e895aa3c`）active，12 批 cutoff 已入库，首个 cutoff **2026-10-10 06:00 ET**（批次于 10-03 06:00 ET 后由调度器预注册）——S00–S06 完成（Phase 1A 批次运行中）；S07 收尾（真实网关研究链路验证完成，聊天栈上线；Phase 1B 未启用）；S09a/S09b 完成；S09c 实质验收完成（磁盘治理、重启/回滚 drill、备份接入生产、告警轮询、整机重启演练 RTO≈3min；剩余 webhook URL 与负载复测按所有者决策 2026-10-02 搁置）。**下一步：S08c Controller 接线与隔离 mock 验收均已完成（网络探针 + HTTP 越权 17/17 + 端到端冒烟全过，验收中修复两处真实缺陷，见 S08c 进度与 [s08-mock-acceptance](ops/s08-mock-acceptance.md)）；聊天栈备份已上线（每日 cron，7 日备 + 4 周备，密钥单独受控，告警三路径与隔离恢复验证全过，同机风险如实记录）；WAL 归档告警已改积压驱动并部署（core r3，旧 wall-clock 规则的空闲库误报解除，告警已清）；S10a Dashboard 只读层三片完成（报告/月报读取 API、冻结计划分母/Case 明细 API、同源只读代理+静态 SPA，608 passed，生产部署待入口决策）；批次 1 预注册核查 2026-10-03 18:00（北京时间）后执行，cutoff 2026-10-10 06:00 ET。** 阶段详情见 [§4 完成记录](#4-完成记录)；S08（受控量化探索）已决策为 Hermes 唯一框架、Pi 暂缓。
 
 ## 1. 执行规则
 
@@ -45,7 +45,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 
 **当前运行状态（批准链已走完）：** release `bdb8bbe0…` 已登记批准（approver `human-owner`、scope `0b899b00…`，执行记录见 [§4 完成记录](#4-完成记录)）；campaign `phase1a-pilot-2026q4`（`a63f8494-…`）active，计划 hash `d403c8e5…` 服务端重算校验通过，12 批 planned_cutoffs 入库。批次 1（cutoff 2026-10-10 06:00 ET）由调度器于 2026-10-03 06:00 ET 后自动预注册；特征历史已回补（86 交易日 × 21 对象）且 60/60 可评分。tenant（`f497c122…`）与生产环境（core r2 `53631663…`、postgres `8d69232c…`）已固定，ops status 无告警。
 
-**下一步动作（按序）：** ① 批次 1 预注册核查（2026-10-03 18:00 北京时间后，只读四项：正确 campaign 1 批次/60 case/窗口正确/无重复）并在 2026-10-10 06:00 ET cutoff 窗口确认预测封存与及时确认。聊天栈备份（2026-10-02）与 WAL 归档告警积压驱动修复（2026-10-02，core r3，含部署事故与恢复记录）均已完成，见对应完成小节。S08 隔离 mock 验收已完成，真实快照接线后端到端样例与 Trial 登记随 Phase 1B 推进。
+**下一步动作（按序）：** ① 批次 1 预注册核查（2026-10-03 18:00 北京时间后，只读四项：正确 campaign 1 批次/60 case/窗口正确/无重复）并在 2026-10-10 06:00 ET cutoff 窗口确认预测封存与及时确认；② 待所有者决策：S10a Dashboard 生产入口（公网暴露方式：ECS 中转新子域/SG 直连/仅内网，涉及 DNS、证书与暴露面，需所有者定；代理 Basic Auth 凭证由部署时生成）。聊天栈备份（2026-10-02）与 WAL 归档告警积压驱动修复（2026-10-02，core r3，含部署事故与恢复记录）均已完成，见对应完成小节。S08 隔离 mock 验收已完成，真实快照接线后端到端样例与 Trial 登记随 Phase 1B 推进。
 
 ## 2. 任务清单
 
@@ -240,8 +240,8 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 - [ ] 提交使用 mTLS/服务鉴权/租户幂等键；SG 是执行状态唯一权威。
 - [ ] CN 拉取持久事件，在本地事务更新镜像与 cursor；浏览器通过 SSE 收进度。
 - [ ] cursor 缺口/过期、跨境断线、请求超时能重新对账。
-- [ ] Web 展示数据截止、来源、三组状态、数据质量、成本及授权允许的产物。
-- [ ] 评估 Open WebUI 适配或复用归档 Next.js；界面只消费 Core 接口，固定上游版本并验证身份、任务与结果契约。
+- [ ] Web 展示数据截止、来源、三组状态、数据质量及授权允许的产物。（成本展示已随 2026-09-30 预算维度删除而移除；展示层已由 S10a Dashboard 落地，见 S10a 进度）
+- [x] 评估 Open WebUI 适配或复用归档 Next.js；界面只消费 Core 接口，固定上游版本并验证身份、任务与结果契约。（2026-10-02 所有者决策：归档原型已拆除且对接旧 OSS 架构不可复用；Open WebUI 为聊天形态不作 Dashboard 载体；定案轻量自建静态 SPA（`apps/dashboard/`，原生 ES modules 无构建链）+ 同源只读代理（Basic Auth + GET 白名单 + 服务端持 tenant key）——已随 S10a 落地）
 - [ ] 多用户开放前完成 RLS、对象下载、cache/session 越权测试。
 - [ ] 真实数据恢复演练、资源压测与故障注入，记录实测 RPO/RTO。
 - [ ] 使用独立构建镜像、完整 digest 与目标机验收报告生成部署清单；运行 `infra/validate_upstreams.py --mode deployment` 并验证升级/回滚兼容性。（进展：S09a 已生成 `infra/compose/production.json` + `infra/deployment-manifest.json`，Core 镜像发布 GHCR digest `sha256:7292c853...`、postgres digest `sha256:721873c3...`，`--mode deployment` → VALID；升级/回滚兼容性验证待 S09b/S09c；详见 S09a 进度）
@@ -252,7 +252,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 
 ### S10 — 完善评估、Memory 与审批（Phase 2；依赖 S07，评估需成熟标签）
 
-- [ ] Dashboard 展示预登记全集、可评分子集、paired loss、缺失、回退和成本。
+- [ ] Dashboard 展示预登记全集、可评分子集、paired loss、缺失、回退。（成本展示已随 2026-09-30 预算维度删除而移除；只读展示层已随 S10a 落地：冻结计划分母、批次生命周期、case 明细、报告/月报版本化读取，生产部署待入口决策）
 - [ ] 使用适合依赖结构的方法估计不确定性；有限样本不作稳定有效宣称。
 - [ ] Memory 内容、状态事件、实际上下文快照分别存储，历史召回使用当时状态。
 - [ ] postmortem 与候选 Lesson 留在探索区，正式上下文只包含批准的规则。
@@ -870,6 +870,16 @@ S06e 工程收尾完成记录（2026-09-28）：11 个新测试（标识有效�
 - 部署：SG 构建 + GHCR 推送（tag `phase1a-r3`，digest `sha256:71d15917…`，拉取验证）；`GRANT pg_monitor TO youwei_app`（statusdir 读取所需，只读角色）；生产滚动更新。**事故如实记录**：首次部署整文件覆盖了路径适配的部署副本 compose，postgres 挂载错误目录致 PG 重启循环约 2 分钟（14:29–14:31 UTC，轮询 fail-closed 捕获 `api_unreachable`）；还原副本后仅字段级替换 digest 恢复。教训已登记 upstreams notes：部署副本只能字段级替换，禁整文件覆盖。
 - 部署后验证：ops status `ok` 无告警、`pending_wal_files=0`、无 monitor_error、诊断字段全在位；归档恢复推送（`archived_count` 51→52）；轮询 RESOLVED 投递；worker 调度循环正常；catalog + deployment 双 VALID（lock/compose/manifest 级联更新）。
 - 剩余：真实归档故障场景的自然触发未发生（故意故障模拟会扰动生产归档，未执行）；部署副本/仓库 compose 路径差异收敛归后续部署工作。
+
+### S10a Dashboard 只读层（2026-10-02，三片：报告读取 + 冻结计划/Case 明细 + 只读代理与静态页）
+
+- 决策（所有者 2026-10-02）：轻量自建、静态页起步、先补只读 API；认证不照搬 tenant key（浏览器 → HTTPS Basic Auth → 同源只读代理 → Core，key 仅在代理服务端，仅白名单 GET）；全景页以冻结计划为分母（未产生=待状态，不是失败/零）；静态页放 `apps/dashboard/` 原生 ES modules。
+- 实现（三片，TDD）：
+  1. 报告/月报读取 API（commit 4ac5a9e）——`GET /v1/campaigns/{id}/batches/{bid}/reports/{h}` 与 `GET /v1/campaigns/{id}/monthly-reports/{month}`，返回已存内容/版本/hash/代码版本，`?version=` 读历史；GET 不触发重算；旧版本保留固定 OutcomeRevision；越权 404/未认证 401/非法 horizon 422。
+  2. 冻结计划与 Case 明细 API（commit 5cf0e7f）——`campaign_status` 新增 `plan` 节（12 批×20 证券×3 窗口=720 case 分母；registered/pending_registration/overdue_unregistered/backfilled 分类）与逐批 phase（awaiting_cutoff/in_window/sealed/missed）；新增 `GET /v1/campaigns/{id}/cases`（分页≤500、batch/horizon 过滤、当前 ticker、各来源仓位（llm_adjusted 以 unavailable/not_enabled 如实呈现）、当前 outcome 头 vs `scored_against_revision` 分离）。
+  3. 只读代理 + 静态页（commit 220cc17）——`apps/dashboard/proxy.py`（Basic Auth 常数时间 scrypt 校验、GET 白名单精确 UUID 形状、tenant key 仅存代理 env、静态文件与 /api/config 同样在认证后）+ `apps/dashboard/static/`（无构建链无 CDN；总览→批次→Case→报告/月报视图，待状态渲染为 待/—）。
+- 验证：本机全量 **608 passed, 1 skipped**（新增 18：报告读取 6 + 计划/Case 6 + 代理 6 含真 Core 端到端链）；全部 JS 模块 node 语法校验通过；端到端链验证 plan 分母与待态 null 穿透全程、未评分报告为 404 而非假零。
+- 剩余：生产部署（Basic Auth 凭证生成、sg-prod 部署、nginx 入口与 DNS/证书）待所有者定公网入口方式；浏览器端实际渲染验收待部署后进行；图表库按需引入（固定版本+SHA256 自托管）。
 
 ### S07n 真实网关研究链路验证（2026-10-02，agent-runtime → LiteLLM → 火山）
 
