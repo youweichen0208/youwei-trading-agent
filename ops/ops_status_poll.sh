@@ -9,8 +9,10 @@
 #     checkable from the host even without any channel
 #   - when the alert SET changes (new alerts, or resolution), the
 #     transition is delivered once via the configured channel:
-#       * YOUWEI_ALERT_WEBHOOK_URL set  -> POST {"text","alerts","status"}
-#         (generic JSON; adjust the payload to the channel if needed)
+#       * YOUWEI_ALERT_WEBHOOK_URL set  -> POST a JSON payload in the
+#         format selected by YOUWEI_ALERT_WEBHOOK_FORMAT
+#         (generic | slack | discord | feishu | wecom | telegram;
+#         telegram also needs YOUWEI_ALERT_TELEGRAM_CHAT_ID)
 #       * otherwise                    -> append to ALERT_LOG
 #   - a steady alert state does not re-notify (spam control); one "ok"
 #     heartbeat line is appended to ALERT_LOG per day for the record
@@ -74,10 +76,28 @@ if [ "$alerts" != "$last" ]; then
         message="youwei $ENV_NAME @ $now: ALERTS: $(echo "$alerts" | tr '\n' ',')"
     fi
     if [ -n "${YOUWEI_ALERT_WEBHOOK_URL:-}" ]; then
-        payload=$(python3 -c 'import json, sys; print(json.dumps({"text": sys.argv[1]}))' "$message")
-        curl -sf -m 10 -H 'Content-Type: application/json' \
-            -d "$payload" "$YOUWEI_ALERT_WEBHOOK_URL" \
-            || echo "$now: webhook delivery failed (logged only)" >&2
+        format="${YOUWEI_ALERT_WEBHOOK_FORMAT:-generic}"
+        case "$format" in
+            slack|generic)
+                payload=$(python3 -c 'import json, sys; print(json.dumps({"text": sys.argv[1]}))' "$message") ;;
+            discord)
+                payload=$(python3 -c 'import json, sys; print(json.dumps({"content": sys.argv[1]}))' "$message") ;;
+            feishu)
+                payload=$(python3 -c 'import json, sys; print(json.dumps({"msg_type": "text", "content": {"text": sys.argv[1]}}))' "$message") ;;
+            wecom)
+                payload=$(python3 -c 'import json, sys; print(json.dumps({"msgtype": "text", "text": {"content": sys.argv[1]}}))' "$message") ;;
+            telegram)
+                chat="${YOUWEI_ALERT_TELEGRAM_CHAT_ID:?telegram format needs YOUWEI_ALERT_TELEGRAM_CHAT_ID}"
+                payload=$(python3 -c 'import json, sys; print(json.dumps({"chat_id": sys.argv[1], "text": sys.argv[2]}))' "$chat" "$message") ;;
+            *)
+                echo "$now: unknown YOUWEI_ALERT_WEBHOOK_FORMAT '$format' (logged only)" >&2
+                payload="" ;;
+        esac
+        if [ -n "$payload" ]; then
+            curl -sf -m 10 -H 'Content-Type: application/json' \
+                -d "$payload" "$YOUWEI_ALERT_WEBHOOK_URL" \
+                || echo "$now: webhook delivery failed (logged only)" >&2
+        fi
     fi
     echo "[$now] $message" >> "$ALERT_LOG"
     printf '%s\n' "$alerts" > "$STATE_DIR/last-alerts"
