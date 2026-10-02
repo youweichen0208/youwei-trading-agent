@@ -13,23 +13,23 @@ Phase 1B 某研究回合(case X,D20):冻结证据只含本证券与 SPY 的日�
   │ 回合 N 输出: proposal 或 experiment_request{question, motivation}
   ▼
 Controller(Core worker,持有 Ed25519 签发密钥)
-  │ 校验请求边界(每 case 限 K 次、问题长度、声明用途)→ 签发实验授权
-  ▼
-实验实例(独立 Hermes 容器, toolset=youwei-experiment, 与研究实例无共享记忆)
+  │ 回合 N 输出 experiment_request → 校验边界 → **持久登记实验授权**(Core 表:绑定 tenant/run/job/attempt/case、实验 ID、冻结快照、执行配置;限额:计算次数/并发/累计时长/产物大小)
+  │ → 向 Runner 登记同一授权(控制面,含快照注入源与限额)→ 派实验实例
   │ 简报 = 冻结快照说明 + 明确问题
   │ 生成代码(不可信输入)→ sandbox_submit → sandbox_status → artifact_read
   ▼
-Runner(执行权威;工具端点按操作分别验 Ed25519)
-  │ 沙箱容器执行生成代码(无网络、无密钥、资源受限、只读冻结 bar)
+Runner(执行权威;工具端点按操作分别验 Ed25519;**计算回执持久化,重启后幂等仍成立**)
+  │ 沙箱容器执行生成代码(无网络、无密钥、无工具令牌、只读冻结 bar)
   ▼
 实验实例返回实验结果(findings/warnings/代码/产物 hash)
   ▼
-Controller 校验并登记 experiment record(append-only)→ 重入研究实例(回合 N+1,实验结果附入上下文)
+Controller **从 Runner 回执核验代码/镜像/快照/产物 hash + 当前 fencing 再校验**后接纳,append-only 登记 → 重入研究实例(回合 N+1,实验结果附入上下文)
   ▼
-研究实例返回最终提案,引用 kind="code"、locator="experiment:<id>/artifacts/<path>"
+研究实例返回最终提案,引用 kind="code"、locator="experiment:<id>/computations/<computation_id>/artifacts/<path>"
 ```
 
-- 研究/实验实例**都不经网络直接触达 Core**:实验实例的工具调用只到 Runner(见决策 D1)。
+- 取消传播:父任务取消、租约失效或 attempt 更替 → Controller 调 Runner 终止实验(拒绝新增计算 + 清理在运行容器),令牌过期为纵深;最终接纳时 fencing 再次校验。
+- 研究/实验实例**都不经网络直接触达 Core**:实验实例的工具调用只到 Runner 工具端点(见 D1)。
 - 标准量化不经此循环(直接执行库函数);本循环只为"库未覆盖、需生成代码"的探索。
 - 每 case 实验次数有上限(K,默认 1-2),避免回合膨胀;实验结果附入研究上下文有字节上限。
 
@@ -54,19 +54,28 @@ Controller 校验并登记 experiment record(append-only)→ 重入研究实例(
 - `ExperimentComputationStatus`:状态 + 有界 stdout/stderr 摘录 + 产物清单(path/size/sha256,不含内容)+ partial 标记。
 - `ExperimentResult`(实验实例 → Controller):findings(有界文本)、warnings、computations 清单(每项:code_sha256、状态、产物 hash)、引用的产物路径。
 - `ExperimentRecord`(Controller 持久化,append-only):request、result、快照 hash、代码 hash、产物 hash、时间戳;供 `experiment:<id>/artifacts/<path>` 引用解析。
-- 引用解析:contracts 增加 locator 形态 `experiment:<uuid>/artifacts/<path>`(kind="code"),校验产物 hash 一致。
+- 引用解析:contracts 增加 locator 形态 `experiment:<uuid>/computations/<computation_id>/artifacts/<path>`(kind="code",含 computation ID 保证不同计算的同名文件不冲突),校验产物 hash 一致。
 
-## 5. 决策点(需所有者确认,改变权限/隔离语义)
+## 5. 决策记录(2026-10-02 所有者确认:均选 A;D2 附五项最小要求)
 
-**D1 工具通路**(实验容器的工具调用如何到达 Runner):
-- **方案 A(建议)**:扩展批准出口为 {网关, Runner 工具端点}——Runner 以受控接口接入实验网络,工具调用走 HTTP + Ed25519;net-probe 验证仅此两目的地可达。与现网关接线同模式,标准、可测;代价是研究网络的批准目的地从 1 个变 2 个。
-- 方案 B:Unix socket 侧信道——Runner 把 socket 传入容器,工具走 socket,网络保持仅网关。信任边界与 A 完全相同(都是 Runner 中介 + 令牌授权),只是传输层;代价是自定义协议与挂载管道,测试面更差。
+**D1 工具通路 = A**:实验容器可访问网关 + 专用实验工具入口。限定:①实验容器:仅网关 + 工具端点;②研究容器:维持现有权限(仅网关);③执行生成代码的沙箱:继续无网络、无密钥、无工具令牌。Runner 工具入口只开放获授权的实验操作;**用网络探针 + HTTP 越权测试共同验证,实验令牌不能调用 Runner 控制接口**(/v1/executions、/v1/research-invocations 等)。
 
-**D2 计算执行归属**:
-- **方案 A(建议)**:Runner 按实验键直接执行(复用其沙箱容器执行核心,键 = experiment_invocation_id + computation_id,幂等/可取消/超时杀),产物有界内联返回;Controller 收到实验结果后统一登记 Core(append-only experiment_records)。避免从容器内嵌套发起 Core job 生命周期。
-- 方案 B:每次计算走完整 Core job(复用租约/fencing/store_artifacts)——复用最大,但要求容器内可达 Core 提交通道(网络面更大),且子回合计算套完整 job 生命周期(租约、attempt)过重。
+**D2 计算执行归属 = A + 执行前登记与恢复能力**(轻量计算执行,不建完整 Core job):
 
-**编排成本提示**(非决策,知会):研究↔实验是多回合编排(回合 N 请求 → 实验 → 回合 N+1 消费),管线改动集中在 Core worker 的研究 fetcher 侧;每 case 的总时延与 LLM 调用次数显著高于单回合(实测单研究回合 84-224s)。
+```
+Controller 持久登记实验授权
+  → Runner 执行并保存计算回执
+  → Controller 校验当前 fencing 后接纳结果
+```
+
+最小要求(实施与评审依据):
+1. **派发前登记**:绑定 tenant/run/job/attempt/case、实验 ID、冻结快照与执行配置;限定计算次数、并发、累计时长与产物大小。
+2. **持久幂等**:同实验、同 computation ID、同 payload 返回原回执;不同 payload 拒绝。**Runner 重启后仍成立(内存字典不足,回执存储落盘)**。
+3. **取消传播**:父任务取消、租约失效或 attempt 更替后,拒绝新增计算并清理相关容器;最终提交再次校验 fencing。
+4. **可信执行证据**:Controller 从 Runner 回执核验代码、镜像、快照及产物 hash;失败、超时和中断也留痕。
+5. **产物引用唯一**:不同 computation 的同名文件不产生引用冲突(locator 含 computation ID)。
+
+**编排成本提示**(知会):研究↔实验是多回合编排,管线改动集中在 Core worker 的研究 fetcher 侧;每 case 总时延与 LLM 调用次数显著高于单回合(实测单研究回合 84-224s)。
 
 ## 6. 实施切片(建议顺序)
 
@@ -83,3 +92,6 @@ Controller 校验并登记 experiment record(append-only)→ 重入研究实例(
 - 提交、状态、读取分别授权;令牌绑定实验 invocation 与快照 hash;Runner 每调用重验。
 - 实验记录 append-only;引用可解析回 hash 一致的产物;研究/实验实例不共享可演化记忆。
 - 标准量化路径不经 Agent 循环;探索候选登记 trial,不热加载。
+- 实验授权派发前持久登记(绑定 + 限额:次数/并发/累计时长/产物大小);计算回执落盘持久,Runner 重启后同键同内容幂等、异内容拒绝。
+- 父任务取消/租约失效/attempt 更替 → 拒新增计算 + 清理容器 + 最终接纳时 fencing 再校验;失败、超时、中断均留痕(回执含代码/镜像/快照/产物 hash)。
+- 网络隔离按 D1 限定:实验容器仅 {网关, Runner 工具端点},研究容器仅网关,沙箱无网络;越权面(实验令牌 × 控制端点)以 HTTP 测试验证拒绝。

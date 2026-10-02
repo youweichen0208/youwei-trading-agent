@@ -56,6 +56,7 @@ SCOPE_RESEARCH_CANCEL = "research:cancel"  # cancel a research invocation
 SCOPE_EXPERIMENT_SUBMIT = "experiment:submit"  # submit one sandboxed computation
 SCOPE_EXPERIMENT_STATUS = "experiment:status"  # poll a computation
 SCOPE_EXPERIMENT_READ = "experiment:read"      # read one artifact
+SCOPE_EXPERIMENT_ADMIN = "experiment:admin"    # control plane: register/terminate an experiment authorization (Controller-side, aud=runner-exec)
 
 # The only accepted algorithm/version. Anything else is rejected (no downgrade).
 TOKEN_ALG = "EdDSA"

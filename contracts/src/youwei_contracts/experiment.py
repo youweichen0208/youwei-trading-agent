@@ -30,7 +30,11 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from youwei_contracts.sandbox import check_argv_env
+from youwei_contracts.sandbox import (
+    ARTIFACT_EXTENSIONS,
+    SnapshotBundle,
+    check_argv_env,
+)
 
 
 class WireModel(BaseModel):
@@ -190,30 +194,114 @@ class ExperimentResult(WireModel):
         return self
 
 
+# --- Controller -> Runner: experiment authorization (control plane) ---------
+
+
+class ExperimentLimits(WireModel):
+    """Per-experiment execution limits (D2 minimal requirement 1): the
+    Controller registers these before dispatch; the Runner enforces them on
+    every tool call."""
+
+    max_computations: int = Field(ge=1, le=64)
+    max_concurrent: int = Field(ge=1, le=8)
+    max_total_duration_seconds: float = Field(ge=1.0, le=86400.0)
+    max_artifact_bytes: int = Field(ge=1, le=256 * 1024 * 1024)
+
+
+class ExperimentAuthorization(WireModel):
+    """The Controller's pre-dispatch registration of one experiment.
+
+    Binds the experiment to its parent execution context (tenant/run/job/
+    attempt/case), the frozen evidence hash, the execution config version,
+    the limits, and the SNAPSHOT the Runner injects into every computation
+    (the experiment instance never chooses its own input)."""
+
+    contract_version: Literal["experiment-v1"] = "experiment-v1"
+    experiment_invocation_id: uuid.UUID
+    tenant_id: uuid.UUID
+    run_id: uuid.UUID
+    job_id: uuid.UUID
+    attempt_id: uuid.UUID
+    attempt_no: int = Field(gt=0)
+    case_id: uuid.UUID
+    evidence_sha256: str
+    exec_config_version: str
+    limits: ExperimentLimits
+    snapshot: SnapshotBundle
+
+
+# --- Runner -> Controller: trusted execution evidence -----------------------
+
+
+class ExperimentComputationReceipt(WireModel):
+    """The Controller-facing receipt for one computation (D2 minimal
+    requirement 4): everything needed to verify what actually ran — code
+    hash, the sandbox image, the injected snapshot, request digest, terminal
+    status (failures/timeouts/interruptions included), artifacts, duration.
+    The instance-facing status view is ExperimentComputationStatus."""
+
+    contract_version: Literal["experiment-v1"] = "experiment-v1"
+    experiment_invocation_id: uuid.UUID
+    computation_id: uuid.UUID
+    request_sha256: str
+    code_sha256: str
+    image: str
+    snapshot_sha256: str
+    status: Literal["running", "succeeded", "failed", "cancelled", "timeout"]
+    partial: bool = False
+    stdout_excerpt: str = Field(default="", max_length=4000)
+    stderr_excerpt: str = Field(default="", max_length=4000)
+    artifacts: list[ArtifactManifest] = Field(default_factory=list, max_length=50)
+    error: str | None = Field(default=None, max_length=2000)
+    duration_seconds: float = Field(ge=0)
+
+    @model_validator(mode="after")
+    def validate_receipt(self):
+        if len({a.path for a in self.artifacts}) != len(self.artifacts):
+            raise ValueError("duplicate artifact path")
+        if self.status in _TERMINAL_FAILURES:
+            if self.partial and not self.artifacts:
+                raise ValueError("partial requires artifacts")
+        elif self.partial:
+            raise ValueError("only terminal failures may be partial")
+        for name in ("request_sha256", "code_sha256", "snapshot_sha256"):
+            if not re.fullmatch(r"[0-9a-f]{64}", getattr(self, name)):
+                raise ValueError(f"{name} must be a lowercase hex digest")
+        return self
+
+
 # --- citation locator --------------------------------------------------------
 
 
-def experiment_artifact_locator(experiment_id: uuid.UUID, path: str) -> str:
-    """Name an experiment artifact at its recorded path."""
+def experiment_artifact_locator(
+    experiment_id: uuid.UUID, computation_id: uuid.UUID, path: str
+) -> str:
+    """Name an experiment artifact at its recorded path. The computation id
+    is part of the locator so the same filename from two different
+    computations can never collide (D2 minimal requirement 5)."""
     _validate_artifact_path(path)
-    return f"experiment:{experiment_id}/artifacts/{path}"
+    return f"experiment:{experiment_id}/computations/{computation_id}/artifacts/{path}"
 
 
-def parse_experiment_locator(locator: str) -> tuple[uuid.UUID, str]:
-    """Parse ``experiment:<uuid>/artifacts/<path>``; raises ValueError on any
-    other shape."""
+def parse_experiment_locator(locator: str) -> tuple[uuid.UUID, uuid.UUID, str]:
+    """Parse ``experiment:<uuid>/computations/<uuid>/artifacts/<path>``;
+    raises ValueError on any other shape."""
     if not isinstance(locator, str) or not locator.startswith("experiment:"):
         raise ValueError("not an experiment artifact locator")
     rest = locator[len("experiment:"):]
-    exp_id_str, sep, path = rest.partition("/artifacts/")
+    exp_id_str, sep, tail = rest.partition("/computations/")
+    if not sep or not tail:
+        raise ValueError("malformed experiment artifact locator")
+    comp_id_str, sep, path = tail.partition("/artifacts/")
     if not sep or not path:
         raise ValueError("malformed experiment artifact locator")
     try:
         experiment_id = uuid.UUID(exp_id_str)
+        computation_id = uuid.UUID(comp_id_str)
     except ValueError as exc:
-        raise ValueError("invalid experiment id in locator") from exc
+        raise ValueError("invalid id in experiment locator") from exc
     _validate_artifact_path(path)
-    return experiment_id, path
+    return experiment_id, computation_id, path
 
 
 def _validate_artifact_path(path: str) -> None:

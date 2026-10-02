@@ -37,7 +37,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 | S00–S05 | 完成 | 协议定稿；持久任务/权限；沙箱+产物链路；PIT/快照；Ledger/Outcome/评分/归档 |
 | S06 | 已批准、campaign 运行中 | 真实 panel/日历/SPY 冻结；Logistic/Ridge 候选 + Trial（D20 未显示增量）；release `bdb8bbe0…` 获所有者批准（2026-10-02 package r1）；campaign `phase1a-pilot-2026q4` active、12 批 cutoff 入库、首批 cutoff `2026-10-10`（批次 1 于 10-03 06:00 ET 后预注册） |
 | S07 | 纵切片完成、Phase 1B 未启用 | Hermes 研究契约/进程边界/平台工具/无头镜像；Ed25519 跨容器接线（S07m）；真实网关研究链路验证完成（S07n：工具调用/取消/限额/fail-closed 全实测，发现修复 6 缺陷含 Runner 容器泄漏）；聊天栈上线；预算维度已删除 |
-| S08 | 设计定稿待确认 + 契约首切片落地 | 往返契约设计完成（[s08-exploration-loop-design](research/s08-exploration-loop-design.md)，两个决策点待所有者确认：工具通路/执行归属）；`experiment-v1` wire 契约 + runner-tools audience/scopes + 纯逻辑测试已落地 |
+| S08 | 设计已确认 + Runner 工具面落地 | 往返契约设计经所有者确认（D1=A：实验容器=网关+工具端点，越权面需实测；D2=A+五项最小要求）；`experiment-v1` 契约 + Runner 持久回执存储与工具/控制端点（submit/status/read + 登记/终止/回执）已落地；Controller 接线待做 |
 | S09a | 完成 | 采集调度 collect_tick（16 测试）+ 生产 Compose（去 Runner）+ Core 镜像发布 GHCR + deployment 校验 VALID |
 | **S09b** | 完成 | 运行接线闭环：隔离验收（合成 12/12 + 真实 45/45）、生产库准备（tenant `f497c122…`/计划 hash 固定）、GHCR 镜像发布（r2 digest `53631663…`，含 token 日志缺陷修复）、生产 API/Worker/采集上线（105 观测、21 任务 succeeded、deployment 校验 VALID） |
 | **S09c** | 基本完成（两项搁置） | 磁盘 82%→14%、docker 级重启恢复、r2→r1→r2 回滚 drill、备份接入生产（pgBackRest 同机：WAL 归档 + 每日全量 + wal_archive 监控生效）、告警轮询上线（多格式 webhook，URL 待填）、整机重启演练 RTO≈3min；所有者决策：异地备份与负载复测搁置 |
@@ -187,6 +187,17 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
   - `sandbox.py`：argv/env 规则提取为共享 `check_argv_env`（sandbox-v1 与 experiment-v1 同源），新增 `ARTIFACT_EXTENSIONS` 常量。
 - 验证：本机 `tests/pure`+`tests/contracts`+`tests/known_answers` → **209 passed**（新增 `test_experiment.py` 22 项：locator 往返/拒绝、请求边界（代码/env/argv/扩展/超时/禁额外字段）、partial 一致性（终态才可 partial、partial 必有产物）、结果 code hash 一致/去重/禁 running 条目、runner-tools audience 往返 + 旧 audience 回归）；agent-runtime 3.14 → **53 passed** 无回归（contracts editable 安装直接生效）。
 - 剩余限制：Runner 工具端点、Controller 编排（实验派发/记录/研究重入）、端到端样例与 Trial 登记归后续切片，待 D1/D2 确认后按设计文档 §6 顺序推进。
+
+### S08b 进度（2026-10-02，所有者确认 D1/D2 + Runner 工具面与持久回执）
+
+- **所有者确认（2026-10-02）**：D1=A（实验容器=网关+专用实验工具入口；研究容器维持现状；沙箱无网络无密钥无令牌；网络探针 + HTTP 越权测试共同验证，实验令牌不能调 Runner 控制接口）；D2=A+五项最小要求（①派发前登记绑定+限额（次数/并发/累计时长/产物大小）②持久幂等（Runner 重启后仍成立，内存字典不足）③取消传播（父任务取消/租约失效/attempt 更替→拒新增+清理容器；最终提交再验 fencing）④可信执行证据（回执核验代码/镜像/快照/产物 hash；失败超时中断留痕）⑤产物引用唯一（locator 含 computation ID））。聊天栈备份（每日，7 日备+4 周备，SQLite 一致性备份，密钥受控，失败入监控，一次隔离恢复验证，异地维持暂缓）与批次 1 预注册核查（2026-10-03 18:00 北京时间后，只读：正确 campaign 1 批次/60 case/窗口正确/无重复）同期确认。
+- 契约补齐（`experiment.py`）：`ExperimentAuthorization`（绑定 tenant/run/job/attempt(含 attempt_id)/case + evidence hash + 执行配置 + `ExperimentLimits`（次数/并发/累计时长/产物大小）+ **快照（Runner 注入源）**）；`ExperimentComputationReceipt`（控制面证据：request/code/image/snapshot hash + 终态 + 产物清单 + 时长，partial 一致性同 status）；locator 改为 `experiment:<id>/computations/<computation_id>/artifacts/<path>`（跨计算同名文件不冲突）；`SCOPE_EXPERIMENT_ADMIN` 控制面 scope。
+- Runner 侧交付：
+  - `youwei_runner/experiment_store.py`（新）：持久存储——authorizations/receipts JSONL 追加（逐行 fsync，加载时同键末行胜出）、产物内容寻址文件（写入前验 size+hash、读取时重验、路径穿越拒绝、同路径异内容拒绝）；**重启语义：加载时 running 回执改写为 failed(interrupted) 并落盘，同 id+payload 幂等重放返回中断回执，绝不静默重执行**；登记幂等（同内容 no-op/异内容 409）。
+  - `app.py` 实验面：控制面 `POST/DELETE /v1/experiment-authorizations`（aud=runner-exec + experiment:admin；登记绑定校验；终止=拒新增+取消在运行任务+**兜底回执更新**（任务未启动即被取消的窗口））与 `GET .../receipts`（证据回执）；工具面 `POST /v1/experiment-computations`（aud=runner-tools + experiment:submit；限额四项 + 全局并发 + 幂等/冲突）、`GET .../{ids}`（status）、`GET .../artifacts/{path}`（read，回执内路径才可读，内容 hash 重验）；执行任务复用沙箱执行器（合成 SandboxRequest，**快照由 Runner 从授权注入**），exit≠0 带产物标 partial，超时/取消/异常均落回执；`settings.experiment_store_dir`（空=入口 503）。
+  - timeout 回执无产物（现行沙箱执行器超时路径不回收产物 tar）——timeout-partial 留作执行器后续增强，不阻塞本片。
+- 验证：`tests/pure/test_experiment_store.py` 11 项（登记幂等/终止持久/回执重启存活/中断改写二次加载一致/末行胜出/产物往返+篡改检出/路径穿越拒绝/同路径异内容拒绝）；`tests/contracts/test_experiment_runner_http.py` 9 项（假执行器全链：登记→提交→status→read→回执证据；幂等重放/异 payload 409；限额：次数/并发/时长预算；终止：在运行任务 cancelled + 新提交 403；**重启存活：新 app 同目录重载，中断回执幂等重放**；越权矩阵：工具令牌×/v1/executions 403、工具令牌×/v1/research-invocations 403、控制令牌×工具端点 403、scope 缺失 403、跨实验绑定 403、未登记 404；未配置 503）。本机全量 **230 passed**；agent-runtime **53 passed** 无回归。
+- 剩余：Controller 接线（S08c：派发前 Core 登记 + Runner 授权登记调用、实验实例派发（youwei-experiment toolset + 工具令牌签发/续期）、回执核验+fencing 再校验接纳、研究重入编排、父任务取消/租约失效/attempt 更替→terminate）；隔离环境 mock 验收（含网络探针扩展与 HTTP 越权实测）；真实快照接线后端到端样例与 Trial 登记；聊天栈备份与批次 1 核查按所有者指示另行推进。
 
 验收：本地 shell、RPC 管理命令、加载扩展、跨作业文件请求均无法突破允许范围；标准 quant 任务继续直接执行库函数；Hermes 内置 `execute_code` 不得替代 gVisor Sandbox Runner——研究/实验实例维持明确工具允许列表，生成代码一律经 Controller 授权进入 Runner。
 

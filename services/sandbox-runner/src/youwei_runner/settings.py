@@ -35,6 +35,12 @@ class RunnerSettings(BaseSettings):
     agent_runtime_max_stdout_bytes: int = Field(default=1_000_000, gt=0)
     agent_runtime_max_stderr_bytes: int = Field(default=256_000, gt=0)
 
+    # --- experiment tool surface (S08): persistent store for experiment
+    # authorizations + computation receipts. Empty string DISABLES the
+    # experiment endpoints (they answer 503); the Controller-side slices
+    # configure a dedicated directory (must survive Runner restarts).
+    experiment_store_dir: str = ""
+
     @model_validator(mode="after")
     def production_constraints(self):
         if not self.development:

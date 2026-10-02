@@ -59,24 +59,40 @@ def _computation_request(**overrides) -> ExperimentComputationRequest:
 
 def test_locator_round_trip():
     exp_id = uuid.uuid4()
-    loc = experiment_artifact_locator(exp_id, "out/vol_ratio.json")
-    assert loc == f"experiment:{exp_id}/artifacts/out/vol_ratio.json"
+    comp_id = uuid.uuid4()
+    loc = experiment_artifact_locator(exp_id, comp_id, "out/vol_ratio.json")
+    assert loc == f"experiment:{exp_id}/computations/{comp_id}/artifacts/out/vol_ratio.json"
     parsed = parse_experiment_locator(loc)
-    assert parsed == (exp_id, "out/vol_ratio.json")
+    assert parsed == (exp_id, comp_id, "out/vol_ratio.json")
 
 
 def test_locator_rejects_bad_paths():
     exp_id = uuid.uuid4()
+    comp_id = uuid.uuid4()
     for bad in ("", "/abs.json", "../x.json", "a/../b.json", "a\\b.json",
                 "a.json\x00", ".", "out/"):
         with pytest.raises(ValueError):
-            experiment_artifact_locator(exp_id, bad)
+            experiment_artifact_locator(exp_id, comp_id, bad)
+
+
+def test_locator_uniqueness_across_computations():
+    """D2 minimal requirement 5: the same filename from two different
+    computations must not collide — the locator carries the computation id."""
+    exp_id = uuid.uuid4()
+    a = experiment_artifact_locator(exp_id, uuid.uuid4(), "result.json")
+    b = experiment_artifact_locator(exp_id, uuid.uuid4(), "result.json")
+    assert a != b
+    assert parse_experiment_locator(a)[2] == parse_experiment_locator(b)[2] == "result.json"
+    assert parse_experiment_locator(a)[1] != parse_experiment_locator(b)[1]
 
 
 def test_parse_locator_rejects_wrong_shapes():
-    for bad in ("vol_ratio.json", "experiment:not-a-uuid/artifacts/a.json",
-                "evidence:xyz/rows/0", "experiment:%s/artifacts/" % uuid.uuid4(),
-                "experiment:%s/other/a.json" % uuid.uuid4()):
+    uid = uuid.uuid4()
+    for bad in ("vol_ratio.json", "experiment:not-a-uuid/computations/x/artifacts/a.json",
+                "evidence:xyz/rows/0", "experiment:%s/artifacts/a.json" % uid,
+                "experiment:%s/computations/not-a-uuid/artifacts/a.json" % uid,
+                "experiment:%s/computations/%s/other/a.json" % (uid, uid),
+                "experiment:%s/computations/%s/artifacts/" % (uid, uid)):
         with pytest.raises(ValueError):
             parse_experiment_locator(bad)
 
