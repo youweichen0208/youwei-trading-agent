@@ -198,3 +198,86 @@ async def test_gateway_and_image_required(monkeypatch, tmp_path):
             ),
             request_json="{}",
         )
+
+
+# --- decode: attribution must ride the wire into the result -------------------
+# Regression (S12 rollout rehearsal 2026-10-03): the agent-runtime container
+# emits payload["attribution"] (D2 traceability) and the contract carries the
+# field, but the Runner's decode dropped it — the report recorded usage and
+# image digest with attribution: null.
+
+
+def _proposal_payload() -> dict:
+    return {
+        "contract_version": "research-v1",
+        "run_id": "11111111-1111-1111-1111-111111111111",
+        "case_id": "22222222-2222-2222-2222-222222222222",
+        "source_status": "unavailable",
+        "reason": "insufficient evidence",
+    }
+
+
+def _attribution() -> dict:
+    import hashlib
+    cfg = {
+        "model": "glm-5.3", "provider": "custom", "max_iterations": 8,
+        "run_budget_seconds": 600, "max_output_tokens": 16384,
+        "gateway_base_url": "http://litellm:4000/v1",
+    }
+    sha = hashlib.sha256(
+        json.dumps(cfg, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    return {
+        "brief_sha256": "a" * 64,
+        "execution_config": cfg,
+        "execution_config_sha256": sha,
+        "model_returned": "glm-5.3",
+        "model_returned_scope": "last_completed_provider_response",
+    }
+
+
+def test_decode_result_carries_container_attribution():
+    from youwei_runner.research import _decode_result
+
+    payload = json.dumps(
+        {"ok": True, "proposal": _proposal_payload(), "attribution": _attribution()},
+        sort_keys=True, separators=(",", ":"),
+    )
+    result = _decode_result(payload, "", 0, _config(None, timeout_seconds=1.0))
+    assert result.ok is True
+    assert result.attribution is not None, (
+        "the container's attribution record must reach the Controller — "
+        "usage and image digest alone do not satisfy the D2 traceability"
+    )
+    assert result.attribution.model_returned == "glm-5.3"
+    assert result.attribution.brief_sha256 == "a" * 64
+
+
+def test_decode_result_attribution_absent_stays_none():
+    """Old agent-runtime images emit no attribution — the field is optional
+    on the wire and must decode to None, not fail."""
+    from youwei_runner.research import _decode_result
+
+    payload = json.dumps(
+        {"ok": True, "proposal": _proposal_payload()},
+        sort_keys=True, separators=(",", ":"),
+    )
+    result = _decode_result(payload, "", 0, _config(None, timeout_seconds=1.0))
+    assert result.ok is True
+    assert result.attribution is None
+
+
+def test_decode_result_rejects_malformed_attribution():
+    """A present-but-malformed attribution is a wire violation — the D2
+    traceability must fail loudly, never silently drop to None."""
+    from youwei_runner.research import _decode_result
+
+    bad = _attribution()
+    bad["execution_config_sha256"] = "0" * 64  # does not match the config
+    payload = json.dumps(
+        {"ok": True, "proposal": _proposal_payload(), "attribution": bad},
+        sort_keys=True, separators=(",", ":"),
+    )
+    result = _decode_result(payload, "", 0, _config(None, timeout_seconds=1.0))
+    assert result.ok is False
+    assert "attribution" in (result.error or "")

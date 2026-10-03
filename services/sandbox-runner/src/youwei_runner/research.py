@@ -328,9 +328,27 @@ def _decode_result(
     usage = payload.get("usage")
     if not isinstance(usage, dict):
         usage = None
+    # D2 traceability: the container's attribution record (prompt hash,
+    # resolved execution config, provider-returned model id) rides the wire
+    # verbatim. Absent stays None (older agent-runtime images); a present
+    # but MALFORMED record is a wire violation and fails loudly — it must
+    # never silently degrade to an unattributed report.
+    attribution = None
+    raw_attribution = payload.get("attribution")
+    if raw_attribution is not None:
+        from youwei_contracts.agent_runtime import ResearchInvocationAttribution
+
+        try:
+            attribution = ResearchInvocationAttribution.model_validate(raw_attribution)
+        except Exception as exc:
+            return ResearchInvocationResult(
+                ok=False, exit_code=exit_code,
+                image_digest=_image_digest(config.image),
+                error=f"research container returned invalid attribution: {exc}"[:500],
+            )
     return ResearchInvocationResult(
         ok=True, proposal=proposal, experiment_request=experiment_request,
-        usage=usage, exit_code=exit_code,
+        usage=usage, attribution=attribution, exit_code=exit_code,
         image_digest=_image_digest(config.image),
     )
 
