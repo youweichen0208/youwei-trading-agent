@@ -3,7 +3,7 @@
 日期：2026-09-27；结构优化更新：2026-09-28\
 设计依据：[ARCHITECTURE.md](ARCHITECTURE.md)\
 问题来源：[v0.2 评审](ARCHITECTURE_REVIEW_v0.2.md)\
-状态：**Phase 1A 前向实验已批准并注册，运行中**——所有者 2026-10-02 批准（package r1）；campaign `phase1a-pilot-2026q4`（`a63f8494-4730-4cc7-bf2d-0b29e895aa3c`）active，12 批 cutoff 已入库，首个 cutoff **2026-10-10 06:00 ET**（批次于 10-03 06:00 ET 后由调度器预注册）——S00–S06 完成（Phase 1A 批次运行中）；S07 收尾（真实网关研究链路验证完成，聊天栈上线；Phase 1B 未启用）；S09a/S09b 完成；S09c 实质验收完成（磁盘治理、重启/回滚 drill、备份接入生产、告警轮询、整机重启演练 RTO≈3min；剩余 webhook URL 与负载复测按所有者决策 2026-10-02 搁置）。**下一步（2026-10-03 更新）：S12 探索性研究闭环——所有者已授权 D1（数据转发，全部范围，2026-10-03）；D1 范围部署已执行（Runner 上线 idle + 网关研究 key + 聊天栈声明式接线 + 密钥落盘，见 [s12d-deployment-execution](ops/s12d-deployment-execution.md)）；上线余下待所有者 D2（探索性研究模型与登记形态）→ Core r5 镜像（S12a API + 私钥 \n 修复 + S07o release 重登记问题）→ worker 接线 → Open WebUI 入口 → 八项端到端验收；research-v1 已修订（量化预测入研究输入，S07o）；S10a 报告指标渲染缺陷已修复（未滚动生产）；聊天栈备份首次 cron 自动运行已确认（2026-10-03 03:40Z，last-status ok、无告警）；批次 1 预注册核查 2026-10-03 18:00（北京时间）后执行（窗口前就绪核查已过，见下一步动作①），cutoff 2026-10-10 06:00 ET。** 阶段详情见 [§4 完成记录](#4-完成记录)；S08（受控量化探索）已决策为 Hermes 唯一框架、Pi 暂缓。
+状态：**Phase 1A 前向实验已批准并注册，运行中**——所有者 2026-10-02 批准（package r1）；campaign `phase1a-pilot-2026q4`（`a63f8494-4730-4cc7-bf2d-0b29e895aa3c`）active，12 批 cutoff 已入库，首个 cutoff **2026-10-10 06:00 ET**（批次于 10-03 06:00 ET 后由调度器预注册）——S00–S06 完成（Phase 1A 批次运行中）；S07 收尾（真实网关研究链路验证完成，聊天栈上线；Phase 1B 未启用）；S09a/S09b 完成；S09c 实质验收完成（磁盘治理、重启/回滚 drill、备份接入生产、告警轮询、整机重启演练 RTO≈3min；剩余 webhook URL 与负载复测按所有者决策 2026-10-02 搁置）。**下一步（2026-10-03 更新）：D1（数据转发全部授权）与 D2（探索研究模型 glm-5.3 + 逐报告版本留痕，不构成正式 Campaign 批准）均已决策；D1 基础设施已部署（Runner idle + 网关研究 key + 声明式接线）；**D2 实现完成并暂存待滚**——实际返回标识留痕（最小 Hermes fork + attribution 链路）、Core r5（含 S12a API、两条纯新增迁移、私钥反斜杠转义修复）与 agent-runtime r3 已构建发布验证（见 [s12-d2-enablement-prep](ops/s12-d2-enablement-prep.md)）；**待所有者两项决策：r5 与批准 release 的 pipeline.py 差异接受（差异仅 Phase 1B 路径，逐行核验；r4 亦已有同类差异）+ 滚动时机（批次 1 cutoff 2026-10-10 前后）**；S10a 报告指标渲染缺陷已修复（未滚动生产）；批次 1 预注册核查 2026-10-03 18:00（北京时间）后执行（脚本已就绪并预跑验证），cutoff 2026-10-10 06:00 ET。** 阶段详情见 [§4 完成记录](#4-完成记录)；S08（受控量化探索）已决策为 Hermes 唯一框架、Pi 暂缓。
 
 ## 1. 执行规则
 
@@ -43,7 +43,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 | **S09b** | 完成 | 运行接线闭环：隔离验收（合成 12/12 + 真实 45/45）、生产库准备（tenant `f497c122…`/计划 hash 固定）、GHCR 镜像发布（r2 digest `53631663…`，含 token 日志缺陷修复）、生产 API/Worker/采集上线（105 观测、21 任务 succeeded、deployment 校验 VALID） |
 | **S09c** | 基本完成（两项搁置） | 磁盘 82%→14%、docker 级重启恢复、r2→r1→r2 回滚 drill、备份接入生产（pgBackRest 同机：WAL 归档 + 每日全量 + wal_archive 监控生效）、告警轮询上线（多格式 webhook，URL 待填）、整机重启演练 RTO≈3min；所有者决策：异地备份与负载复测搁置 |
 | S10–S11 | S10a Dashboard 已上线（2026-10-03，含报告指标渲染修复）；Memory/审批/候选验证未开始 | 评估界面/Memory/审批；候选验证与发布 |
-| S12 | S12a/S12b 完成 + S12c/S12d 工程完成；**D1 已授权并部署（2026-10-03：Runner 上线 idle、网关研究 key、声明式接线）**，上线余下待所有者 D2（模型与登记形态）→ Core r5 → 入口 → 端到端验收 | 探索性研究闭环：Open WebUI 发起、Core 执行、Dashboard 查看 |
+| S12 | S12a/S12b 完成 + S12c/S12d 工程完成；D1/D2 均已决策，D1 已部署、D2 已实现暂存（r5/r3 镜像发布验证）；待所有者：release 差异接受 + 滚动时机 → 入口 → 八项验收 | 探索性研究闭环：Open WebUI 发起、Core 执行、Dashboard 查看 |
 
 **当前运行状态（批准链已走完）：** release `bdb8bbe0…` 已登记批准（approver `human-owner`、scope `0b899b00…`，执行记录见 [§4 完成记录](#4-完成记录)）；campaign `phase1a-pilot-2026q4`（`a63f8494-…`）active，计划 hash `d403c8e5…` 服务端重算校验通过，12 批 planned_cutoffs 入库。批次 1（cutoff 2026-10-10 06:00 ET）由调度器于 2026-10-03 06:00 ET 后自动预注册；特征历史已回补（86 交易日 × 21 对象）且 60/60 可评分。tenant（`f497c122…`）与生产环境（core r2 `53631663…`、postgres `8d69232c…`）已固定，ops status 无告警。
 
@@ -294,7 +294,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 - [x] S12a Core 探索性研究任务与报告：新任务类型（提交/查询/取消 API + research-submit 授权）、报告存储与版本化读取、报告固定证据/量化输入/引用与 warnings；探索性研究与正式 Campaign 分开登记。（2026-10-03 完成，见下方 S12a 完成记录；API 授权沿用 tenant key 体系）
 - [x] S12b Dashboard 探索性报告查看（消费 S12a 读取 API）。（2026-10-03 完成，见下方 S12b 完成记录）
 - [ ] S12c Open WebUI Pipe 适配器（工程完成 2026-10-03，生产应用待前置授权，见下方 S12c 完成记录）：v0.6.36 Pipe 语义已按运行容器源码实测；出口连通性已实测（不通，声明式通路已就绪未应用）；提交/进度/摘要/详情链接/取消/刷新不丢（幂等重发返回当前态）已离线验收；上线前复核注册关闭与用户→Core 授权映射（v1 单服务 key）随部署执行。
-- [ ] S12d 真实证券端到端样例（工程准备完成 2026-10-03；**D1 已授权（全部范围）且 D1 范围基础设施已部署 2026-10-03**，见下方 S12d 部署执行记录与 [s12d-deployment-execution](ops/s12d-deployment-execution.md)）：Runner 已在生产运行（idle，无研究流量）、网关研究虚拟 key 已签发、聊天栈 litellm 已声明式接入研究网络、密钥已落盘；余下待所有者 D2 → Core r5 镜像（含 S12a API 与私钥 \n 修复）→ worker 接线 env → openwebui 入口 → 真实样例八项验收。
+- [ ] S12d 真实证券端到端样例（工程准备完成 2026-10-03；D1 已授权并部署、D2 已决策并实现——模型 glm-5.3、实际返回标识逐报告留痕，见 [s12d-deployment-execution](ops/s12d-deployment-execution.md) 与 [s12-d2-enablement-prep](ops/s12-d2-enablement-prep.md)）：Runner 在生产 idle、网关研究 key、声明式接线、密钥落盘；Core r5 + agent-runtime r3 已发布验证。**余下待所有者：release pipeline.py 差异接受（仅 Phase 1B 路径；r4 亦已有同类差异）+ 滚动时机（批次 1 cutoff 前后）→ 部署（含两条纯新增迁移 + worker 接线 env）→ openwebui 入口 → 真实样例八项验收 + 模型侧复验。**
 
 交付：从聊天入口发起、基于冻结事实、可核对引用的研究报告；Dashboard 可查完整报告。
 
@@ -341,7 +341,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 
 ### S12d 部署执行记录（2026-10-03，D1 授权后；详见 [s12d-deployment-execution](ops/s12d-deployment-execution.md)）
 
-- **所有者授权**：D1 数据源 LLM 转发 = 全部授权（2026-10-03）；**D2（模型与登记形态）仍待决策**。
+- **所有者授权**：D1 数据源 LLM 转发 = 全部授权（2026-10-03）；D2 = glm-5.3 + 逐报告版本留痕（2026-10-03，见 [s12-d2-enablement-prep](ops/s12-d2-enablement-prep.md)）。
 - 已执行（runbook §2/§3/§4.1/§4.2/§5）：密钥四项落盘 production.env（runner secret、Ed25519 密钥对 kid `research-key-1`、网关研究虚拟 key alias `research` max_parallel=2、单引号格式经三段链路实测）；spool 目录 0700；部署副本按 r3 教训 diff 验证后更新（增量恰为 S12d delta）；**sandbox-runner 上线 healthy**（core+experiment 网络、未来 worker→Runner 通路实测、既有服务零影响）；聊天栈 litellm 重建为声明式研究网络接线（研究网络内网关可达、公网入口正常、openwebui 未动）；upstreams 启用 sandbox-runner + manifest 再生，**catalog + deployment 双 VALID**；清理 S08 遗留 development runner 容器；`ops/s09b_deploy.py` read_secrets 引号剥离补丁。
 - **发现的真实缺陷（D2 前必修，随 Core r5）**：`research_signing_private_key` 无 `\n` 还原（env 单行 PEM 会解析失败）；且 r4 生产 Core 不含 S12a 探索研究 API（r4 构建于 S12a 之前）——D2 后完整启用本就需要 r5。
 - 与 runbook 偏差：§3 的 litellm disconnect 清理行未执行（重建后执行会误拆声明式接线，以 inspect 网络清单等效验证，已记录）。

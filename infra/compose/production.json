@@ -44,7 +44,7 @@
       }
     },
     "core-api": {
-      "image": "ghcr.io/youweichen0208/youwei-core@sha256:54df4db578b05327dee233a962260599077a561a32a8ce9118b0086aa255dad4",
+      "image": "ghcr.io/youweichen0208/youwei-core@sha256:10a4ecf9cc592d74a347ac8d6a39dd953a70c69198179c5c4998146ba36ae8af",
       "command": ["youwei-api"],
       "environment": {
         "YOUWEI_DATABASE_URL": "postgresql+asyncpg://youwei_app:${YOUWEI_POSTGRES_APP_PASSWORD:?set the app role password}@postgres:5432/youwei",
@@ -75,7 +75,7 @@
       }
     },
     "core-worker": {
-      "image": "ghcr.io/youweichen0208/youwei-core@sha256:54df4db578b05327dee233a962260599077a561a32a8ce9118b0086aa255dad4",
+      "image": "ghcr.io/youweichen0208/youwei-core@sha256:10a4ecf9cc592d74a347ac8d6a39dd953a70c69198179c5c4998146ba36ae8af",
       "command": ["youwei-worker"],
       "init": true,
       "environment": {
@@ -112,7 +112,7 @@
         "YOUWEI_RUNNER_IMAGE": "python:3.13-alpine@sha256:2dd78ad5cf13a0b68f5134dc49aa9950203a8cf4b7463431b9f3b398287c5059",
         "YOUWEI_RUNNER_RUNTIME": "runsc",
         "YOUWEI_RUNNER_SPOOL_ROOT": "/var/lib/youwei-runner-spool",
-        "YOUWEI_RUNNER_AGENT_RUNTIME_IMAGE": "ghcr.io/youweichen0208/youwei-agent-runtime@sha256:bca0a5b9cecf5fdc2c1adfa4ac44dbe76a30be040f688f0ddf0cdd5ed9631f8a",
+        "YOUWEI_RUNNER_AGENT_RUNTIME_IMAGE": "ghcr.io/youweichen0208/youwei-agent-runtime@sha256:97d8b9c1d12d2cdca86eab47007d4a14277474b9cb2c5ff72eb34a9462571f86",
         "YOUWEI_RUNNER_AGENT_RUNTIME_GATEWAY_URL": "http://litellm:4000/v1",
         "YOUWEI_RUNNER_AGENT_RUNTIME_GATEWAY_HOST": "litellm:4000",
         "YOUWEI_RUNNER_AGENT_RUNTIME_PUBLIC_KEYS": "${YOUWEI_RESEARCH_PUBLIC_KEYS_JSON:?set the research public key mapping (kid -> PEM)}",
