@@ -317,11 +317,12 @@ async def test_make_runner_research_fetcher_roundtrip(signing_key):
 
 
 async def test_make_runner_research_fetcher_reports_attribution(signing_key):
-    """S12e (D2 版本留痕): the fetcher surfaces model_returned / image_digest /
-    usage / exec_config_version to an attribution sink so the exploratory
-    report can record what actually ran, next to the configured routing."""
+    """S12e (D2 版本留痕): the fetcher surfaces the container attribution
+    (prompt hash / execution config / model_returned + scope) alongside
+    image_digest / usage / exec_config_version so the exploratory report can
+    record what actually ran, next to the configured routing."""
     from youwei_contracts.research import ResearchProposal
-    from youwei_contracts.agent_runtime import invocation_digest
+    from youwei_contracts.agent_runtime import invocation_digest, ResearchInvocationAttribution
     from youwei_core.ledger.research_client import make_runner_research_fetcher
 
     tenant = uuid.uuid4()
@@ -334,7 +335,18 @@ async def test_make_runner_research_fetcher_reports_attribution(signing_key):
     usage = {
         "source": "session_delta", "scope": "chat_turn", "complete": True,
         "prompt_tokens": 100, "completion_tokens": 40, "api_calls": 2,
+    }
+    import hashlib as _hl
+    exec_cfg = {"model": "glm-5.3", "provider": "custom", "max_iterations": 8,
+                "run_budget_seconds": None, "max_output_tokens": 16384,
+                "gateway_base_url": "http://litellm:4000/v1"}
+    cfg_sha = _hl.sha256(json.dumps(exec_cfg, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
+    attribution = {
+        "brief_sha256": "b" * 64,
+        "execution_config": exec_cfg,
+        "execution_config_sha256": cfg_sha,
         "model_returned": "glm-5.3-actual",
+        "model_returned_scope": "last_completed_provider_response",
     }
 
     def transport(request: httpx.Request) -> httpx.Response:
@@ -361,6 +373,7 @@ async def test_make_runner_research_fetcher_reports_attribution(signing_key):
                 ok=True, exit_code=0,
                 image_digest="sha256:" + "b" * 64,
                 proposal=proposal, usage=usage,
+                attribution=ResearchInvocationAttribution.model_validate(attribution),
             ),
         ).model_dump(mode="json"))
 
@@ -385,7 +398,11 @@ async def test_make_runner_research_fetcher_reports_attribution(signing_key):
     assert proposal.p_outperform == 0.6
     assert len(sink_payloads) == 1
     payload = sink_payloads[0]
-    assert payload["model_returned"] == "glm-5.3-actual"
+    assert payload["attribution"]["model_returned"] == "glm-5.3-actual"
+    assert payload["attribution"]["model_returned_scope"] == "last_completed_provider_response"
+    assert payload["attribution"]["brief_sha256"] == "b" * 64
+    assert payload["attribution"]["execution_config"]["model"] == "glm-5.3"
+    assert payload["attribution"]["execution_config_sha256"] == cfg_sha
     assert payload["image_digest"] == "sha256:" + "b" * 64
     assert payload["usage"] == usage
     assert payload["exec_config_version"] == signing_key.exec_config_version

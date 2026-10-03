@@ -344,13 +344,18 @@ def make_runner_research_fetcher(
         )
         if attribution_sink is not None:
             # D2 版本留痕 (2026-10-03): surface what ACTUALLY ran alongside the
-            # configured routing — the provider-returned model id (captured by
-            # the agent-runtime usage report), the image digest of the
-            # container that produced the proposal, its usage observation and
-            # the execution-config version. The exploratory report records
-            # this next to the configured model attribution.
+            # configured routing — the container's attribution record (prompt
+            # hash, resolved non-sensitive execution config + hash, and the
+            # provider-returned model id with its observation scope), the
+            # image digest of the container that produced the proposal, its
+            # usage observation and the execution-config version. The
+            # exploratory report records this next to the configured model
+            # attribution.
             attribution_sink({
-                "model_returned": (result.usage or {}).get("model_returned"),
+                "attribution": (
+                    result.attribution.model_dump(mode="json")
+                    if result.attribution is not None else None
+                ),
                 "image_digest": result.image_digest,
                 "usage": result.usage,
                 "exec_config_version": key.exec_config_version,

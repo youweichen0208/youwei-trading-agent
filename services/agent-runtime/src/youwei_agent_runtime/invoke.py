@@ -104,6 +104,9 @@ def encode_result(turn) -> str:
         "ok": True,
         "usage": usage,
     }
+    attribution = getattr(turn, "attribution", None)
+    if attribution is not None:
+        payload["attribution"] = attribution.model_dump(mode="json")
     if getattr(turn, "experiment_request", None) is not None:
         payload["experiment_request"] = turn.experiment_request.model_dump(mode="json")
     else:

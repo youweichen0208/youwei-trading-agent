@@ -470,6 +470,27 @@ campaigns = Table(
 # S06i: append-only control facts (stop_new_batches) with reason/actor/time.
 # One per (campaign, event_type); stopping never deletes a plan or case, and
 # outcome follow-up / reports stay independent of this switch.
+# S12 (2026-10-03): release_code_exceptions registers owner-accepted
+# differences between an approved release's code_files and the code actually
+# deployed — one row per (release, deployed image digest), scope explicit per
+# row, approval time = server clock at registration (never backdated),
+# future deployments do not inherit an exception.
+release_code_exceptions = Table(
+    "release_code_exceptions",
+    meta,
+    Column("id", UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    Column("release_row_id", UUID(as_uuid=True), ForeignKey("research_releases.id"), nullable=False),
+    Column("campaign_id", UUID(as_uuid=True), ForeignKey("campaigns.id"), nullable=False),
+    Column("deployed_image_digest", Text, nullable=False),
+    Column("code_files_actual", JSONB, nullable=False),
+    Column("diff_summary", Text, nullable=False),
+    Column("verification", JSONB, nullable=False),
+    Column("approver", Text, nullable=False),
+    Column("decision_basis", Text, nullable=False),
+    Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
+    UniqueConstraint("release_row_id", "deployed_image_digest", name="uq_rce_release_digest"),
+)
+
 campaign_control_events = Table(
     "campaign_control_events",
     meta,

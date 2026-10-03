@@ -85,11 +85,6 @@ class UsageReport:
     scope: str  # "chat_turn" | "last_api_call" | "unknown"
     complete: bool
     incomplete_reasons: tuple[str, ...] = ()
-    # Provider-returned model id of the last API call (youwei local Hermes
-    # patch: agent._last_turn_model). None on unpatched checkouts or when the
-    # provider omits it — never fabricated. Recorded per report for actual
-    # model attribution (owner decision D2, 2026-10-03).
-    model_returned: str | None = None
     prompt_tokens: int | None = None
     completion_tokens: int | None = None
     total_tokens: int | None = None
@@ -107,7 +102,6 @@ class UsageReport:
             "scope": self.scope,
             "complete": self.complete,
             "incomplete_reasons": list(self.incomplete_reasons),
-            "model_returned": self.model_returned,
             "prompt_tokens": self.prompt_tokens,
             "completion_tokens": self.completion_tokens,
             "total_tokens": self.total_tokens,
@@ -257,6 +251,7 @@ class ResearchTurn:
 
     proposal: ResearchProposal | None
     usage: UsageReport
+    attribution: object | None = None  # contracts ResearchInvocationAttribution
     experiment_request: "object | None" = None  # contracts ExperimentRequest
 
 
@@ -499,26 +494,59 @@ async def run_research(
         experiment_request = parse_experiment_request_output(raw)
         usage = _observe_usage(agent, before, after)
         return ResearchTurn(
-            proposal=None, usage=usage, experiment_request=experiment_request
+            proposal=None, usage=usage,
+            attribution=build_execution_attribution(agent, brief, config),
+            experiment_request=experiment_request,
         )
     validate_proposal_references(evidence, proposal, experiments=experiments)
     usage = _observe_usage(agent, before, after)
-    return ResearchTurn(proposal=proposal, usage=usage)
+    return ResearchTurn(
+        proposal=proposal, usage=usage,
+        attribution=build_execution_attribution(agent, brief, config),
+    )
 
 
 def _observe_usage(agent, before: _SessionUsageSnapshot | None, after: _SessionUsageSnapshot | None) -> UsageReport:
     """Choose the usage report for a completed turn: session delta when both
-    snapshots exist, else the last-call fallback, else unavailable.
-
-    The provider-returned model id is attached when the checkout exposes it
-    (``agent._last_turn_model``, set by the youwei local patch for every
-    completed provider attempt). The agent is constructed fresh per turn, so
-    the attribute can never be stale from an earlier turn."""
-    model_returned = getattr(agent, "_last_turn_model", None)
+    snapshots exist, else the last-call fallback, else unavailable."""
     if before is not None and after is not None:
-        return dataclasses.replace(
-            _delta_usage(before, after), model_returned=model_returned
-        )
-    return dataclasses.replace(
-        _from_last_call(agent), model_returned=model_returned
+        return _delta_usage(before, after)
+    return _from_last_call(agent)
+
+
+def build_execution_attribution(agent, brief: str, config: "ResearchConfig") -> "object":
+    """Assemble the per-report version-traceability record (owner D2,
+    2026-10-03): the deterministic brief (prompt) hash, the resolved
+    NON-SENSITIVE execution config plus its canonical hash, and the
+    provider-returned model id with an explicit observation scope.
+
+    ``model_returned`` comes from the youwei local Hermes patch
+    (``agent._last_turn_model``) and is the identifier of the LAST completed
+    provider response — an observation of a gateway/provider return value,
+    NOT proof of the underlying model identity, and deliberately NOT tied to
+    the usage report's completeness (usage may be turn-cumulative while this
+    value is per-response). None on unpatched checkouts or provider omission
+    — never fabricated. The gateway credential never enters the config.
+    """
+    from youwei_contracts.agent_runtime import ResearchInvocationAttribution
+    import hashlib
+    import json as _json
+
+    execution_config = {
+        "model": config.model,
+        "provider": config.provider,
+        "max_iterations": config.max_iterations,
+        "run_budget_seconds": config.run_budget_seconds,
+        "max_output_tokens": config.max_output_tokens,
+        "gateway_base_url": config.base_url,
+    }
+    config_sha = hashlib.sha256(
+        _json.dumps(execution_config, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    ).hexdigest()
+    return ResearchInvocationAttribution(
+        brief_sha256=hashlib.sha256(brief.encode("utf-8")).hexdigest(),
+        execution_config=execution_config,
+        execution_config_sha256=config_sha,
+        model_returned=getattr(agent, "_last_turn_model", None),
+        model_returned_scope="last_completed_provider_response",
     )

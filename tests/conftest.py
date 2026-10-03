@@ -18,6 +18,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 PG_IMAGE = "postgres:16-alpine"
 
 ALL_TABLES = (
+    "release_code_exceptions, "
     "exploratory_research_reports, exploratory_research, "
     "experiment_outcomes, experiment_records, "
     "monthly_summary_reports, batch_report_input_state, monthly_report_input_state, "

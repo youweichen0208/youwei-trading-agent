@@ -767,6 +767,7 @@ async def test_runner_research_report_records_actual_model_attribution(
     and exec-config version — in the versions block."""
     import httpx as _httpx
     from youwei_contracts.agent_runtime import (
+        ResearchInvocationAttribution,
         ResearchInvocationRequest,
         ResearchInvocationResult,
         ResearchInvocationStatus,
@@ -786,10 +787,21 @@ async def test_runner_research_report_records_actual_model_attribution(
         private_key_pem=priv,
         exec_config_version="research-exec-v1",
     )
+    import hashlib as _hl
     usage = {
         "source": "session_delta", "scope": "chat_turn", "complete": True,
         "prompt_tokens": 1200, "completion_tokens": 300, "api_calls": 2,
+    }
+    exec_cfg = {"model": "glm-5.3", "provider": "custom", "max_iterations": 8,
+                "run_budget_seconds": None, "max_output_tokens": 16384,
+                "gateway_base_url": "http://litellm:4000/v1"}
+    cfg_sha = _hl.sha256(_json.dumps(exec_cfg, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
+    attribution = {
+        "brief_sha256": "c" * 64,
+        "execution_config": exec_cfg,
+        "execution_config_sha256": cfg_sha,
         "model_returned": "glm-5.3-20261003",
+        "model_returned_scope": "last_completed_provider_response",
     }
     captured: dict = {}
 
@@ -827,6 +839,7 @@ async def test_runner_research_report_records_actual_model_attribution(
                 ok=True, exit_code=0,
                 image_digest="sha256:" + "d" * 64,
                 proposal=proposal, usage=usage,
+                attribution=ResearchInvocationAttribution.model_validate(attribution),
             ),
         ).model_dump(mode="json"))
 
@@ -860,11 +873,16 @@ async def test_runner_research_report_records_actual_model_attribution(
     assert report is not None
     versions = report["content"]["versions"]
     assert versions["research_model_configured"] == "glm-5.3"
-    attribution = versions["research_attribution"]
-    assert attribution is not None
-    assert attribution["model_returned"] == "glm-5.3-20261003"
-    assert attribution["image_digest"] == "sha256:" + "d" * 64
-    assert attribution["usage"] == usage
-    assert attribution["exec_config_version"] == "research-exec-v1"
+    sink = versions["research_attribution"]
+    assert sink is not None
+    assert sink["image_digest"] == "sha256:" + "d" * 64
+    assert sink["usage"] == usage
+    assert sink["exec_config_version"] == "research-exec-v1"
+    attr = sink["attribution"]
+    assert attr["model_returned"] == "glm-5.3-20261003"
+    assert attr["model_returned_scope"] == "last_completed_provider_response"
+    assert attr["brief_sha256"] == "c" * 64
+    assert attr["execution_config"]["model"] == "glm-5.3"
+    assert attr["execution_config_sha256"] == cfg_sha
     # configured attribution still present alongside (from the proposal)
     assert versions["research_model"]["model_version"] == "glm-5.3"

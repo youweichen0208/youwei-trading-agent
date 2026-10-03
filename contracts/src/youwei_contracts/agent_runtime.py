@@ -98,6 +98,42 @@ def invocation_digest(request: ResearchInvocationRequest) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
 
 
+class ResearchInvocationAttribution(WireModel):
+    """What actually ran in the research container, for per-report version
+    traceability (owner decision D2, 2026-10-03).
+
+    ``brief_sha256`` pins the deterministic research brief (the prompt).
+    ``execution_config`` is the resolved NON-SENSITIVE runtime configuration
+    (model/provider/iteration budget/output cap/gateway endpoint — never the
+    gateway credential); ``execution_config_sha256`` must equal the canonical
+    hash of ``execution_config``.
+
+    ``model_returned`` is the model identifier the gateway/provider returned
+    on the LAST completed provider response of the turn. It is an observation
+    of a gateway/provider return value — NOT proof of the underlying model
+    identity — and its scope is narrower than a possibly turn-cumulative
+    usage report: ``model_returned_scope`` states the scope explicitly and
+    must never be conflated with usage completeness.
+    """
+
+    brief_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    execution_config: dict
+    execution_config_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    model_returned: str | None = None
+    model_returned_scope: Literal["last_completed_provider_response"]
+
+    @model_validator(mode="after")
+    def _config_hash_matches(self):
+        canonical = json.dumps(
+            self.execution_config, sort_keys=True,
+            separators=(",", ":"), ensure_ascii=False,
+        )
+        expected = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        if self.execution_config_sha256 != expected:
+            raise ValueError("execution_config_sha256 does not match execution_config")
+        return self
+
+
 class ResearchInvocationResult(WireModel):
     """The research container's output, returned through the Runner.
 
@@ -115,6 +151,7 @@ class ResearchInvocationResult(WireModel):
     proposal: ResearchProposal | None = None
     experiment_request: ExperimentRequest | None = None
     usage: dict | None = None
+    attribution: ResearchInvocationAttribution | None = None
     error: str | None = None
     exit_code: int
     image_digest: str

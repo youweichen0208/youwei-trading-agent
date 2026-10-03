@@ -461,9 +461,24 @@ def test_research_reports_model_returned(monkeypatch, evidence):
             base_url="http://unused.invalid", api_key="unused", model="glm-5.3"
         ),
     ))
-    assert result.usage.model_returned == "glm-5.3-20261003"
-    wire = result.usage.to_dict()
-    assert wire["model_returned"] == "glm-5.3-20261003"
+    attr = result.attribution
+    assert attr is not None
+    assert attr.model_returned == "glm-5.3-20261003"
+    # the model id lives in the ATTRIBUTION with its own scope, never inside
+    # the usage report (usage may be turn-cumulative; the id is per-response)
+    assert attr.model_returned_scope == "last_completed_provider_response"
+    assert "model_returned" not in result.usage.to_dict()
+    # prompt hash: deterministic over the brief text
+    import hashlib
+    assert len(attr.brief_sha256) == 64
+    # execution config: resolved NON-sensitive params, hash-checked, no key
+    assert attr.execution_config["model"] == "glm-5.3"
+    assert attr.execution_config["gateway_base_url"] == "http://unused.invalid"
+    assert "api_key" not in attr.execution_config
+    canonical = json.dumps(
+        attr.execution_config, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    )
+    assert attr.execution_config_sha256 == hashlib.sha256(canonical.encode()).hexdigest()
 
 
 def test_research_model_returned_absent_without_patch(monkeypatch, evidence):
@@ -486,5 +501,9 @@ def test_research_model_returned_absent_without_patch(monkeypatch, evidence):
             base_url="http://unused.invalid", api_key="unused", model="glm-5.3"
         ),
     ))
-    assert result.usage.model_returned is None
-    assert result.usage.to_dict()["model_returned"] is None
+    # unpatched checkout / provider omission -> None, never fabricated;
+    # brief + execution config are still recorded
+    assert result.attribution.model_returned is None
+    assert result.attribution.model_returned_scope == "last_completed_provider_response"
+    assert len(result.attribution.brief_sha256) == 64
+    assert result.attribution.execution_config["model"] == "glm-5.3"
