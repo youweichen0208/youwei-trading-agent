@@ -550,6 +550,8 @@ def build_report_content(
     quant,
     proposal,
     calendar_manifest: dict,
+    research_attribution: dict | None = None,
+    research_model_configured: str | None = None,
 ) -> dict:
     """Assemble the report content (pure; the summary / evidence / quant /
     counter-evidence / limitations / version blocks). References stay as
@@ -610,6 +612,14 @@ def build_report_content(
             "research_model": (
                 proposal.model.model_dump(mode="json") if proposal.model else None
             ),
+            # D2 版本留痕 (owner 2026-10-03): the configured routing AND what
+            # actually ran — provider-returned model id, container image
+            # digest, usage observation and exec-config version surfaced by
+            # the runner research fetcher. None when the runner link was not
+            # used (tests/local subprocess) or the checkout lacks the signal;
+            # never fabricated.
+            "research_model_configured": research_model_configured,
+            "research_attribution": research_attribution,
         },
     }
     limitations = [
@@ -833,11 +843,16 @@ def make_exploratory_research_handler(
         calendar_manifest = await _calendar_manifest(engine, task.entry_at_utc)
 
         fetch = None
+        research_attribution: dict = {}
         if fetcher_factory is not None:
             fetch = fetcher_factory(claimed, task, snapshot, quant)
         elif runner_research is not None:
             from youwei_core.ledger.research_client import make_runner_research_fetcher
 
+            # D2 版本留痕: collect what actually ran (provider-returned model
+            # id, image digest, usage, exec-config version) alongside the
+            # configured routing for the report's versions block.
+            research_attribution.clear()
             fetch = make_runner_research_fetcher(
                 run_id=claimed.run_id,
                 tenant_id=claimed.tenant_id,
@@ -849,6 +864,7 @@ def make_exploratory_research_handler(
                 key=runner_research.key,
                 expiry_provider=lambda: _lease_expiry(claimed),
                 research_config=runner_research.research_config,
+                attribution_sink=research_attribution.update,
             )
         elif agent_runtime is not None and claimed.capability_token is not None:
             from youwei_core.ledger.pipeline import make_phase1b_llm_fetcher
@@ -917,6 +933,12 @@ def make_exploratory_research_handler(
             quant=quant,
             proposal=proposal,
             calendar_manifest=calendar_manifest,
+            research_attribution=dict(research_attribution) or None,
+            research_model_configured=(
+                runner_research.research_config.get("model")
+                if runner_research is not None
+                else None
+            ),
         )
         save = await save_exploratory_report(
             engine, claimed, task.id, content, snap.snapshot_id

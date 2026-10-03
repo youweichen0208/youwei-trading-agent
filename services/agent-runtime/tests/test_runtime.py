@@ -54,12 +54,15 @@ def evidence():
     )
 
 
-def install_external_agent(monkeypatch, response, *, usage=None, session_delta=None, initial=None):
+def install_external_agent(monkeypatch, response, *, usage=None, session_delta=None, initial=None, model_returned=None):
     """Install a fake Hermes AIAgent.
 
     ``usage`` sets ``_last_turn_usage`` (the last-call dict) on the agent;
     ``initial`` sets the session counters' pre-turn values; ``session_delta``
     adds to them over the turn (may be negative to simulate a mid-turn reset).
+    ``model_returned`` sets ``_last_turn_model`` — simulating the youwei
+    local Hermes patch that stashes the provider-returned model id on the
+    agent (upstream 7fa45eb + infra/images/hermes-last-turn-model.patch).
     A fake with neither ``usage`` nor ``session_delta``/``initial`` simulates a
     checkout with no usage signal at all.
     """
@@ -91,6 +94,8 @@ def install_external_agent(monkeypatch, response, *, usage=None, session_delta=N
         def chat(self, message):
             if usage is not None:
                 self._last_turn_usage = dict(usage)
+            if model_returned is not None:
+                self._last_turn_model = model_returned
             if session_delta is not None:
                 for key, value in session_delta.items():
                     attr = _ATTRS[key]
@@ -432,3 +437,54 @@ def test_research_marks_counter_reset_incomplete(monkeypatch, evidence):
     # The forward counters still differenced cleanly.
     assert u.prompt_tokens == 5
     assert u.api_calls == 1
+
+
+def test_research_reports_model_returned(monkeypatch, evidence):
+    """D2 版本留痕 (2026-10-03): when the Hermes checkout carries the youwei
+    local patch (agent._last_turn_model), the usage report carries the
+    provider-returned model id so the Controller can record actual model
+    attribution next to the configured routing."""
+    from youwei_agent_runtime.runtime import ResearchConfig, run_research
+
+    def respond(brief):
+        record = next(json.loads(line) for line in brief.splitlines() if line.startswith('{"locator":'))
+        return json.dumps(_payload(
+            references=[{"kind": "evidence", "locator": record["locator"]}]
+        ))
+
+    install_external_agent(monkeypatch, respond, session_delta={
+        "prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30,
+        "api_calls": 1,
+    }, model_returned="glm-5.3-20261003")
+    result = asyncio.run(run_research(
+        evidence, ResearchConfig(
+            base_url="http://unused.invalid", api_key="unused", model="glm-5.3"
+        ),
+    ))
+    assert result.usage.model_returned == "glm-5.3-20261003"
+    wire = result.usage.to_dict()
+    assert wire["model_returned"] == "glm-5.3-20261003"
+
+
+def test_research_model_returned_absent_without_patch(monkeypatch, evidence):
+    """An unpatched checkout (or a provider that omits the id) yields None —
+    never a fabricated identifier."""
+    from youwei_agent_runtime.runtime import ResearchConfig, run_research
+
+    def respond(brief):
+        record = next(json.loads(line) for line in brief.splitlines() if line.startswith('{"locator":'))
+        return json.dumps(_payload(
+            references=[{"kind": "evidence", "locator": record["locator"]}]
+        ))
+
+    install_external_agent(monkeypatch, respond, session_delta={
+        "prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30,
+        "api_calls": 1,
+    })
+    result = asyncio.run(run_research(
+        evidence, ResearchConfig(
+            base_url="http://unused.invalid", api_key="unused", model="glm-5.3"
+        ),
+    ))
+    assert result.usage.model_returned is None
+    assert result.usage.to_dict()["model_returned"] is None

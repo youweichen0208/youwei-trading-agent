@@ -1,6 +1,7 @@
 """Runtime settings. Resource baselines follow the S02 decision:
 4 vCPU / 7.8 GB host, API and Worker one process each, conservative pools."""
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -86,6 +87,22 @@ class Settings(BaseSettings):
     # container hold only public keys. The model is the gateway model name
     # (the gateway endpoint/key are injected by the Runner, never here).
     research_signing_private_key: str = ""  # Ed25519 PEM (Controller secret)
+
+    @field_validator("research_signing_private_key")
+    @classmethod
+    def _restore_pem_newlines(cls, value: str) -> str:
+        """Single-line PEM env values carry literal \\n escapes.
+
+        The deployment stores the key single-quoted in production.env so
+        shell sourcing and compose interpolation keep the backslashes
+        (docs/ops/s12d-deployment-execution.md). Restore real newlines so
+        ``load_pem_private_key`` receives a well-formed PEM; values that
+        already contain real newlines pass through unchanged.
+        """
+        if value and "\\n" in value:
+            return value.replace("\\n", "\n")
+        return value
+
     research_signing_kid: str = "research-key-1"
     research_exec_config_version: str = "research-exec-v1"
     research_model: str = ""

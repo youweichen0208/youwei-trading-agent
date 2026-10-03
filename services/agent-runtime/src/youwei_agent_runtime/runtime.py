@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+import dataclasses
 
 from youwei_contracts.research import (
     FrozenEvidence, ResearchProposal, validate_proposal_references,
@@ -84,6 +85,11 @@ class UsageReport:
     scope: str  # "chat_turn" | "last_api_call" | "unknown"
     complete: bool
     incomplete_reasons: tuple[str, ...] = ()
+    # Provider-returned model id of the last API call (youwei local Hermes
+    # patch: agent._last_turn_model). None on unpatched checkouts or when the
+    # provider omits it — never fabricated. Recorded per report for actual
+    # model attribution (owner decision D2, 2026-10-03).
+    model_returned: str | None = None
     prompt_tokens: int | None = None
     completion_tokens: int | None = None
     total_tokens: int | None = None
@@ -101,6 +107,7 @@ class UsageReport:
             "scope": self.scope,
             "complete": self.complete,
             "incomplete_reasons": list(self.incomplete_reasons),
+            "model_returned": self.model_returned,
             "prompt_tokens": self.prompt_tokens,
             "completion_tokens": self.completion_tokens,
             "total_tokens": self.total_tokens,
@@ -501,7 +508,17 @@ async def run_research(
 
 def _observe_usage(agent, before: _SessionUsageSnapshot | None, after: _SessionUsageSnapshot | None) -> UsageReport:
     """Choose the usage report for a completed turn: session delta when both
-    snapshots exist, else the last-call fallback, else unavailable."""
+    snapshots exist, else the last-call fallback, else unavailable.
+
+    The provider-returned model id is attached when the checkout exposes it
+    (``agent._last_turn_model``, set by the youwei local patch for every
+    completed provider attempt). The agent is constructed fresh per turn, so
+    the attribute can never be stale from an earlier turn."""
+    model_returned = getattr(agent, "_last_turn_model", None)
     if before is not None and after is not None:
-        return _delta_usage(before, after)
-    return _from_last_call(agent)
+        return dataclasses.replace(
+            _delta_usage(before, after), model_returned=model_returned
+        )
+    return dataclasses.replace(
+        _from_last_call(agent), model_returned=model_returned
+    )

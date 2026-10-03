@@ -756,3 +756,115 @@ async def test_api_list_endpoint(client, db_engine, tenant_headers, tenant_id, o
     assert r2.status_code == 200 and r2.json()["research"] == []
     # unauthenticated
     assert (await client.get("/v1/research")).status_code == 401
+
+
+async def test_runner_research_report_records_actual_model_attribution(
+    db_engine, tenant_id
+):
+    """D2 版本留痕 (owner 2026-10-03): a report produced through the Runner
+    research link records BOTH the configured routing and what actually ran
+    — provider-returned model id, container image digest, usage observation
+    and exec-config version — in the versions block."""
+    import httpx as _httpx
+    from youwei_contracts.agent_runtime import (
+        ResearchInvocationRequest,
+        ResearchInvocationResult,
+        ResearchInvocationStatus,
+    )
+    from youwei_core.ledger.research_client import (
+        ResearchRunnerClient,
+        ResearchSigningKey,
+    )
+    from youwei_contracts.research_capability import (
+        generate_research_keypair,
+        public_key_thumbprint,
+    )
+
+    priv, pub = generate_research_keypair()
+    key = ResearchSigningKey(
+        kid=public_key_thumbprint(pub),
+        private_key_pem=priv,
+        exec_config_version="research-exec-v1",
+    )
+    usage = {
+        "source": "session_delta", "scope": "chat_turn", "complete": True,
+        "prompt_tokens": 1200, "completion_tokens": 300, "api_calls": 2,
+        "model_returned": "glm-5.3-20261003",
+    }
+    captured: dict = {}
+
+    def transport(request: _httpx.Request) -> _httpx.Response:
+        if request.method == "POST":
+            body = _json.loads(request.content)
+            req = body["request"]
+            captured["case_id"] = req["case_id"]
+            captured["snapshot_id"] = req["evidence"]["evidence"]["snapshot_id"]
+            req_obj = ResearchInvocationRequest.model_validate(req)
+            return _httpx.Response(202, json=ResearchInvocationStatus(
+                invocation_id=uuid.UUID(req["invocation_id"]),
+                request_sha256=req_obj.request_sha256
+                if hasattr(req_obj, "request_sha256") else "",
+                status="running",
+            ).model_dump(mode="json"))
+        inv_id = uuid.UUID(str(request.url).rsplit("/", 1)[-1])
+        proposal = ResearchProposal(
+            run_id=captured["run_id"],
+            case_id=uuid.UUID(captured["case_id"]),
+            source_status="produced",
+            p_outperform=0.6,
+            expected_excess_return=0.02,
+            quant_relation="kept",
+            references=[{
+                "kind": "evidence",
+                "locator": f"snapshot:{captured['snapshot_id']}/rows/0",
+            }],
+            model={"model_version": "glm-5.3", "provider": "custom"},
+        )
+        return _httpx.Response(200, json=ResearchInvocationStatus(
+            invocation_id=inv_id, request_sha256="",
+            status="succeeded",
+            result=ResearchInvocationResult(
+                ok=True, exit_code=0,
+                image_digest="sha256:" + "d" * 64,
+                proposal=proposal, usage=usage,
+            ),
+        ).model_dump(mode="json"))
+
+    client = ResearchRunnerClient(
+        "http://runner", transport=_httpx.MockTransport(transport)
+    )
+
+    class _RunnerResearch:
+        pass
+
+    rr = _RunnerResearch()
+    rr.client = client
+    rr.key = key
+    rr.research_config = {"model": "glm-5.3"}
+
+    ctx = await _setup(db_engine, tenant_id, n_panel=1)
+    await _seed_bars(db_engine, ctx)
+    result = await submit_exploratory_research(
+        db_engine, tenant_id, ticker="S0", horizon_td=20, idempotency_key="attr-1"
+    )
+    claimed = await claim_next_job(db_engine, "test-worker")
+    assert claimed is not None and claimed.kind == "research.exploratory"
+    captured["run_id"] = str(claimed.run_id)
+    handler = make_exploratory_research_handler(engine=db_engine, runner_research=rr)
+    summary = await handler(claimed)
+    await client.aclose()
+    await complete_attempt(db_engine, claimed.job_id, claimed.attempt_no, summary)
+
+    assert summary["status"] == "succeeded"
+    report = await get_exploratory_report(db_engine, tenant_id, result.research_id)
+    assert report is not None
+    versions = report["content"]["versions"]
+    assert versions["research_model_configured"] == "glm-5.3"
+    attribution = versions["research_attribution"]
+    assert attribution is not None
+    assert attribution["model_returned"] == "glm-5.3-20261003"
+    assert attribution["image_digest"] == "sha256:" + "d" * 64
+    assert attribution["usage"] == usage
+    assert attribution["exec_config_version"] == "research-exec-v1"
+    # configured attribution still present alongside (from the proposal)
+    assert versions["research_model"]["model_version"] == "glm-5.3"

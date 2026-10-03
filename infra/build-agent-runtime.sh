@@ -32,6 +32,8 @@ trap 'rm -rf "${STAGE}"' EXIT
 echo "== packaging build context =="
 mkdir -p "${STAGE}/infra/images"
 cp "${SCRIPT_DIR}/images/agent-runtime.Dockerfile" "${STAGE}/infra/images/agent-runtime.Dockerfile"
+# The youwei local Hermes patch (see the Dockerfile and upstreams.lock.yaml).
+cp "${SCRIPT_DIR}/images/hermes-last-turn-model.patch" "${STAGE}/infra/images/hermes-last-turn-model.patch"
 # .dockerignore keeps .venv/.git/__pycache__ out of the context.
 cp "${REPO_ROOT}/.dockerignore" "${STAGE}/.dockerignore"
 # Copy the two source trees the Dockerfile references, preserving their

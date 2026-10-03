@@ -306,6 +306,7 @@ def make_runner_research_fetcher(
     key: ResearchSigningKey,
     expiry_provider: Callable[[], Awaitable[datetime]],
     research_config: dict,
+    attribution_sink: "Callable[[dict], None] | None" = None,
 ):
     """Build a ``fetch_proposal(case, bars, quant) -> ResearchProposal`` over the
     Runner's research entry (one invocation per case).
@@ -341,6 +342,19 @@ def make_runner_research_fetcher(
         result = await run_research_via_runner(
             client, key, request, expiry_provider=expiry_provider
         )
+        if attribution_sink is not None:
+            # D2 版本留痕 (2026-10-03): surface what ACTUALLY ran alongside the
+            # configured routing — the provider-returned model id (captured by
+            # the agent-runtime usage report), the image digest of the
+            # container that produced the proposal, its usage observation and
+            # the execution-config version. The exploratory report records
+            # this next to the configured model attribution.
+            attribution_sink({
+                "model_returned": (result.usage or {}).get("model_returned"),
+                "image_digest": result.image_digest,
+                "usage": result.usage,
+                "exec_config_version": key.exec_config_version,
+            })
         proposal = result.proposal
         if proposal is None:
             raise AgentRuntimeError(

@@ -1,0 +1,16 @@
+--- a/agent/turn_usage.py
++++ b/agent/turn_usage.py
+@@ -82,7 +82,13 @@
+     # Count every completed provider attempt, including providers that omit usage.
+     # Token/cost accounting below stays gated on real usage, but the request itself
+     # must remain observable.
+     agent.session_api_calls += 1
++    # youwei local patch (upstream 7fa45eb; recorded in infra/upstreams.lock.yaml):
++    # stash the provider-returned model id so the research adapter can record
++    # actual model attribution per report (owner decision D2, 2026-10-03).
++    # Mirrors _last_turn_usage's per-call lifecycle; the adapter constructs a
++    # fresh agent per turn, so the value cannot leak across turns.
++    agent._last_turn_model = getattr(response, "model", None)
+     if not (hasattr(response, 'usage') and response.usage):
+         if getattr(compressor, "awaiting_real_usage_after_compression", False):
+             # No usage -> cannot adjudicate the prior compaction; consume the

@@ -314,3 +314,136 @@ async def test_make_runner_research_fetcher_roundtrip(signing_key):
     assert proposal.run_id == run
     assert proposal.case_id == case["id"]
     assert proposal.p_outperform == 0.6
+
+
+async def test_make_runner_research_fetcher_reports_attribution(signing_key):
+    """S12e (D2 版本留痕): the fetcher surfaces model_returned / image_digest /
+    usage / exec_config_version to an attribution sink so the exploratory
+    report can record what actually ran, next to the configured routing."""
+    from youwei_contracts.research import ResearchProposal
+    from youwei_contracts.agent_runtime import invocation_digest
+    from youwei_core.ledger.research_client import make_runner_research_fetcher
+
+    tenant = uuid.uuid4()
+    run = uuid.uuid4()
+    job = uuid.uuid4()
+    case = _case()
+    snap = _snapshot()
+    captured = {}
+
+    usage = {
+        "source": "session_delta", "scope": "chat_turn", "complete": True,
+        "prompt_tokens": 100, "completion_tokens": 40, "api_calls": 2,
+        "model_returned": "glm-5.3-actual",
+    }
+
+    def transport(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            body = json.loads(request.content)
+            captured["case_id"] = body["request"]["case_id"]
+            req_obj = ResearchInvocationRequest.model_validate(body["request"])
+            return httpx.Response(202, json=ResearchInvocationStatus(
+                invocation_id=uuid.UUID(body["request"]["invocation_id"]),
+                request_sha256=invocation_digest(req_obj),
+                status="running",
+            ).model_dump(mode="json"))
+        inv_id = uuid.UUID(str(request.url).rsplit("/", 1)[-1])
+        proposal = ResearchProposal(
+            run_id=run, case_id=uuid.UUID(captured["case_id"]),
+            source_status="produced", p_outperform=0.6,
+            expected_excess_return=0.02,
+            model={"model_version": "glm-5.3", "provider": "custom"},
+        )
+        return httpx.Response(200, json=ResearchInvocationStatus(
+            invocation_id=inv_id, request_sha256=captured.get("sha", ""),
+            status="succeeded",
+            result=ResearchInvocationResult(
+                ok=True, exit_code=0,
+                image_digest="sha256:" + "b" * 64,
+                proposal=proposal, usage=usage,
+            ),
+        ).model_dump(mode="json"))
+
+    async def expiry():
+        return datetime.now(UTC) + timedelta(seconds=30)
+
+    client = ResearchRunnerClient("http://runner", transport=httpx.MockTransport(transport))
+    sink_payloads = []
+    fetch = make_runner_research_fetcher(
+        run_id=run, tenant_id=tenant, job_id=job, attempt_no=1,
+        snapshot=snap, batch_manifest={},
+        client=client, key=signing_key, expiry_provider=expiry,
+        research_config={"model": "glm-5.3"},
+        attribution_sink=sink_payloads.append,
+    )
+    proposal = await fetch(case, None, {
+        "source": "quant_model", "source_status": "produced",
+        "p_outperform": 0.55, "expected_excess_return": 0.01,
+        "model_version": "quant-momentum-v0",
+    })
+    await client.aclose()
+    assert proposal.p_outperform == 0.6
+    assert len(sink_payloads) == 1
+    payload = sink_payloads[0]
+    assert payload["model_returned"] == "glm-5.3-actual"
+    assert payload["image_digest"] == "sha256:" + "b" * 64
+    assert payload["usage"] == usage
+    assert payload["exec_config_version"] == signing_key.exec_config_version
+
+
+async def test_make_runner_research_fetcher_without_sink_still_works(signing_key):
+    """The sink is optional observability: absent sink must not change the
+    fetcher's behavior (proposal still returned)."""
+    from youwei_contracts.research import ResearchProposal
+    from youwei_contracts.agent_runtime import invocation_digest
+    from youwei_core.ledger.research_client import make_runner_research_fetcher
+
+    tenant = uuid.uuid4()
+    run = uuid.uuid4()
+    case = _case()
+    snap = _snapshot()
+    captured = {}
+
+    def transport(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            body = json.loads(request.content)
+            captured["case_id"] = body["request"]["case_id"]
+            req_obj = ResearchInvocationRequest.model_validate(body["request"])
+            return httpx.Response(202, json=ResearchInvocationStatus(
+                invocation_id=uuid.UUID(body["request"]["invocation_id"]),
+                request_sha256=invocation_digest(req_obj),
+                status="running",
+            ).model_dump(mode="json"))
+        inv_id = uuid.UUID(str(request.url).rsplit("/", 1)[-1])
+        proposal = ResearchProposal(
+            run_id=run, case_id=uuid.UUID(captured["case_id"]),
+            source_status="unavailable", reason="no_benchmark_rows",
+            model=None,
+        )
+        return httpx.Response(200, json=ResearchInvocationStatus(
+            invocation_id=inv_id, request_sha256=captured.get("sha", ""),
+            status="succeeded",
+            result=ResearchInvocationResult(
+                ok=True, exit_code=0,
+                image_digest="sha256:" + "c" * 64,
+                proposal=proposal,
+            ),
+        ).model_dump(mode="json"))
+
+    async def expiry():
+        return datetime.now(UTC) + timedelta(seconds=30)
+
+    client = ResearchRunnerClient("http://runner", transport=httpx.MockTransport(transport))
+    fetch = make_runner_research_fetcher(
+        run_id=run, tenant_id=tenant, job_id=uuid.uuid4(), attempt_no=1,
+        snapshot=snap, batch_manifest={},
+        client=client, key=signing_key, expiry_provider=expiry,
+        research_config={"model": "glm-5.3"},
+    )
+    proposal = await fetch(case, None, {
+        "source": "quant_model", "source_status": "unavailable",
+        "reason": "insufficient_history",
+        "model_version": "quant-momentum-v0",
+    })
+    await client.aclose()
+    assert proposal.source_status == "unavailable"
