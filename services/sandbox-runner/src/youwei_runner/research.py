@@ -139,19 +139,27 @@ async def run_research_container(
     or a non-ok result is reflected in the result, not silently turned into a
     proposal.
     """
+    from youwei_runner.netresolve import NetResolveError, gateway_add_host
+
     if not config.image:
         raise ResearchExecutionError("agent-runtime image is not configured")
     if not config.gateway_url:
         raise ResearchExecutionError("agent-runtime gateway is not configured")
 
     docker = _docker_binary()
+    # gVisor containers cannot use Docker's embedded DNS on this host — the
+    # gateway hostname must be pinned into /etc/hosts (see netresolve.py).
+    try:
+        add_host = await gateway_add_host(docker, config.gateway_url, config.network)
+    except NetResolveError as exc:
+        raise ResearchExecutionError(f"gateway resolution failed: {exc}") from None
     container = f"youwei-res-{uuid.uuid4().hex[:12]}"
 
     cmd = [
         docker, "run", "--rm", "-i", "--name", container,
         "--label", "youwei.runner=research-v1",
         "--log-driver", "local", "--log-opt", "max-size=1m", "--log-opt", "max-file=2",
-        "--network", config.network,
+        "--network", config.network, *add_host,
         "--read-only",
         "--cap-drop", "ALL",
         "--security-opt", "no-new-privileges",

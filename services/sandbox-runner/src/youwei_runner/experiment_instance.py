@@ -206,14 +206,22 @@ async def run_experiment_container(
             "experiment tool endpoint is not configured"
         )
 
+    from youwei_runner.netresolve import NetResolveError, gateway_add_host
+
     docker = _docker_binary()
+    # gVisor containers cannot use Docker's embedded DNS on this host — the
+    # gateway hostname must be pinned into /etc/hosts (see netresolve.py).
+    try:
+        add_host = await gateway_add_host(docker, config.gateway_url, config.network)
+    except NetResolveError as exc:
+        raise ExperimentInstanceError(f"gateway resolution failed: {exc}") from None
     container = f"youwei-exp-{uuid.uuid4().hex[:12]}"
 
     cmd = [
         docker, "run", "--rm", "-i", "--name", container,
         "--label", "youwei.runner=experiment-v1",
         "--log-driver", "local", "--log-opt", "max-size=1m", "--log-opt", "max-file=2",
-        "--network", config.network,
+        "--network", config.network, *add_host,
         "--read-only",
         "--cap-drop", "ALL",
         "--security-opt", "no-new-privileges",
