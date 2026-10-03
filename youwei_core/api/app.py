@@ -171,6 +171,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         # 201 on first creation; 200 on idempotent replay
         return JSONResponse(status_code=201 if result.created else 200, content=view)
 
+    @app.get("/v1/research")
+    async def list_exploratory(
+        request: Request,
+        tenant_id: Annotated[uuid.UUID, Depends(require_tenant)],
+        limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    ):
+        from youwei_core.ledger import exploratory
+
+        return await exploratory.list_exploratory_research(
+            request.app.state.engine, tenant_id, limit=limit
+        )
+
     @app.get("/v1/research/{research_id}")
     async def get_exploratory(
         research_id: UUID4,

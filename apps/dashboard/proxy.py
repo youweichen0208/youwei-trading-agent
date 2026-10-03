@@ -39,6 +39,12 @@ ALLOWED_GET = (
     re.compile(rf"^/v1/campaigns/{_UUID}/cases$"),
     re.compile(rf"^/v1/campaigns/{_UUID}/batches/{_UUID}/reports/(1|20|60)$"),
     re.compile(rf"^/v1/campaigns/{_UUID}/monthly-reports/\d{{4}}-\d{{2}}-\d{{2}}$"),
+    # S12b: exploratory research viewing (read-only; submission and
+    # cancellation stay off the dashboard proxy — they belong to the
+    # authorized research entry, S12c)
+    re.compile(r"^/v1/research$"),
+    re.compile(rf"^/v1/research/{_UUID}$"),
+    re.compile(rf"^/v1/research/{_UUID}/report$"),
 )
 
 _REALM = 'Basic realm="youwei-dashboard"'

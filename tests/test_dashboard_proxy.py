@@ -49,6 +49,9 @@ class FakeCore:
             "/v1/campaigns/{campaign_id}/monthly-reports/{month}",
             methods=["GET"],
         )
+        @app.api_route("/v1/research", methods=["GET"])
+        @app.api_route("/v1/research/{research_id}", methods=["GET"])
+        @app.api_route("/v1/research/{research_id}/report", methods=["GET"])
         async def read(request: Request):
             seen.append(
                 {
@@ -132,13 +135,16 @@ async def test_proxy_forwards_whitelisted_gets_with_tenant_key(pair):
         f"/api/v1/campaigns/{CID}/cases?page_size=50",
         f"/api/v1/campaigns/{CID}/batches/{CID}/reports/20?version=1",
         f"/api/v1/campaigns/{CID}/monthly-reports/2026-10-01",
+        "/api/v1/research?limit=20",
+        f"/api/v1/research/{CID}",
+        f"/api/v1/research/{CID}/report?version=2",
     ):
         r = await client.get(path, headers=headers)
         assert r.status_code == 200, path
         assert r.json()["core"] is True
 
     forwarded = core.seen
-    assert len(forwarded) == 4
+    assert len(forwarded) == 7
     for req in forwarded:
         assert req["method"] == "GET"
         # the tenant key is injected by the proxy, never the client's

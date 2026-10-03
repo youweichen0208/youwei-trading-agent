@@ -680,3 +680,79 @@ async def test_api_tenant_isolation(client, db_engine, tenant_headers, other_ten
 async def test_api_query_requires_auth(client, db_engine):
     r = await client.get("/v1/research/00000000-0000-0000-0000-000000000001")
     assert r.status_code == 401
+
+
+# --- list API + ticker enrichment (S12b) -------------------------------------
+
+from youwei_core.ledger.exploratory import list_exploratory_research
+
+
+async def test_list_orders_newest_first_with_tickers_and_versions(db_engine, tenant_id):
+    ctx = await _setup(db_engine, tenant_id, n_panel=1)
+    await _seed_bars(db_engine, ctx)
+    result, claimed, summary, _ = await _run_once(
+        db_engine, tenant_id, factory=_mock_factory(_kept_proposal), key="k1"
+    )
+    await complete_attempt(db_engine, claimed.job_id, claimed.attempt_no, summary)
+    result2 = await submit_exploratory_research(
+        db_engine, tenant_id, ticker="S0", horizon_td=1, idempotency_key="k2"
+    )
+
+    body = await list_exploratory_research(db_engine, tenant_id)
+    rows = body["research"]
+    assert len(rows) == 2
+    # newest first: the pending D1 task, then the succeeded D20 task
+    assert rows[0]["research_id"] == str(result2.research_id)
+    assert rows[0]["status"] == "pending"
+    assert rows[0]["horizon_td"] == 1
+    assert rows[0]["latest_report_version"] is None
+    assert rows[1]["research_id"] == str(result.research_id)
+    assert rows[1]["status"] == "succeeded"
+    assert rows[1]["latest_report_version"] == 1
+    assert rows[1]["report_versions"] == 1
+    # current tickers resolve for display
+    assert rows[1]["ticker"] == "S0"
+    assert rows[1]["benchmark_ticker"] == "SPY"
+
+
+async def test_list_is_tenant_scoped_and_limited(db_engine, tenant_id):
+    ctx = await _setup(db_engine, tenant_id, n_panel=1)
+    await _seed_bars(db_engine, ctx)
+    for i in range(3):
+        await submit_exploratory_research(
+            db_engine, tenant_id, ticker="S0", horizon_td=20,
+            idempotency_key=f"k{i}",
+        )
+    body = await list_exploratory_research(db_engine, tenant_id, limit=2)
+    assert len(body["research"]) == 2
+    other = uuid.uuid4()
+    assert await list_exploratory_research(db_engine, other) == {"research": []}
+
+
+async def test_task_view_includes_current_tickers(db_engine, tenant_id):
+    ctx = await _setup(db_engine, tenant_id, n_panel=1)
+    result = await submit_exploratory_research(
+        db_engine, tenant_id, ticker="S0", horizon_td=20, idempotency_key="k1"
+    )
+    task = await get_exploratory_research(db_engine, tenant_id, result.research_id)
+    assert task["ticker"] == "S0"
+    assert task["benchmark_ticker"] == "SPY"
+
+
+async def test_api_list_endpoint(client, db_engine, tenant_headers, tenant_id, other_tenant_headers):
+    ctx = await _setup(db_engine, tenant_id, n_panel=1)
+    await _seed_bars(db_engine, ctx)
+    await client.post(
+        "/v1/research",
+        json={"ticker": "S0", "horizon_td": 20},
+        headers={**tenant_headers, "Idempotency-Key": "k1"},
+    )
+    r = await client.get("/v1/research", headers=tenant_headers)
+    assert r.status_code == 200
+    rows = r.json()["research"]
+    assert len(rows) == 1 and rows[0]["ticker"] == "S0"
+    # another tenant's list is empty (isolation at the list level too)
+    r2 = await client.get("/v1/research", headers=other_tenant_headers)
+    assert r2.status_code == 200 and r2.json()["research"] == []
+    # unauthenticated
+    assert (await client.get("/v1/research")).status_code == 401

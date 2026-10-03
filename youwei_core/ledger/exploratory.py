@@ -291,6 +291,101 @@ async def _task_by_key(engine, tenant_id: uuid.UUID, idempotency_key: str):
         )
 
 
+async def _current_tickers(engine, security_ids) -> dict:
+    """Current ticker (valid_to is null) per security, for display."""
+    from youwei_core.db.meta import security_identities
+
+    if not security_ids:
+        return {}
+    async with engine.begin() as conn:
+        rows = (
+            (
+                await conn.execute(
+                    select(
+                        security_identities.c.security_id,
+                        security_identities.c.identifier,
+                    ).where(
+                        security_identities.c.security_id.in_(security_ids),
+                        security_identities.c.identifier_type == "ticker",
+                        security_identities.c.valid_to.is_(None),
+                    )
+                )
+            )
+            .mappings()
+            .all()
+        )
+    return {row.security_id: row.identifier for row in rows}
+
+
+async def list_exploratory_research(
+    engine, tenant_id: uuid.UUID, *, limit: int = 50
+) -> dict:
+    """The tenant's exploratory research tasks, newest first, with the
+    current tickers and the latest report version per task."""
+    async with engine.begin() as conn:
+        rows = (
+            (
+                await conn.execute(
+                    select(
+                        exploratory_research, jobs.c.status.label("job_status")
+                    )
+                    .select_from(
+                        exploratory_research.join(
+                            jobs, jobs.c.id == exploratory_research.c.job_id
+                        )
+                    )
+                    .where(exploratory_research.c.tenant_id == tenant_id)
+                    .order_by(exploratory_research.c.created_at.desc())
+                    .limit(limit)
+                )
+            )
+            .mappings()
+            .all()
+        )
+        report_stats = {
+            row.research_id: row
+            for row in (
+                (
+                    await conn.execute(
+                        select(
+                            exploratory_research_reports.c.research_id,
+                            func.max(
+                                exploratory_research_reports.c.report_version
+                            ).label("latest_version"),
+                            func.count().label("versions"),
+                        ).group_by(exploratory_research_reports.c.research_id)
+                    )
+                )
+                .mappings()
+                .all()
+            )
+        }
+    tickers = await _current_tickers(
+        engine,
+        {r.security_id for r in rows} | {r.benchmark_security_id for r in rows},
+    )
+    return {
+        "research": [
+            {
+                "research_id": str(r.id),
+                "ticker": tickers.get(r.security_id) or str(r.security_id)[:8],
+                "benchmark_ticker": tickers.get(r.benchmark_security_id) or "—",
+                "horizon_td": r.horizon_td,
+                "status": r.status,
+                "job_status": r.job_status,
+                "created_at": r.created_at.isoformat(),
+                "latest_report_version": (
+                    report_stats[r.id].latest_version if r.id in report_stats else None
+                ),
+                "report_versions": (
+                    report_stats[r.id].versions if r.id in report_stats else 0
+                ),
+            }
+            for r in rows
+        ]
+    }
+
+
 async def get_exploratory_research(
     engine, tenant_id: uuid.UUID, research_id: uuid.UUID
 ) -> dict | None:
@@ -318,7 +413,7 @@ async def get_exploratory_research(
         )
     if row is None:
         return None
-    return {
+    view = {
         "research_id": str(row.id),
         "run_id": str(row.run_id),
         "job_id": str(row.job_id),
@@ -337,6 +432,14 @@ async def get_exploratory_research(
         "created_at": row.created_at.isoformat(),
         "job_status": row.job_status,
     }
+    tickers = await _current_tickers(
+        engine, {row.security_id, row.benchmark_security_id}
+    )
+    view["ticker"] = tickers.get(row.security_id) or str(row.security_id)[:8]
+    view["benchmark_ticker"] = (
+        tickers.get(row.benchmark_security_id) or "—"
+    )
+    return view
 
 
 # --- execution (S12a backend loop) ------------------------------------------
