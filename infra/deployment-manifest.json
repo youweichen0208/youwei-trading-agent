@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "lock_sha256": "34c2b9487a34a77487a24504ba2d1de604e69574058689042480e28610d7a991",
-  "compose_sha256": "25a4e5eb2c76f36fe841a069d702b5ee8847bcb252ce646e5c37714aca1e669a",
+  "lock_sha256": "97d4edbd171976172a46b7ee459833540e15a369b7defb90b2fa708fb1e36ca3",
+  "compose_sha256": "e68880c14118da1278401edadcbc7afcc745147ac765185eda5200d4c61332f7",
   "components": {
     "core": {
       "image": "ghcr.io/youweichen0208/youwei-core@sha256:54df4db578b05327dee233a962260599077a561a32a8ce9118b0086aa255dad4",
@@ -21,6 +21,15 @@
       "bindings": [
         {
           "service": "postgres",
+          "field": "image"
+        }
+      ]
+    },
+    "sandbox-runner": {
+      "image": "ghcr.io/youweichen0208/youwei-runner@sha256:c3c0a0c525a818a863e1d70aa6db821631abdb26e1276e57c22f87a53fe794b9",
+      "bindings": [
+        {
+          "service": "sandbox-runner",
           "field": "image"
         }
       ]

@@ -121,8 +121,17 @@ def read_secrets(env: str) -> dict[str, str]:
     out: dict[str, str] = {}
     for line in path.read_text().splitlines():
         line = line.strip()
-        if "=" in line:
+        if "=" in line and not line.startswith("#"):
             k, v = line.split("=", 1)
+            v = v.strip()
+            # S12d: research-link values (PEM / JSON) contain literal "\n"
+            # escapes and are stored single-quoted so shell sourcing and
+            # ``docker compose`` keep the backslashes intact. Strip exactly
+            # one layer of matching surrounding quotes so this programmatic
+            # reader agrees with those paths (no quote handling = the quotes
+            # would leak into the interpolated container environment).
+            if len(v) >= 2 and v[0] == v[-1] and v[0] in ("'", '"'):
+                v = v[1:-1]
             out[k] = v
             _register_secret(v)
     return out
