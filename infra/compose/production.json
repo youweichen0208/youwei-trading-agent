@@ -83,7 +83,12 @@
         "YOUWEI_CAPABILITY_SECRET": "${YOUWEI_CAPABILITY_SECRET:?set the Core job capability signing secret}",
         "YOUWEI_TIINGO_TOKEN": "${YOUWEI_TIINGO_TOKEN:?set the Tiingo API token}",
         "YOUWEI_COLLECT_RELEASE_ID": "${YOUWEI_COLLECT_RELEASE_ID:-}",
-        "YOUWEI_COLLECT_TENANT_ID": "${YOUWEI_COLLECT_TENANT_ID:-}"
+        "YOUWEI_COLLECT_TENANT_ID": "${YOUWEI_COLLECT_TENANT_ID:-}",
+        "YOUWEI_RUNNER_URL": "${YOUWEI_RUNNER_URL:-}",
+        "YOUWEI_RUNNER_SECRET": "${YOUWEI_RUNNER_SECRET:-}",
+        "YOUWEI_RESEARCH_SIGNING_PRIVATE_KEY": "${YOUWEI_RESEARCH_SIGNING_PRIVATE_KEY:-}",
+        "YOUWEI_RESEARCH_MODEL": "${YOUWEI_RESEARCH_MODEL:-}",
+        "YOUWEI_EXPERIMENT_EXPLORATION_ENABLED": "${YOUWEI_EXPERIMENT_EXPLORATION_ENABLED:-false}"
       },
       "networks": ["core", "egress"],
       "depends_on": {"postgres": {"condition": "service_healthy"}},
@@ -99,12 +104,69 @@
         "driver": "json-file",
         "options": {"max-size": "10m", "max-file": "3"}
       }
+    },
+    "sandbox-runner": {
+      "image": "ghcr.io/youweichen0208/youwei-runner@sha256:c3c0a0c525a818a863e1d70aa6db821631abdb26e1276e57c22f87a53fe794b9",
+      "environment": {
+        "YOUWEI_RUNNER_SECRET": "${YOUWEI_RUNNER_SECRET:?set the Runner signing secret (>= 32 chars)}",
+        "YOUWEI_RUNNER_IMAGE": "python:3.13-alpine@sha256:2dd78ad5cf13a0b68f5134dc49aa9950203a8cf4b7463431b9f3b398287c5059",
+        "YOUWEI_RUNNER_RUNTIME": "runsc",
+        "YOUWEI_RUNNER_SPOOL_ROOT": "/var/lib/youwei-runner-spool",
+        "YOUWEI_RUNNER_AGENT_RUNTIME_IMAGE": "ghcr.io/youweichen0208/youwei-agent-runtime@sha256:bca0a5b9cecf5fdc2c1adfa4ac44dbe76a30be040f688f0ddf0cdd5ed9631f8a",
+        "YOUWEI_RUNNER_AGENT_RUNTIME_GATEWAY_URL": "http://litellm:4000/v1",
+        "YOUWEI_RUNNER_AGENT_RUNTIME_GATEWAY_HOST": "litellm:4000",
+        "YOUWEI_RUNNER_AGENT_RUNTIME_PUBLIC_KEYS": "${YOUWEI_RESEARCH_PUBLIC_KEYS_JSON:?set the research public key mapping (kid -> PEM)}",
+        "YOUWEI_RUNNER_AGENT_RUNTIME_TIMEOUT_SECONDS": "600",
+        "YOUWEI_GATEWAY_API_KEY": "${YOUWEI_RESEARCH_GATEWAY_KEY:?set the research virtual key for the gateway}",
+        "YOUWEI_RUNNER_EXPERIMENT_STORE_DIR": "/var/lib/youwei-runner/experiments",
+        "YOUWEI_RUNNER_EXPERIMENT_NETWORK": "youwei-experiment",
+        "YOUWEI_RUNNER_EXPERIMENT_TOOL_BASE_URL": "http://sandbox-runner:8091"
+      },
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "/var/run/docker.sock",
+          "target": "/var/run/docker.sock",
+          "bind": {"create_host_path": false}
+        },
+        {
+          "type": "bind",
+          "source": "/var/lib/youwei-runner-spool",
+          "target": "/var/lib/youwei-runner-spool",
+          "bind": {"create_host_path": false}
+        },
+        "runner_experiments:/var/lib/youwei-runner/experiments"
+      ],
+      "networks": ["core", "experiment"],
+      "depends_on": {"postgres": {"condition": "service_healthy"}},
+      "restart": "unless-stopped",
+      "read_only": true,
+      "tmpfs": ["/tmp:rw,nosuid,noexec,size=32m"],
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "healthcheck": {
+        "test": ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8091/healthz', timeout=2).read()"],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 10,
+        "start_period": "10s"
+      },
+      "cpus": "1.0",
+      "mem_limit": "512m",
+      "pids_limit": 128,
+      "stop_grace_period": "15s",
+      "logging": {
+        "driver": "json-file",
+        "options": {"max-size": "10m", "max-file": "3"}
+      }
     }
   },
   "networks": {
     "core": {"internal": true},
     "edge": {},
-    "egress": {}
+    "egress": {},
+    "research": {"external": true, "name": "youwei-research"},
+    "experiment": {"external": true, "name": "youwei-experiment"}
   },
-  "volumes": {"postgres_data": {}}
+  "volumes": {"postgres_data": {}, "runner_experiments": {}}
 }

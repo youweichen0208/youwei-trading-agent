@@ -88,6 +88,17 @@
       "verification": {"status": "not_run", "evidence": null},
       "deployment": {"image": null, "bindings": []},
       "notes": "Optional derived retrieval layer; no version, image or deployment has been selected."
+    },
+    "sandbox-runner": {
+      "enabled": false,
+      "source": {"kind": "local", "path": "services/sandbox-runner", "version": "0.1.0"},
+      "integration_status": "integrated",
+      "verification": {
+        "status": "passed",
+        "evidence": {"path": "docs/ops/s08-mock-acceptance.md", "sha256": "5c2a2fcc50b9b3c4dfcbbd38251339b1b8fa97973fa66e918a09d1070178b090"}
+      },
+      "deployment": {"image": null, "bindings": []},
+      "notes": "First-party gVisor Sandbox Runner (independent uv lock, no Core import; S03 execution chain + S08 experiment surface, verification evidence = the S08 isolated mock acceptance). Image published 2026-10-03 (S12d deployment prep): built on sg-prod from the current repo (contracts + services/sandbox-runner, checksum-verified rsync), pushed as ghcr.io/youweichen0208/youwei-runner:phase1a-s12d, registry digest sha256:c3c0a0c525a818a863e1d70aa6db821631abdb26e1276e57c22f87a53fe794b9 (push + digest pull verified). infra/compose/production.json now carries the service: runsc enforced, digest-pinned sandbox base (python:3.13-alpine@sha256:2dd78ad5...) and agent-runtime image (bca0a5b9...), docker socket, same-path spool bind, experiment store volume, external research/experiment networks; the Core worker gains research wiring env placeholders (empty defaults = research OFF). deployment.image stays null and enabled stays false until the S12d production deploy: enablement requires the owner's data-forwarding authorization and the exploratory-research model decision, then sets enabled=true with a binding for service sandbox-runner and regenerates the deployment manifest. Runbook: docs/ops/s12d-deployment.md."
     }
   }
 }

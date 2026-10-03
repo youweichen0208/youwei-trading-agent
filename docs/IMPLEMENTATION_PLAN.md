@@ -43,7 +43,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 | **S09b** | 完成 | 运行接线闭环：隔离验收（合成 12/12 + 真实 45/45）、生产库准备（tenant `f497c122…`/计划 hash 固定）、GHCR 镜像发布（r2 digest `53631663…`，含 token 日志缺陷修复）、生产 API/Worker/采集上线（105 观测、21 任务 succeeded、deployment 校验 VALID） |
 | **S09c** | 基本完成（两项搁置） | 磁盘 82%→14%、docker 级重启恢复、r2→r1→r2 回滚 drill、备份接入生产（pgBackRest 同机：WAL 归档 + 每日全量 + wal_archive 监控生效）、告警轮询上线（多格式 webhook，URL 待填）、整机重启演练 RTO≈3min；所有者决策：异地备份与负载复测搁置 |
 | S10–S11 | S10a Dashboard 已上线（2026-10-03，含报告指标渲染修复）；Memory/审批/候选验证未开始 | 评估界面/Memory/审批；候选验证与发布 |
-| S12 | S12a/S12b 完成 + S12c 工程完成（2026-10-03，上线待授权）；S12d 未开始 | 探索性研究闭环：Open WebUI 发起、Core 执行、Dashboard 查看 |
+| S12 | S12a/S12b 完成 + S12c/S12d 工程完成（2026-10-03；上线待所有者 D1 数据转发授权 / D2 模型定稿） | 探索性研究闭环：Open WebUI 发起、Core 执行、Dashboard 查看 |
 
 **当前运行状态（批准链已走完）：** release `bdb8bbe0…` 已登记批准（approver `human-owner`、scope `0b899b00…`，执行记录见 [§4 完成记录](#4-完成记录)）；campaign `phase1a-pilot-2026q4`（`a63f8494-…`）active，计划 hash `d403c8e5…` 服务端重算校验通过，12 批 planned_cutoffs 入库。批次 1（cutoff 2026-10-10 06:00 ET）由调度器于 2026-10-03 06:00 ET 后自动预注册；特征历史已回补（86 交易日 × 21 对象）且 60/60 可评分。tenant（`f497c122…`）与生产环境（core r2 `53631663…`、postgres `8d69232c…`）已固定，ops status 无告警。
 
@@ -294,7 +294,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 - [x] S12a Core 探索性研究任务与报告：新任务类型（提交/查询/取消 API + research-submit 授权）、报告存储与版本化读取、报告固定证据/量化输入/引用与 warnings；探索性研究与正式 Campaign 分开登记。（2026-10-03 完成，见下方 S12a 完成记录；API 授权沿用 tenant key 体系）
 - [x] S12b Dashboard 探索性报告查看（消费 S12a 读取 API）。（2026-10-03 完成，见下方 S12b 完成记录）
 - [ ] S12c Open WebUI Pipe 适配器（工程完成 2026-10-03，生产应用待前置授权，见下方 S12c 完成记录）：v0.6.36 Pipe 语义已按运行容器源码实测；出口连通性已实测（不通，声明式通路已就绪未应用）；提交/进度/摘要/详情链接/取消/刷新不丢（幂等重发返回当前态）已离线验收；上线前复核注册关闭与用户→Core 授权映射（v1 单服务 key）随部署执行。
-- [ ] S12d 真实证券端到端样例：研究网络声明式化（替换临时 `docker network connect`）+ 数据转发授权落实 + upstreams 登记（openwebui 升级 enabled，验收覆盖研究入口）。
+- [ ] S12d 真实证券端到端样例（工程准备完成 2026-10-03，上线待所有者 D1/D2，见下方 S12d 完成记录与 [s12d-deployment](ops/s12d-deployment.md)）：研究网络声明式化已落地（chat.json）；Runner 镜像已发布并进生产 compose；数据转发授权、部署执行、openwebui enabled 升级与真实样例验收待所有者。
 
 交付：从聊天入口发起、基于冻结事实、可核对引用的研究报告；Dashboard 可查完整报告。
 
@@ -328,6 +328,16 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 - 声明式通路：`infra/compose/chat.json`——openwebui 增挂外部网络 `youwei-production_edge`（不存在则 compose 显式报错，fail-closed）+ 可选 `YOUWEI_CORE_KEY` env；**未部署**（应用动作与验证步骤见 README：建 key → compose up → 上传函数 → 复核 ENABLE_SIGNUP=False → 容器内 healthz 探测 → 首次研究验证）。
 - 验证：`tests/test_openwebui_pipe.py` **11 passed**（httpx MockTransport 离线：解析/幂等键/成功/轮询至终态/超时中态/失败/取消/状态/错误映射/缺 key/重发幂等）；`tests/test_exploratory_research.py` 回归 30 passed；chat.json JSON 校验通过。upstreams 的 openwebui 登记（enabled 升级）随实际上线一并处理。
 - 遗留（上线前置，所有者）：数据源 LLM 转发授权；Core worker research wiring（S12d 声明式部署——未配置时研究任务如实失败）；生产应用四步（README）与公网入口研究发起验收；多用户身份映射与 RLS（架构 §5）在多用户前落实。
+
+### S12d 完成记录（2026-10-03，工程准备：镜像发布 + 声明式研究网络 + 生产 compose Runner + 运行手册，未部署）
+
+- **Runner 镜像发布**：sg-prod 从当前仓库构建（contracts + services/sandbox-runner checksum 同步核对）→ `ghcr.io/youweichen0208/youwei-runner:phase1a-s12d`，registry digest `sha256:c3c0a0c5…`，push + digest 拉取验证（s09b 教训：push digest 必须实测拉取）。构建目录已清理。
+- **研究网络声明式化**：`chat.json` litellm 以映射形式接入外部网络 `youwei-research`（别名 `litellm`）——替代 S07n 的临时 `docker network connect`（容器重建即失效的问题随之消除）；`production.json` 声明 `research`/`experiment` 为 external（缺失即 fail-closed，SG 上均已存在）。
+- **生产 compose Runner**（`production.json` 新增 `sandbox-runner` 服务）：镜像 digest 固定；生产模式强制 runsc；sandbox 基镜像 `python:3.13-alpine@sha256:2dd78ad5…` 与 agent-runtime `@sha256:bca0a5b9…` 均 digest 固定；docker socket；**同路径 spool bind**（S08 实测教训）；experiment store 具名卷；`core`+`experiment` 网络（worker→runner HTTP；实验容器→runner 工具面）；hardened（read_only/cap_drop ALL/no-new-privileges/healthcheck）。core-worker 增研究接线 env **占位（空默认=关闭）**：`YOUWEI_RUNNER_URL/ RUNNER_SECRET / RESEARCH_SIGNING_PRIVATE_KEY / RESEARCH_MODEL / EXPERIMENT_EXPLORATION_ENABLED`。
+- **upstreams**：新增 `sandbox-runner` 组件（enabled=false、deployment.image=null——发布记录在 notes；启用与 manifest 再生随部署，runbook §5）。
+- **运行手册**（[s12d-deployment](ops/s12d-deployment.md)）：所有者决策 D1（数据转发授权）/D2（探索性研究模型与登记形态）→ 密钥生成（Ed25519 研究密钥对、runner secret、网关研究虚拟 key 建议限额）→ 网络/spool 准备与临时接线清理 → 四步部署顺序（每步验证点）→ upstreams 启用与 deployment 校验 → Open WebUI 入口四步 → **真实证券端到端验收清单**（八项：摘要/Dashboard 六块/引用解析/研究 key 限额/取消无残留/Runner 重启幂等/Ledger 零写入/延迟与 token 记录）→ 回滚。
+- 验证：`docker compose config` 于 sg-prod 真实 docker 干跑通过（dummy env）；`validate_upstreams.py --mode catalog` VALID（lock +11 行）；两个 compose JSON 结构断言（镜像三重 digest 固定、网络集合）；SG 构建目录清理确认。
+- 遗留（所有者）：D1/D2 决策 → 按 runbook 执行部署（含 SG 仓库副本同步）→ upstreams 启用 + manifest → openwebui enabled 升级 → 真实样例八项验收。未部署前生产现状不变（研究任务如实失败）。
 
 ## 3. 评审问题到实施任务的映射
 
