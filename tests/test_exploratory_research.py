@@ -886,3 +886,135 @@ async def test_runner_research_report_records_actual_model_attribution(
     assert attr["execution_config_sha256"] == cfg_sha
     # configured attribution still present alongside (from the proposal)
     assert versions["research_model"]["model_version"] == "glm-5.3"
+
+
+async def test_runner_research_grants_track_the_live_lease(db_engine, tenant_id):
+    """S12 rollout-rehearsal finding (2026-10-03): the claim-time lease
+    snapshot goes stale after lease_ttl (30s) while a REAL research turn runs
+    84-224s — every grant re-signed from the snapshot was already expired and
+    the Runner correctly 403'd mid-poll. The fetcher must re-check the LIVE
+    lease (the worker heartbeat extends it), exactly like the experiment
+    orchestrator (S08c). This test simulates the heartbeat by extending the
+    attempt's lease to +1h after claim and asserting every observed grant
+    carries that live expiry — the stale snapshot would be ~+30s."""
+    from datetime import UTC, datetime, timedelta
+
+    import httpx as _httpx
+    from sqlalchemy import text as _text
+    from youwei_contracts.agent_runtime import (
+        ResearchInvocationAttribution,
+        ResearchInvocationRequest,
+        ResearchInvocationResult,
+        ResearchInvocationStatus,
+    )
+    from youwei_contracts.research_capability import (
+        generate_research_keypair,
+        public_key_thumbprint,
+        verify_research_token,
+    )
+    from youwei_core.ledger.research_client import (
+        ResearchRunnerClient,
+        ResearchSigningKey,
+    )
+
+    priv, pub = generate_research_keypair()
+    kid = public_key_thumbprint(pub)
+    key = ResearchSigningKey(
+        kid=kid, private_key_pem=priv, exec_config_version="research-exec-v1",
+    )
+    captured: dict = {}
+    observed_exps: list = []
+
+    def transport(request: _httpx.Request) -> _httpx.Response:
+        # every request carries a freshly signed grant; it must be valid
+        # against the LIVE lease (+1h), never the stale claim snapshot (+30s)
+        token = request.headers["Authorization"].removeprefix("Bearer ")
+        cap = verify_research_token({kid: pub}, token)
+        observed_exps.append(cap.exp)
+        assert cap.exp > datetime.now(UTC) + timedelta(minutes=50), (
+            f"grant exp {cap.exp} tracks the stale claim-time lease, not the "
+            "live heartbeat-extended lease"
+        )
+        if request.method == "POST":
+            body = _json.loads(request.content)
+            req = body["request"]
+            captured["case_id"] = req["case_id"]
+            captured["snapshot_id"] = req["evidence"]["evidence"]["snapshot_id"]
+            req_obj = ResearchInvocationRequest.model_validate(req)
+            return _httpx.Response(202, json=ResearchInvocationStatus(
+                invocation_id=uuid.UUID(req["invocation_id"]),
+                request_sha256="", status="running",
+            ).model_dump(mode="json"))
+        inv_id = uuid.UUID(str(request.url).rsplit("/", 1)[-1])
+        proposal = ResearchProposal(
+            run_id=captured["run_id"],
+            case_id=uuid.UUID(captured["case_id"]),
+            source_status="produced", p_outperform=0.6,
+            expected_excess_return=0.02, quant_relation="kept",
+            references=[{
+                "kind": "evidence",
+                "locator": f"snapshot:{captured['snapshot_id']}/rows/0",
+            }],
+            model={"model_version": "glm-5.3", "provider": "custom"},
+        )
+        return _httpx.Response(200, json=ResearchInvocationStatus(
+            invocation_id=inv_id, request_sha256="",
+            status="succeeded",
+            result=ResearchInvocationResult(
+                ok=True, exit_code=0,
+                image_digest="sha256:" + "1" * 64,
+                proposal=proposal,
+                attribution=ResearchInvocationAttribution(
+                    brief_sha256="2" * 64,
+                    execution_config={"model": "glm-5.3"},
+                    execution_config_sha256=__import__("hashlib").sha256(
+                        b'{"model":"glm-5.3"}'
+                    ).hexdigest(),
+                    model_returned=None,
+                    model_returned_scope="last_completed_provider_response",
+                ),
+            ),
+        ).model_dump(mode="json"))
+
+    client = ResearchRunnerClient(
+        "http://runner", transport=_httpx.MockTransport(transport)
+    )
+
+    class _RunnerResearch:
+        pass
+
+    rr = _RunnerResearch()
+    rr.client = client
+    rr.key = key
+    rr.research_config = {"model": "glm-5.3"}
+
+    ctx = await _setup(db_engine, tenant_id, n_panel=1)
+    await _seed_bars(db_engine, ctx)
+    result = await submit_exploratory_research(
+        db_engine, tenant_id, ticker="S0", horizon_td=20,
+        idempotency_key="live-lease-1",
+    )
+    claimed = await claim_next_job(db_engine, "test-worker")
+    assert claimed is not None and claimed.kind == "research.exploratory"
+    captured["run_id"] = str(claimed.run_id)
+
+    # simulate the worker heartbeat: extend the LIVE lease well past the
+    # claim-time snapshot (claim + 30s)
+    async with db_engine.begin() as conn:
+        await conn.execute(
+            _text(
+                "UPDATE attempts SET lease_expires_at = now() + interval '1 hour' "
+                "WHERE id = :aid"
+            ),
+            {"aid": str(claimed.attempt_id)},
+        )
+
+    handler = make_exploratory_research_handler(engine=db_engine, runner_research=rr)
+    summary = await handler(claimed)
+    await client.aclose()
+    await complete_attempt(db_engine, claimed.job_id, claimed.attempt_no, summary)
+
+    assert summary["status"] == "succeeded", summary
+    assert len(observed_exps) >= 2  # submit + at least one poll, all live-lease
+    report = await get_exploratory_report(db_engine, tenant_id, result.research_id)
+    assert report is not None

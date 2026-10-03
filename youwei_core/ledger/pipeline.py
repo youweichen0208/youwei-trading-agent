@@ -59,14 +59,6 @@ from youwei_core.ledger.sealing import SealRequest, SourcePrediction, seal_commi
 PIPELINE_VERSION = "pipeline-v1"
 
 
-async def _lease_expiry(claimed: ClaimedJob):
-    """expiry_provider for the Runner research link: the grant's exp must not
-    outlive the attempt's lease. Claim-time lease is the conservative floor;
-    the DB-level active-lease re-check is exercised in the SG DB tests (S07m-3)."""
-    from datetime import UTC, datetime
-
-    return claimed.lease_expires_at.astimezone(UTC) if claimed.lease_expires_at.tzinfo else claimed.lease_expires_at
-
 class PredictError(Exception):
     pass
 
@@ -380,6 +372,8 @@ async def run_batch_predictions(
                     research_config=runner_research.research_config,
                 )
             else:
+                from youwei_core.ledger.experiment_orchestrator import active_lease_expiry
+
                 fetch = make_runner_research_fetcher(
                     run_id=claimed.run_id,
                     tenant_id=claimed.tenant_id,
@@ -389,7 +383,12 @@ async def run_batch_predictions(
                     batch_manifest=batch.batch_manifest,
                     client=runner_research.client,
                     key=runner_research.key,
-                    expiry_provider=lambda: _lease_expiry(claimed),
+                    # live-lease re-check (heartbeat keeps it fresh on long
+                    # research turns; the claim-time snapshot goes stale after
+                    # lease_ttl — found by the S12 rollout rehearsal 2026-10-03)
+                    expiry_provider=lambda: active_lease_expiry(
+                        engine, claimed.attempt_id, claimed.attempt_no
+                    ),
                     research_config=runner_research.research_config,
                 )
             provider = make_phase1b_llm_adjusted_provider(fetch)

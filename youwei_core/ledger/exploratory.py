@@ -467,14 +467,6 @@ def _iso(value) -> str:
     return value.isoformat()
 
 
-async def _lease_expiry(claimed) -> "datetime":
-    """The Runner research grant must not outlive the attempt's lease."""
-    from datetime import UTC
-
-    expires = claimed.lease_expires_at
-    return expires.astimezone(UTC) if expires.tzinfo else expires
-
-
 async def _attempt_is_current(conn, claimed) -> bool:
     """The seal-pattern fence: the attempt must still be this job's
     current running attempt with a live lease (stale workers can never
@@ -847,6 +839,7 @@ def make_exploratory_research_handler(
         if fetcher_factory is not None:
             fetch = fetcher_factory(claimed, task, snapshot, quant)
         elif runner_research is not None:
+            from youwei_core.ledger.experiment_orchestrator import active_lease_expiry
             from youwei_core.ledger.research_client import make_runner_research_fetcher
 
             # D2 版本留痕: collect what actually ran (provider-returned model
@@ -862,7 +855,9 @@ def make_exploratory_research_handler(
                 batch_manifest=calendar_manifest,
                 client=runner_research.client,
                 key=runner_research.key,
-                expiry_provider=lambda: _lease_expiry(claimed),
+                expiry_provider=lambda: active_lease_expiry(
+                    engine, claimed.attempt_id, claimed.attempt_no
+                ),
                 research_config=runner_research.research_config,
                 attribution_sink=research_attribution.update,
             )
