@@ -109,6 +109,7 @@ docker logs core-worker 2>&1 | grep -i error | tail -3   # 无错误
 
 ## 8. 回滚
 
+- **S12 滚动的回滚程序（顺序强制：停入口 → 排空在途探索任务 → 清 env → 降级镜像；数据库绝不 downgrade 删含数据新表；旧 Worker 对未知 kind 会 fail_attempt）见 [s12-d2-enablement-prep](s12-d2-enablement-prep.md) 的「回滚程序」节——该程序取代下方通用条目中与之冲突的部分。**
 - 研究关闭：`production.env` 清空 `YOUWEI_RESEARCH_SIGNING_PRIVATE_KEY` / `YOUWEI_RESEARCH_MODEL` → `docker compose up -d core-worker`（Runner 可保留，无流量）。
 - 入口下线：Open WebUI 管理面板禁用研究函数。
 - Runner 下线：`docker compose stop sandbox-runner`（不影响 core/postgres）。

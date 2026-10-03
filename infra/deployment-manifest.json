@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "lock_sha256": "58d97f0b457eea78cc377de50e43b6e80aca4ee0e5dd71fc3ecd5bccf5904b6f",
-  "compose_sha256": "7c154e71bfba171ca772833c31ff8abc8fbfb8c035897a25b2e69e03ec815bac",
+  "lock_sha256": "1eabb560740668778449b9d7e8c43f22bd35e24709b65e88705b83b2513233ff",
+  "compose_sha256": "b0e580057462b3e8cb7486160b5cffa3801012807194d4f6a7ecfc653e784e05",
   "components": {
     "core": {
-      "image": "ghcr.io/youweichen0208/youwei-core@sha256:10a4ecf9cc592d74a347ac8d6a39dd953a70c69198179c5c4998146ba36ae8af",
+      "image": "ghcr.io/youweichen0208/youwei-core@sha256:119b2b6cd7df3ef91ddb4b3de827ae30dec114d1a82dbd4b1a28e6c866fb6986",
       "bindings": [
         {
           "service": "core-api",
@@ -25,8 +25,18 @@
         }
       ]
     },
+    "hermes": {
+      "image": "ghcr.io/youweichen0208/youwei-agent-runtime@sha256:8d210f9105c0a85aa89bc362ea87e1eddf93d278abd6190fd55e33f93ff3c6ab",
+      "bindings": [
+        {
+          "service": "sandbox-runner",
+          "field": "environment",
+          "name": "YOUWEI_RUNNER_AGENT_RUNTIME_IMAGE"
+        }
+      ]
+    },
     "sandbox-runner": {
-      "image": "ghcr.io/youweichen0208/youwei-runner@sha256:c3c0a0c525a818a863e1d70aa6db821631abdb26e1276e57c22f87a53fe794b9",
+      "image": "ghcr.io/youweichen0208/youwei-runner@sha256:814be9c23ad84c459db7ae53661d4d58f355a71daf70fdda0dc7eac8de0f9dee",
       "bindings": [
         {
           "service": "sandbox-runner",
