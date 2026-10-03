@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "lock_sha256": "dd08d3ac9cdda550dc3afa3670c30d052f614fb3f8256faa0a4835da227fed3e",
-  "compose_sha256": "b0e580057462b3e8cb7486160b5cffa3801012807194d4f6a7ecfc653e784e05",
+  "lock_sha256": "4d526317e3728e6ebba2516a4abbc6e622ae6e2ef5aafd06030553b895325339",
+  "compose_sha256": "c89c26faf706773fdc67990dc1081976e41fe2db86b91fae154569ff5422641b",
   "components": {
     "core": {
-      "image": "ghcr.io/youweichen0208/youwei-core@sha256:119b2b6cd7df3ef91ddb4b3de827ae30dec114d1a82dbd4b1a28e6c866fb6986",
+      "image": "ghcr.io/youweichen0208/youwei-core@sha256:f18c8289a8d05b1b9913ac22973532c8c1683703b2f38a955ad7ca8d264abe40",
       "bindings": [
         {
           "service": "core-api",
@@ -36,7 +36,7 @@
       ]
     },
     "sandbox-runner": {
-      "image": "ghcr.io/youweichen0208/youwei-runner@sha256:814be9c23ad84c459db7ae53661d4d58f355a71daf70fdda0dc7eac8de0f9dee",
+      "image": "ghcr.io/youweichen0208/youwei-runner@sha256:c44c3d4a361422572edb258c58d83b8b2268181a8888a4c35d0062eda0955de9",
       "bindings": [
         {
           "service": "sandbox-runner",

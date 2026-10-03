@@ -57,7 +57,7 @@
       }
     },
     "core-api": {
-      "image": "ghcr.io/youweichen0208/youwei-core@sha256:119b2b6cd7df3ef91ddb4b3de827ae30dec114d1a82dbd4b1a28e6c866fb6986",
+      "image": "ghcr.io/youweichen0208/youwei-core@sha256:f18c8289a8d05b1b9913ac22973532c8c1683703b2f38a955ad7ca8d264abe40",
       "command": [
         "youwei-api"
       ],
@@ -113,7 +113,7 @@
       }
     },
     "core-worker": {
-      "image": "ghcr.io/youweichen0208/youwei-core@sha256:119b2b6cd7df3ef91ddb4b3de827ae30dec114d1a82dbd4b1a28e6c866fb6986",
+      "image": "ghcr.io/youweichen0208/youwei-core@sha256:f18c8289a8d05b1b9913ac22973532c8c1683703b2f38a955ad7ca8d264abe40",
       "command": [
         "youwei-worker"
       ],
@@ -162,7 +162,7 @@
       }
     },
     "sandbox-runner": {
-      "image": "ghcr.io/youweichen0208/youwei-runner@sha256:814be9c23ad84c459db7ae53661d4d58f355a71daf70fdda0dc7eac8de0f9dee",
+      "image": "ghcr.io/youweichen0208/youwei-runner@sha256:c44c3d4a361422572edb258c58d83b8b2268181a8888a4c35d0062eda0955de9",
       "environment": {
         "YOUWEI_RUNNER_SECRET": "${YOUWEI_RUNNER_SECRET:?set the Runner signing secret (>= 32 chars)}",
         "YOUWEI_RUNNER_IMAGE": "python:3.13-alpine@sha256:2dd78ad5cf13a0b68f5134dc49aa9950203a8cf4b7463431b9f3b398287c5059",
@@ -172,7 +172,7 @@
         "YOUWEI_RUNNER_AGENT_RUNTIME_GATEWAY_URL": "http://litellm:4000/v1",
         "YOUWEI_RUNNER_AGENT_RUNTIME_GATEWAY_HOST": "litellm:4000",
         "YOUWEI_RUNNER_AGENT_RUNTIME_PUBLIC_KEYS": "${YOUWEI_RESEARCH_PUBLIC_KEYS_JSON:?set the research public key mapping (kid -> PEM)}",
-        "YOUWEI_RUNNER_AGENT_RUNTIME_TIMEOUT_SECONDS": "600",
+        "YOUWEI_RUNNER_AGENT_RUNTIME_TIMEOUT_SECONDS": "1800",
         "YOUWEI_GATEWAY_API_KEY": "${YOUWEI_RESEARCH_GATEWAY_KEY:?set the research virtual key for the gateway}",
         "YOUWEI_RUNNER_EXPERIMENT_STORE_DIR": "/var/lib/youwei-runner/experiments",
         "YOUWEI_RUNNER_EXPERIMENT_NETWORK": "youwei-experiment",
