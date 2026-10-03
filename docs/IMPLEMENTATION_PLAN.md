@@ -43,7 +43,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 | **S09b** | 完成 | 运行接线闭环：隔离验收（合成 12/12 + 真实 45/45）、生产库准备（tenant `f497c122…`/计划 hash 固定）、GHCR 镜像发布（r2 digest `53631663…`，含 token 日志缺陷修复）、生产 API/Worker/采集上线（105 观测、21 任务 succeeded、deployment 校验 VALID） |
 | **S09c** | 基本完成（两项搁置） | 磁盘 82%→14%、docker 级重启恢复、r2→r1→r2 回滚 drill、备份接入生产（pgBackRest 同机：WAL 归档 + 每日全量 + wal_archive 监控生效）、告警轮询上线（多格式 webhook，URL 待填）、整机重启演练 RTO≈3min；所有者决策：异地备份与负载复测搁置 |
 | S10–S11 | S10a Dashboard 已上线（2026-10-03，含报告指标渲染修复）；Memory/审批/候选验证未开始 | 评估界面/Memory/审批；候选验证与发布 |
-| S12 | 方向已登记（2026-10-03 所有者），未开始 | 探索性研究闭环：Open WebUI 发起、Core 执行、Dashboard 查看 |
+| S12 | S12a Core 后端闭环完成（2026-10-03，合成证据+mock 验收）；S12b/c/d 未开始 | 探索性研究闭环：Open WebUI 发起、Core 执行、Dashboard 查看 |
 
 **当前运行状态（批准链已走完）：** release `bdb8bbe0…` 已登记批准（approver `human-owner`、scope `0b899b00…`，执行记录见 [§4 完成记录](#4-完成记录)）；campaign `phase1a-pilot-2026q4`（`a63f8494-…`）active，计划 hash `d403c8e5…` 服务端重算校验通过，12 批 planned_cutoffs 入库。批次 1（cutoff 2026-10-10 06:00 ET）由调度器于 2026-10-03 06:00 ET 后自动预注册；特征历史已回补（86 交易日 × 21 对象）且 60/60 可评分。tenant（`f497c122…`）与生产环境（core r2 `53631663…`、postgres `8d69232c…`）已固定，ops status 无告警。
 
@@ -291,7 +291,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 | Dashboard | 完整报告、证据引用、批次、预测与评估表格 |
 | Hermes | 受控运行时内完成研究（Runner 链路） |
 
-- [ ] S12a Core 探索性研究任务与报告：新任务类型（提交/查询/取消 API + research-submit 授权）、报告存储与版本化读取、报告固定证据/量化输入/引用与 warnings；探索性研究与正式 Campaign 分开登记。
+- [x] S12a Core 探索性研究任务与报告：新任务类型（提交/查询/取消 API + research-submit 授权）、报告存储与版本化读取、报告固定证据/量化输入/引用与 warnings；探索性研究与正式 Campaign 分开登记。（2026-10-03 完成，见下方 S12a 完成记录；API 授权沿用 tenant key 体系）
 - [ ] S12b Dashboard 探索性报告查看（消费 S12a 读取 API）。
 - [ ] S12c Open WebUI Pipe 适配器：v0.6.36 Pipe Function 形状与执行语义实测（含容器到受控 Core 接口的出口连通性实测——当前 compose 仅挂普通 chat 网络，出口来实测前不做断言；仅增加访问受控 Core 接口的通路，不加入含数据库与 Runner 的整个内部网络）；提交→任务号→进度→摘要→详情链接；明确取消走 Core 取消接口；刷新/断线不丢任务（状态在 Core）；上线前复核注册保持关闭（`ENABLE_SIGNUP=False` 已部署且 signup 403 验证过，2026-10-02）并落实入口用户→Core 授权映射。
 - [ ] S12d 真实证券端到端样例：研究网络声明式化（替换临时 `docker network connect`）+ 数据转发授权落实 + upstreams 登记（openwebui 升级 enabled，验收覆盖研究入口）。
@@ -301,6 +301,16 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 验收：任务状态持久（刷新/断线不丢）且取消语义明确；报告固定证据与代码版本；研究 LLM 调用走研究 key 限额（不并入 chat key 无预算策略）；聊天上下文不进入正式预测链路；公网入口的研究发起有授权与费用控制。
 
 前置依赖（所有者）：数据源 LLM 转发授权；探索性研究的登记形态（是否绑 Trial/release 及审批边界）；正式模型与 prompt 定稿（Trial 登记）；公网入口研究发起的安全策略。
+
+### S12a 完成记录（2026-10-03，离线实现 + 集成验收）
+
+- 状态：**Core 探索性研究后端闭环完成**——提交 → 持久任务 → 冻结输入 → 受控研究 → 校验引用 → 保存报告 → 查询；首次验收用合成证据 + mock 研究回合（真实 Runner 接线已就位，生产未配置，无 wiring 时任务如实失败）。
+- 数据模型（迁移 `b2c3d4e5f6a7`，upgrade/downgrade/upgrade 一次性 PG 实测）：`exploratory_research`（任务行即研究上下文：证券/benchmark/horizon/注册 target spec/日历解析窗口/状态/config manifest+hash/幂等键；可变任务态同 jobs）与 `exploratory_research_reports`（版本化追加、attempt 溯源、内容 hash；**append-only 触发器** youwei_ledger_block_mutation）。conftest 清表清单同步。
+- 服务（`youwei_core/ledger/exploratory.py`）：提交复用 jobs 幂等提交（job payload 回显请求保证同键同 hash；任务行+事件同事务，崩溃窗口重放自愈）；窗口经版本化日历解析（entry=下一交易日、exit=按 horizon 计交易日、deadline 为信息性）；target spec/benchmark 只读借用 active campaign 的注册值，无 active campaign 拒绝（不发明研究上下文）；**不建任何 Campaign/ForecastCase**。执行 handler：冻结证据 as_of=提交时刻（forward）→ baseline+momentum 车辆计算量化输入（版本入 manifest）→ 独立 case 上下文 → fetcher（Runner 研究链路/agent-runtime 子进程/测试注入）→ `validate_proposal_references`（含 quant_relation）→ 报告保存（seal 同款 attempt fencing + 内容 hash 幂等：同内容重试不加版本、异内容追加、旧版本可读）。报告六块：summary/evidence/quant/counter_evidence/limitations/versions；引用以 locator 存储、读取时对不可变快照解析（可核对引用）。
+- API：`POST /v1/research`（require_tenant + Idempotency-Key，201/200/409/422）、`GET /v1/research/{id}`（含 job_status）、`GET /v1/research/{id}/report?version=`（默认最新，旧版本可读）、`POST /v1/research/{id}/cancel`（成功后取消为 no-op，历史不改写）。worker 注册 `research.exploratory`。
+- 验收覆盖（全部 TDD，26 个新测试）：租户隔离（跨租户 status/report/cancel 全 404）、提交权限（未认证 401）、幂等（同键同请求 201/200、异载荷 409）、重启恢复（报告写入后 fail_attempt 崩溃模拟 → 新 attempt 完成且同内容不加版本）、取消（in-flight attempt 的报告写入被 fence、任务 cancelled、job cancelled）、超时（租约过期的 stale attempt 写入被拒 + reaper 后新 attempt 完成恢复）、报告版本追加/旧版本可读/指定不存在版本 404、引用解析、**探索结果不进正式 Ledger**（predictions/forecast_commits/forecast_cases/forecast_batches 计数不变 + ledger 链头不动）。另覆盖：无 wiring 如实失败、研究异常失败、提案违规拒收（不可解析引用/缺 quant_relation）、bars 不足时量化 unavailable 如实入报告与 limitations。
+- 验证：本机全量 `uv run --frozen pytest -q` → **652 passed, 1 skipped**（真实 PG 容器 + 实际迁移链）；迁移三向实测；`tests/test_worker.py` 回归 9 passed。
+- 遗留：生产未配 research wiring（探索任务会如实失败，待 S12d 声明式部署与数据转发授权）；实际执行 research 配置（模型/provider）记录在报告 content，任务 manifest 冻结的是问题与量化车辆配置；S12b（Dashboard 查看）、S12c（Open WebUI 入口）待做；探索研究的 Trial/release 登记形态待所有者。
 
 ## 3. 评审问题到实施任务的映射
 

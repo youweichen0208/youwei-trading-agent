@@ -252,11 +252,19 @@ def main() -> None:
 
     agent_runtime = _build_agent_runtime(settings)
     runner_research = _build_runner_research(settings)
+    from youwei_core.ledger.exploratory import make_exploratory_research_handler
+
     handlers = {
         "noop": noop_handler,
         "data.tiingo_daily": make_tiingo_daily_handler(engine, tiingo),
         "research.batch_predict": make_batch_predict_handler(
             engine, agent_runtime=agent_runtime, runner_research=runner_research
+        ),
+        # S12a: user-initiated exploratory research. Without research
+        # wiring the task fails honestly (never fabricated); production
+        # wiring arrives with the S12d declarative deployment.
+        "research.exploratory": make_exploratory_research_handler(
+            engine, runner_research=runner_research, agent_runtime=agent_runtime
         ),
     }
     if runner is not None:

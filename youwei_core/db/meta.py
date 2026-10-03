@@ -833,3 +833,70 @@ experiment_outcomes = Table(
     CheckConstraint("snapshot_sha256 ~ '^[0-9a-f]{64}$'", name="ck_experiment_outcomes_snapshot_sha_format"),
     CheckConstraint("accepted_attempt_no > 0", name="ck_experiment_outcomes_attempt_no_positive"),
 )
+
+# S12a: exploratory research tasks — user-initiated research questions
+# answered once against frozen evidence, OUTSIDE the formal prediction
+# ledger. No Campaign / ForecastCase rows are ever created: the task row
+# itself is the research context (security, benchmark, horizon, target
+# spec, cutoff/entry/exit) and freezes a config manifest at submit time.
+# Unlike the ledger tables this row is mutable state (status transitions),
+# like jobs; the report table below carries the append-only discipline.
+exploratory_research = Table(
+    "exploratory_research",
+    meta,
+    Column("id", UUID(as_uuid=True), primary_key=True),
+    Column("tenant_id", UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False),
+    Column("run_id", UUID(as_uuid=True), ForeignKey("runs.id"), nullable=False),
+    Column("job_id", UUID(as_uuid=True), ForeignKey("jobs.id"), nullable=False),
+    Column("security_id", UUID(as_uuid=True), ForeignKey("securities.id"), nullable=False),
+    Column("benchmark_security_id", UUID(as_uuid=True), ForeignKey("securities.id"), nullable=False),
+    Column("horizon_td", Integer, nullable=False),
+    Column("target_spec_id", Text, nullable=False),
+    Column("target_spec_sha256", Text, nullable=False),
+    Column("decision_cutoff_utc", TIMESTAMP(timezone=True), nullable=False),
+    # informational for the research brief (the exploratory question is
+    # answered for the window from entry; there is no seal deadline)
+    Column("prediction_deadline_utc", TIMESTAMP(timezone=True), nullable=False),
+    Column("entry_at_utc", TIMESTAMP(timezone=True), nullable=False),
+    Column("exit_at_utc", TIMESTAMP(timezone=True), nullable=False),
+    Column("status", Text, nullable=False, server_default="pending"),
+    Column("config_manifest", JSONB, nullable=False),
+    Column("config_sha256", Text, nullable=False),
+    Column("idempotency_key", Text, nullable=False),
+    Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
+    Column("updated_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
+    CheckConstraint(
+        "status IN ('pending','running','succeeded','failed','cancelled')",
+        name="ck_exploratory_status_valid",
+    ),
+    CheckConstraint("horizon_td IN (1, 20, 60)", name="ck_exploratory_horizon_valid"),
+    CheckConstraint("target_spec_sha256 ~ '^[0-9a-f]{64}$'", name="ck_exploratory_spec_sha_format"),
+    CheckConstraint("config_sha256 ~ '^[0-9a-f]{64}$'", name="ck_exploratory_config_sha_format"),
+    UniqueConstraint("tenant_id", "idempotency_key", name="uq_exploratory_tenant_idem"),
+    Index("ix_exploratory_tenant_created", "tenant_id", "created_at"),
+)
+
+# S12a: versioned exploratory research reports — append-only (ledger
+# block-mutation triggers). A re-run of the same research appends a new
+# version only when the content actually differs (content_sha256
+# idempotency); old versions stay readable. Reports never enter the
+# prediction ledger tables.
+exploratory_research_reports = Table(
+    "exploratory_research_reports",
+    meta,
+    Column("id", UUID(as_uuid=True), primary_key=True),
+    Column("research_id", UUID(as_uuid=True), ForeignKey("exploratory_research.id"), nullable=False),
+    Column("tenant_id", UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False),
+    Column("report_version", Integer, nullable=False),
+    Column("attempt_id", UUID(as_uuid=True), ForeignKey("attempts.id"), nullable=False),
+    Column("attempt_no", Integer, nullable=False),
+    Column("evidence_snapshot_id", UUID(as_uuid=True), ForeignKey("snapshots.id"), nullable=False),
+    Column("content", JSONB, nullable=False),
+    Column("content_sha256", Text, nullable=False),
+    Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
+    CheckConstraint("report_version > 0", name="ck_exploratory_report_version_positive"),
+    CheckConstraint("attempt_no > 0", name="ck_exploratory_report_attempt_no_positive"),
+    CheckConstraint("content_sha256 ~ '^[0-9a-f]{64}$'", name="ck_exploratory_report_sha_format"),
+    UniqueConstraint("research_id", "report_version", name="uq_exploratory_report_version"),
+    Index("ix_exploratory_reports_research", "research_id", "report_version"),
+)
