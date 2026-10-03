@@ -106,7 +106,7 @@ async def main() -> int:
     ap.parse_args()
 
     settings = Settings()
-    engine = make_engine(settings.database_url, pool_size=1)
+    engine = make_engine(settings.database_url, pool_size=2, max_overflow=0)
     report = Report()
 
     try:
@@ -244,8 +244,8 @@ async def main() -> int:
                 f"rows={len(case_rows)} distinct (batch,security,horizon)={distinct_keys}",
             )
 
-            securities = {r.security_id for r in case_rows}
-            panel = set(campaign.panel_security_ids or [])
+            securities = {str(r.security_id) for r in case_rows}
+            panel = {str(x) for x in (campaign.panel_security_ids or [])}
             report.check(
                 "2: 20 distinct panel securities",
                 len(securities) == PANEL_SIZE and securities == panel,
