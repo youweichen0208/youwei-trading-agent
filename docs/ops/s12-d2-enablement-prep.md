@@ -41,7 +41,7 @@
 
 **验证依据**（入登记记录）：上述守卫测试 + 全量 678 passed + 生产只读复核（部署中 r4 + 冻结输入：**60/60 quant 预测可用**、批次 1 窗口 56/61 已覆盖、余 5 个交易日由滚动采集在 cutoff 前落地——2026-10-03 07:31Z 复跑）+ 双源 Campaign 不调 LLM 的接线条件核验（`"llm_adjusted" in campaign.enabled_sources` 才构造 fetcher）。
 
-**登记执行**：r4 例外（digest `54df4db5…`）于首批封存（2026-10-10）**前**写入生产库；r6 例外（digest 见下）在滚动时登记（其 code_files 与 r4 的差异仅 S07o，同样被守卫覆盖）。
+**登记执行（已完成 2026-10-03 07:46Z）**：迁移前先做 pgBackRest 全量备份（34.7MB，13.8s）；生产库 `f9a0b1c2d3e4` → `c2d3e4f5a6b7`（三条纯新增迁移，r4 服务零重启，迁移后 healthz 正常，r4 镜像内 grep 证实对新表零引用）；r4 例外已登记（approver `human-owner`、`created_at=2026-10-03T07:46:44Z` 服务器时钟、2 项守卫引用入 verification；同 (release,digest) 异内容重登记被正确拒绝）。r6 例外（pipeline.py 较 r4 多 S07o `cbf5259`，同守卫覆盖）在滚动时登记。
 
 ## 交付镜像（sg-prod 构建、GHCR 发布、digest 拉取验证；**均未滚动**）
 

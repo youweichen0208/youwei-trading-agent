@@ -43,7 +43,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 | **S09b** | 完成 | 运行接线闭环：隔离验收（合成 12/12 + 真实 45/45）、生产库准备（tenant `f497c122…`/计划 hash 固定）、GHCR 镜像发布（r2 digest `53631663…`，含 token 日志缺陷修复）、生产 API/Worker/采集上线（105 观测、21 任务 succeeded、deployment 校验 VALID） |
 | **S09c** | 基本完成（两项搁置） | 磁盘 82%→14%、docker 级重启恢复、r2→r1→r2 回滚 drill、备份接入生产（pgBackRest 同机：WAL 归档 + 每日全量 + wal_archive 监控生效）、告警轮询上线（多格式 webhook，URL 待填）、整机重启演练 RTO≈3min；所有者决策：异地备份与负载复测搁置 |
 | S10–S11 | S10a Dashboard 已上线（2026-10-03，含报告指标渲染修复）；Memory/审批/候选验证未开始 | 评估界面/Memory/审批；候选验证与发布 |
-| S12 | S12a/S12b 完成 + S12c/S12d 工程完成；D1/D2 均已决策；D1 已部署；D2 实现经评审修订完成并暂存（r6/s12e/ar-r4 镜像 + 例外登记表 + 守卫测试）；r4 例外登记 10-10 前；滚动待首批封存确认 | 探索性研究闭环：Open WebUI 发起、Core 执行、Dashboard 查看 |
+| S12 | S12a/S12b 完成 + S12c/S12d 工程完成；D1/D2 均已决策；D1 已部署；D2 实现经评审修订完成并暂存（r6/s12e/ar-r4 镜像 + 例外登记表 + 守卫测试）；r4 例外已登记（2026-10-03 07:46Z，生产库三条纯新增迁移完成）；滚动待首批封存确认 | 探索性研究闭环：Open WebUI 发起、Core 执行、Dashboard 查看 |
 
 **当前运行状态（批准链已走完）：** release `bdb8bbe0…` 已登记批准（approver `human-owner`、scope `0b899b00…`，执行记录见 [§4 完成记录](#4-完成记录)）；campaign `phase1a-pilot-2026q4`（`a63f8494-…`）active，计划 hash `d403c8e5…` 服务端重算校验通过，12 批 planned_cutoffs 入库。批次 1（cutoff 2026-10-10 06:00 ET）由调度器于 2026-10-03 06:00 ET 后自动预注册；特征历史已回补（86 交易日 × 21 对象）且 60/60 可评分。tenant（`f497c122…`）与生产环境（core r2 `53631663…`、postgres `8d69232c…`）已固定，ops status 无告警。
 
@@ -294,7 +294,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 - [x] S12a Core 探索性研究任务与报告：新任务类型（提交/查询/取消 API + research-submit 授权）、报告存储与版本化读取、报告固定证据/量化输入/引用与 warnings；探索性研究与正式 Campaign 分开登记。（2026-10-03 完成，见下方 S12a 完成记录；API 授权沿用 tenant key 体系）
 - [x] S12b Dashboard 探索性报告查看（消费 S12a 读取 API）。（2026-10-03 完成，见下方 S12b 完成记录）
 - [ ] S12c Open WebUI Pipe 适配器（工程完成 2026-10-03，生产应用待前置授权，见下方 S12c 完成记录）：v0.6.36 Pipe 语义已按运行容器源码实测；出口连通性已实测（不通，声明式通路已就绪未应用）；提交/进度/摘要/详情链接/取消/刷新不丢（幂等重发返回当前态）已离线验收；上线前复核注册关闭与用户→Core 授权映射（v1 单服务 key）随部署执行。
-- [ ] S12d 真实证券端到端样例（D1 已授权并部署、D2 已决策；实现经所有者 2026-10-03 评审修订完成并暂存，见 [s12d-deployment-execution](ops/s12d-deployment-execution.md) 与 [s12-d2-enablement-prep](ops/s12-d2-enablement-prep.md)）：完整归因链（prompt hash/执行配置/实际返回标识+scope）、例外登记表与守卫、三镜像（core r6 `119b2b6c…` / runner s12e `814be9c2…` / agent-runtime r4 `8d210f91…`）已发布验证暂存；**r4 例外登记于首批封存（10-10）前执行；滚动按②(b)待首批封存确认——三镜像同批 + 三条纯新增迁移 + worker 接线 env（glm-5.3）+ openwebui 入口 + 八项验收 + 模型侧复验**。
+- [ ] S12d 真实证券端到端样例（D1 已授权并部署、D2 已决策；实现经所有者 2026-10-03 评审修订完成并暂存，见 [s12d-deployment-execution](ops/s12d-deployment-execution.md) 与 [s12-d2-enablement-prep](ops/s12-d2-enablement-prep.md)）：完整归因链（prompt hash/执行配置/实际返回标识+scope）、例外登记表与守卫、三镜像（core r6 `119b2b6c…` / runner s12e `814be9c2…` / agent-runtime r4 `8d210f91…`）已发布验证暂存；**r4 例外已登记（2026-10-03 07:46Z，迁移先行落地生产库，r4 服务零重启）；滚动按②(b)待首批封存确认——三镜像同批 + 三条纯新增迁移 + worker 接线 env（glm-5.3）+ openwebui 入口 + 八项验收 + 模型侧复验**。
 
 交付：从聊天入口发起、基于冻结事实、可核对引用的研究报告；Dashboard 可查完整报告。
 
