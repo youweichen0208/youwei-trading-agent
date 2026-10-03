@@ -43,7 +43,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 | **S09b** | 完成 | 运行接线闭环：隔离验收（合成 12/12 + 真实 45/45）、生产库准备（tenant `f497c122…`/计划 hash 固定）、GHCR 镜像发布（r2 digest `53631663…`，含 token 日志缺陷修复）、生产 API/Worker/采集上线（105 观测、21 任务 succeeded、deployment 校验 VALID） |
 | **S09c** | 基本完成（两项搁置） | 磁盘 82%→14%、docker 级重启恢复、r2→r1→r2 回滚 drill、备份接入生产（pgBackRest 同机：WAL 归档 + 每日全量 + wal_archive 监控生效）、告警轮询上线（多格式 webhook，URL 待填）、整机重启演练 RTO≈3min；所有者决策：异地备份与负载复测搁置 |
 | S10–S11 | S10a Dashboard 已上线（2026-10-03，含报告指标渲染修复）；Memory/审批/候选验证未开始 | 评估界面/Memory/审批；候选验证与发布 |
-| S12 | S12a Core 后端闭环 + S12b Dashboard 查看完成（2026-10-03）；S12c/d 未开始 | 探索性研究闭环：Open WebUI 发起、Core 执行、Dashboard 查看 |
+| S12 | S12a/S12b 完成 + S12c 工程完成（2026-10-03，上线待授权）；S12d 未开始 | 探索性研究闭环：Open WebUI 发起、Core 执行、Dashboard 查看 |
 
 **当前运行状态（批准链已走完）：** release `bdb8bbe0…` 已登记批准（approver `human-owner`、scope `0b899b00…`，执行记录见 [§4 完成记录](#4-完成记录)）；campaign `phase1a-pilot-2026q4`（`a63f8494-…`）active，计划 hash `d403c8e5…` 服务端重算校验通过，12 批 planned_cutoffs 入库。批次 1（cutoff 2026-10-10 06:00 ET）由调度器于 2026-10-03 06:00 ET 后自动预注册；特征历史已回补（86 交易日 × 21 对象）且 60/60 可评分。tenant（`f497c122…`）与生产环境（core r2 `53631663…`、postgres `8d69232c…`）已固定，ops status 无告警。
 
@@ -293,7 +293,7 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 
 - [x] S12a Core 探索性研究任务与报告：新任务类型（提交/查询/取消 API + research-submit 授权）、报告存储与版本化读取、报告固定证据/量化输入/引用与 warnings；探索性研究与正式 Campaign 分开登记。（2026-10-03 完成，见下方 S12a 完成记录；API 授权沿用 tenant key 体系）
 - [x] S12b Dashboard 探索性报告查看（消费 S12a 读取 API）。（2026-10-03 完成，见下方 S12b 完成记录）
-- [ ] S12c Open WebUI Pipe 适配器：v0.6.36 Pipe Function 形状与执行语义实测（含容器到受控 Core 接口的出口连通性实测——当前 compose 仅挂普通 chat 网络，出口来实测前不做断言；仅增加访问受控 Core 接口的通路，不加入含数据库与 Runner 的整个内部网络）；提交→任务号→进度→摘要→详情链接；明确取消走 Core 取消接口；刷新/断线不丢任务（状态在 Core）；上线前复核注册保持关闭（`ENABLE_SIGNUP=False` 已部署且 signup 403 验证过，2026-10-02）并落实入口用户→Core 授权映射。
+- [ ] S12c Open WebUI Pipe 适配器（工程完成 2026-10-03，生产应用待前置授权，见下方 S12c 完成记录）：v0.6.36 Pipe 语义已按运行容器源码实测；出口连通性已实测（不通，声明式通路已就绪未应用）；提交/进度/摘要/详情链接/取消/刷新不丢（幂等重发返回当前态）已离线验收；上线前复核注册关闭与用户→Core 授权映射（v1 单服务 key）随部署执行。
 - [ ] S12d 真实证券端到端样例：研究网络声明式化（替换临时 `docker network connect`）+ 数据转发授权落实 + upstreams 登记（openwebui 升级 enabled，验收覆盖研究入口）。
 
 交付：从聊天入口发起、基于冻结事实、可核对引用的研究报告；Dashboard 可查完整报告。
@@ -320,6 +320,14 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 - 前端：`views/research.js`（列表：提交时间/标的/窗口/状态/报告版本/详情链接；详情：状态卡 + 六块报告——结论与 quant_relation、量化输入（quant+baseline）、证据快照与覆盖、依据与反证（warnings/missing/basis）、限制、版本信息 + 引用对冻结快照解析的表格 + 版本切换）；`#/research` 与 `#/research/{id}?version=` 路由；头部"研究"入口。报告缺失渲染为诚实待态而非假空。
 - 验证（TDD）：node --test 8/8（报告 4 + 研究 4——列表/六块无 [object Object]/无报告待态/版本切换，S10a 教训延续）；`tests/test_exploratory_research.py` 30 passed（新增列表排序/租户隔离/limit/ticker/API 端点）；`tests/test_dashboard_proxy.py` 6 passed（白名单扩至 7 路径，写路径仍 405）；本机全量 **656 passed, 1 skipped**（真实 PG + 实际迁移链）。
 - 遗留：生产 Dashboard（SG r4）未滚动本片与 S10a 渲染修复——随下一次 Core/静态页发布执行；浏览器端实际渲染验收待所有者。
+
+### S12c 完成记录（2026-10-03，Open WebUI 研究入口：实测 + 适配器 + 声明式通路，未上线）
+
+- 实测（sg-prod 运行容器，全部只读）：①**v0.6.36 Pipe 语义**（读 `open_webui/functions.py`/`utils/plugin.py` 源码核实）——模块级 `Pipe` 类经 exec 加载、活跃函数进模型列表；`Valves`（pydantic）+ `self.valves` 管理面编辑持久化；按签名注入 `body`/`__user__` 等；`async def pipe()` 返回 str 即成消息、异常渲染为 detail；frontmatter `requirements:` 自动安装（本适配器零依赖，容器内已有 httpx 0.28.1）。②**出口连通性**：openwebui（仅挂 chat 网络）到 core-api **不通**（edge IP 超时；host loopback 拒绝——core 端口仅发布宿主 127.0.0.1）。③**拓扑**：`youwei-production_edge` 成员仅 core-api + dashboard（无 PG/worker/Runner）。
+- 适配器（`integrations/openwebui/youwei_research_pipe.py` + README）：解析（研究/状态/取消，默认 D20）→ 提交（Idempotency-Key = `owui:{user_id}:{sha256(message)[:16]}`——重发同一消息返回该研究**当前状态**，刷新/断线零丢失且不重复起任务）→ 有界轮询（默认 90s，超时返回中态 + `状态 <id>` 提示 + Dashboard 链接）→ 摘要渲染（结论/quant_relation/量化输入/依据/警告/未能落实/限制/版本 + 详情链接）；错误全部渲染为聊天内提示（401/403/404/409/422/缺 key 配置错误），不裸抛。Core key 仅存服务端（Valves 优先，env `YOUWEI_CORE_KEY` 回退）。
+- 声明式通路：`infra/compose/chat.json`——openwebui 增挂外部网络 `youwei-production_edge`（不存在则 compose 显式报错，fail-closed）+ 可选 `YOUWEI_CORE_KEY` env；**未部署**（应用动作与验证步骤见 README：建 key → compose up → 上传函数 → 复核 ENABLE_SIGNUP=False → 容器内 healthz 探测 → 首次研究验证）。
+- 验证：`tests/test_openwebui_pipe.py` **11 passed**（httpx MockTransport 离线：解析/幂等键/成功/轮询至终态/超时中态/失败/取消/状态/错误映射/缺 key/重发幂等）；`tests/test_exploratory_research.py` 回归 30 passed；chat.json JSON 校验通过。upstreams 的 openwebui 登记（enabled 升级）随实际上线一并处理。
+- 遗留（上线前置，所有者）：数据源 LLM 转发授权；Core worker research wiring（S12d 声明式部署——未配置时研究任务如实失败）；生产应用四步（README）与公网入口研究发起验收；多用户身份映射与 RLS（架构 §5）在多用户前落实。
 
 ## 3. 评审问题到实施任务的映射
 
