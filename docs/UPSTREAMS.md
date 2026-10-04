@@ -2,7 +2,7 @@
 
 `infra/upstreams.lock.yaml` 是候选与启用组件的登记表。文件采用 **JSON 语法（YAML 1.2 子集）**，由 Python 标准库解析，不新增 PyYAML 运行依赖。暂未选择的版本、镜像填 `null`；安装冒烟通过不等于业务接入验收通过。
 
-当前源版本、候选状态和已登记镜像以锁文件及其验收证据为准，不从早期调研状态推断是否部署。个人 Hermes gateway 登记位于 `infra/chat/assistant-upstreams.lock.json`。2026-10-04 已按用户授权部署 youwei-webui v0.11.4、独立助手与新 Core API；当前生产平台锁为 `infra/releases/20261004/production.lock.json`；聊天栈已随后按用户选择切换官方 Hermes v2026.9.24，当前锁为 `infra/releases/20261004-eodhd-mcp/chat.lock.json`，各自配对应 manifest（Core API 与 Worker 分别绑定版本）。主 catalog 和旧聊天 Compose 中的历史基线不代表本次线上版本。目标机兼容、迁移、备份恢复及限制见 [部署记录](ops/three-repo-vm-rollout-20261004.md)。
+当前源版本、候选状态和已登记镜像以锁文件及其验收证据为准，不从早期调研状态推断是否部署。个人 Hermes gateway 登记位于 `infra/chat/assistant-upstreams.lock.json`。2026-10-04 已按用户授权部署 youwei-webui v0.11.4、独立助手与新 Core API；当前生产平台锁为 `infra/releases/20261004/production.lock.json`；聊天栈已随后按用户选择切换官方 Hermes v2026.9.24，当前锁为 `infra/releases/20261004-hermes-workbench/chat.lock.json`，各自配对应 manifest（Core API 与 Worker 分别绑定版本）。主 catalog 和旧聊天 Compose 中的历史基线不代表本次线上版本。目标机兼容、迁移、备份恢复及限制见 [部署记录](ops/three-repo-vm-rollout-20261004.md)。
 
 发布检查覆盖渲染配置中的全部服务镜像，包括 Core、Runner、数据库及沙箱内部镜像。源码同步、隔离验收、目标机验证和生产切换分别记录；只有实际部署证据才能证明线上版本。
 
@@ -129,3 +129,7 @@ API只映射本机 `127.0.0.1:8000`，并接入普通 `edge` 网络供本机发�
 **spool 必须保持宿主与 Runner 内同一绝对路径。** Runner随后让宿主Docker daemon按绝对路径挂载job输入，因此named volume或“宿主 `/a` → Runner `/b`”会让daemon找到错误目录。示例用 `YOUWEI_RUNNER_SPOOL_DIR` 同时作为bind source、bind target和 `YOUWEI_RUNNER_SPOOL_ROOT`；必须先创建目录，Compose禁止隐式创建。目录放在仓库之外，Linux使用真实绝对路径；Docker Desktop需处于允许共享的宿主路径。不要把该目录复用为数据库、密钥或项目根目录。
 
 本机示例显式设置 `YOUWEI_RUNNER_DEVELOPMENT=true`、runtime为空，使用本机默认容器运行时。正式Runner必须development=false、sandbox镜像固定digest、runtime=runsc，并重新构建/验证发布清单；不能把开发override带入正式部署。Dockerfile的默认基础镜像同样只用于开发，发布构建时用构建参数覆盖为已核实的digest，记录构建证据。
+
+### EODHD Extended 候选（2026-10-05）
+
+十九工具候选登记在 `infra/releases/20261005-eodhd-extended/assistant.candidate.lock.json`，`enabled=false`、`verification.status=smoke_only`。固定源码、真实 registry digest 与开发/目标机隔离验证见同目录证据和[验收记录](ops/eodhd-extended-20261005.md)。账户权限和实时连接未通过，生产助手登记、工作台镜像与 VM Compose 保持原值；不得把候选 catalog 通过解释为已部署。

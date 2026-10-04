@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "components": {
+    "hermes-assistant": {
+      "enabled": false,
+      "source": {
+        "kind": "git",
+        "url": "https://github.com/youweichen0208/trading-assistant",
+        "revision": "d9f69c596c90219c17aab5b7714a1d06f0baab4e"
+      },
+      "runtime": {
+        "python": "3.13.16"
+      },
+      "integration_status": "integrated",
+      "verification": {
+        "status": "smoke_only",
+        "evidence": {
+          "path": "infra/releases/20261005-eodhd-extended/candidate-evidence.json",
+          "sha256": "b8c37a0fc6441fedd8e37eb286dc49e391e99094d90abda9d99e17be2f254cf8"
+        }
+      },
+      "deployment": {
+        "image": "ghcr.io/youweichen0208/trading-assistant@sha256:43a518a58a8e81a8e4f0625fa08940ff5bc1a81e91d7f854e6eef2f0d754589e",
+        "bindings": [
+          {
+            "service": "hermes-assistant",
+            "field": "image"
+          },
+          {
+            "service": "hermes-workbench-skills",
+            "field": "image"
+          }
+        ]
+      },
+      "notes": "Extended 19-tool candidate. Do not deploy: account probes rejected intraday/technical/screener; crypto WebSocket disconnected. Existing production lock and compose remain authoritative. See docs/ops/eodhd-extended-20261005.md.",
+      "upstream": {
+        "kind": "git",
+        "url": "https://github.com/NousResearch/hermes-agent",
+        "revision": "f97608f178d1ffeca59860195ab7da295f7c8e5f",
+        "release": "v2026.9.24",
+        "version": "0.21.5"
+      },
+      "build_inputs": {
+        "schema_version": 1,
+        "hermes": {
+          "repository": "https://github.com/NousResearch/hermes-agent",
+          "revision": "f97608f178d1ffeca59860195ab7da295f7c8e5f",
+          "extras": [
+            "messaging",
+            "mcp"
+          ],
+          "patches": [],
+          "release": "v2026.9.24",
+          "version": "0.21.5"
+        },
+        "python": "3.13.16",
+        "python_image": "python:3.13-slim@sha256:bb2988715db2cf7ace7b53f38f3cffbef7c7046a656bee66245eb0ed386e2e81",
+        "uv_image": "ghcr.io/astral-sh/uv:0.11.16@sha256:440fd6477af86a2f1b38080c539f1672cd22acb1b1a47e321dba5158ab08864d",
+        "optional_dependencies": {
+          "ddgs": {
+            "requirements": "infra/ddgs-requirements.txt",
+            "version": "9.16.0",
+            "reason": "Official release provides DDGS integration without a dependency extra; retain existing keyless search without patching upstream"
+          }
+        }
+      }
+    }
+  }
+}

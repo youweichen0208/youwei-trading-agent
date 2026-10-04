@@ -1,0 +1,280 @@
+{
+  "date": "2026-10-04",
+  "queried_at": "2026-10-04T16:40:27.155997+00:00",
+  "server": {
+    "name": "eodhd-datasets-legacy",
+    "version": "4.0.10"
+  },
+  "discovered_tools": 93,
+  "auth": "Authorization Bearer header",
+  "checks": {
+    "resolve_ticker": {
+      "status": "success",
+      "validated": [
+        "resolved_symbol_exchange"
+      ],
+      "rows": null,
+      "response_bytes": 1590,
+      "arguments": {
+        "query": "Apple",
+        "preferred_exchange": "US",
+        "asset_type": "stock"
+      },
+      "schema_sha256": "942778d3f7e0dfa7d4af4f580b011bcc3aa1dbcc4a7b7f06a82d4f7d6fad5362"
+    },
+    "get_stocks_from_search": {
+      "status": "success",
+      "validated": [
+        "search_symbol_exchange"
+      ],
+      "rows": 1,
+      "response_bytes": 698,
+      "arguments": {
+        "query": "AAPL",
+        "exchange": "US",
+        "limit": 1
+      },
+      "schema_sha256": "4e8a1c3242beef45631e222771843a849eda41d28daea63319bb383d60109798"
+    },
+    "get_historical_stock_prices": {
+      "status": "success",
+      "validated": [
+        "required_fields_and_dates"
+      ],
+      "rows": 5,
+      "response_bytes": 1662,
+      "arguments": {
+        "ticker": "AAPL.US",
+        "start_date": "2026-09-27",
+        "end_date": "2026-10-04"
+      },
+      "schema_sha256": "e1eaf805c604f66461fe8524229adf9bc6b00328be4a07f919092bc54b9584ac"
+    },
+    "get_live_price_data": {
+      "status": "success",
+      "validated": [
+        "quote_symbol_price_timestamp"
+      ],
+      "rows": null,
+      "response_bytes": 640,
+      "arguments": {
+        "ticker": "AAPL.US"
+      },
+      "schema_sha256": "8ca915c021585126e9a06c6b216b3e598c9d1118462c2b92951f0da2c7c33569"
+    },
+    "get_company_news": {
+      "status": "success",
+      "validated": [
+        "required_fields_and_dates"
+      ],
+      "rows": 1,
+      "response_bytes": 10680,
+      "arguments": {
+        "ticker": "AAPL.US",
+        "start_date": "2026-09-27",
+        "end_date": "2026-10-04",
+        "limit": 1
+      },
+      "schema_sha256": "415e3cc25692fdc75bbbd144886c9e4b614e5067aa936b2575fe7d5a2c797fe0"
+    },
+    "get_intraday_historical_data": {
+      "status": "subscription_denied",
+      "response_bytes": 707,
+      "arguments": {
+        "ticker": "AAPL.US",
+        "interval": "5m",
+        "from_timestamp": "2026-10-02T13:30:00Z",
+        "to_timestamp": "2026-10-02T14:00:00Z"
+      },
+      "schema_sha256": "4b83c07645c6a4fcbefcddd3c5e83e0f7f8fe16adaeb69815283e2077f077f48"
+    },
+    "get_us_live_extended_quotes": {
+      "status": "success",
+      "validated": [
+        "extended_symbol_price_timestamp"
+      ],
+      "rows": null,
+      "response_bytes": 3269,
+      "arguments": {
+        "symbols": [
+          "AAPL.US"
+        ],
+        "page_limit": 1
+      },
+      "schema_sha256": "f594a555e98d430dbce2f237a9797699bf4aecf593963dcb7481d7c3b453edf0"
+    },
+    "get_historical_dividends": {
+      "status": "success",
+      "validated": [
+        "required_fields_and_dates"
+      ],
+      "rows": 3,
+      "response_bytes": 1527,
+      "arguments": {
+        "ticker": "AAPL.US",
+        "start_date": "2026-01-01",
+        "end_date": "2026-10-04"
+      },
+      "schema_sha256": "9be66d5e3bd9467c0a178630fbde2245055ba0d7734702731bf6ecb2c0dffaf4"
+    },
+    "get_historical_splits": {
+      "status": "success",
+      "validated": [
+        "required_fields_and_dates"
+      ],
+      "rows": 1,
+      "response_bytes": 307,
+      "arguments": {
+        "ticker": "AAPL.US",
+        "start_date": "2020-08-01",
+        "end_date": "2020-09-01"
+      },
+      "schema_sha256": "9be66d5e3bd9467c0a178630fbde2245055ba0d7734702731bf6ecb2c0dffaf4"
+    },
+    "get_sentiment_data": {
+      "status": "success",
+      "validated": [
+        "required_fields_and_dates"
+      ],
+      "rows": 8,
+      "response_bytes": 1275,
+      "arguments": {
+        "symbols": "AAPL.US",
+        "start_date": "2026-09-27",
+        "end_date": "2026-10-04"
+      },
+      "schema_sha256": "92f2380868a43731c7b1f34ac50a7bb756dbea4206594082c91dc198995840ee"
+    },
+    "get_news_word_weights": {
+      "status": "success",
+      "validated": [
+        "word_numeric_weights"
+      ],
+      "rows": null,
+      "response_bytes": 781,
+      "arguments": {
+        "ticker": "AAPL.US",
+        "start_date": "2026-09-27",
+        "end_date": "2026-10-04",
+        "limit": 10
+      },
+      "schema_sha256": "daa2d9a04d1993e1442363497be154cf1324fce5b0592ad222d1fe031105f68a"
+    },
+    "get_technical_indicators": {
+      "status": "subscription_denied",
+      "response_bytes": 583,
+      "arguments": {
+        "ticker": "AAPL.US",
+        "function": "sma",
+        "period": 10,
+        "start_date": "2026-09-27",
+        "end_date": "2026-10-04"
+      },
+      "schema_sha256": "f1b12f4f11fefab44681c91f7f979a616e9d7b8c06cab2088fc2d8410efe7900"
+    },
+    "stock_screener": {
+      "status": "subscription_denied",
+      "response_bytes": 583,
+      "arguments": {
+        "filters": [
+          [
+            "code",
+            "=",
+            "AAPL"
+          ]
+        ],
+        "limit": 1
+      },
+      "schema_sha256": "71a5eaeae79d7efa3b661ac2ae6b6f4273783d007a724f4255fe1e32955289a4"
+    },
+    "get_historical_commodity_prices": {
+      "status": "success",
+      "validated": [
+        "required_fields_and_dates"
+      ],
+      "rows": 40,
+      "response_bytes": 4345,
+      "arguments": {
+        "code": "WTI",
+        "interval": "annual"
+      },
+      "schema_sha256": "48d9710d863a8a3c97ad3f7749d8f75faa50b5f2a701635acec67d340b12eede"
+    },
+    "get_ust_bill_rates": {
+      "status": "success",
+      "validated": [
+        "required_fields_and_dates"
+      ],
+      "rows": 1330,
+      "limit_ignored": true,
+      "response_bytes": 513645,
+      "arguments": {
+        "year": 2026,
+        "limit": 1
+      },
+      "schema_sha256": "a9e7e710b4bcf4981680e413e31541afee5f20df17831bab8cae129fd4fb7ea0"
+    },
+    "get_ust_yield_rates": {
+      "status": "success",
+      "validated": [
+        "required_fields_and_dates"
+      ],
+      "rows": 1,
+      "response_bytes": 531,
+      "arguments": {
+        "year": 2026,
+        "limit": 1
+      },
+      "schema_sha256": "fa345d0c1b3dfc30a2fe76026920f2af1f52ea8159305a93de8c031591d52fbc"
+    },
+    "get_ust_real_yield_rates": {
+      "status": "success",
+      "validated": [
+        "required_fields_and_dates"
+      ],
+      "rows": 1,
+      "response_bytes": 529,
+      "arguments": {
+        "year": 2026,
+        "limit": 1
+      },
+      "schema_sha256": "1caf7dda5ecdfd82fc33e373c5b7d4554146a49b01ec4aae3770c827e1f5b40e"
+    },
+    "get_ust_long_term_rates": {
+      "status": "success",
+      "validated": [
+        "required_fields_and_dates"
+      ],
+      "rows": 570,
+      "limit_ignored": true,
+      "response_bytes": 122557,
+      "arguments": {
+        "year": 2026,
+        "limit": 1
+      },
+      "schema_sha256": "2cbddd9cf1989a59c1f419d9d85cf37f9bc2ab41b8c474e1e9e7c0223babb8ac"
+    },
+    "capture_realtime_ws": {
+      "status": "connection_failed",
+      "response_bytes": 173,
+      "arguments": {
+        "feed": "crypto",
+        "symbols": [
+          "BTC-USD"
+        ],
+        "duration_seconds": 5,
+        "max_messages": 100,
+        "max_data_bytes": 1048576,
+        "connect_timeout": 5
+      },
+      "schema_sha256": "aa6989aaf57ba18f0d4079976354d05e08cdaf235dde59961f8b2cdf4372be59"
+    }
+  },
+  "paid_model_calls": false,
+  "production_cutover": "blocked",
+  "limitations": [
+    "intraday/technical/screener subscription denied",
+    "crypto BTC-USD websocket disconnected without data",
+    "bill and long-term treasury endpoints ignore limit; selected year bounds validated"
+  ]
+}

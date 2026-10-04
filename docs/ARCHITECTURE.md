@@ -53,7 +53,7 @@ flowchart TD
     Personal --> Gateway
     Personal --> Notes[(个人 profile / memory / 来源笔记)]
     Personal -->|允许列表：搜索与网页提取| Web[公开网页]
-    Personal -->|七项只读查询 / 服务端凭证| EODHD[EODHD 官方 MCP]
+    Personal -->|显式允许列表 / 服务端凭证| EODHD[EODHD 官方 MCP]
     Personal -->|插件 / 服务端 Core 凭证 / HTTP| Core[Core API]
     Core --> PG[(平台 PostgreSQL)]
     Worker[Core Worker / Controller] --> PG
@@ -84,7 +84,7 @@ Hermes 平台插件使用以下 Core 接口；浏览器和模型参数均不提�
 
 ## 1. 关键决策
 
-个人查询的后续部署：EODHD MCP 已按用户授权在 sg-prod 上线，固定七项查询工具；当前套餐可用范围、验收证据和镜像回滚见 [EODHD MCP 记录](ops/eodhd-mcp-rollout-20261004.md)。该接线不改变下述正式研究协议。
+个人查询的后续部署：EODHD MCP 已按用户授权在 sg-prod 上线，固定七项查询工具；当前套餐可用范围、验收证据和镜像回滚见 [EODHD MCP 记录](ops/eodhd-mcp-rollout-20261004.md)。该接线不改变下述正式研究协议。 2026-10-05 的十九工具扩展候选已实现：增加盘中历史、公司行为、情绪/词频、技术指标/筛选、商品/国债与短时实时采集，移除基本面和财报日历。服务端限制时间范围和采集规模、拒绝凭证覆盖，MCP resources/prompts 关闭。账户验收有三项套餐拒绝及实时连接失败，尚未切换生产；当前七工具部署继续有效，详见[候选验收](ops/eodhd-extended-20261005.md)。
 
 保留 v0.2 的 PIT 数据、三组预测、前向评估、独立记忆、沙箱和人工发布原则。优先让一次预测从计划、封存到评分都具有严格语义，再扩展研究角色与实验能力。
 

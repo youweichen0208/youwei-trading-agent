@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "assistant_source": "d9f69c596c90219c17aab5b7714a1d06f0baab4e",
+  "source_archive_sha256": "4f892a74978e479a57eb1dfe85475f9d08696bbd06d3351d37ac06f648630290",
+  "image": "ghcr.io/youweichen0208/trading-assistant@sha256:43a518a58a8e81a8e4f0625fa08940ff5bc1a81e91d7f854e6eef2f0d754589e",
+  "architecture": "amd64",
+  "built_on": "sg-prod isolated build directory /root/eodhd-extended-20261005/assistant",
+  "registry_tag": "eodhd-extended-d9f69c5",
+  "hermes_revision": "f97608f178d1ffeca59860195ab7da295f7c8e5f",
+  "unit_tests": "50 passed",
+  "native_mock": "PASS all 19 tools, real input schemas; arm64 image --network none; auth, bounds, redaction, timeout, offline, stream, history, backup restore",
+  "native_live": "PASS candidate amd64 disposable container; 24 tools discovered; AAPL quote symbol, numeric close and timestamp validated; no model calls",
+  "platform_contracts": "21 passed (upstreams, WebUI configuration, assistant backup)",
+  "compose": "chat + chat-assistant + chat-workbench config --quiet passed with placeholders",
+  "production_cutover": "blocked: three subscription denials and websocket connection failure",
+  "paid_model_calls": false,
+  "forward_evaluation": false,
+  "cross_service_mock": {
+    "result": "PASS",
+    "script": "ops/verify_assistant_webui.py",
+    "environment": "sg-prod disposable network/volumes/containers; synthetic model, no EODHD credentials",
+    "webui_image": "ghcr.io/youweichen0208/youwei-webui@sha256:171e0e83a7b03b29d1d3552dc637b1e71526085278a3717dc92989ce4cbd630f",
+    "checks": "model discovery/chat/full-history follow-up/SSE/knowledge/restart/backup restore/background routing with discovery unavailable/signup disabled/history preserved",
+    "log": "/root/eodhd-extended-20261005/webui-mock.log"
+  },
+  "native_live_evidence": {
+    "path": "infra/releases/20261005-eodhd-extended/native-live.json",
+    "sha256": "8fd284bd5eb228dbbcc2130f3d584d25775a239582b4af1ba3a5395d359a7774"
+  },
+  "production_unchanged": {
+    "assistant_and_skills_image": "sha256:5686c66c00568511ea645c8402cfad6b37ae4019aceb12674ba27eb999618171",
+    "assistant_started_at": "2026-10-04T15:18:46.995329956Z",
+    "skills_started_at": "2026-10-04T15:18:46.999684821Z",
+    "webui_started_at": "2026-10-04T15:19:32.493273309Z"
+  }
+}
