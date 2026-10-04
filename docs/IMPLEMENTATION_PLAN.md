@@ -54,3 +54,9 @@ S06e 分类与登记复核的原始验收见[历史记录](archive/implementatio
 
 <a id="s08--接入一个-pi-探索任务phase-1b依赖-s03s07"></a>
 旧 Pi 探索任务深链接保留；当前决策是 Hermes 研究/实验实例，Pi 暂缓。原任务及决策经过见[历史记录](archive/implementation-through-20261004.md)。
+
+## S12l — 默认分支统一为 develop（2026-10-04）
+
+所有者要求三仓以 develop 为默认协作分支，并将本轮重构 PR 合入 develop。平台现有 develop 为本轮分支祖先；助手 develop 从原 main 建立，WebUI develop 从原 youwei 定制基线建立。保留 main/youwei 历史，不重写提交，不操作 VM；WebUI 自有镜像工作流同步为 develop。
+
+平台 PR 的 GitGuardian 对旧提交报 7 处告警，已逐项核对：4 处是一次性 PITR/pgBackRest 演练容器的固定测试密码，2 处为 Compose 必填环境变量引用，1 处是换行解析测试使用的不可解析 PEM 字符串（实际密码学加载拒绝）。这些不是可用生产凭证；未关闭扫描、添加忽略规则或改写历史，扫描告警与功能 CI 结果分别报告。

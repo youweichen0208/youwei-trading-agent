@@ -68,7 +68,7 @@ python3 infra/validate_upstreams.py --mode deployment \
 
 ### youwei-webui 的同步与交付
 
-- fork 的 `main` 只跟踪上游；`youwei` 从选定正式 Release tag 创建并维护定制。升级从 `youwei` 建临时分支，合并目标 Release、解决冲突、验证后合回；GitHub Sync fork 用于同步 main，不自动升级部署。
+- 三仓统一以 `develop` 为默认协作和 PR 目标分支。WebUI 的 `develop` 承接原 `youwei` 定制基线，镜像工作流按 develop 验证与发布；旧 `youwei` 保留历史。fork 的 `main` 仅保留上游同步用途，升级从 develop 建临时分支合并已选 Release，验证后合回 develop；同步上游不会自动合入 develop 或部署。
 - 每月检查正式 Release，安全修复及时评估。保留上游历史，按功能组织定制；配置能关闭的功能先用配置，保留认证、聊天存储和迁移机制作为初期默认。
 - fork 负责源码构建和界面回归；平台仓库负责跨服务验证和部署清单。每次交付记录上游 tag/完整 SHA、fork 完整 SHA、构建镜像 digest、兼容的 Hermes 镜像与配置版本、验收证据和回滚数据要求。部署固定 digest，不使用浮动 main/latest。
 - 首次将官方 v0.6.36 切换到 fork 时单独验收版本升级；现有配置脚本涉及 WebUI 持久配置与 SQLite 结构，新版本须重新核对，不能直接沿用旧版本测试结论。保留版权及适用许可，品牌定制核对所选版本 LICENSE。
