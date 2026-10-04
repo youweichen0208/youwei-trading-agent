@@ -133,11 +133,15 @@ def test_deployment_rejects_changed_or_unverified_release_inputs(tmp_path, chang
 
 
 def test_repository_catalog_does_not_claim_a_deployable_release():
+    # Since S09a the repository catalog ships enabled, verified components
+    # (core, postgres) with pinned digests. A deployable release still
+    # requires the rendered Compose and the deployment manifest, so bare
+    # deployment mode must refuse to run rather than validate the catalog.
     catalog = command("--mode", "catalog")
     deployment = command("--mode", "deployment")
     assert catalog.returncode == 0, catalog.stderr
     assert deployment.returncode != 0
-    assert "at least one enabled" in deployment.stderr
+    assert "deployment requires --compose and --manifest" in deployment.stderr
 
 
 def test_deployment_checks_the_sandbox_image_in_runner_environment(tmp_path):

@@ -1,6 +1,7 @@
 """Runtime settings. Resource baselines follow the S02 decision:
 4 vCPU / 7.8 GB host, API and Worker one process each, conservative pools."""
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -44,6 +45,10 @@ class Settings(BaseSettings):
     # (expired leases, overdue runs) alert on any occurrence.
     alert_queue_backlog_age_seconds: float = 300.0
     alert_unpublished_events_age_seconds: float = 60.0
+    # WAL archive: alert when the oldest PENDING WAL file (.ready in
+    # pg_wal/archive_status) has waited longer than this. Not wall-clock
+    # since the last archive — an idle database produces no WAL and is
+    # healthy (owner decision 2026-10-02).
     alert_wal_archive_stale_seconds: float = 1800.0
 
     # S04: Tiingo collection (token lives in the gitignored .env).
@@ -82,9 +87,34 @@ class Settings(BaseSettings):
     # container hold only public keys. The model is the gateway model name
     # (the gateway endpoint/key are injected by the Runner, never here).
     research_signing_private_key: str = ""  # Ed25519 PEM (Controller secret)
+
+    @field_validator("research_signing_private_key")
+    @classmethod
+    def _restore_pem_newlines(cls, value: str) -> str:
+        """Single-line PEM env values carry literal \\n escapes.
+
+        The deployment stores the key single-quoted in production.env so
+        shell sourcing and compose interpolation keep the backslashes
+        (docs/ops/s12d-deployment-execution.md). Restore real newlines so
+        ``load_pem_private_key`` receives a well-formed PEM; values that
+        already contain real newlines pass through unchanged.
+        """
+        if value and "\\n" in value:
+            return value.replace("\\n", "\n")
+        return value
+
     research_signing_kid: str = "research-key-1"
     research_exec_config_version: str = "research-exec-v1"
     research_model: str = ""
+
+    # --- S08 exploration loop (experiment orchestration) ---
+    # Enabled only when the Runner experiment surface + research link are
+    # both wired; the limits are the template every experiment registers.
+    experiment_exploration_enabled: bool = False
+    experiment_limits_max_computations: int = 2
+    experiment_limits_max_concurrent: int = 1
+    experiment_limits_max_total_duration_seconds: float = 600.0
+    experiment_limits_max_artifact_bytes: int = 16 * 1024 * 1024
 
     # S09a: daily collection scheduler (collect_tick). The collection set
     # is fixed by ONE named release; its manifest names the panel

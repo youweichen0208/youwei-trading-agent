@@ -85,6 +85,12 @@ def make_evidence(tenant_id: uuid.UUID) -> FrozenEvidence:
         },
         target_policy_sha256="d" * 64,
         batch_manifest={"calendar_version": "nyse-rules-v1"},
+        quant={
+            "model_version": "quant-momentum-v0",
+            "source_status": "produced",
+            "p_outperform": 0.55,
+            "expected_excess_return": 0.01,
+        },
     )
 
 

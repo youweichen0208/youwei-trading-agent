@@ -3,44 +3,102 @@
   "format": "JSON syntax, valid YAML 1.2; validated by infra/validate_upstreams.py",
   "components": {
     "core": {
-      "enabled": false,
-      "source": {"kind": "local", "path": ".", "version": "0.1.0"},
+      "enabled": true,
+      "source": {
+        "kind": "local",
+        "path": ".",
+        "version": "0.1.0"
+      },
       "integration_status": "integrated",
-      "verification": {"status": "not_run", "evidence": null},
-      "deployment": {"image": "ghcr.io/youweichen0208/youwei-core@sha256:7292c8538e70750ebbd3c278ebd8572563b342ca5593981c34fc8659b9bd0e3c", "bindings": [{"service": "core-api", "field": "image"}, {"service": "core-worker", "field": "image"}]},
-      "notes": "S09a: Phase 1A Core image (API + Worker, one image, youwei-api / youwei-worker entrypoints). Published to GHCR ghcr.io/youweichen0208/youwei-core on 2026-10-02, digest sha256:7292c8538e70750ebbd3c278ebd8572563b342ca5593981c34fc8659b9bd0e3c. Still enabled=false pending deployment-mode validation (needs the deployment manifest with compose_sha256 and verification.status=passed)."
+      "verification": {
+        "status": "passed",
+        "evidence": {
+          "path": "docs/ops/s12-d2-enablement-prep.md",
+          "sha256": "e1fd2fa3d960b38ee2466093dca172ac66a33c85ce8b8bba679c66384bb61286"
+        }
+      },
+      "deployment": {
+        "image": "ghcr.io/youweichen0208/youwei-core@sha256:f18c8289a8d05b1b9913ac22973532c8c1683703b2f38a955ad7ca8d264abe40",
+        "bindings": [
+          {
+            "service": "core-api",
+            "field": "image"
+          },
+          {
+            "service": "core-worker",
+            "field": "image"
+          }
+        ]
+      },
+      "notes": "S09b (r2): Core image rebuilt with the 5 deployment fixes plus the Tiingo token-in-logs fix and pushed to GHCR on 2026-10-02, tag phase1a-s09b2, registry digest sha256:53631663f04096f3bcb19d4ee14d1c5598785f1bb39a12c75a736691d9cc1848 (OCI index). Evidence: docs/ops/s09b-production-launch.md. r3 (2026-10-02): WAL archive alert made backlog-driven (owner decision; the wall-clock rule fired forever on the idle production DB) \u2014 tag phase1a-r3, registry digest sha256:71d15917270c9eda7c8bcf5cc906c7e21222780eac23313bb188c7b09c33f2d6. Evidence: docs/ops/wal-alert-fix-20261002.md. r4 (2026-10-02): S10a dashboard read APIs (saved report/monthly reads, frozen-plan denominator + batch phases in campaign status, paginated case listing) \u2014 tag phase1a-r4, registry digest sha256:54df4db578b05327dee233a962260599077a561a32a8ce9118b0086aa255dad4, push + pull-by-digest verified, production rolled together with the youwei-dashboard proxy deployment (see the S10a section in docs/IMPLEMENTATION_PLAN.md). r1 sha256:55678d52..., r2 sha256:53631663..., r3 sha256:71d15917..., r4 sha256:54df4db5... retained in registry as history. Deployed compose copy on the host is path-adapted (./pgbackrest/... vs ../pgbackrest/... in-repo) \u2014 update it by field-level replacement only, never whole-file overwrite (see the incident note in the r3 evidence doc). r5 (2026-10-03, STAGED \u2014 built, pushed, digest-pull verified, NOT yet rolled to production which still runs r4): everything since r4 \u2014 S07o quant prediction into research input (Phase 1B path only; pipeline.py differs from the approved release bdb8bbe0 code_files, see the release-difference record in the prep doc), S12a exploratory research backend (+ migration b2c3d4e5f6a7), S12b query APIs, S08c migration a1b2c3d4e5f6, D2 actual-model attribution + Settings private-key \n restore. Base pinned python:3.13-slim@sha256:bb298871... (r4's actual base; the floating tag had drifted from the 2026-09-28 record). Tag phase1a-r5, registry digest sha256:10a4ecf9cc592d74a347ac8d6a39dd953a70c69198179c5c4998146ba36ae8af; in-container sanity (config unescape / attribution param / api import) passed. Rollout pending the owner's release-difference acceptance and timing decision (before vs after the batch-1 cutoff 2026-10-10). Evidence: docs/ops/s12-d2-enablement-prep.md. r6 (2026-10-03, STAGED \u2014 supersedes the r5 stage after the owner's D2 review fixes; built, pushed, digest-pull verified, NOT yet rolled): adds the bounded code-exception registry (migration c2d3e4f5a6b7, release_code_exceptions append-only table), the full D2 attribution traceability (ResearchInvocationAttribution: prompt hash, resolved non-sensitive execution config + hash, provider-returned model id with an explicit observation scope \u2014 never conflated with usage completeness), and the Phase 1A code-identity guards (byte-identity of the Phase 1A llm provider vs the approved release + Phase 1A never invokes the research link even with worker wiring). Base python:3.13-slim@sha256:bb298871... (r4's actual base), uv@sha256:440fd647... Tag phase1a-r6, registry digest sha256:119b2b6cd7df3ef91ddb4b3de827ae30dec114d1a82dbd4b1a28e6c866fb6986. Rollout deferred until after the batch-1 seal (owner decision 2026-10-03, option 2b). r7 (2026-10-03, STAGED \u2014 supersedes r6 after the rollout-rehearsal finding): the exploratory + pipeline runner-research expiry_providers now re-check the LIVE attempt lease (active_lease_expiry; the claim-time snapshot expired after 30s while a real glm-5.3 turn runs 84-224s \u2014 the Runner correctly 403'd mid-poll in the rehearsal). Phase 1B path only; pipeline.py sha256 is now 3a3dd6c0d7ddb5666b3754586ff2824b2f300a88aa1d06d37465a3a126a484d7 (still only S08c+S07o+this fix vs the approved release; the rollout exception row carries the actual hash). Tag phase1a-r7, registry digest sha256:f18c8289a8d05b1b9913ac22973532c8c1683703b2f38a955ad7ca8d264abe40, push + digest-pull verified."
     },
     "postgres": {
-      "enabled": false,
-      "source": {"kind": "image", "image": "postgres:16-alpine"},
+      "enabled": true,
+      "source": {
+        "kind": "local",
+        "path": "infra/images",
+        "version": "16.15.0-pgbr-2.59.2"
+      },
       "integration_status": "integrated",
-      "verification": {"status": "not_run", "evidence": null},
-      "deployment": {"image": "postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea", "bindings": [{"service": "postgres", "field": "image"}]},
-      "notes": "S09a: Phase 1A production PostgreSQL 16 (server 16.14), containerized on SG with a dedicated volume. Migration role (youwei_migrate, DDL) and app role (youwei_app, DML) are separated via infra/postgres/init/01-roles.sh. Digest is the current postgres:16-alpine digest (pinned in production compose)."
+      "verification": {
+        "status": "passed",
+        "evidence": {
+          "path": "docs/ops/s09c-postgres-image-release.md",
+          "sha256": "4f7b071350de9a95fc0368f44f56198393549d3a379b062e35228f76edb781a2"
+        }
+      },
+      "deployment": {
+        "image": "ghcr.io/youweichen0208/youwei-postgres@sha256:8d69232c1d2b7771ae8f9dbb04cd56bbd6334972f37e90956f6a5bad05382053",
+        "bindings": [
+          {
+            "service": "postgres",
+            "field": "image"
+          }
+        ]
+      },
+      "notes": "S09c: custom postgres image built in-repo (infra/images/postgres-pgbackrest.Dockerfile) from the pinned official postgres:16-alpine@sha256:721873c3... (server 16.15, musl; same base keeps libc/collation so PGDATA survives image swaps without dump/restore) plus pgBackRest 2.59.2 built from source and libbz2/xz-libs/yaml (alpine 3.24). Published to GHCR as youwei-postgres:phase1a-s09c, registry digest sha256:8d69232c... (pull-by-digest verified). In production since 2026-10-02 with archive_mode=on (archive_timeout=60), posix-repo backups (daily full at 11:15 UTC, retention 7, weekly check) and live wal_archive monitoring; backup/restore/PITR drill passed (docs/ops/s09c-ops-acceptance.md). Independent-failure-domain off-site copy pending the backup-target decision. Migration/app role separation via infra/postgres/init/01-roles.sh unchanged."
     },
     "hermes": {
-      "enabled": false,
+      "enabled": true,
       "source": {
         "kind": "git",
         "url": "https://github.com/NousResearch/hermes-agent",
         "revision": "7fa45eb349a1a6f1eebc010b3fef0a9d996f386a"
       },
-      "runtime": {"python": "3.14.7"},
-      "integration_status": "not_integrated",
+      "runtime": {
+        "python": "3.14.7"
+      },
+      "integration_status": "integrated",
       "verification": {
-        "status": "smoke_only",
+        "status": "passed",
         "evidence": {
-          "path": "docs/research/s01-target-verification.md",
-          "sha256": "f7052e9afc916e5cf305a165a4916df9515273e27327e06e7727a3b003e758c3"
+          "path": "docs/ops/s12-d2-enablement-prep.md",
+          "sha256": "e1fd2fa3d960b38ee2466093dca172ac66a33c85ce8b8bba679c66384bb61286"
         }
       },
-      "deployment": {"image": null, "bindings": []},
-      "notes": "Source installation smoke-tested. S07 adapter, isolation keys, research-v1 contract and offline/no-cost smoke are complete (see docs/IMPLEMENTATION_PLAN.md S07a-g); production integration, gateway wiring, image digest and deployment acceptance remain for S09. 2026-10-01: Hermes is the sole Agent framework for MVP; S08 is now the controlled quant exploration loop implemented with Hermes research/experiment instances (see docs/research/hermes-only-runtime-assessment.md). Headless agent-runtime image built on sg-prod (2026-10-01): manifest digest sha256:31b22113b2deee2476c94ddf290aa58f9b76c647742a60e5fd5f64cffa3dd02d (single-platform, no provenance), base python:3.14-slim@sha256:51dafde8..., uv 0.11.16@sha256:440fd647..., in-image no-cost smoke 5/5 passed (see docs/ops/agent-runtime-image-build.md). deployment.image stays null: digest is local, no registry yet. S07m (2026-10-01): research link switched to Ed25519 (research_capability.py); image rebuilt with cryptography 50.0.1 (Hermes uv.lock pins it transitively; Dockerfile VERIFIES the version rather than installing a second copy). New manifest digest sha256:998f060eb0f7fadaa1712e9540370a4dc1e79995b56f1a41a9c1f7b1e892f153 (tag youwei/agent-runtime:dev). In-image Ed25519 smoke 5/5 passed (valid-grant/wrong-tenant/missing-scope/bad-signature/expired). Restricted egress (gateway-only) and end-to-end Controller/Runner/container wiring remain for S07m-3c."
+      "deployment": {
+        "image": "ghcr.io/youweichen0208/youwei-agent-runtime@sha256:8d210f9105c0a85aa89bc362ea87e1eddf93d278abd6190fd55e33f93ff3c6ab",
+        "bindings": [
+          {
+            "service": "sandbox-runner",
+            "field": "environment",
+            "name": "YOUWEI_RUNNER_AGENT_RUNTIME_IMAGE"
+          }
+        ]
+      },
+      "notes": "Source installation smoke-tested. S07 adapter, isolation keys, research-v1 contract and offline/no-cost smoke are complete (see docs/IMPLEMENTATION_PLAN.md S07a-g); production integration, gateway wiring, image digest and deployment acceptance remain for S09. 2026-10-01: Hermes is the sole Agent framework for MVP; S08 is now the controlled quant exploration loop implemented with Hermes research/experiment instances (see docs/research/hermes-only-runtime-assessment.md). Headless agent-runtime image built on sg-prod (2026-10-01): manifest digest sha256:31b22113b2deee2476c94ddf290aa58f9b76c647742a60e5fd5f64cffa3dd02d (single-platform, no provenance), base python:3.14-slim@sha256:51dafde8..., uv 0.11.16@sha256:440fd647..., in-image no-cost smoke 5/5 passed (see docs/ops/agent-runtime-image-build.md). deployment.image stays null until the Phase 1B deployment decision, but the image is now published: ghcr.io/youweichen0208/youwei-agent-runtime:phase1a-s07, registry digest sha256:998f060eb0f7fadaa1712e9540370a4dc1e79995b56f1a41a9c1f7b1e892f153 (push + digest pull verified 2026-10-02). S07m (2026-10-01): research link switched to Ed25519 (research_capability.py); image rebuilt with cryptography 50.0.1 (Hermes uv.lock pins it transitively; Dockerfile VERIFIES the version rather than installing a second copy). New manifest digest sha256:998f060eb0f7fadaa1712e9540370a4dc1e79995b56f1a41a9c1f7b1e892f153 (tag youwei/agent-runtime:dev). In-image Ed25519 smoke 5/5 passed (valid-grant/wrong-tenant/missing-scope/bad-signature/expired). Restricted egress (gateway-only) and end-to-end Controller/Runner/container wiring remain for S07m-3c. S07m-3c completed 2026-10-01 (see docs/ops/agent-runtime-cross-container.md). Real-gateway verification completed 2026-10-02: research container -> LiteLLM -> Volcengine end-to-end over the youwei-research internal network (litellm attached with alias), synthetic evidence, glm-5.3 produced a contract-valid proposal; tool-surface escape attempts (tool_call bridge + direct non-enabled tool) both rejected; usage matched spend logs token-for-token; cancellation propagates; Runner timeout container-leak defect found and fixed. Verified image manifest digest sha256:bca0a5b9cecf5fdc2c1adfa4ac44dbe76a30be040f688f0ddf0cdd5ed9631f8a (includes brief response-format contract, config-injected model attribution, explicit output cap), republished to GHCR the same day as ghcr.io/youweichen0208/youwei-agent-runtime:phase1a-s07-r2 (registry digest == local manifest digest, push + imagetools inspect verified); the pre-fix digest sha256:998f060e... (tag phase1a-s07) remains as history. deployment.image stays null pending the Phase 1B deployment decision. Full matrix + defect list: docs/ops/s07-real-gateway-verification.md. 2026-10-03 (D2 enablement): MINIMAL LOCAL FORK recorded per the upstream policy \u2014 infra/images/hermes-last-turn-model.patch (2 lines, agent/turn_usage.py record_response_usage stashes agent._last_turn_model = response.model) because the pinned upstream exposes no stable surface for the response's model id (chat() returns a string; turn result dict and history messages carry no model; hooks receive usage only \u2014 verified against the 7fa45eb checkout). The Dockerfile applies the patch with git apply --check first so an upstream bump that breaks it fails the build. New image phase1a-s07-r3, registry digest sha256:97d8b9c1d12d2cdca86eab47007d4a14277474b9cb2c5ff72eb34a9462571f86 (push + digest pull verified; patch-presence + container smoke 5/5 verified). The deployed Runner references this digest via the production compose env (staged; production still references bca0a5b9 until the r5 rollout). 2026-10-03 (D2 review): component ENABLED with an environment binding \u2014 the production compose pins the agent-runtime image via the sandbox-runner env entry YOUWEI_RUNNER_AGENT_RUNTIME_IMAGE, so the deployment validator now covers it. Current staged image phase1a-s07-r4 (registry digest sha256:8d210f9105c0a85aa89bc362ea87e1eddf93d278abd6190fd55e33f93ff3c6ab, push + digest-pull verified; in-image patch + attribution model + build_execution_attribution verified; container smoke 5/5). Local patch registration: infra/images/hermes-last-turn-model.patch sha256 d713a32de9a53601a8303a8e907b3c0aab99c193a7d520508bb9b9c933165f18 (2 lines, agent/turn_usage.py record_response_usage stashes agent._last_turn_model). Removal conditions: (a) the upstream exposes a stable surface for the response's model id (the adapter then reads it and the patch drops), or (b) the actual-model attribution requirement is withdrawn. ANY Hermes revision bump requires semantic re-verification of the patched area \u2014 git apply --check proves the patch applies, NOT that upstream semantics are unchanged."
     },
     "pi": {
       "enabled": false,
-      "source": {"kind": "npm", "package": "@earendil-works/pi-coding-agent", "version": "0.87.1"},
-      "runtime": {"node_requirement": ">=22.19.0", "node_exact": null},
+      "source": {
+        "kind": "npm",
+        "package": "@earendil-works/pi-coding-agent",
+        "version": "0.87.1"
+      },
+      "runtime": {
+        "node_requirement": ">=22.19.0",
+        "node_exact": null
+      },
       "integration_status": "not_integrated",
       "verification": {
         "status": "smoke_only",
@@ -49,39 +107,99 @@
           "sha256": "f7052e9afc916e5cf305a165a4916df9515273e27327e06e7727a3b003e758c3"
         }
       },
-      "deployment": {"image": null, "bindings": []},
+      "deployment": {
+        "image": null,
+        "bindings": []
+      },
       "notes": "RPC get_state smoke passed. 2026-10-01: deferred for MVP (Hermes is the sole Agent framework); retained as a replaceable experiment-agent adapter candidate with version pin unchanged. Re-evaluate only if Hermes exposes a concrete gap, with a pre-registered comparison on the same task/model/tools/sandbox conditions. Package lock, exact Node/image digest and end-to-end authorization remain unverified and unaccepted."
     },
     "litellm": {
       "enabled": false,
-      "source": {"kind": "pypi", "package": "litellm", "version": "1.102.1"},
-      "runtime": {"python_exact": null},
-      "integration_status": "not_integrated",
+      "source": {
+        "kind": "pypi",
+        "package": "litellm",
+        "version": "1.102.1"
+      },
+      "runtime": {
+        "python_exact": null
+      },
+      "integration_status": "integrated",
       "verification": {
-        "status": "not_run",
+        "status": "passed",
         "evidence": {
-          "path": "docs/research/llm-gateway-options.md",
-          "sha256": "b2cc39aea6288bba8aa968264e7d6633593240f3f5786b408bb79d50e07a8e0b"
+          "path": "docs/ops/chat-stack-deployment.md",
+          "sha256": "9dc66afd5feaff766529e7133518079b7068d7985064c408c935b4ddaeb6090e"
         }
       },
-      "deployment": {"image": null, "bindings": []},
-      "notes": "Version is a documented candidate. Prior main-stable image smoke does not prove this exact package version or deployable digest."
+      "deployment": {
+        "image": "ghcr.io/berriai/litellm@sha256:f8043697479513b9ae6f3abac8e62d61b908cfd31541cc3c3c994e16a28d784e",
+        "bindings": []
+      },
+      "notes": "Deployed 2026-10-02 in the youwei-chat stack (infra/compose/chat.json, sg-prod): OpenAI-compatible gateway over the Volcengine Anthropic-compatible endpoint (Bearer auth, S01-verified pattern), 5 models, spend logs in its own postgres, virtual-key isolation (chat key, no budget cap per owner decision). Real chat + streaming + usage verified (docs/ops/chat-stack-deployment.md). Stays enabled:false because the deployment validator covers the research production compose only. 2026-10-02 real-gateway verification (docs/ops/s07-real-gateway-verification.md): cancellation propagates (upstream terminated within seconds of client abort); fail-closed behavior is FAIL-OPEN for cached keys when the counter DB is unreachable; max_parallel_requests / rpm / tpm each enforced (TPM checks projected usage pre-admission); research chain reaches the gateway over the youwei-research internal network; the S07n provisional docker-network attachment was replaced by DECLARATIVE wiring on 2026-10-03 (infra/compose/chat.json attaches litellm to the external network with alias litellm; container recreation now preserves the join). Cost map vs Volcengine billing remains unconfigured (observability only; budget dimension deleted 2026-09-30)."
     },
     "openwebui": {
       "enabled": false,
-      "source": {"kind": "git", "url": "https://github.com/open-webui/open-webui", "revision": null},
-      "integration_status": "not_integrated",
-      "verification": {"status": "not_run", "evidence": null},
-      "deployment": {"image": null, "bindings": []},
-      "notes": "S09 integration candidate; no version, image or deployment has been selected."
+      "source": {
+        "kind": "image",
+        "image": "ghcr.io/open-webui/open-webui:v0.6.36"
+      },
+      "integration_status": "integrated",
+      "verification": {
+        "status": "passed",
+        "evidence": {
+          "path": "docs/ops/chat-stack-deployment.md",
+          "sha256": "9dc66afd5feaff766529e7133518079b7068d7985064c408c935b4ddaeb6090e"
+        }
+      },
+      "deployment": {
+        "image": "ghcr.io/open-webui/open-webui@sha256:0b73f17a1e63c024ec6bb80a2c0d4a6d79dfd798a5b608531c52e340e6ef168f",
+        "bindings": []
+      },
+      "notes": "Deployed 2026-10-02 as the owner's personal LLM chat UI in the youwei-chat stack (sg-prod, 127.0.0.1:8090, backed by the LiteLLM gateway). Public entry live since 2026-10-02: https://trading.youwei-agent.com (CN-ECS relay + SG TLS, both certs valid to 2026-12-31, systemd renewal active; SG vhost 403 for non-ECS sources). Owner account created; ENABLE_SIGNUP=False (signup endpoint 403 verified). This is the personal-chat use, distinct from the S09 evaluation-dashboard role (consume Core APIs) which remains unevaluated."
     },
     "openviking": {
       "enabled": false,
-      "source": {"kind": "git", "url": "https://github.com/volcengine/OpenViking", "revision": null},
+      "source": {
+        "kind": "git",
+        "url": "https://github.com/volcengine/OpenViking",
+        "revision": null
+      },
       "integration_status": "not_integrated",
-      "verification": {"status": "not_run", "evidence": null},
-      "deployment": {"image": null, "bindings": []},
+      "verification": {
+        "status": "not_run",
+        "evidence": null
+      },
+      "deployment": {
+        "image": null,
+        "bindings": []
+      },
       "notes": "Optional derived retrieval layer; no version, image or deployment has been selected."
+    },
+    "sandbox-runner": {
+      "enabled": true,
+      "source": {
+        "kind": "local",
+        "path": "services/sandbox-runner",
+        "version": "0.1.0"
+      },
+      "integration_status": "integrated",
+      "verification": {
+        "status": "passed",
+        "evidence": {
+          "path": "docs/ops/s12d-deployment-execution.md",
+          "sha256": "2d15b282fdef3d7310f559bc0c7f7c5cd1aed9f96824bb2a7588b351d2abcce0"
+        }
+      },
+      "deployment": {
+        "image": "ghcr.io/youweichen0208/youwei-runner@sha256:c44c3d4a361422572edb258c58d83b8b2268181a8888a4c35d0062eda0955de9",
+        "bindings": [
+          {
+            "service": "sandbox-runner",
+            "field": "image"
+          }
+        ]
+      },
+      "notes": "First-party gVisor Sandbox Runner (independent uv lock, no Core import; S03 execution chain + S08 experiment surface). Isolated mock acceptance: docs/ops/s08-mock-acceptance.md. Image published 2026-10-03 (S12d prep): built on sg-prod from the current repo, pushed as ghcr.io/youweichen0208/youwei-runner:phase1a-s12d, registry digest sha256:c3c0a0c525a818a863e1d70aa6db821631abdb26e1276e57c22f87a53fe794b9 (push + digest pull verified). PRODUCTION DEPLOYED 2026-10-03 after the owner authorized D1 (data forwarding, full scope): container youwei-production-sandbox-runner-1 healthy on the core+experiment networks, runsc enforced, env pins the sandbox base (python:3.13-alpine@sha256:2dd78ad5...) and agent-runtime (bca0a5b9... r2) images, same-path spool bind, experiment store volume; worker research wiring env stays EMPTY pending the owner's D2 (model + registration form) \u2014 the Runner runs idle with no research traffic. Known pre-D2 code gap recorded in the execution record: youwei_core research_signing_private_key lacks \n un-escaping (fix rides with the next Core image, which is needed anyway for the S12a exploratory API absent from r4). Full steps, verification evidence and the runbook deviation (litellm disconnect line): docs/ops/s12d-deployment-execution.md. Rebuilt 2026-10-03 as phase1a-s12e (registry digest sha256:814be9c23ad84c459db7ae53661d4d58f355a71daf70fdda0dc7eac8de0f9dee, push + digest pull verified; in-image attribution contract parse verified; bases pinned python:3.13-slim@sha256:bb298871..., uv@sha256:440fd647..., docker:29-cli@sha256:b1805116...): carries the ResearchInvocationAttribution contract field so the runner accepts the r4 agent-runtime's attribution output (the deployed c3c0a0c5 runner would reject the extra field \u2014 runner + agent-runtime + core roll together at the S12 rollout). The deployed production runner stays c3c0a0c5 (idle) until then. Rebuilt 2026-10-03 as phase1a-s12f (registry digest sha256:86d83438a9c37e37d4dbdcdcf500aadcd8f11a8710047483db4de70a2b809c7e, push + digest-pull verified; bases unchanged python:3.13-slim@sha256:bb298871..., uv@sha256:440fd647..., docker:29-cli): gateway hostname resolution for gVisor (runsc on the SG host cannot use Docker embedded DNS - EAI_AGAIN for every name, verified 2026-10-03 during the rollout rehearsal; all prior gateway connectivity checks ran one-shot containers under the DEFAULT runtime, so the runsc+DNS combination was never covered). The Runner now maps the gateway hostname through the docker socket (network aliases + container names, scoped to the target network) and pins it into research/experiment containers with --add-host. In-image verification: real resolution against youwei-research returns litellm:172.27.0.2; attribution contract parse OK. Companion Core fix: r7 (live-lease research grants). The deployed production runner stays c3c0a0c5 (idle) until then. s12g supersedes the s12f stage the same day (s12f kept in registry as history): the Runner decode dropped the container attribution record (the contract carried the field since s12e but _decode_result never read it) - caught by the first successful real-model rehearsal turn, whose report showed usage + image digest with attribution null. s12g decodes it (absent stays None for older agent-runtime images; malformed fails loudly). In-image: resolve + attribution decode verified. The deployed production runner stays c3c0a0c5 (idle) until then."
     }
   }
 }

@@ -21,6 +21,7 @@ PROPOSAL = {
     "warnings": [],
     "missing": [],
     "quantitative_basis": "mock smoke test",
+    "quant_relation": "kept",
     "model": {"model_version": "mock-v0", "provider": "mock"},
 }
 

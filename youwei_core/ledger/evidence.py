@@ -19,7 +19,12 @@ from __future__ import annotations
 import json
 import uuid
 
-from youwei_contracts.research import CasePlan, EvidenceSnapshot, FrozenEvidence
+from youwei_contracts.research import (
+    CasePlan,
+    EvidenceSnapshot,
+    FrozenEvidence,
+    QuantPrediction,
+)
 
 # The agent-runtime's evidence snapshots are daily bars (the only market
 # evidence a research run may consume in Phase 1B).
@@ -50,6 +55,50 @@ def build_case_plan(case: dict) -> CasePlan:
     )
 
 
+def build_quant_prediction(quant) -> QuantPrediction:
+    """Map the quant SourcePrediction (or equivalent dict) into the wire
+    QuantPrediction that rides the FrozenEvidence.
+
+    The quant position is required research input — Hermes adjusts (or
+    keeps) a prediction it can see, never answers blind to it. The mapping
+    refuses a position that is not the quant_model's, lacks model_version
+    attribution, or violates the wire value discipline.
+    """
+    if quant is None:
+        raise EvidenceAssemblyError(
+            "quant prediction is required research input: Hermes must see "
+            "the quant position it is adjusting"
+        )
+
+    def field(name):
+        if isinstance(quant, dict):
+            return quant.get(name)
+        return getattr(quant, name, None)
+
+    source = field("source")
+    if source is not None and source != "quant_model":
+        raise EvidenceAssemblyError(
+            f"evidence quant input must be the quant_model position, got {source!r}"
+        )
+    model_version = field("model_version")
+    if not model_version:
+        raise EvidenceAssemblyError(
+            "quant prediction lacks model_version attribution"
+        )
+    try:
+        return QuantPrediction(
+            model_version=model_version,
+            source_status=field("source_status"),
+            p_outperform=field("p_outperform"),
+            expected_excess_return=field("expected_excess_return"),
+            reason=field("reason"),
+        )
+    except ValueError as exc:  # pydantic value discipline violations
+        raise EvidenceAssemblyError(
+            f"quant prediction is not wire-valid: {exc}"
+        ) from exc
+
+
 def build_frozen_evidence(
     *,
     run_id: uuid.UUID,
@@ -57,6 +106,7 @@ def build_frozen_evidence(
     case: dict,
     snapshot: dict,
     batch_manifest: dict,
+    quant,
 ) -> FrozenEvidence:
     """Assemble the FrozenEvidence bundle for one case.
 
@@ -69,6 +119,10 @@ def build_frozen_evidence(
     ``case`` carries ``target_spec_sha256`` (the target policy the campaign
     registered), which becomes ``target_policy_sha256``. The batch manifest
     (calendar version/hash, tzdb) is passed through for the research brief.
+
+    ``quant`` is the case's quant SourcePrediction (or equivalent dict):
+    the frozen quant position Hermes adjusts, mapped through
+    ``build_quant_prediction``.
     """
     manifest = snapshot["manifest"]
     mode = manifest.get("query", {}).get("mode")
@@ -107,6 +161,7 @@ def build_frozen_evidence(
         ),
         target_policy_sha256=case["target_spec_sha256"],
         batch_manifest=batch_manifest,
+        quant=build_quant_prediction(quant),
     )
 
 

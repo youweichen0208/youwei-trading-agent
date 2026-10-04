@@ -59,14 +59,6 @@ from youwei_core.ledger.sealing import SealRequest, SourcePrediction, seal_commi
 PIPELINE_VERSION = "pipeline-v1"
 
 
-async def _lease_expiry(claimed: ClaimedJob):
-    """expiry_provider for the Runner research link: the grant's exp must not
-    outlive the attempt's lease. Claim-time lease is the conservative floor;
-    the DB-level active-lease re-check is exercised in the SG DB tests (S07m-3)."""
-    from datetime import UTC, datetime
-
-    return claimed.lease_expires_at.astimezone(UTC) if claimed.lease_expires_at.tzinfo else claimed.lease_expires_at
-
 class PredictError(Exception):
     pass
 
@@ -111,7 +103,7 @@ async def _phase1a_llm_adjusted(case, bars, quant, evidence_snapshot_id) -> Sour
 def make_phase1b_llm_adjusted_provider(fetch_proposal):
     """Build an llm_adjusted provider from a proposal fetcher.
 
-    ``fetch_proposal`` is an async callable ``(case, bars) ->
+    ``fetch_proposal`` is an async callable ``(case, bars, quant) ->
     ResearchProposal | None``. ``None`` means no proposal was produced
     (e.g. the agent runtime was unavailable), which maps to unavailable
     with a reason. Otherwise the proposal is mapped through the Phase 1B
@@ -121,7 +113,7 @@ def make_phase1b_llm_adjusted_provider(fetch_proposal):
 
     async def provider(case, bars, quant, evidence_snapshot_id) -> SourcePrediction:
         try:
-            proposal = await fetch_proposal(case, bars)
+            proposal = await fetch_proposal(case, bars, quant)
         except Exception as exc:  # noqa: BLE001 — LLM/runtime failure -> unavailable
             return SourcePrediction(
                 source="llm_adjusted",
@@ -176,22 +168,24 @@ def make_phase1b_llm_fetcher(
 
     Each case shares the batch's single frozen snapshot (S06a); only the
     case plan differs. The Controller assembles the FrozenEvidence bundle
-    (its own snapshot + case plan + batch manifest) and sends it across the
-    subprocess boundary with the per-job capability token (signed by the
-    worker loop when it claimed the job).
+    (its own snapshot + case plan + batch manifest + the case's quant
+    prediction) and sends it across the subprocess boundary with the
+    per-job capability token (signed by the worker loop when it claimed
+    the job).
 
     ``usage_sink``, when provided, receives the decoded usage report dict
     after each turn for observability; it is optional so the pure codec/fetch
     tests and the sealing path can run without it.
     """
 
-    async def fetch_proposal(case, bars):
+    async def fetch_proposal(case, bars, quant):
         evidence = build_frozen_evidence(
             run_id=run_id,
             tenant_id=tenant_id,
             case=case,
             snapshot=snapshot,
             batch_manifest=batch_manifest,
+            quant=quant,
         )
         invocation = ResearchInvocation(
             capability_token=capability_token,
@@ -261,7 +255,8 @@ async def run_batch_predictions(
     unavailable/not_enabled. When the campaign is Phase 1B and either
     ``agent_runtime`` (local subprocess, S07h) or ``runner_research``
     (Runner-controlled container, S07m) is provided, the provider fetches a
-    proposal across the corresponding boundary; without wiring it still seals
+    proposal across the corresponding boundary — carrying the case's quant
+    prediction inside the frozen evidence; without wiring it still seals
     llm_adjusted as unavailable (agent_runtime_unavailable) — never a fake
     LLM value."""
     async with engine.begin() as conn:
@@ -346,18 +341,56 @@ async def run_batch_predictions(
         if runner_research is not None:
             # S07m: research runs in the Runner-controlled container, one
             # invocation per case, authorized by the Controller's Ed25519 key.
-            fetch = make_runner_research_fetcher(
-                run_id=claimed.run_id,
-                tenant_id=claimed.tenant_id,
-                job_id=claimed.job_id,
-                attempt_no=claimed.attempt_no,
-                snapshot=frozen,
-                batch_manifest=batch.batch_manifest,
-                client=runner_research.client,
-                key=runner_research.signing_key,
-                expiry_provider=lambda: _lease_expiry(claimed),
-                research_config=runner_research.research_config,
-            )
+            # S08c-3: with experiment wiring attached, the fetcher runs the
+            # exploration loop (experiment request -> registered -> sandbox
+            # -> verified -> accepted -> re-entry) instead of a single turn.
+            if (
+                runner_research.experiment_client is not None
+                and runner_research.experiment_limits is not None
+            ):
+                from youwei_core.ledger.experiment_orchestrator import (
+                    ExperimentWiring,
+                    make_experiment_fetcher,
+                )
+
+                wiring = ExperimentWiring(
+                    engine=engine,
+                    client=runner_research.experiment_client,
+                    key=runner_research.key,
+                    limits=runner_research.experiment_limits,
+                )
+                fetch = make_experiment_fetcher(
+                    wiring=wiring,
+                    run_id=claimed.run_id,
+                    tenant_id=claimed.tenant_id,
+                    job_id=claimed.job_id,
+                    attempt_id=claimed.attempt_id,
+                    attempt_no=claimed.attempt_no,
+                    snapshot=frozen,
+                    batch_manifest=batch.batch_manifest,
+                    research_client=runner_research.client,
+                    research_config=runner_research.research_config,
+                )
+            else:
+                from youwei_core.ledger.experiment_orchestrator import active_lease_expiry
+
+                fetch = make_runner_research_fetcher(
+                    run_id=claimed.run_id,
+                    tenant_id=claimed.tenant_id,
+                    job_id=claimed.job_id,
+                    attempt_no=claimed.attempt_no,
+                    snapshot=frozen,
+                    batch_manifest=batch.batch_manifest,
+                    client=runner_research.client,
+                    key=runner_research.key,
+                    # live-lease re-check (heartbeat keeps it fresh on long
+                    # research turns; the claim-time snapshot goes stale after
+                    # lease_ttl — found by the S12 rollout rehearsal 2026-10-03)
+                    expiry_provider=lambda: active_lease_expiry(
+                        engine, claimed.attempt_id, claimed.attempt_no
+                    ),
+                    research_config=runner_research.research_config,
+                )
             provider = make_phase1b_llm_adjusted_provider(fetch)
         elif agent_runtime is not None and claimed.capability_token is not None:
             fetch = make_phase1b_llm_fetcher(

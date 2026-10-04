@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "components": {
+    "hermes-assistant": {
+      "enabled": true,
+      "source": {
+        "kind": "git",
+        "url": "https://github.com/youweichen0208/trading-assistant",
+        "revision": "f594ec5765d3d71c68b6e69d58e416a84aece018"
+      },
+      "integration_status": "integrated",
+      "verification": {
+        "status": "passed",
+        "evidence": {
+          "path": "preflight-evidence.json",
+          "sha256": "66dfd1e1e714b711e2f2ea1b7852772ded849c8659c6b5dc9a089fd26657c157"
+        }
+      },
+      "deployment": {
+        "image": "ghcr.io/youweichen0208/trading-assistant@sha256:b99e7edb7da1ffc42d7ef7bb2a47a06bb44b1332d2db083568a187cbe514aec1",
+        "bindings": [
+          {
+            "service": "hermes-assistant",
+            "field": "image"
+          }
+        ]
+      },
+      "runtime": {
+        "python": "3.13.16"
+      },
+      "upstream": {
+        "release": "v2026.9.24",
+        "revision": "f97608f178d1ffeca59860195ab7da295f7c8e5f",
+        "patches": []
+      }
+    },
+    "litellm": {
+      "enabled": true,
+      "source": {
+        "kind": "image",
+        "url": "ghcr.io/berriai/litellm"
+      },
+      "integration_status": "integrated",
+      "verification": {
+        "status": "passed",
+        "evidence": {
+          "path": "initial-deployment-evidence.json",
+          "sha256": "d69d48398e319ae154b7d201878709056269a0d70c85e4389e9fbe5dc09bf229"
+        }
+      },
+      "deployment": {
+        "image": "ghcr.io/berriai/litellm@sha256:f8043697479513b9ae6f3abac8e62d61b908cfd31541cc3c3c994e16a28d784e",
+        "bindings": [
+          {
+            "service": "litellm",
+            "field": "image"
+          }
+        ]
+      }
+    },
+    "openwebui": {
+      "enabled": true,
+      "source": {
+        "kind": "git",
+        "url": "https://github.com/youweichen0208/youwei-webui",
+        "revision": "0a8aa48ef454a9e1c73df1a3d73e980e332521dc"
+      },
+      "integration_status": "integrated",
+      "verification": {
+        "status": "passed",
+        "evidence": {
+          "path": "initial-deployment-evidence.json",
+          "sha256": "d69d48398e319ae154b7d201878709056269a0d70c85e4389e9fbe5dc09bf229"
+        }
+      },
+      "deployment": {
+        "image": "ghcr.io/youweichen0208/youwei-webui@sha256:1ae57fd42c216bfb165f0888ed2b0f42b1e23a9a6c22dc6edc6b6c78a2c9ec3b",
+        "bindings": [
+          {
+            "service": "openwebui",
+            "field": "image"
+          }
+        ]
+      }
+    },
+    "postgres": {
+      "enabled": true,
+      "source": {
+        "kind": "image",
+        "url": "postgres:16-alpine"
+      },
+      "integration_status": "integrated",
+      "verification": {
+        "status": "passed",
+        "evidence": {
+          "path": "initial-deployment-evidence.json",
+          "sha256": "d69d48398e319ae154b7d201878709056269a0d70c85e4389e9fbe5dc09bf229"
+        }
+      },
+      "deployment": {
+        "image": "postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea",
+        "bindings": [
+          {
+            "service": "postgres",
+            "field": "image"
+          }
+        ]
+      }
+    }
+  }
+}

@@ -109,3 +109,60 @@ def test_stdin_over_cap_is_rejected(monkeypatch):
     parsed = json.loads(real_stdout.getvalue())
     assert parsed.get("ok") is False
     assert "stdin byte cap" in parsed.get("error", "")
+
+
+# --- experiment-once (S08c-2) ---------------------------------------------------
+
+
+async def _fake_honor_experiment_request(payload, *, public_keys, run_experiment_fn, config_factory):
+    print("🤖 AI Agent initialized")
+    return '{"ok":true,"result":{"findings":"ratio at median"},"usage":{"source":"x"}}'
+
+
+async def _fake_honor_experiment_error(payload, *, public_keys, run_experiment_fn, config_factory):
+    print("🤖 AI Agent initialized")
+    raise main.ExperimentInvocationError("experiment capability rejected")
+
+
+def _run_experiment(handler, monkeypatch, request_text='{"capability_token":"ywr_x","request":{},"gateway":{}}'):
+    monkeypatch.setattr(main, "_public_keys", lambda args: {"k1": "pem"})
+    monkeypatch.setattr(main, "_register_experiment_tools", lambda: None)
+    monkeypatch.setattr(main, "honor_experiment_request", handler)
+    monkeypatch.setattr("sys.stdin", _BufferedStdin(request_text))
+
+    real_stdout = io.StringIO()
+    real_stderr = io.StringIO()
+    monkeypatch.setattr("sys.stdout", real_stdout)
+    monkeypatch.setattr("sys.stderr", real_stderr)
+
+    code = asyncio.run(main._experiment_once(_Args()))
+    return code, real_stdout.getvalue(), real_stderr.getvalue()
+
+
+def test_experiment_result_is_the_only_stdout(monkeypatch):
+    code, stdout, stderr = _run_experiment(_fake_honor_experiment_request, monkeypatch)
+    assert code == 0
+    payload = json.loads(stdout.strip())
+    assert payload["ok"] is True
+    assert payload["result"]["findings"] == "ratio at median"
+    # the banner went to stderr, never stdout
+    assert "AI Agent initialized" in stderr
+    assert "AI Agent initialized" not in stdout
+
+
+def test_experiment_error_goes_to_stdout_with_code(monkeypatch):
+    code, stdout, stderr = _run_experiment(_fake_honor_experiment_error, monkeypatch)
+    assert code == 2
+    payload = json.loads(stdout.strip())
+    assert payload["ok"] is False
+    assert "experiment capability rejected" in payload["error"]
+    assert "AI Agent initialized" in stderr
+
+
+def test_experiment_non_json_request_fails(monkeypatch):
+    code, stdout, _ = _run_experiment(
+        _fake_honor_experiment_request, monkeypatch, request_text="not json"
+    )
+    assert code == 2
+    payload = json.loads(stdout.strip())
+    assert payload["ok"] is False

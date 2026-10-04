@@ -45,15 +45,24 @@ def evidence():
             "content": rows, "manifest": {},
         },
         target_policy_sha256="a" * 64, batch_manifest={},
+        quant={
+            "model_version": "quant-momentum-v0",
+            "source_status": "produced",
+            "p_outperform": 0.55,
+            "expected_excess_return": 0.01,
+        },
     )
 
 
-def install_external_agent(monkeypatch, response, *, usage=None, session_delta=None, initial=None):
+def install_external_agent(monkeypatch, response, *, usage=None, session_delta=None, initial=None, model_returned=None):
     """Install a fake Hermes AIAgent.
 
     ``usage`` sets ``_last_turn_usage`` (the last-call dict) on the agent;
     ``initial`` sets the session counters' pre-turn values; ``session_delta``
     adds to them over the turn (may be negative to simulate a mid-turn reset).
+    ``model_returned`` sets ``_last_turn_model`` — simulating the youwei
+    local Hermes patch that stashes the provider-returned model id on the
+    agent (upstream 7fa45eb + infra/images/hermes-last-turn-model.patch).
     A fake with neither ``usage`` nor ``session_delta``/``initial`` simulates a
     checkout with no usage signal at all.
     """
@@ -85,6 +94,8 @@ def install_external_agent(monkeypatch, response, *, usage=None, session_delta=N
         def chat(self, message):
             if usage is not None:
                 self._last_turn_usage = dict(usage)
+            if model_returned is not None:
+                self._last_turn_model = model_returned
             if session_delta is not None:
                 for key, value in session_delta.items():
                     attr = _ATTRS[key]
@@ -102,6 +113,8 @@ def _payload(**overrides):
         "references": [{"kind": "evidence", "locator": "row-0"}],
         "warnings": [],
         "missing": [],
+        "quantitative_basis": "momentum",
+        "quant_relation": "kept",
         "quantitative_basis": "momentum",
         "model": {"model_version": "m1", "provider": "p1"},
     }
@@ -144,6 +157,46 @@ def test_parse_rejects_non_json_garbage():
         parse_proposal("no json here at all", run_id=uuid.uuid4(), case_id=uuid.uuid4())
 
 
+def test_parse_model_attribution_replaces_self_report():
+    """Attribution comes from the runtime's configuration, never from the
+    model's self-report (external text is untrusted input)."""
+    p = parse_proposal(
+        json.dumps(_payload()),  # self-reports model m1/p1
+        run_id=uuid.uuid4(), case_id=uuid.uuid4(),
+        model_attribution={"model_version": "glm-5.3", "provider": "custom"},
+    )
+    assert p.model is not None
+    assert p.model.model_version == "glm-5.3"
+    assert p.model.provider == "custom"
+
+
+def test_parse_without_attribution_keeps_self_report():
+    p = parse_proposal(json.dumps(_payload()), run_id=uuid.uuid4(), case_id=uuid.uuid4())
+    assert p.model is not None and p.model.model_version == "m1"
+
+
+def test_make_agent_passes_max_output_tokens(monkeypatch):
+    """The research runtime must cap the model's output explicitly: the API
+    default truncated glm-5.3's JSON proposal mid-stream (S07 real-gateway
+    verification finding: finish_reason=length)."""
+    import sys
+    from types import SimpleNamespace
+    import youwei_agent_runtime.runtime as runtime
+
+    seen = {}
+
+    class FakeAIAgent:
+        def __init__(self, **kwargs):
+            seen.update(kwargs)
+
+    monkeypatch.setitem(sys.modules, "run_agent", SimpleNamespace(AIAgent=FakeAIAgent))
+    runtime.make_agent(runtime.ResearchConfig(
+        base_url="http://unused.invalid", api_key="k", model="glm-5.3",
+        max_output_tokens=16384,
+    ))
+    assert seen["max_tokens"] == 16384
+
+
 @pytest.mark.parametrize("locator", [
     "row-0", "prices rose yesterday",
     "snapshot:00000000-0000-0000-0000-000000000099/rows/0",
@@ -176,6 +229,24 @@ def test_research_returns_citations_to_the_rows_actually_supplied(monkeypatch, e
     assert proposal.run_id == evidence.run_id
     assert proposal.case_id == evidence.case.case_id
     assert resolve_reference(evidence, proposal.references[0])["close"] == "103"
+
+
+def test_research_attributes_model_from_config_not_self_report(monkeypatch, evidence):
+    """The produced proposal's model attribution must come from the runtime
+    configuration (what was actually called), not the model's self-report."""
+    from youwei_agent_runtime.runtime import ResearchConfig, run_research
+
+    def respond(brief):
+        record = next(json.loads(line) for line in brief.splitlines() if line.startswith('{"locator":'))
+        return json.dumps(_payload(references=[{"kind": "evidence", "locator": record["locator"]}]))
+
+    install_external_agent(monkeypatch, respond)
+    turn = asyncio.run(run_research(evidence, ResearchConfig(
+        base_url="http://unused.invalid", api_key="unused", model="glm-5.3"
+    )))
+    assert turn.proposal.model is not None
+    assert turn.proposal.model.model_version == "glm-5.3"
+    assert turn.proposal.model.provider == "custom"
 
 
 def test_research_sets_tool_context_for_handlers_during_turn(monkeypatch, evidence):
@@ -366,3 +437,73 @@ def test_research_marks_counter_reset_incomplete(monkeypatch, evidence):
     # The forward counters still differenced cleanly.
     assert u.prompt_tokens == 5
     assert u.api_calls == 1
+
+
+def test_research_reports_model_returned(monkeypatch, evidence):
+    """D2 版本留痕 (2026-10-03): when the Hermes checkout carries the youwei
+    local patch (agent._last_turn_model), the usage report carries the
+    provider-returned model id so the Controller can record actual model
+    attribution next to the configured routing."""
+    from youwei_agent_runtime.runtime import ResearchConfig, run_research
+
+    def respond(brief):
+        record = next(json.loads(line) for line in brief.splitlines() if line.startswith('{"locator":'))
+        return json.dumps(_payload(
+            references=[{"kind": "evidence", "locator": record["locator"]}]
+        ))
+
+    install_external_agent(monkeypatch, respond, session_delta={
+        "prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30,
+        "api_calls": 1,
+    }, model_returned="glm-5.3-20261003")
+    result = asyncio.run(run_research(
+        evidence, ResearchConfig(
+            base_url="http://unused.invalid", api_key="unused", model="glm-5.3"
+        ),
+    ))
+    attr = result.attribution
+    assert attr is not None
+    assert attr.model_returned == "glm-5.3-20261003"
+    # the model id lives in the ATTRIBUTION with its own scope, never inside
+    # the usage report (usage may be turn-cumulative; the id is per-response)
+    assert attr.model_returned_scope == "last_completed_provider_response"
+    assert "model_returned" not in result.usage.to_dict()
+    # prompt hash: deterministic over the brief text
+    import hashlib
+    assert len(attr.brief_sha256) == 64
+    # execution config: resolved NON-sensitive params, hash-checked, no key
+    assert attr.execution_config["model"] == "glm-5.3"
+    assert attr.execution_config["gateway_base_url"] == "http://unused.invalid"
+    assert "api_key" not in attr.execution_config
+    canonical = json.dumps(
+        attr.execution_config, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    )
+    assert attr.execution_config_sha256 == hashlib.sha256(canonical.encode()).hexdigest()
+
+
+def test_research_model_returned_absent_without_patch(monkeypatch, evidence):
+    """An unpatched checkout (or a provider that omits the id) yields None —
+    never a fabricated identifier."""
+    from youwei_agent_runtime.runtime import ResearchConfig, run_research
+
+    def respond(brief):
+        record = next(json.loads(line) for line in brief.splitlines() if line.startswith('{"locator":'))
+        return json.dumps(_payload(
+            references=[{"kind": "evidence", "locator": record["locator"]}]
+        ))
+
+    install_external_agent(monkeypatch, respond, session_delta={
+        "prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30,
+        "api_calls": 1,
+    })
+    result = asyncio.run(run_research(
+        evidence, ResearchConfig(
+            base_url="http://unused.invalid", api_key="unused", model="glm-5.3"
+        ),
+    ))
+    # unpatched checkout / provider omission -> None, never fabricated;
+    # brief + execution config are still recorded
+    assert result.attribution.model_returned is None
+    assert result.attribution.model_returned_scope == "last_completed_provider_response"
+    assert len(result.attribution.brief_sha256) == 64
+    assert result.attribution.execution_config["model"] == "glm-5.3"

@@ -1,0 +1,38 @@
+{
+  "date": "2026-10-04T09:27:50Z",
+  "image": "ghcr.io/youweichen0208/trading-assistant@sha256:618f820ef3934ce69e526aa2105b7a0c49da44de254f650158123ee9d1cae235",
+  "image_id": "sha256:618f820ef3934ce69e526aa2105b7a0c49da44de254f650158123ee9d1cae235",
+  "healthy": true,
+  "native_mcp": {
+    "result": "PASS",
+    "tool_names": [
+      "mcp__eodhd__get_company_news",
+      "mcp__eodhd__get_fundamentals_data",
+      "mcp__eodhd__get_historical_stock_prices",
+      "mcp__eodhd__get_live_price_data",
+      "mcp__eodhd__get_stocks_from_search",
+      "mcp__eodhd__get_upcoming_earnings",
+      "mcp__eodhd__resolve_ticker",
+      "memory",
+      "web_extract",
+      "web_search",
+      "youwei_knowledge",
+      "youwei_platform"
+    ],
+    "native_quote": true,
+    "paid_model_calls": false
+  },
+  "same_persistent_volumes": true,
+  "all_other_services_unchanged": true,
+  "paid_model_calls": false,
+  "webui_authenticated_discovery": "passed",
+  "webui_version": "0.11.4",
+  "webui_chat_count": 5,
+  "hermes_cli_version": "Hermes Agent v0.21.5 (2026.9.24)\nInstall directory: /opt/hermes\nInstall method: unknown\nPython: 3.13.16\nOpenAI SDK: 2.24.0",
+  "unauthenticated_discovery": 401,
+  "deployed_compose_hash_verified": true,
+  "postdeployment_backup": "/opt/youwei/backups/chat/daily/chat-backup-20261004-092809",
+  "postdeployment_isolated_restore": "ALL PASS",
+  "credential_reference_and_log_redaction_verified": true,
+  "eodhd_credential_in_separate_secret_archive": true
+}

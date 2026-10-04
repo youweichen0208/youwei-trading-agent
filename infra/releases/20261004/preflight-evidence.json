@@ -1,0 +1,18 @@
+{
+  "date": "2026-10-04",
+  "target": "sg-prod",
+  "authorization": "User requested replacement of all three repositories on VM and selected latest youwei-webui",
+  "webui_commit": "0a8aa48ef454a9e1c73df1a3d73e980e332521dc",
+  "assistant_commit": "3ff91cf2f78a001c8454497d75ea6e0cfa3f7374",
+  "core_source_archive_sha256": "49d4144e8b25f5db79a264b59778d97f0722b1100238cdff6f6f3d1aa987c7a1",
+  "checks": {
+    "local_full_regression": "705 passed, no skips",
+    "sg_latest_webui_assistant_mock_acceptance": "passed: discovery, auth, follow-up, SSE, knowledge, restart, image-isolated restore, background routing despite ordinary discovery failure, signup disabled, history preserved",
+    "sg_webui_backup_migration_no_network": "passed: 3 chat JSON records byte-preserved, owner/password preserved, native private grants, signup disabled, restart",
+    "sg_core_candidate_read_only": "passed: health, unauthenticated 401, dedicated tenant daily API 200 with 5 SPY bars",
+    "unchanged_dependencies": "Incumbent PostgreSQL, LiteLLM, Worker and Runner retained with current image identities and healthy running service baseline; prior release evidence retained"
+  },
+  "backup_before_cutover": "/opt/youwei/backups/chat/daily/chat-backup-20261004-014218",
+  "paid_model_calls": false,
+  "formal_evaluation_or_release_approval": false
+}

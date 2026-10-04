@@ -71,6 +71,12 @@ def _evidence(tenant_id, run_id, case_id):
         },
         target_policy_sha256="p" * 64,
         batch_manifest={"version": "1"},
+        quant={
+            "model_version": "quant-momentum-v0",
+            "source_status": "produced",
+            "p_outperform": 0.55,
+            "expected_excess_return": 0.01,
+        },
     )
 
 
@@ -94,6 +100,18 @@ def _request(**overrides):
     )
     base.update(overrides)
     return ResearchInvocationRequest(**base)
+
+def _proposal():
+    """A minimal valid unavailable proposal (fixtures only need a well-formed
+    output since the S08 contract requires proposal XOR experiment_request)."""
+    from youwei_contracts.research import ResearchProposal
+
+    return ResearchProposal(
+        run_id=uuid.uuid4(),
+        case_id=uuid.uuid4(),
+        source_status="unavailable",
+        reason="not_enabled",
+    )
 
 
 def _sign(priv, req, *, aud=AUD_RUNNER_EXEC, scopes=(SCOPE_RESEARCH_RUN,), exp=None):
@@ -146,6 +164,7 @@ async def test_research_submit_and_status_with_fake_executor(keys):
         seen["invocation_id"] = req.invocation_id
         return ResearchInvocationResult(
             ok=True, exit_code=0, image_digest="sha256:" + "a" * 64,
+            proposal=_proposal(),
         )
 
     app = _app(keys, research_executor=research_executor)
@@ -170,7 +189,7 @@ async def test_same_invocation_same_content_is_idempotent(keys):
     priv, _ = keys
 
     async def research_executor(req):
-        return ResearchInvocationResult(ok=True, exit_code=0, image_digest="sha256:" + "a" * 64)
+        return ResearchInvocationResult(ok=True, exit_code=0, image_digest="sha256:" + "a" * 64, proposal=_proposal())
 
     app = _app(keys, research_executor=research_executor)
     req = _request()

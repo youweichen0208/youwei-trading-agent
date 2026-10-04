@@ -19,6 +19,7 @@ requires a non-empty key to consider the provider configured).
 import asyncio
 import hashlib
 import json
+import os
 import sys
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -41,7 +42,15 @@ from youwei_runner.research import (
 )
 
 EXEC_CONFIG_VERSION = "research-exec-v1"
-GATEWAY_URL = "http://172.19.0.2:9901/v1"  # mock-gateway container on youwei-research
+# The mock gateway container on the youwei-research network. The subnet is
+# NOT stable across `docker network create` (S07m used 172.19.0.0/16; a 2026-
+# 10-02 recreation got 172.27.0.0/16) — override with YOUWEI_GATEWAY_URL or
+# resolve the mock container's current IP instead of trusting this default.
+GATEWAY_URL = os.environ.get("YOUWEI_GATEWAY_URL", "http://172.19.0.2:9901/v1")
+IMAGE = os.environ.get(
+    "YOUWEI_RESEARCH_IMAGE",
+    "youwei/agent-runtime:dev",
+)
 
 
 def make_evidence() -> FrozenEvidence:
@@ -86,6 +95,12 @@ def make_evidence() -> FrozenEvidence:
         },
         target_policy_sha256="d" * 64,
         batch_manifest={"calendar_version": "nyse-rules-v1"},
+        quant={
+            "model_version": "quant-momentum-v0",
+            "source_status": "produced",
+            "p_outperform": 0.55,
+            "expected_excess_return": 0.01,
+        },
     )
 
 
@@ -130,9 +145,9 @@ def main():
     )
 
     config = ResearchRunConfig(
-        image="youwei/agent-runtime:dev",
+        image=IMAGE,
         gateway_url=GATEWAY_URL,
-        gateway_host="172.19.0.2:9901",
+        gateway_host=GATEWAY_URL.split("//", 1)[1],
         public_keys={kid: pub},
         exec_config_version=EXEC_CONFIG_VERSION,
         timeout_seconds=120.0,

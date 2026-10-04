@@ -35,6 +35,20 @@ class RunnerSettings(BaseSettings):
     agent_runtime_max_stdout_bytes: int = Field(default=1_000_000, gt=0)
     agent_runtime_max_stderr_bytes: int = Field(default=256_000, gt=0)
 
+    # --- experiment tool surface (S08): persistent store for experiment
+    # authorizations + computation receipts. Empty string DISABLES the
+    # experiment endpoints (they answer 503); the Controller-side slices
+    # configure a dedicated directory (must survive Runner restarts).
+    experiment_store_dir: str = ""
+
+    # --- experiment instance dispatch (S08c-2): the experiment container
+    # runs the agent-runtime image on a dedicated network whose reachable
+    # set is {approved gateway, this Runner's tool plane} (owner decision
+    # D1=A). The tool base URL is how CONTAINERS reach this Runner — it is
+    # injected server-side, never taken from a request.
+    experiment_network: str = "youwei-experiment"
+    experiment_tool_base_url: str = ""
+
     @model_validator(mode="after")
     def production_constraints(self):
         if not self.development:
@@ -51,4 +65,20 @@ class RunnerSettings(BaseSettings):
             # away: a research entrypoint without an approved gateway is refused.
             if not self.agent_runtime_gateway_url:
                 raise ValueError("agent-runtime gateway URL is required when the research entry is enabled")
+        if self.experiment_store_dir:
+            # The experiment surface (tool plane + dispatch) is enabled: the
+            # instance container must be able to reach this Runner's tool
+            # endpoints, and that address is deployment config, not request
+            # data. The agent-runtime image and gateway are already required
+            # above when the research entry is enabled.
+            if not self.experiment_tool_base_url:
+                raise ValueError(
+                    "experiment tool base URL is required when the experiment "
+                    "surface is enabled"
+                )
+            if not self.agent_runtime_image:
+                raise ValueError(
+                    "agent-runtime image is required when the experiment "
+                    "surface is enabled"
+                )
         return self

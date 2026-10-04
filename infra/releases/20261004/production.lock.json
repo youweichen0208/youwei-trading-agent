@@ -1,0 +1,152 @@
+{
+  "schema_version": 1,
+  "components": {
+    "core-api": {
+      "enabled": true,
+      "source": {
+        "kind": "local",
+        "version": "0.1.0",
+        "archive_sha256": "49d4144e8b25f5db79a264b59778d97f0722b1100238cdff6f6f3d1aa987c7a1"
+      },
+      "integration_status": "integrated",
+      "verification": {
+        "status": "passed",
+        "evidence": {
+          "path": "preflight-evidence.json",
+          "sha256": "d69d48398e319ae154b7d201878709056269a0d70c85e4389e9fbe5dc09bf229"
+        }
+      },
+      "deployment": {
+        "image": "ghcr.io/youweichen0208/youwei-core@sha256:678077eee1284099176d16172275455e206af8fc561ab84d00f075ba171de58e",
+        "bindings": [
+          {
+            "service": "core-api",
+            "field": "image"
+          }
+        ]
+      }
+    },
+    "core-worker": {
+      "enabled": true,
+      "source": {
+        "kind": "image",
+        "url": "ghcr.io/youweichen0208/youwei-core"
+      },
+      "integration_status": "integrated",
+      "verification": {
+        "status": "passed",
+        "evidence": {
+          "path": "preflight-evidence.json",
+          "sha256": "d69d48398e319ae154b7d201878709056269a0d70c85e4389e9fbe5dc09bf229"
+        }
+      },
+      "deployment": {
+        "image": "ghcr.io/youweichen0208/youwei-core@sha256:f18c8289a8d05b1b9913ac22973532c8c1683703b2f38a955ad7ca8d264abe40",
+        "bindings": [
+          {
+            "service": "core-worker",
+            "field": "image"
+          }
+        ]
+      }
+    },
+    "postgres": {
+      "enabled": true,
+      "source": {
+        "kind": "image",
+        "url": "ghcr.io/youweichen0208/youwei-postgres"
+      },
+      "integration_status": "integrated",
+      "verification": {
+        "status": "passed",
+        "evidence": {
+          "path": "preflight-evidence.json",
+          "sha256": "d69d48398e319ae154b7d201878709056269a0d70c85e4389e9fbe5dc09bf229"
+        }
+      },
+      "deployment": {
+        "image": "ghcr.io/youweichen0208/youwei-postgres@sha256:8d69232c1d2b7771ae8f9dbb04cd56bbd6334972f37e90956f6a5bad05382053",
+        "bindings": [
+          {
+            "service": "postgres",
+            "field": "image"
+          }
+        ]
+      }
+    },
+    "sandbox-runner": {
+      "enabled": true,
+      "source": {
+        "kind": "image",
+        "url": "ghcr.io/youweichen0208/youwei-runner"
+      },
+      "integration_status": "integrated",
+      "verification": {
+        "status": "passed",
+        "evidence": {
+          "path": "preflight-evidence.json",
+          "sha256": "d69d48398e319ae154b7d201878709056269a0d70c85e4389e9fbe5dc09bf229"
+        }
+      },
+      "deployment": {
+        "image": "ghcr.io/youweichen0208/youwei-runner@sha256:c44c3d4a361422572edb258c58d83b8b2268181a8888a4c35d0062eda0955de9",
+        "bindings": [
+          {
+            "service": "sandbox-runner",
+            "field": "image"
+          }
+        ]
+      }
+    },
+    "youwei_runner_agent_runtime_image": {
+      "enabled": true,
+      "source": {
+        "kind": "image",
+        "url": "ghcr.io/youweichen0208/youwei-agent-runtime"
+      },
+      "integration_status": "integrated",
+      "verification": {
+        "status": "passed",
+        "evidence": {
+          "path": "preflight-evidence.json",
+          "sha256": "d69d48398e319ae154b7d201878709056269a0d70c85e4389e9fbe5dc09bf229"
+        }
+      },
+      "deployment": {
+        "image": "ghcr.io/youweichen0208/youwei-agent-runtime@sha256:8d210f9105c0a85aa89bc362ea87e1eddf93d278abd6190fd55e33f93ff3c6ab",
+        "bindings": [
+          {
+            "service": "sandbox-runner",
+            "field": "environment",
+            "name": "YOUWEI_RUNNER_AGENT_RUNTIME_IMAGE"
+          }
+        ]
+      }
+    },
+    "youwei_runner_image": {
+      "enabled": true,
+      "source": {
+        "kind": "image",
+        "url": "python:3.13-alpine"
+      },
+      "integration_status": "integrated",
+      "verification": {
+        "status": "passed",
+        "evidence": {
+          "path": "preflight-evidence.json",
+          "sha256": "d69d48398e319ae154b7d201878709056269a0d70c85e4389e9fbe5dc09bf229"
+        }
+      },
+      "deployment": {
+        "image": "python:3.13-alpine@sha256:2dd78ad5cf13a0b68f5134dc49aa9950203a8cf4b7463431b9f3b398287c5059",
+        "bindings": [
+          {
+            "service": "sandbox-runner",
+            "field": "environment",
+            "name": "YOUWEI_RUNNER_IMAGE"
+          }
+        ]
+      }
+    }
+  }
+}

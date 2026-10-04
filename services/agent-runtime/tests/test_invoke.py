@@ -69,6 +69,12 @@ def _evidence(tenant_id) -> FrozenEvidence:
         },
         target_policy_sha256="d" * 64,
         batch_manifest={},
+        quant={
+            "model_version": "quant-momentum-v0",
+            "source_status": "produced",
+            "p_outperform": 0.55,
+            "expected_excess_return": 0.01,
+        },
     )
 
 
@@ -95,7 +101,7 @@ class _Config:
         self.kwargs = kwargs
 
 
-async def _fake_run_research(evidence, config, *, capability_token=None, public_keys=None):
+async def _fake_run_research(evidence, config, *, capability_token=None, public_keys=None, experiments=None):
     return ResearchTurn(
         proposal=ResearchProposal(
             run_id=evidence.run_id,
@@ -147,7 +153,7 @@ def test_honor_request_passes_grant_to_run_research(keypair):
     }
     captured = {}
 
-    async def _spy(evidence, config, *, capability_token=None, public_keys=None):
+    async def _spy(evidence, config, *, capability_token=None, public_keys=None, experiments=None):
         captured["token"] = capability_token
         captured["public_keys"] = public_keys
         return await _fake_run_research(

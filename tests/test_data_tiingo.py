@@ -7,6 +7,7 @@ Fixtures are abridged from real responses recorded 2026-09-27
 
 import asyncio
 import json
+import logging
 import time
 import uuid
 from datetime import date
@@ -114,11 +115,13 @@ async def test_client_rate_limits_min_interval():
     await client.aclose()
 
 
-async def test_client_passes_query_params():
+async def test_client_auths_via_header_not_query():
     seen = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
+        seen["url"] = str(request.url)
         seen["path"] = request.url.path
+        seen["auth"] = request.headers.get("Authorization")
         seen.update(request.url.params)
         return httpx.Response(200, text="[]")
 
@@ -128,10 +131,30 @@ async def test_client_passes_query_params():
     )
     await client.daily_prices("aapl", date(2026, 8, 1), date(2026, 8, 31))
     await client.aclose()
-    assert seen["token"] == "tok"
+    assert seen["auth"] == "Token tok"
     assert seen["startDate"] == "2026-08-01"
     assert seen["endDate"] == "2026-08-31"
     assert seen["path"].endswith("/daily/AAPL/prices")  # ticker uppercased
+    # The secret must never travel in the URL: httpx logs full request
+    # URLs at INFO and exception strings can embed them.
+    assert "token" not in seen["url"]
+    assert "tok" not in seen["url"]
+
+
+async def test_client_http_logs_do_not_leak_the_token(caplog):
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text="[]")
+
+    client = TiingoClient(
+        "secret-tok-value", base_url="https://mock.test/tiingo",
+        transport=httpx.MockTransport(handler),
+    )
+    with caplog.at_level(logging.INFO, logger="httpx"):
+        await client.daily_prices("aapl", date(2026, 8, 1), date(2026, 8, 31))
+    await client.aclose()
+    messages = [record.getMessage() for record in caplog.records]
+    assert any("HTTP Request" in m for m in messages)  # httpx did log the call
+    assert all("secret-tok-value" not in m for m in messages)
 
 
 async def test_client_raises_on_http_error():

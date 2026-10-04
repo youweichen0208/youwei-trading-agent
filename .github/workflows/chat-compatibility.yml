@@ -1,0 +1,58 @@
+name: Chat compatibility
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/chat-compatibility.yml'
+      - 'infra/chat/verification-sources.json'
+      - 'integrations/openwebui/**'
+      - 'ops/verify_assistant_webui.py'
+      - 'ops/assistant_mock_model.py'
+      - 'ops/backup/assistant_image.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: chat-compatibility-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+jobs:
+  compatibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read fixed candidate source commits
+        id: sources
+        run: |
+          python3 - <<'PY'
+          import json, os, re
+          from pathlib import Path
+          sources = json.loads(Path('infra/chat/verification-sources.json').read_text())
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              for name in ('assistant', 'webui'):
+                  assert re.fullmatch(r'[0-9a-f]{40}', sources[name]), 'full commit required'
+                  print(f'{name}={sources[name]}', file=output)
+          PY
+      - uses: actions/checkout@v4
+        with:
+          repository: youweichen0208/trading-assistant
+          ref: ${{ steps.sources.outputs.assistant }}
+          path: .compat/assistant
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: youweichen0208/youwei-webui
+          ref: ${{ steps.sources.outputs.webui }}
+          path: .compat/webui
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.11.16'
+      - name: Build assistant from its independent repository
+        run: docker build -f .compat/assistant/infra/images/hermes-assistant.Dockerfile -t trading-assistant:compat .compat/assistant
+      - name: Build full WebUI from fixed fork source
+        env:
+          WEBUI_SHA: ${{ steps.sources.outputs.webui }}
+        run: docker build --build-arg BUILD_HASH="$WEBUI_SHA" -t youwei-webui:compat .compat/webui
+      - run: uv sync --frozen --group dev --python 3.13
+      - name: Verify disposable chat, background routing and isolated restore
+        run: uv run --frozen python ops/verify_assistant_webui.py --assistant-image trading-assistant:compat --webui-image youwei-webui:compat

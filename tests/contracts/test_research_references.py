@@ -50,6 +50,12 @@ def frozen_evidence():
         },
         target_policy_sha256="a" * 64,
         batch_manifest={},
+        quant={
+            "model_version": "quant-logistic-ridge-v1",
+            "source_status": "produced",
+            "p_outperform": 0.61,
+            "expected_excess_return": 0.02,
+        },
     )
 
 
@@ -150,6 +156,7 @@ def proposal_for(evidence, **overrides):
         "expected_excess_return": 0.02,
         "references": [{"kind": "evidence", "locator": f"snapshot:{SNAPSHOT_ID}/rows/1"}],
         "model": {"model_version": "test", "provider": "synthetic"},
+        "quant_relation": "kept",
     }
     fields.update(overrides)
     return ResearchProposal(**fields)

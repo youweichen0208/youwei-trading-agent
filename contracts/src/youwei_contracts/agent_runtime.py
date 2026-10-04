@@ -31,6 +31,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from youwei_contracts.experiment import ExperimentContext, ExperimentRequest
 from youwei_contracts.research import FrozenEvidence, ResearchProposal
 
 
@@ -54,6 +55,9 @@ class ResearchInvocationRequest(WireModel):
 
     ``evidence_sha256`` must equal the canonical hash of ``evidence``; the
     Runner re-checks it and rejects a mismatch before starting a container.
+    ``experiments`` carries the ACCEPTED outcomes of experiments this case's
+    research already ran (re-entry turns only; the first turn sends none) —
+    the research instance may cite their artifacts (kind "code").
     """
 
     contract_version: Literal["agent-runtime-v1"] = "agent-runtime-v1"
@@ -67,6 +71,7 @@ class ResearchInvocationRequest(WireModel):
     evidence_sha256: str
     exec_config_version: str
     config: ResearchRuntimeConfig
+    experiments: list[ExperimentContext] = Field(default_factory=list, max_length=4)
 
     @model_validator(mode="after")
     def verify_evidence_hash(self):
@@ -93,20 +98,73 @@ def invocation_digest(request: ResearchInvocationRequest) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
 
 
+class ResearchInvocationAttribution(WireModel):
+    """What actually ran in the research container, for per-report version
+    traceability (owner decision D2, 2026-10-03).
+
+    ``brief_sha256`` pins the deterministic research brief (the prompt).
+    ``execution_config`` is the resolved NON-SENSITIVE runtime configuration
+    (model/provider/iteration budget/output cap/gateway endpoint — never the
+    gateway credential); ``execution_config_sha256`` must equal the canonical
+    hash of ``execution_config``.
+
+    ``model_returned`` is the model identifier the gateway/provider returned
+    on the LAST completed provider response of the turn. It is an observation
+    of a gateway/provider return value — NOT proof of the underlying model
+    identity — and its scope is narrower than a possibly turn-cumulative
+    usage report: ``model_returned_scope`` states the scope explicitly and
+    must never be conflated with usage completeness.
+    """
+
+    brief_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    execution_config: dict
+    execution_config_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    model_returned: str | None = None
+    model_returned_scope: Literal["last_completed_provider_response"]
+
+    @model_validator(mode="after")
+    def _config_hash_matches(self):
+        canonical = json.dumps(
+            self.execution_config, sort_keys=True,
+            separators=(",", ":"), ensure_ascii=False,
+        )
+        expected = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        if self.execution_config_sha256 != expected:
+            raise ValueError("execution_config_sha256 does not match execution_config")
+        return self
+
+
 class ResearchInvocationResult(WireModel):
     """The research container's output, returned through the Runner.
 
     ``image_digest`` records the actual image that ran (from the Runner's own
     deployment config), so the Controller can attribute the result to a fixed
     build. ``exit_code`` is the container's exit; a non-zero exit or a
-    non-``ok`` result is a failure, not a proposal."""
+    non-``ok`` result is a failure, not a proposal.
+
+    A successful turn carries EITHER a ``proposal`` OR an ``experiment_request``
+    (the exploration loop, S08: the research instance asks the Controller to
+    run a computation the tools do not cover; the Controller orchestrates the
+    experiment and re-enters the turn with the accepted outcome)."""
 
     ok: bool
     proposal: ResearchProposal | None = None
+    experiment_request: ExperimentRequest | None = None
     usage: dict | None = None
+    attribution: ResearchInvocationAttribution | None = None
     error: str | None = None
     exit_code: int
     image_digest: str
+
+    @model_validator(mode="after")
+    def validate_output(self):
+        if self.ok and self.proposal is None and self.experiment_request is None:
+            raise ValueError("an ok result must carry a proposal or an experiment_request")
+        if self.proposal is not None and self.experiment_request is not None:
+            raise ValueError("a result cannot carry both a proposal and an experiment_request")
+        if not self.ok and (self.proposal is not None or self.experiment_request is not None):
+            raise ValueError("a failed result carries no proposal or experiment_request")
+        return self
 
 
 class ResearchInvocationStatus(WireModel):

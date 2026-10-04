@@ -42,10 +42,12 @@
 5. **计数器故障时拒绝请求**（fail-closed）：Postgres 不可用时 LiteLLM 放行还是拒绝，需实测并写入验收
 6. 并发与速率分别验收：`max_parallel_requests`（在途数）与 tpm/rpm 各自的生效证明
 
-## 待实测
+## 待实测（2026-10-02 更新：研究链路相关项已验证）
 
-1. 方案 B/C 的 anthropic 端点接线（含 `/anthropic` passthrough 认证修复或改用统一 `/v1/messages`）
-2. 客户端取消 → LiteLLM → 火山上游的取消传播
-3. 自定义 cost map + 火山计费对账
-4. fail-closed 行为（DB 故障时）
-5. Hermes / Pi 实际指向网关的端到端（按选定方案）
+1. 方案 B/C 的 anthropic 端点接线（含 `/anthropic` passthrough 认证修复或改用统一 `/v1/messages`）——**已放弃**：研究链路与聊天均选定方案 A（OpenAI 兼容 `/v1`），B/C 不再是候选
+2. 客户端取消 → LiteLLM → 火山上游的取消传播——**已验证成立**（中断后 5.5s 内终止上游；spend 记 completion=0）
+3. 自定义 cost map + 火山计费对账——**搁置**（预算/计费维度已按 2026-09-30 所有者决策删除；spend 仅记 token）
+4. fail-closed 行为（DB 故障时）——**已实测：FAIL-OPEN**（已缓存 key 在计数库不可达时照常准入并转发上游；限额为 DB 支撑，故障期间推定不可执行）
+5. Hermes / Pi 实际指向网关的端到端（按选定方案）——**已验证**（Hermes agent-runtime → LiteLLM → 火山，方案 A，含工具调用流式与用量逐 token 对账；Pi 暂缓）
+
+全部证据与缺陷修复记录：[s07-real-gateway-verification](../ops/s07-real-gateway-verification.md)。

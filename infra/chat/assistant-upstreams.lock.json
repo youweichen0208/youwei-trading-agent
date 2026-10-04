@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "components": {
+    "hermes-assistant": {
+      "enabled": true,
+      "source": {
+        "kind": "git",
+        "url": "https://github.com/youweichen0208/trading-assistant",
+        "revision": "3d4d7a7fa7dfbb85db6f3153041e71a738ae53e0"
+      },
+      "runtime": {
+        "python": "3.13.16"
+      },
+      "integration_status": "integrated",
+      "verification": {
+        "status": "passed",
+        "evidence": {
+          "path": "infra/releases/20261004-eodhd-mcp/preflight-evidence.json",
+          "sha256": "cf9e5cec20e2869e82f9dfa9225538bb19a1b8cdbf61671c0c71ffba26a076cc"
+        }
+      },
+      "deployment": {
+        "image": "ghcr.io/youweichen0208/trading-assistant@sha256:618f820ef3934ce69e526aa2105b7a0c49da44de254f650158123ee9d1cae235",
+        "bindings": [
+          {
+            "service": "hermes-assistant",
+            "field": "image"
+          }
+        ]
+      },
+      "notes": "Official Hermes v2026.9.24 remains unmodified; frozen messaging/mcp extras. Personal queries connect directly to official EODHD MCP with seven explicit stock tools. Native and WebUI mock acceptance, image-source identity, isolated backup startup/restart, and VM live native quote passed. Five data capabilities available; fundamentals and earnings calendar denied by existing subscription. No paid model calls or formal evaluation. See docs/ops/eodhd-mcp-rollout-20261004.md.",
+      "upstream": {
+        "kind": "git",
+        "url": "https://github.com/NousResearch/hermes-agent",
+        "revision": "f97608f178d1ffeca59860195ab7da295f7c8e5f",
+        "release": "v2026.9.24",
+        "version": "0.21.5"
+      },
+      "build_inputs": {
+        "schema_version": 1,
+        "hermes": {
+          "repository": "https://github.com/NousResearch/hermes-agent",
+          "revision": "f97608f178d1ffeca59860195ab7da295f7c8e5f",
+          "extras": [
+            "messaging",
+            "mcp"
+          ],
+          "patches": [],
+          "release": "v2026.9.24",
+          "version": "0.21.5"
+        },
+        "python": "3.13.16",
+        "python_image": "python:3.13-slim@sha256:bb2988715db2cf7ace7b53f38f3cffbef7c7046a656bee66245eb0ed386e2e81",
+        "uv_image": "ghcr.io/astral-sh/uv:0.11.16@sha256:440fd6477af86a2f1b38080c539f1672cd22acb1b1a47e321dba5158ab08864d",
+        "optional_dependencies": {
+          "ddgs": {
+            "requirements": "infra/ddgs-requirements.txt",
+            "version": "9.16.0",
+            "reason": "Official release provides DDGS integration without a dependency extra; retain existing keyless search without patching upstream"
+          }
+        }
+      }
+    }
+  }
+}

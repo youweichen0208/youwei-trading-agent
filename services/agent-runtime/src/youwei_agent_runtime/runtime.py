@@ -13,11 +13,21 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from youwei_agent_runtime.usage import (
+    UsageReport,
+    _snapshot_session_usage,
+    _observe_usage,
+    build_execution_attribution,
+)
 
 from youwei_contracts.research import (
     FrozenEvidence, ResearchProposal, validate_proposal_references,
 )
-from youwei_agent_runtime.adapter import ISOLATION_KWARGS, build_research_brief
+from youwei_agent_runtime.adapter import (
+    ISOLATION_KWARGS,
+    append_experiment_guidance,
+    build_research_brief,
+)
 from youwei_agent_runtime.tools import (
     RESEARCH_TOOLSET,
     ToolContext,
@@ -30,217 +40,22 @@ class HermesNotAvailable(Exception):
     """Raised when the pinned Hermes checkout is not importable."""
 
 
-# The session-scoped token counters Hermes accumulates across a turn (verified
-# against the pinned checkout 7fa45eb, agent/turn_usage.py + agent/agent_init.py).
-# ``prompt_tokens``/``completion_tokens``/``total_tokens`` are the legacy/canonical
-# keys; ``input_tokens``/``output_tokens``/``cache_*``/``reasoning_tokens`` are the
-# canonical breakdown. These fields OVERLAP (prompt = input + cache_read +
-# cache_write) and must never be summed for billing — they are carried verbatim
-# for the Controller's cost map to price each category separately.
-_SESSION_TOKEN_FIELDS = (
-    "prompt_tokens",
-    "completion_tokens",
-    "total_tokens",
-    "input_tokens",
-    "output_tokens",
-    "cache_read_tokens",
-    "cache_write_tokens",
-    "reasoning_tokens",
-)
-
-# The session counter attribute name backing each token field on the agent.
-_SESSION_COUNTER_ATTRS = {
-    "prompt_tokens": "session_prompt_tokens",
-    "completion_tokens": "session_completion_tokens",
-    "total_tokens": "session_total_tokens",
-    "input_tokens": "session_input_tokens",
-    "output_tokens": "session_output_tokens",
-    "cache_read_tokens": "session_cache_read_tokens",
-    "cache_write_tokens": "session_cache_write_tokens",
-    "reasoning_tokens": "session_reasoning_tokens",
-}
-
-
-@dataclass(frozen=True)
-class UsageReport:
-    """Gateway usage observed for one research turn.
-
-    This is an OBSERVATION of Hermes's session counters / last-call usage, not
-    an invoice. ``source`` records which Hermes signal produced it;
-    ``complete`` is true only when the covered scope is verified AND no usage
-    was lost this turn (timeout / stream break / cancel / unclear coverage all
-    force ``complete=False`` with reasons). Token counts are nullable non-
-    negative integers: unknown is ``None``, confirmed-zero is ``0``. Fields
-    overlap (prompt/input, completion/output, cache/reasoning are subsets) and
-    must be priced by the Controller's versioned cost map per category, never
-    summed. Final reconciliation always defers to the Gateway/provider record.
-    """
-
-    source: str  # "session_delta" | "last_call_fallback" | "unavailable"
-    scope: str  # "chat_turn" | "last_api_call" | "unknown"
-    complete: bool
-    incomplete_reasons: tuple[str, ...] = ()
-    prompt_tokens: int | None = None
-    completion_tokens: int | None = None
-    total_tokens: int | None = None
-    input_tokens: int | None = None
-    output_tokens: int | None = None
-    cache_read_tokens: int | None = None
-    cache_write_tokens: int | None = None
-    reasoning_tokens: int | None = None
-    api_calls: int | None = None
-
-    def to_dict(self) -> dict:
-        """JSON-safe wire shape (the fields the Controller decodes)."""
-        return {
-            "source": self.source,
-            "scope": self.scope,
-            "complete": self.complete,
-            "incomplete_reasons": list(self.incomplete_reasons),
-            "prompt_tokens": self.prompt_tokens,
-            "completion_tokens": self.completion_tokens,
-            "total_tokens": self.total_tokens,
-            "input_tokens": self.input_tokens,
-            "output_tokens": self.output_tokens,
-            "cache_read_tokens": self.cache_read_tokens,
-            "cache_write_tokens": self.cache_write_tokens,
-            "reasoning_tokens": self.reasoning_tokens,
-            "api_calls": self.api_calls,
-        }
-
-
-@dataclass(frozen=True)
-class _SessionUsageSnapshot:
-    """A point-in-time read of Hermes's session token counters (all nullable:
-    None when an older checkout lacks that counter)."""
-
-    prompt_tokens: int | None
-    completion_tokens: int | None
-    total_tokens: int | None
-    input_tokens: int | None
-    output_tokens: int | None
-    cache_read_tokens: int | None
-    cache_write_tokens: int | None
-    reasoning_tokens: int | None
-    api_calls: int | None
-
-
-def _read_counter(agent, attr: str) -> int | None:
-    """Read one session counter as a non-negative int, or None if the checkout
-    does not expose it (or the test double has no counters)."""
-    value = getattr(agent, attr, None)
-    if value is None:
-        return None
-    try:
-        n = int(value)
-    except (TypeError, ValueError):
-        return None
-    return n if n >= 0 else None
-
-
-def _snapshot_session_usage(agent) -> _SessionUsageSnapshot | None:
-    """Snapshot the session counters; returns None when the agent exposes none
-    of them (a fake without counters, or a checkout predating session accounting)."""
-    values = {}
-    for field in _SESSION_TOKEN_FIELDS:
-        values[field] = _read_counter(agent, _SESSION_COUNTER_ATTRS[field])
-    values["api_calls"] = _read_counter(agent, "session_api_calls")
-    if all(v is None for v in values.values()):
-        return None
-    return _SessionUsageSnapshot(**values)
-
-
-def _sub(a: int | None, b: int | None) -> int | None:
-    """Difference of two counter readings; None if either side is unknown."""
-    if a is None or b is None:
-        return None
-    return max(a - b, 0)
-
-
-def _delta_usage(before: _SessionUsageSnapshot, after: _SessionUsageSnapshot) -> UsageReport:
-    """Build a complete turn-level report from the before/after snapshots.
-    ``complete=True`` only when every counter is present on both sides and the
-    delta is non-negative (no counter rolled backwards)."""
-    reasons: list[str] = []
-    fields: dict[str, int | None] = {}
-    for field in _SESSION_TOKEN_FIELDS:
-        a = getattr(after, field)
-        b = getattr(before, field)
-        d = _sub(a, b)
-        fields[field] = d
-        if d is None:
-            reasons.append(f"missing_{field}_counter")
-    api_before = before.api_calls
-    api_after = after.api_calls
-    fields["api_calls"] = _sub(api_after, api_before)
-    if fields["api_calls"] is None:
-        reasons.append("missing_api_calls_counter")
-    # A backwards counter means the session was reset mid-turn (or the checkout
-    # re-keyed); the delta is then unreliable.
-    for field in _SESSION_TOKEN_FIELDS:
-        a = getattr(after, field)
-        b = getattr(before, field)
-        if a is not None and b is not None and a < b:
-            reasons.append(f"{field}_counter_reset")
-    complete = not reasons
-    return UsageReport(
-        source="session_delta",
-        scope="chat_turn",
-        complete=complete,
-        incomplete_reasons=tuple(reasons),
-        **fields,
-    )
-
-
-def _from_last_call(agent) -> UsageReport:
-    """Compatibility fallback: Hermes's ``_last_turn_usage`` dict (the LAST
-    API call's canonical usage, not the turn total). Always marked incomplete
-    because it does not cover retries / tool-loop / auxiliary calls."""
-    last = getattr(agent, "_last_turn_usage", None)
-    if not last:
-        return UsageReport(
-            source="unavailable",
-            scope="unknown",
-            complete=False,
-            incomplete_reasons=("no_usage_signal",),
-        )
-    def _g(*names):
-        for name in names:
-            v = last.get(name) if isinstance(last, dict) else getattr(last, name, None)
-            if v is not None:
-                try:
-                    n = int(v)
-                except (TypeError, ValueError):
-                    continue
-                if n >= 0:
-                    return n
-        return None
-    return UsageReport(
-        source="last_call_fallback",
-        scope="last_api_call",
-        complete=False,
-        incomplete_reasons=("last_call_scope_only",),
-        prompt_tokens=_g("prompt_tokens", "input_tokens"),
-        completion_tokens=_g("completion_tokens", "output_tokens"),
-        total_tokens=_g("total_tokens"),
-        input_tokens=_g("input_tokens"),
-        output_tokens=_g("output_tokens"),
-        cache_read_tokens=_g("cache_read_tokens", "cache_read_input_tokens"),
-        cache_write_tokens=_g("cache_write_tokens", "cache_creation_input_tokens"),
-        reasoning_tokens=_g("reasoning_tokens"),
-        api_calls=None,
-    )
-
-
 @dataclass(frozen=True)
 class ResearchTurn:
-    """One research turn's validated proposal plus the observed gateway usage.
-    ``usage`` is a ``UsageReport`` (never a bare dict) so the Controller can
-    settle cost from a labeled, completeness-aware observation rather than an
-    ambiguous token blob."""
+    """One research turn's validated output plus the observed gateway usage.
 
-    proposal: ResearchProposal
+    A turn carries EITHER a proposal (the final llm_adjusted answer) OR an
+    experiment_request (S08 exploration loop: the research instance asks the
+    Controller to run a computation it cannot do with the available tools;
+    the Controller orchestrates the experiment and re-enters the turn with
+    the accepted outcome). ``usage`` is a ``UsageReport`` (never a bare dict)
+    so the Controller can settle cost from a labeled, completeness-aware
+    observation rather than an ambiguous token blob."""
+
+    proposal: ResearchProposal | None
     usage: UsageReport
+    attribution: object | None = None  # contracts ResearchInvocationAttribution
+    experiment_request: "object | None" = None  # contracts ExperimentRequest
 
 
 @dataclass(frozen=True)
@@ -248,7 +63,11 @@ class ResearchConfig:
     """Gateway + model wiring for a research run. base_url must be the
     OpenAI-compatible gateway endpoint (scheme A); api_key is the gateway key,
     never a supplier credential. Cost attribution and budgeting live in the
-    Controller/budget layer, not here."""
+    Controller/budget layer, not here.
+
+    ``max_output_tokens`` caps the model's output per API call: without an
+    explicit cap the provider default can truncate a verbose model's JSON
+    proposal mid-stream (observed with glm-5.3, finish_reason=length)."""
 
     base_url: str
     api_key: str
@@ -256,6 +75,7 @@ class ResearchConfig:
     provider: str = "custom"
     max_iterations: int = 8
     run_budget_seconds: float | None = None
+    max_output_tokens: int = 16384
 
 
 def _import_aiagent():
@@ -327,17 +147,29 @@ def make_agent(config: ResearchConfig, *, platform: str = "research"):
         platform=platform,
         max_iterations=config.max_iterations,
         run_budget_seconds=config.run_budget_seconds,
+        max_tokens=config.max_output_tokens,
         **ISOLATION_KWARGS,
     )
 
 
-def parse_proposal(raw: str, *, run_id, case_id) -> ResearchProposal:
+def parse_proposal(
+    raw: str,
+    *,
+    run_id,
+    case_id,
+    model_attribution: dict | None = None,
+) -> ResearchProposal:
     """Decode Hermes's textual answer and check wire/value discipline only.
 
     The model is instructed (via the research brief) to return a JSON object
     matching the research-v1 proposal shape. This boundary enforces the wire
     discipline declared in the contract. Citation checking requires the
     evidence bundle and is performed by run_research before returning.
+
+    ``model_attribution``, when provided, REPLACES any self-reported model
+    field: external text is untrusted input, so attribution comes from the
+    runtime's configuration (what was actually called), never from the
+    model's answer.
     """
     # Tolerate markdown fences / surrounding prose in a best-effort way.
     text = raw.strip()
@@ -360,7 +192,38 @@ def parse_proposal(raw: str, *, run_id, case_id) -> ResearchProposal:
 
     from youwei_agent_runtime.adapter import proposal_from_payload
 
+    if model_attribution is not None:
+        payload.pop("model", None)
+        payload["model"] = model_attribution
     return proposal_from_payload(run_id, case_id, payload)
+
+
+def parse_experiment_request_output(raw: str):
+    """Parse the model's answer as an experiment request (the exploration
+    loop's turn output). Same fence tolerance as parse_proposal."""
+    from youwei_contracts.experiment import ExperimentRequest
+
+    text = raw.strip()
+    if text.startswith("```"):
+        first_newline = text.find("\n")
+        if first_newline != -1:
+            text = text[first_newline + 1 :]
+        stripped = text.rstrip()
+        if stripped.endswith("```"):
+            text = stripped[: stripped.rfind("```")]
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        start = text.find("{")
+        end = text.rfind("}")
+        if start == -1 or end <= start:
+            raise ValueError("experiment request response is not JSON: " + raw[:200])
+        payload = json.loads(text[start : end + 1])
+    if not isinstance(payload, dict):
+        raise ValueError("experiment request must be a JSON object")
+    if "experiment_request" in payload:
+        payload = payload["experiment_request"]
+    return ExperimentRequest.model_validate(payload)
 
 
 async def run_research(
@@ -369,6 +232,7 @@ async def run_research(
     *,
     capability_token: str | None = None,
     public_keys: dict[str, str] | None = None,
+    experiments: list | None = None,
 ) -> ResearchTurn:
     """Run one research turn and return a validated proposal plus usage.
 
@@ -395,6 +259,7 @@ async def run_research(
     """
     agent = make_agent(config)
     brief = build_research_brief(evidence)
+    brief = append_experiment_guidance(brief, experiments)
 
     if capability_token is not None and public_keys is not None:
         tool_ctx = ToolContext(
@@ -418,15 +283,27 @@ async def run_research(
             reset_tool_context(ctx_token)
 
     after = _snapshot_session_usage(agent)
-    proposal = parse_proposal(raw, run_id=evidence.run_id, case_id=evidence.case.case_id)
-    validate_proposal_references(evidence, proposal)
+    try:
+        proposal = parse_proposal(
+            raw,
+            run_id=evidence.run_id,
+            case_id=evidence.case.case_id,
+            # Attribution from configuration, never from the model's self-report.
+            model_attribution={"model_version": config.model, "provider": config.provider},
+        )
+    except ValueError:
+        # not a proposal — an experiment request (the brief documents this
+        # alternative output; a malformed answer fails in the parser below)
+        experiment_request = parse_experiment_request_output(raw)
+        usage = _observe_usage(agent, before, after)
+        return ResearchTurn(
+            proposal=None, usage=usage,
+            attribution=build_execution_attribution(agent, brief, config),
+            experiment_request=experiment_request,
+        )
+    validate_proposal_references(evidence, proposal, experiments=experiments)
     usage = _observe_usage(agent, before, after)
-    return ResearchTurn(proposal=proposal, usage=usage)
-
-
-def _observe_usage(agent, before: _SessionUsageSnapshot | None, after: _SessionUsageSnapshot | None) -> UsageReport:
-    """Choose the usage report for a completed turn: session delta when both
-    snapshots exist, else the last-call fallback, else unavailable."""
-    if before is not None and after is not None:
-        return _delta_usage(before, after)
-    return _from_last_call(agent)
+    return ResearchTurn(
+        proposal=proposal, usage=usage,
+        attribution=build_execution_attribution(agent, brief, config),
+    )

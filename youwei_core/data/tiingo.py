@@ -60,7 +60,13 @@ class TiingoClient:
 
     The limiter is a fixed minimum interval between calls (the
     evaluation tier's exact quota is not exposed via headers); tests
-    inject an httpx transport instead of the network."""
+    inject an httpx transport instead of the network.
+
+    Authentication uses the ``Authorization: Token <key>`` header, not a
+    ``token`` query parameter, so the secret never appears in request
+    URLs (which httpx logs at INFO and exceptions may embed). Verified
+    against the real endpoint 2026-10-02: valid token -> 200, bogus
+    token -> 403 ``Invalid token.`` (docs/research/tiingo-token-verification.md §8)."""
 
     def __init__(
         self,
@@ -98,10 +104,10 @@ class TiingoClient:
         response = await self._http.get(
             f"{self.base_url}/daily/{ticker.upper()}/prices",
             params={
-                "token": self.token,
                 "startDate": start_date.isoformat(),
                 "endDate": end_date.isoformat(),
             },
+            headers={"Authorization": f"Token {self.token}"},
         )
         if response.status_code != 200:
             raise TiingoError(

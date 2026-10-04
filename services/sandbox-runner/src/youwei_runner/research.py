@@ -106,21 +106,7 @@ def _docker_binary() -> str:
     raise ResearchExecutionError("docker binary not found; the runner requires Docker")
 
 
-async def _run(cmd: list[str], *, timeout: float | None = None) -> tuple[int, str, str]:
-    proc = await asyncio.create_subprocess_exec(
-        *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-    )
-    try:
-        out, err = await asyncio.wait_for(proc.communicate(), timeout=timeout)
-    except (asyncio.TimeoutError, asyncio.CancelledError):
-        proc.kill()
-        await proc.wait()
-        raise
-    return (
-        proc.returncode,
-        out.decode("utf-8", errors="replace"),
-        err.decode("utf-8", errors="replace"),
-    )
+from youwei_runner.process import run as _run
 
 
 async def run_research_container(
@@ -139,19 +125,27 @@ async def run_research_container(
     or a non-ok result is reflected in the result, not silently turned into a
     proposal.
     """
+    from youwei_runner.netresolve import NetResolveError, gateway_add_host
+
     if not config.image:
         raise ResearchExecutionError("agent-runtime image is not configured")
     if not config.gateway_url:
         raise ResearchExecutionError("agent-runtime gateway is not configured")
 
     docker = _docker_binary()
+    # gVisor containers cannot use Docker's embedded DNS on this host — the
+    # gateway hostname must be pinned into /etc/hosts (see netresolve.py).
+    try:
+        add_host = await gateway_add_host(docker, config.gateway_url, config.network)
+    except NetResolveError as exc:
+        raise ResearchExecutionError(f"gateway resolution failed: {exc}") from None
     container = f"youwei-res-{uuid.uuid4().hex[:12]}"
 
     cmd = [
         docker, "run", "--rm", "-i", "--name", container,
         "--label", "youwei.runner=research-v1",
         "--log-driver", "local", "--log-opt", "max-size=1m", "--log-opt", "max-file=2",
-        "--network", config.network,
+        "--network", config.network, *add_host,
         "--read-only",
         "--cap-drop", "ALL",
         "--security-opt", "no-new-privileges",
@@ -176,6 +170,7 @@ async def run_research_container(
 
     started = asyncio.get_event_loop().time()
     timed_out = False
+    force_cleanup = False
     try:
         proc = await asyncio.create_subprocess_exec(
             *cmd,
@@ -194,17 +189,25 @@ async def run_research_container(
             )
         except asyncio.TimeoutError:
             timed_out = True
+            force_cleanup = True
             stdout_b, stderr_b = b"", b""
             proc.kill()
             await proc.wait()
         except asyncio.CancelledError:
+            force_cleanup = True
             proc.kill()
             await proc.wait()
             raise
     finally:
-        # --rm cleans up on normal exit; force-remove on abnormal paths so a
-        # timeout/cancel does not leak a container holding a slot.
-        if proc.returncode is None:
+        # Killing the docker-run CLIENT does not stop the container: `docker
+        # run -i` detaches and the container keeps running (observed in the
+        # S07 real-gateway verification: a timed-out turn kept calling the
+        # gateway after the Runner had already reported the timeout).
+        # Force-remove the container BY NAME unless the client exited
+        # cleanly (clean exit 0 means the container already self-removed via
+        # --rm). On failure paths the rm is a harmless no-op when the
+        # container is already gone (the error is caught below).
+        if force_cleanup or proc.returncode != 0:
             try:
                 await _run([docker, "rm", "-f", container], timeout=30.0)
             except ResearchExecutionError:
@@ -244,10 +247,24 @@ def _decode_result(
     or a non-ok result is a failure; a result over the stdout cap already
     raised before reaching here."""
     if exit_code != 0:
+        # The container writes a structured {"ok": false, "error": ...} to
+        # stdout (main.py encode_error) even on non-zero exits; prefer it over
+        # the stderr tail, which is dominated by the Hermes startup banner.
+        stdout_error = None
+        try:
+            payload = json.loads(stdout)
+            if isinstance(payload, dict) and payload.get("ok") is False:
+                stdout_error = str(payload.get("error", ""))
+        except json.JSONDecodeError:
+            pass
+        detail = stdout_error or "non-JSON stdout"
         return ResearchInvocationResult(
             ok=False, exit_code=exit_code,
             image_digest=_image_digest(config.image),
-            error=f"research container exited {exit_code}: {stderr[-500:]}",
+            error=(
+                f"research container exited {exit_code}: {detail} "
+                f"| stderr tail: {stderr[-2000:]}"
+            ),
         )
     try:
         payload = json.loads(stdout)
@@ -267,17 +284,57 @@ def _decode_result(
 
     try:
         proposal = ResearchProposal.model_validate(payload["proposal"])
+    except KeyError:
+        proposal = None
     except Exception as exc:
         return ResearchInvocationResult(
             ok=False, exit_code=exit_code,
             image_digest=_image_digest(config.image),
             error=f"research container returned invalid proposal: {exc}"[:500],
         )
+    experiment_request = None
+    if proposal is None:
+        from youwei_contracts.experiment import ExperimentRequest
+
+        raw_request = payload.get("experiment_request")
+        if raw_request is None:
+            return ResearchInvocationResult(
+                ok=False, exit_code=exit_code,
+                image_digest=_image_digest(config.image),
+                error="research container returned neither proposal nor experiment_request",
+            )
+        try:
+            experiment_request = ExperimentRequest.model_validate(raw_request)
+        except Exception as exc:
+            return ResearchInvocationResult(
+                ok=False, exit_code=exit_code,
+                image_digest=_image_digest(config.image),
+                error=f"research container returned invalid experiment_request: {exc}"[:500],
+            )
     usage = payload.get("usage")
     if not isinstance(usage, dict):
         usage = None
+    # D2 traceability: the container's attribution record (prompt hash,
+    # resolved execution config, provider-returned model id) rides the wire
+    # verbatim. Absent stays None (older agent-runtime images); a present
+    # but MALFORMED record is a wire violation and fails loudly — it must
+    # never silently degrade to an unattributed report.
+    attribution = None
+    raw_attribution = payload.get("attribution")
+    if raw_attribution is not None:
+        from youwei_contracts.agent_runtime import ResearchInvocationAttribution
+
+        try:
+            attribution = ResearchInvocationAttribution.model_validate(raw_attribution)
+        except Exception as exc:
+            return ResearchInvocationResult(
+                ok=False, exit_code=exit_code,
+                image_digest=_image_digest(config.image),
+                error=f"research container returned invalid attribution: {exc}"[:500],
+            )
     return ResearchInvocationResult(
-        ok=True, proposal=proposal, usage=usage, exit_code=exit_code,
+        ok=True, proposal=proposal, experiment_request=experiment_request,
+        usage=usage, attribution=attribution, exit_code=exit_code,
         image_digest=_image_digest(config.image),
     )
 
@@ -349,6 +406,10 @@ async def execute_research_request(
     wire = {
         "capability_token": capability_token,
         "evidence": request.evidence.model_dump(mode="json"),
+        # S08 re-entry turns: the accepted experiment outcomes ride the wire so
+        # the runtime can render them into the brief and resolve kind="code"
+        # citations against them.
+        "experiments": [e.model_dump(mode="json") for e in request.experiments],
         "config": {
             "base_url": config.gateway_url,
             "api_key": _gateway_credential(),

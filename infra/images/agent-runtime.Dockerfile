@@ -53,6 +53,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends git ca-certific
     git checkout --quiet FETCH_HEAD && \
     test "$(git rev-parse HEAD)" = "${HERMES_REVISION}"
 
+# youwei local patch (minimal fork, recorded in infra/upstreams.lock.yaml):
+# stash the provider-returned model id on the agent so the research adapter
+# can record actual model attribution per report (owner decision D2,
+# 2026-10-03). The upstream exposes no stable surface for the response's
+# model id (chat() returns a string; the turn result dict and history
+# messages carry no model). --check first: an upstream bump that breaks the
+# patch fails the build instead of silently dropping the attribution.
+COPY infra/images/hermes-last-turn-model.patch /tmp/hermes-last-turn-model.patch
+RUN git -C /opt/hermes apply --check /tmp/hermes-last-turn-model.patch && \
+    git -C /opt/hermes apply /tmp/hermes-last-turn-model.patch
+
 # Install Hermes's pinned Python dependencies into /opt/hermes/.venv.
 # `--no-dev` keeps out the dev group; core [project].dependencies are enough
 # for the research role (openai/httpx/rich/etc.). If the research path needs a

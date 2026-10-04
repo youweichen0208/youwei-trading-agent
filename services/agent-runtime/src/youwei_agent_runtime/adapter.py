@@ -93,6 +93,32 @@ def build_research_brief(evidence: FrozenEvidence) -> str:
         f"- entry: {case.entry_at_utc}",
         f"- exit: {case.exit_at_utc}",
         "",
+        "## Quant prediction (the position you adjust)",
+        f"- model_version: {evidence.quant.model_version}",
+    ]
+    if evidence.quant.source_status == "produced":
+        lines += [
+            f"- p_outperform: {evidence.quant.p_outperform}",
+            f"- expected_excess_return: {evidence.quant.expected_excess_return}",
+            "",
+            "Your llm_adjusted position is defined RELATIVE to this quant",
+            "prediction: keep it (quant_relation=\"kept\") when the evidence",
+            "supports it, or adjust it (quant_relation=\"adjusted\") with",
+            "grounded reasons citing the frozen rows below. A bare independent",
+            "answer that ignores the quant prediction does not satisfy the task.",
+        ]
+    else:
+        lines += [
+            f"- status: unavailable (reason: {evidence.quant.reason})",
+            "",
+            "The quant model could not produce a position for this case. You",
+            "may still answer from the evidence alone; state that you are doing",
+            "so and why the evidence supports a probability despite the quant",
+            "model's limitation. Omit quant_relation in that case.",
+        ]
+
+    lines += [
+        "",
         "## Observed bars (own security)",
     ]
     if own_bars:
@@ -116,12 +142,91 @@ def build_research_brief(evidence: FrozenEvidence) -> str:
         "## Task",
         "Produce a forward probability p_outperform and expected excess return",
         "for this security vs the benchmark over the stated horizon, grounded",
-        "ONLY in the frozen evidence above. Cite each quantitative claim with a",
-        "reference using the exact snapshot row locator above. If the evidence",
-        "is insufficient, return source_status=unavailable with a reason and the",
-        "missing fields — never fabricate a probability.",
+        "ONLY in the frozen evidence above. The quant prediction above is the",
+        "position you adjust: keep or adjust it with grounded reasons, and",
+        "record how you decided (quant_relation). Cite each quantitative claim",
+        "with a reference using the exact snapshot row locator above. If the",
+        "evidence is insufficient, return source_status=unavailable with a",
+        "reason and the missing fields — never fabricate a probability.",
+        "",
+        "## Response format (required)",
+        "Respond with ONLY a single JSON object — no prose, no markdown fence —",
+        "with exactly these fields:",
+        '- source_status: "produced" or "unavailable"',
+        "- p_outperform: number in [0, 1] (required when produced)",
+        "- expected_excess_return: number, decimal fraction vs benchmark (required when produced)",
+        '- reason: string (required when unavailable: why the evidence is insufficient)',
+        '- references: [{"kind": "evidence", "locator": "<exact snapshot row locator>", "note": "..."}]',
+        '- warnings: [{"kind": "insufficient_history"|"missing_data"|"low_confidence"|"other", "detail": "..."}]',
+        "- missing: [string] (fields you could not ground in the evidence)",
+        "- quantitative_basis: string (how the numbers derive from the cited rows; when you keep or adjust the quant prediction, why)",
+        '- quant_relation: "kept" or "adjusted" (required when the quant prediction above was produced and you return produced; omit otherwise)',
+        "Do not include a model field; the runtime records the model attribution.",
+        '- Value discipline: when source_status is "unavailable", omit',
+        '  p_outperform and expected_excess_return entirely (values are only',
+        '  allowed when produced). Never mix the two.',
+        "",
+        "## Platform tool",
+        "A snapshot_manifest tool is available (possibly behind a tool_search /",
+        "tool_call bridge). It reports the frozen evidence manifest — use it to",
+        "confirm exactly what point-in-time data this run may see.",
     ]
     return "\n".join(lines)
+
+
+def append_experiment_guidance(
+    brief: str, experiments: list | None
+) -> str:
+    """Append the exploration-loop guidance to a research brief (S08).
+
+    Always documents the experiment-request option; when ``experiments``
+    (accepted outcomes of experiments this case already ran) is non-empty,
+    also renders their findings/artifact locators so the model can cite
+    them (kind "code") or build on them in its final proposal."""
+    from youwei_contracts.experiment import ExperimentContext
+
+    lines = [
+        "",
+        "## Exploration loop (optional experiment request)",
+        "If — and only if — a computation the available tools cannot cover is",
+        "genuinely necessary for the prediction, you may instead return a",
+        "single JSON object with exactly these fields (no proposal fields):",
+        '- question: string (<= 2000 chars, the precise statistical question)',
+        '- motivation: string (<= 2000 chars, why it matters for this case)',
+        '- requested_shape: string (<= 2000 chars, the exact output shape)',
+        "The Controller runs the computation in an isolated sandbox against",
+        "this same frozen snapshot and returns the outcome; you then answer",
+        "with the normal proposal format. Use this sparingly — a proposal",
+        "grounded in the evidence above is always acceptable.",
+    ]
+    if experiments:
+        lines += [
+            "",
+            "## Experiment outcomes from earlier turns (citable)",
+            "These experiments ran against this case's frozen snapshot; cite",
+            "their artifacts with kind=\"code\" using the exact locators below.",
+        ]
+        for exp in experiments:
+            context = (
+                exp
+                if isinstance(exp, ExperimentContext)
+                else ExperimentContext.model_validate(exp)
+            )
+            lines.append("")
+            lines.append(f"### experiment {context.experiment_invocation_id}")
+            lines.append(f"- question: {context.question}")
+            lines.append(f"- findings: {context.findings}")
+            for warning in context.warnings:
+                lines.append(f"- warning: {warning}")
+            for computation in context.computations:
+                for artifact in computation.artifacts:
+                    lines.append(
+                        f"- artifact: experiment:{context.experiment_invocation_id}"
+                        f"/computations/{computation.computation_id}"
+                        f"/artifacts/{artifact.path} "
+                        f"({computation.status}, sha256 {artifact.sha256[:12]}...)"
+                    )
+    return brief + "\n".join([""] + lines)
 
 
 def proposal_from_payload(run_id, case_id, payload: dict):

@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Hermes research runtime (S07). Independent Python 3.14 environment; no Core, Ledger, or database dependency."
 requires-python = ">=3.14,<3.15"
 dependencies = [
+    "httpx>=0.28,<0.29",
     "pydantic>=2.10,<3",
     "youwei-contracts[signing]",
 ]

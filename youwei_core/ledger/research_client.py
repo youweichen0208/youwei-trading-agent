@@ -48,20 +48,6 @@ class ResearchRunnerError(Exception):
 
 
 @dataclass(frozen=True)
-class RunnerResearchConfig:
-    """Controller-side wiring for the Runner research link (S07m).
-
-    ``client`` reaches the Runner's research entry; ``signing_key`` holds the
-    Controller's Ed25519 private key; ``research_config`` carries model/
-    iterations (gateway endpoint/key are injected by the Runner).
-    """
-
-    client: "ResearchRunnerClient"
-    signing_key: ResearchSigningKey
-    research_config: dict
-
-
-@dataclass(frozen=True)
 class ResearchSigningKey:
     """Controller-side Ed25519 signing material for the research link.
 
@@ -83,11 +69,18 @@ class RunnerResearchConfig:
     parameters (model/provider/iterations — the gateway endpoint/key are
     injected by the Runner, never carried here). The per-batch token expiry is
     derived inside ``run_batch_predictions`` by re-checking the current
-    attempt's lease (the Controller never extends a grant past the lease)."""
+    attempt's lease (the Controller never extends a grant past the lease).
+
+    ``experiment_client`` + ``experiment_limits`` (both or neither) enable the
+    S08 exploration loop: research turns may answer with an experiment
+    request, which the orchestrator runs through the Runner's experiment
+    surface before re-entering the turn."""
 
     client: "ResearchRunnerClient"
     key: ResearchSigningKey
     research_config: dict
+    experiment_client: "object | None" = None  # ExperimentRunnerClient
+    experiment_limits: "object | None" = None  # contracts ExperimentLimits
 
 
 def sign_invocation_tokens(
@@ -313,8 +306,9 @@ def make_runner_research_fetcher(
     key: ResearchSigningKey,
     expiry_provider: Callable[[], Awaitable[datetime]],
     research_config: dict,
+    attribution_sink: "Callable[[dict], None] | None" = None,
 ):
-    """Build a ``fetch_proposal(case, bars) -> ResearchProposal`` over the
+    """Build a ``fetch_proposal(case, bars, quant) -> ResearchProposal`` over the
     Runner's research entry (one invocation per case).
 
     Each case shares the batch's single frozen snapshot (S06a); only the case
@@ -324,13 +318,14 @@ def make_runner_research_fetcher(
     from youwei_core.ledger.evidence import build_frozen_evidence
     from youwei_core.ledger.agent_client import AgentRuntimeError
 
-    async def fetch_proposal(case, bars):
+    async def fetch_proposal(case, bars, quant):
         evidence = build_frozen_evidence(
             run_id=run_id,
             tenant_id=tenant_id,
             case=case,
             snapshot=snapshot,
             batch_manifest=batch_manifest,
+            quant=quant,
         )
         request = build_research_request(
             invocation_id=uuid.uuid4(),
@@ -347,6 +342,24 @@ def make_runner_research_fetcher(
         result = await run_research_via_runner(
             client, key, request, expiry_provider=expiry_provider
         )
+        if attribution_sink is not None:
+            # D2 版本留痕 (2026-10-03): surface what ACTUALLY ran alongside the
+            # configured routing — the container's attribution record (prompt
+            # hash, resolved non-sensitive execution config + hash, and the
+            # provider-returned model id with its observation scope), the
+            # image digest of the container that produced the proposal, its
+            # usage observation and the execution-config version. The
+            # exploratory report records this next to the configured model
+            # attribution.
+            attribution_sink({
+                "attribution": (
+                    result.attribution.model_dump(mode="json")
+                    if result.attribution is not None else None
+                ),
+                "image_digest": result.image_digest,
+                "usage": result.usage,
+                "exec_config_version": key.exec_config_version,
+            })
         proposal = result.proposal
         if proposal is None:
             raise AgentRuntimeError(

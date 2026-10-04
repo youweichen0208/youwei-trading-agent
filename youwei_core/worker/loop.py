@@ -252,11 +252,19 @@ def main() -> None:
 
     agent_runtime = _build_agent_runtime(settings)
     runner_research = _build_runner_research(settings)
+    from youwei_core.ledger.exploratory import make_exploratory_research_handler
+
     handlers = {
         "noop": noop_handler,
         "data.tiingo_daily": make_tiingo_daily_handler(engine, tiingo),
         "research.batch_predict": make_batch_predict_handler(
             engine, agent_runtime=agent_runtime, runner_research=runner_research
+        ),
+        # S12a: user-initiated exploratory research. Without research
+        # wiring the task fails honestly (never fabricated); production
+        # wiring arrives with the S12d declarative deployment.
+        "research.exploratory": make_exploratory_research_handler(
+            engine, runner_research=runner_research, agent_runtime=agent_runtime
         ),
     }
     if runner is not None:
@@ -333,12 +341,36 @@ def _build_runner_research(settings: Settings) -> RunnerResearchConfig | None:
         return None
     return RunnerResearchConfig(
         client=ResearchRunnerClient(settings.runner_url),
-        signing_key=ResearchSigningKey(
+        key=ResearchSigningKey(
             kid=settings.research_signing_kid,
             private_key_pem=settings.research_signing_private_key,
             exec_config_version=settings.research_exec_config_version,
         ),
         research_config={"model": settings.research_model},
+        **(
+            _experiment_wiring(settings)
+            if settings.experiment_exploration_enabled
+            else {}
+        ),
+    )
+
+
+def _experiment_wiring(settings: Settings) -> dict:
+    """The S08 exploration-loop attachments for RunnerResearchConfig (both
+    or neither: the orchestrator needs the control-plane client and the
+    limits template together)."""
+    from youwei_contracts.experiment import ExperimentLimits
+
+    from youwei_core.ledger.experiment_client import ExperimentRunnerClient
+
+    return dict(
+        experiment_client=ExperimentRunnerClient(settings.runner_url),
+        experiment_limits=ExperimentLimits(
+            max_computations=settings.experiment_limits_max_computations,
+            max_concurrent=settings.experiment_limits_max_concurrent,
+            max_total_duration_seconds=settings.experiment_limits_max_total_duration_seconds,
+            max_artifact_bytes=settings.experiment_limits_max_artifact_bytes,
+        ),
     )
 
 

@@ -46,6 +46,12 @@ def _evidence(tenant_id=None, run_id=None, case_id=None) -> FrozenEvidence:
         },
         target_policy_sha256="p" * 64,
         batch_manifest={"version": "1"},
+        quant={
+            "model_version": "quant-momentum-v0",
+            "source_status": "produced",
+            "p_outperform": 0.55,
+            "expected_excess_return": 0.01,
+        },
     )
 
 
@@ -110,3 +116,80 @@ def test_case_id_is_part_of_invocation_binding():
     b = _request(case_id=uuid.uuid4())
     assert a.case_id != b.case_id
     assert invocation_digest(a) != invocation_digest(b)
+
+
+def _minimal_proposal():
+    from youwei_contracts.research import ResearchProposal
+    return ResearchProposal(
+        run_id=uuid.uuid4(), case_id=uuid.uuid4(),
+        source_status="unavailable", reason="none",
+    )
+
+
+def test_attribution_config_hash_roundtrip_and_rejection():
+    """D2 版本留痕: attribution pins the prompt hash, the resolved non-
+    sensitive execution config (hash-checked), and the provider-returned
+    model id with an EXPLICIT observation scope."""
+    import hashlib
+    import json as _json
+    import uuid
+    from youwei_contracts.agent_runtime import (
+        ResearchInvocationAttribution,
+        ResearchInvocationResult,
+    )
+
+    config = {
+        "model": "glm-5.3", "provider": "custom", "max_iterations": 8,
+        "run_budget_seconds": None, "max_output_tokens": 16384,
+        "gateway_base_url": "http://litellm:4000/v1",
+    }
+    sha = hashlib.sha256(
+        _json.dumps(config, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+    ).hexdigest()
+    attr = ResearchInvocationAttribution(
+        brief_sha256="a" * 64,
+        execution_config=config,
+        execution_config_sha256=sha,
+        model_returned="glm-5.3-20261003",
+        model_returned_scope="last_completed_provider_response",
+    )
+    assert attr.model_returned_scope == "last_completed_provider_response"
+
+    result = ResearchInvocationResult(
+        ok=True, exit_code=0, image_digest="sha256:" + "e" * 64,
+        attribution=attr,
+        proposal=_minimal_proposal(),
+    )
+    assert result.attribution.brief_sha256 == "a" * 64
+
+    # tampered config hash rejected
+    with pytest.raises(Exception):
+        ResearchInvocationAttribution(
+            brief_sha256="a" * 64,
+            execution_config={**config, "max_iterations": 9},
+            execution_config_sha256=sha,
+            model_returned=None,
+            model_returned_scope="last_completed_provider_response",
+        )
+    # scope is a closed literal, not free text
+    with pytest.raises(Exception):
+        ResearchInvocationAttribution(
+            brief_sha256="a" * 64,
+            execution_config=config,
+            execution_config_sha256=sha,
+            model_returned=None,
+            model_returned_scope="whole_turn",
+        )
+    # api_key must never appear in the execution config (documented by test)
+    assert "api_key" not in config
+
+
+def test_attribution_is_optional_for_backward_compat():
+    """Old agent-runtime output (no attribution) still validates; the field
+    is optional so the staged rollout can order container upgrades."""
+    from youwei_contracts.agent_runtime import ResearchInvocationResult
+    result = ResearchInvocationResult(
+        ok=True, exit_code=0, image_digest="sha256:" + "f" * 64,
+        proposal=_minimal_proposal(),
+    )
+    assert result.attribution is None

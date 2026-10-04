@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "lock_sha256": "5ffd2a53ef2af861199e7e9432cfa07b4bb84df99707e78a2e557d13092cf5cd",
+  "compose_sha256": "35fd151532e22c0b9ad051930316f5462805e7c116b70b86e8c24e55ded2f06d",
+  "components": {
+    "core-api": {
+      "image": "ghcr.io/youweichen0208/youwei-core@sha256:678077eee1284099176d16172275455e206af8fc561ab84d00f075ba171de58e",
+      "bindings": [
+        {
+          "service": "core-api",
+          "field": "image"
+        }
+      ]
+    },
+    "core-worker": {
+      "image": "ghcr.io/youweichen0208/youwei-core@sha256:f18c8289a8d05b1b9913ac22973532c8c1683703b2f38a955ad7ca8d264abe40",
+      "bindings": [
+        {
+          "service": "core-worker",
+          "field": "image"
+        }
+      ]
+    },
+    "postgres": {
+      "image": "ghcr.io/youweichen0208/youwei-postgres@sha256:8d69232c1d2b7771ae8f9dbb04cd56bbd6334972f37e90956f6a5bad05382053",
+      "bindings": [
+        {
+          "service": "postgres",
+          "field": "image"
+        }
+      ]
+    },
+    "sandbox-runner": {
+      "image": "ghcr.io/youweichen0208/youwei-runner@sha256:c44c3d4a361422572edb258c58d83b8b2268181a8888a4c35d0062eda0955de9",
+      "bindings": [
+        {
+          "service": "sandbox-runner",
+          "field": "image"
+        }
+      ]
+    },
+    "youwei_runner_agent_runtime_image": {
+      "image": "ghcr.io/youweichen0208/youwei-agent-runtime@sha256:8d210f9105c0a85aa89bc362ea87e1eddf93d278abd6190fd55e33f93ff3c6ab",
+      "bindings": [
+        {
+          "service": "sandbox-runner",
+          "field": "environment",
+          "name": "YOUWEI_RUNNER_AGENT_RUNTIME_IMAGE"
+        }
+      ]
+    },
+    "youwei_runner_image": {
+      "image": "python:3.13-alpine@sha256:2dd78ad5cf13a0b68f5134dc49aa9950203a8cf4b7463431b9f3b398287c5059",
+      "bindings": [
+        {
+          "service": "sandbox-runner",
+          "field": "environment",
+          "name": "YOUWEI_RUNNER_IMAGE"
+        }
+      ]
+    }
+  }
+}

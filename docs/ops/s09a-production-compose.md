@@ -25,18 +25,27 @@ Runner 已从 Phase 1A 移除：Logistic/Ridge 直接在 Core 内执行；`runne
 - [x] 构建 Core 镜像并推送 GHCR 私有仓库 `ghcr.io/youweichen0208/youwei-core`。（已完成 2026-10-02，digest `sha256:7292c8538e70750ebbd3c278ebd8572563b342ca5593981c34fc8659b9bd0e3c`）
 - [x] 回填 `infra/compose/production.json` 的两个 `PLACEHOLDER_CORE_DIGEST` 为真实 digest。
 - [x] `upstreams.lock.yaml` 的 `core` 组件补全 `deployment.image` digest + `bindings`（core-api/core-worker image）。
-- [ ] 将 `core` 组件置 `enabled:true`、`verification.status` 置 `passed`（附验收证据）。
-- [ ] 生成 deployment manifest（含 `compose_sha256`），跑 `infra/validate_upstreams.py --mode deployment`。
+- [x] 将 `core` 组件置 `enabled:true`、`verification.status` 置 `passed`（附验收证据 `docs/ops/s09a-core-image-release.md`）。
+- [x] 生成 deployment manifest（`infra/deployment-manifest.json`，含 `lock_sha256`/`compose_sha256`），跑 `infra/validate_upstreams.py --mode deployment` → **VALID**（2026-10-02）。
 
 ## 迁移与部署步骤（镜像发布后）
 
 ```bash
 # 1. 起 PostgreSQL（首次 initdb 会跑 01-roles.sh 创建两账号）
+#    注意：production.json 的挂载路径 ./postgres/init 相对 Compose 文件所在
+#    目录解析，实际脚本位于 infra/postgres/init（已改为 ../postgres/init）。
 docker compose -f infra/compose/production.json up -d postgres
 
-# 2. 用迁移账号跑 Alembic（应用账号无 DDL 权限，不用于迁移）
-export YOUWEI_DATABASE_URL="postgresql+asyncpg://youwei_migrate:<migrate_pw>@127.0.0.1:5432/youwei"
-uv run --frozen alembic upgrade head   # 或目标机 .venv 内执行
+# 2. 用迁移账号跑 Alembic（应用账号无 DDL 权限，不用于迁移）。
+#    Compose 未把 PG 端口映射到宿主机（API/Worker 经 internal core 网络直连），
+#    所以不能从宿主机 127.0.0.1:5432 连接；改用同一个 Core 镜像跑一次性迁移
+#    容器，加入 core 网络连 postgres:5432。
+export YOUWEI_MIGRATE_PASSWORD="<迁移账号密码>"
+docker run --rm \
+  --network youwei-production-phase1a_core \
+  -e YOUWEI_DATABASE_URL="postgresql+asyncpg://youwei_migrate:${YOUWEI_MIGRATE_PASSWORD}@postgres:5432/youwei" \
+  ghcr.io/youweichen0208/youwei-core@sha256:7292c8538e70750ebbd3c278ebd8572563b342ca5593981c34fc8659b9bd0e3c \
+  alembic upgrade head
 
 # 3. 起 API 与 Worker
 docker compose -f infra/compose/production.json up -d core-api core-worker
@@ -45,6 +54,12 @@ docker compose -f infra/compose/production.json up -d core-api core-worker
 curl http://127.0.0.1:8000/healthz
 docker compose -f infra/compose/production.json ps
 ```
+
+迁移容器说明：Core 镜像内含 `migrations/`、`alembic.ini` 与 `alembic` CLI
+（pyproject 依赖），非 root（UID 10001）即可运行——Alembic 只写数据库，不写
+镜像文件系统。容器用完即删（`--rm`），不残留运行态；密码经环境变量传入且只在
+本次命令生命周期内存在。生产部署由 `ops/s09b_deploy.py`（或等价脚本）封装上述
+步骤并管理凭证与受限 `.env`。
 
 ## 备份（pgBackRest，方案待目标落实）
 

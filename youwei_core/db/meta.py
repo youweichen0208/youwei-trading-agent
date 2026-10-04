@@ -470,6 +470,27 @@ campaigns = Table(
 # S06i: append-only control facts (stop_new_batches) with reason/actor/time.
 # One per (campaign, event_type); stopping never deletes a plan or case, and
 # outcome follow-up / reports stay independent of this switch.
+# S12 (2026-10-03): release_code_exceptions registers owner-accepted
+# differences between an approved release's code_files and the code actually
+# deployed — one row per (release, deployed image digest), scope explicit per
+# row, approval time = server clock at registration (never backdated),
+# future deployments do not inherit an exception.
+release_code_exceptions = Table(
+    "release_code_exceptions",
+    meta,
+    Column("id", UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    Column("release_row_id", UUID(as_uuid=True), ForeignKey("research_releases.id"), nullable=False),
+    Column("campaign_id", UUID(as_uuid=True), ForeignKey("campaigns.id"), nullable=False),
+    Column("deployed_image_digest", Text, nullable=False),
+    Column("code_files_actual", JSONB, nullable=False),
+    Column("diff_summary", Text, nullable=False),
+    Column("verification", JSONB, nullable=False),
+    Column("approver", Text, nullable=False),
+    Column("decision_basis", Text, nullable=False),
+    Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
+    UniqueConstraint("release_row_id", "deployed_image_digest", name="uq_rce_release_digest"),
+)
+
 campaign_control_events = Table(
     "campaign_control_events",
     meta,
@@ -782,4 +803,121 @@ monthly_report_input_state = Table(
     Column("updated_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
     CheckConstraint("inputs_sha256 ~ '^[0-9a-f]{64}$'", name="inputs_sha_format"),
     CheckConstraint("EXTRACT(DAY FROM month) = 1", name="month_first_day"),
+)
+
+# --- S08: controlled quant exploration (experiment records) -----------------
+# The Controller's pre-dispatch registration of one experiment (D2 minimal
+# requirement 1): bindings (tenant/run/job/attempt/case), the parent research
+# turn's evidence hash, the frozen snapshot the Runner injects, the limits
+# the Runner enforces, and the research instance's ask. One row per
+# experiment_invocation_id, INSERT-only (append-only triggers, migration).
+experiment_records = Table(
+    "experiment_records",
+    meta,
+    Column("id", UUID(as_uuid=True), primary_key=True),
+    Column("tenant_id", UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False),
+    Column("run_id", UUID(as_uuid=True), ForeignKey("runs.id"), nullable=False),
+    Column("job_id", UUID(as_uuid=True), ForeignKey("jobs.id"), nullable=False),
+    Column("attempt_id", UUID(as_uuid=True), ForeignKey("attempts.id"), nullable=False),
+    Column("attempt_no", Integer, nullable=False),
+    Column("case_id", UUID(as_uuid=True), ForeignKey("forecast_cases.id"), nullable=False),
+    Column("evidence_sha256", Text, nullable=False),
+    Column("exec_config_version", Text, nullable=False),
+    Column("question", Text, nullable=False),
+    Column("motivation", Text, nullable=False),
+    Column("requested_shape", Text, nullable=False),
+    Column("limits", JSONB, nullable=False),
+    Column("snapshot_id", UUID(as_uuid=True), ForeignKey("snapshots.id"), nullable=False),
+    Column("registered_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
+    CheckConstraint("evidence_sha256 ~ '^[0-9a-f]{64}$'", name="ck_experiment_records_evidence_sha_format"),
+    CheckConstraint("attempt_no > 0", name="ck_experiment_records_attempt_no_positive"),
+    Index("ix_experiment_records_case", "case_id"),
+)
+
+# The accepted outcome of one experiment (D2 requirement 4): the instance's
+# result verified against the Runner's receipts at the write boundary, with
+# the fencing attempt re-checked. One row per experiment, INSERT-only; the
+# pair (registration, outcome) is the append-only experiment record that
+# `experiment:<id>/computations/<cid>/artifacts/<path>` citations resolve
+# against.
+experiment_outcomes = Table(
+    "experiment_outcomes",
+    meta,
+    Column("experiment_invocation_id", UUID(as_uuid=True), ForeignKey("experiment_records.id"), primary_key=True),
+    Column("result", JSONB, nullable=False),
+    Column("receipts", JSONB, nullable=False),
+    Column("image", Text, nullable=False),
+    Column("snapshot_sha256", Text, nullable=False),
+    Column("accepted_attempt_id", UUID(as_uuid=True), ForeignKey("attempts.id"), nullable=False),
+    Column("accepted_attempt_no", Integer, nullable=False),
+    Column("accepted_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
+    CheckConstraint("snapshot_sha256 ~ '^[0-9a-f]{64}$'", name="ck_experiment_outcomes_snapshot_sha_format"),
+    CheckConstraint("accepted_attempt_no > 0", name="ck_experiment_outcomes_attempt_no_positive"),
+)
+
+# S12a: exploratory research tasks — user-initiated research questions
+# answered once against frozen evidence, OUTSIDE the formal prediction
+# ledger. No Campaign / ForecastCase rows are ever created: the task row
+# itself is the research context (security, benchmark, horizon, target
+# spec, cutoff/entry/exit) and freezes a config manifest at submit time.
+# Unlike the ledger tables this row is mutable state (status transitions),
+# like jobs; the report table below carries the append-only discipline.
+exploratory_research = Table(
+    "exploratory_research",
+    meta,
+    Column("id", UUID(as_uuid=True), primary_key=True),
+    Column("tenant_id", UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False),
+    Column("run_id", UUID(as_uuid=True), ForeignKey("runs.id"), nullable=False),
+    Column("job_id", UUID(as_uuid=True), ForeignKey("jobs.id"), nullable=False),
+    Column("security_id", UUID(as_uuid=True), ForeignKey("securities.id"), nullable=False),
+    Column("benchmark_security_id", UUID(as_uuid=True), ForeignKey("securities.id"), nullable=False),
+    Column("horizon_td", Integer, nullable=False),
+    Column("target_spec_id", Text, nullable=False),
+    Column("target_spec_sha256", Text, nullable=False),
+    Column("decision_cutoff_utc", TIMESTAMP(timezone=True), nullable=False),
+    # informational for the research brief (the exploratory question is
+    # answered for the window from entry; there is no seal deadline)
+    Column("prediction_deadline_utc", TIMESTAMP(timezone=True), nullable=False),
+    Column("entry_at_utc", TIMESTAMP(timezone=True), nullable=False),
+    Column("exit_at_utc", TIMESTAMP(timezone=True), nullable=False),
+    Column("status", Text, nullable=False, server_default="pending"),
+    Column("config_manifest", JSONB, nullable=False),
+    Column("config_sha256", Text, nullable=False),
+    Column("idempotency_key", Text, nullable=False),
+    Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
+    Column("updated_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
+    CheckConstraint(
+        "status IN ('pending','running','succeeded','failed','cancelled')",
+        name="ck_exploratory_status_valid",
+    ),
+    CheckConstraint("horizon_td IN (1, 20, 60)", name="ck_exploratory_horizon_valid"),
+    CheckConstraint("target_spec_sha256 ~ '^[0-9a-f]{64}$'", name="ck_exploratory_spec_sha_format"),
+    CheckConstraint("config_sha256 ~ '^[0-9a-f]{64}$'", name="ck_exploratory_config_sha_format"),
+    UniqueConstraint("tenant_id", "idempotency_key", name="uq_exploratory_tenant_idem"),
+    Index("ix_exploratory_tenant_created", "tenant_id", "created_at"),
+)
+
+# S12a: versioned exploratory research reports — append-only (ledger
+# block-mutation triggers). A re-run of the same research appends a new
+# version only when the content actually differs (content_sha256
+# idempotency); old versions stay readable. Reports never enter the
+# prediction ledger tables.
+exploratory_research_reports = Table(
+    "exploratory_research_reports",
+    meta,
+    Column("id", UUID(as_uuid=True), primary_key=True),
+    Column("research_id", UUID(as_uuid=True), ForeignKey("exploratory_research.id"), nullable=False),
+    Column("tenant_id", UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False),
+    Column("report_version", Integer, nullable=False),
+    Column("attempt_id", UUID(as_uuid=True), ForeignKey("attempts.id"), nullable=False),
+    Column("attempt_no", Integer, nullable=False),
+    Column("evidence_snapshot_id", UUID(as_uuid=True), ForeignKey("snapshots.id"), nullable=False),
+    Column("content", JSONB, nullable=False),
+    Column("content_sha256", Text, nullable=False),
+    Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=func.now()),
+    CheckConstraint("report_version > 0", name="ck_exploratory_report_version_positive"),
+    CheckConstraint("attempt_no > 0", name="ck_exploratory_report_attempt_no_positive"),
+    CheckConstraint("content_sha256 ~ '^[0-9a-f]{64}$'", name="ck_exploratory_report_sha_format"),
+    UniqueConstraint("research_id", "report_version", name="uq_exploratory_report_version"),
+    Index("ix_exploratory_reports_research", "research_id", "report_version"),
 )
