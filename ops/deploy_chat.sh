@@ -4,7 +4,7 @@
 # Layout on the host:
 #   /opt/youwei/chat/secrets.env    0600  VOLC_API_KEY / LITELLM_MASTER_KEY /
 #                                   LITELLM_PG_PASSWORD / YOUWEI_CHAT_KEY
-#   /opt/youwei/chat/compose.json   from infra/compose/chat.json
+#   /opt/youwei/chat/compose.json   reviewed release candidate (existing data paths)
 #   /opt/youwei/chat/config.yaml    rendered from infra/chat/litellm-config
 #                                   .yaml.template (contains the key; 0600)
 #
@@ -58,8 +58,8 @@ render_config() {
 }
 
 phase_up() {
+    python3 "$REPO/ops/render_chat_release.py" --check "$COMPOSE"
     phase_secrets
-    cp "$REPO/infra/compose/chat.json" "$COMPOSE"
     render_config
     dc up -d postgres
     dc up -d litellm
@@ -102,6 +102,7 @@ phase_key() {
 }
 
 phase_webui() {
+    python3 "$REPO/ops/render_chat_release.py" --check "$COMPOSE"
     phase_key >/dev/null
     dc up -d openwebui
     for _ in $(seq 1 60); do

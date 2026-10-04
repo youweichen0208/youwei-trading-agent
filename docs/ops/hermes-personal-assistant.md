@@ -14,7 +14,7 @@
 
 资产：[助手构建仓库](https://github.com/youweichen0208/trading-assistant)、[Compose overlay](../../infra/compose/chat-assistant.json)、[WebUI 配置脚本](../../integrations/openwebui/configure_assistant.py)。现有 `chat.json` 的服务/卷保持可单独使用；显式合并 overlay 才引入助手。目标机必须使用自己的部署副本按字段合并，不能覆盖其路径适配。
 
-1. 在 trading-assistant 独立构建并发布目标 amd64 镜像，取得真实 registry digest；本机 arm64 冒烟镜像不等于目标机验收。发布前将候选组件及当前聊天栈依赖合入部署登记、生成清单，运行 UPSTREAMS deployment 检查。2026-10-04 首次发布已经完成，当前启用聊天组合见 `infra/releases/20261004-hermes-v20260924/`；以后升级仍按此流程验证。
+1. 在 trading-assistant 独立构建并发布目标 amd64 镜像，取得真实 registry digest；本机 arm64 冒烟镜像不等于目标机验收。发布前将候选组件及当前聊天栈依赖合入部署登记、生成清单，运行 UPSTREAMS deployment 检查。2026-10-04 首次发布已经完成，当前启用聊天组合见 `infra/releases/20261004-eodhd-mcp/`；以后升级仍按此流程验证。
 2. 建立专用 Core tenant key（当前所有者租户）和 LiteLLM 虚拟 key（alias `hermes-personal`、models `["glm-5.3"]`、max_parallel_requests=1）。后者只存在助手服务，不用 chat key/master key 代替。随机生成 `YOUWEI_ASSISTANT_API_KEY`（至少 32 随机字节）。写入目标受控 secrets.env，0600；Compose 需要 `YOUWEI_ASSISTANT_IMAGE`、`YOUWEI_ASSISTANT_API_KEY`、`YOUWEI_ASSISTANT_LLM_KEY`、`YOUWEI_ASSISTANT_CORE_KEY`。
 3. 发布含日线接口的 Core API 镜像；本片无数据库迁移，不改 Worker 预测路径。先核对当前 release 绑定文件与部署例外记录；不得从本地测试通过推导发布获批。
 4. 备份 WebUI 库/附件和部署配置。启动 overlay 的 `hermes-assistant`，确认 health、鉴权、基础五工具和 Core 可达。启用 EODHD 时在私密 secrets.env 注入 `EODHD_API_KEY`，仅映射给助手，另验收七项 MCP 工具发现与查询。助手不发布宿主端口，只经内部服务地址访问。
@@ -50,9 +50,23 @@ python3 ops/backup/assistant_image.py verify \
 ## 本地跨服务验证
 
 ```bash
-uv run --frozen python ops/verify_assistant_webui.py --assistant-image trading-assistant:split-verification
-uv run --frozen pytest -q tests/contracts/test_webui_configuration.py tests/contracts/test_assistant_image_backup.py tests/test_daily_bars_api.py tests/test_openwebui_pipe.py
+uv run --frozen python ops/verify_assistant_webui.py --assistant-image trading-assistant:refactor --webui-image youwei-webui:refactor
+uv run --frozen pytest -q tests/contracts/test_webui_configuration.py tests/contracts/test_assistant_image_backup.py tests/test_daily_bars_api.py
 python3 infra/validate_upstreams.py --mode catalog --lock infra/chat/assistant-upstreams.lock.json
 ```
 
 助手镜像由独立仓库提前构建；脚本将显式传入镜像解析为本地 immutable image ID，并使用独立 `ops/assistant_mock_model.py`。真实固定 WebUI + mock 模型验收发现、追问、SSE、知识、重启、旧聊天保留、后台普通模型分流与镜像内隔离恢复，不调用真实付费模型。原生发现/工具限制/修订删除等由助手仓库验收。详细结果见实施计划 S12g/S12h。目标机部署和生产备份隔离恢复已通过；浏览器人工操作、真实付费模型与完整证券研究仍未验收。
+
+## 候选配置准备（不部署）
+
+旧 `chat.json` 是历史启动模板，不可覆盖现有部署副本。以下工具从实际四服务 Compose 生成新文件，只替换助手和 WebUI 镜像，保留所有环境引用、卷、路径和网络；输出权限 0600，拒绝覆盖已有文件。
+
+```bash
+python3 ops/render_chat_release.py --base /private/current-compose.json \
+  --assistant-image 'registry/assistant@sha256:<digest>' \
+  --webui-image 'registry/webui@sha256:<digest>' \
+  --output /private/candidate-compose.json
+python3 ops/render_chat_release.py --check /private/candidate-compose.json
+```
+
+生成后在受控目录检查差异、渲染 Compose 并按 UPSTREAMS 生成候选锁与清单。配置可能含秘密，不提交展开文件。`deploy_chat.sh` 的 up/webui 阶段只接受现有四服务、固定 digest 的部署副本，不再复制旧模板；它是实际运行操作，本轮未执行。

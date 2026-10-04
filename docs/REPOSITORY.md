@@ -2,7 +2,7 @@
 
 更新：2026-09-28；2026-10-02 增 `apps/dashboard/`（S10a）；2026-10-04 明确独立 WebUI fork 与两类 Hermes 边界。本文用于修改模块、依赖环境或部署边界时定位职责；实施进度与验证结果以 [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) 为准，领域术语见 [CONTEXT.md](../CONTEXT.md)。
 
-## 1. 一个平台业务仓库与独立界面 fork
+## 1. 三仓库职责
 
 本仓库维护预测研究的业务规则、事务、迁移、契约、适配器和部署配置。Core API 与 Worker 共用 `youwei_core` 和同一条 Alembic 迁移链；Sandbox Runner 因持有容器运行时权限而独立打包和运行。包边界用于控制依赖与权限，不要求一开始把每个业务模块拆成服务或仓库。
 
@@ -20,7 +20,7 @@
 | `apps/dashboard/` | 评估界面：同源只读代理（Basic Auth + GET 白名单，服务端持 tenant key）与原生 ES modules 静态页 | 不入库、不写 Core；依赖随 Core 环境（FastAPI/httpx），静态资产无构建链、无外部 CDN |
 | Alembic 迁移 | Core 业务表、约束与版本演进 | 保留单一迁移链；Runner 不建第二份业务任务库 |
 
-以上是本次收敛的代码边界。独立安装、测试和目标机部署的完成证据分别记录，不能根据目录或锁文件存在认定服务已验收。冻结证据与研究提案的业务含义已确定，Hermes 适配器的完整实现仍随 S07 接入。
+以上是本次收敛的代码边界。独立安装、测试和目标机部署的完成证据分别记录，不能根据目录或锁文件存在认定服务已验收。Hermes 研究与实验适配器已实现；正式使用仍受 ResearchRelease 与权限约束。
 
 当前实际结构：
 
@@ -49,7 +49,7 @@ youwei-trading-agent/
   uv.lock                   # Core 运行依赖及本仓库开发依赖
 ```
 
-`services/agent-runtime/`（Hermes 研究/实验实例适配器，独立 Python 3.14 环境）已随 S07 建立；`integrations/openwebui/`（Open WebUI 持久配置切换及保留的旧研究 Pipe，S12c/S12e）已建立；`integrations/pi/` 和 `integrations/openviking/` 在对应功能实际接入时创建。当前数据逻辑继续位于 `youwei_core/data/`；有独立部署需求时再提取 Data Service。Core 保持原路径，避免单纯搬目录影响现有导入、构建和迁移。
+`services/agent-runtime/`（Hermes 研究/实验实例适配器，独立 Python 3.14 环境）已随 S07 建立；`integrations/openwebui/`（Open WebUI 持久配置切换；旧研究 Pipe 已删除，S12c/S12e）已建立；`integrations/pi/` 和 `integrations/openviking/` 在对应功能实际接入时创建。当前数据逻辑继续位于 `youwei_core/data/`；有独立部署需求时再提取 Data Service。Core 保持原路径，避免单纯搬目录影响现有导入、构建和迁移。
 
 ## 2. Worker 与 Runner 的执行交接
 
@@ -86,7 +86,7 @@ Core 的运行依赖不含 Runner；根 dev 组安装 Runner 仅用于集成测�
 
 现有开发纵向切片覆盖持久任务、身份、PIT 日线与冻结快照、预测封存、Outcome 修订、最小评分、归档导出和 baseline/quant 管线。本次结构调整提取纯量化与共享契约，并把 Runner 的权限从 Worker 中分离；实际验证结果由实施计划记录。
 
-以下能力仍需独立交付：外部 Agent 的正式研究链路、受控量化探索闭环（Hermes）、国内入口、受控研究记忆、正式数据总体和模型发布、生产权限与恢复验收。现有管线模型是实现验证载具，不因代码搬迁变为已批准研究模型。
+工程能力与正式业务验收分别记录：研究/实验链路已有实现和验收证据，Phase 1A 已按批准版本登记；Phase 1B、国内入口、受控研究记忆等后续范围见实施计划。代码搬迁不批准新的研究行为。
 
 SG 使用现有 DigitalOcean **4 vCPU / 7.8 GB** 主机，重计算从并发1起步；国内与 SG 的旧原型已归档移除。需要复用原型 Next.js 源码时，从 [目标机记录](research/s01-target-verification.md) 指定归档提取并重新验收，不能将旧运行状态算作新实现上线。
 
@@ -98,7 +98,15 @@ MVP 使用 PostgreSQL 保存当前规模的原始数据、冻结快照与受限�
 [trading-assistant](https://github.com/youweichen0208/trading-assistant)，独立 Python 3.13 与锁文件，不依赖 Core 包或兄弟目录。
 本仓库通过 `infra/compose/chat-assistant.json` 消费助手镜像，不再从平台源码构建个人助手。
 `integrations/openwebui/configure_assistant.py`、日线 API 及数据库测试继续留在平台。
-`ops/verify_assistant_webui.py --assistant-image <image>` 使用独立 mock 入口验证跨服务组合。
+`ops/verify_assistant_webui.py --assistant-image <image> --webui-image <image>` 使用独立 mock 入口验证跨服务组合。
 `ops/backup/assistant_image.py` 记录运行镜像身份并在无网络容器内恢复副本，不导入助手源码。
 `infra/chat/assistant-upstreams.lock.json` 固定已发布助手提交及镜像；平台部署组合保存在 `infra/releases/20261004/`，当前个人助手接入 EODHD MCP 后的聊天组合位于 `infra/releases/20261004-eodhd-mcp/`，此前官方 Release 切换记录保留在 `infra/releases/20261004-hermes-v20260924/`。助手仓库维护原生 MCP 配置、七工具允许列表及测试；平台维护镜像消费、私密凭证注入和部署备份。正式研究供应商访问继续由 Core 管理。
 详见 [个人助手接入](ops/hermes-personal-assistant.md)。历史实现路径与验证记录保留在 S12e，迁移结果见 S12g。
+
+## 模块维护入口
+
+Core 的 `api/routes` 按业务组织 HTTP 接口，`api/dependencies` 集中认证；`ledger/exploratory` 的 submission、execution、reports、models 分别负责提交查询、执行、报告和共享定义，包入口保持调用接口。
+Runner 的 app 只装配，routes 管 HTTP，state 管授权、执行句柄与生命周期，process 共享 CLI 子进程收尾；各执行角色保留独立容器策略。
+研究运行时 runtime 管 Hermes 调用和解析，usage 管计数与归因，不导入 Core。
+
+正式 release 绑定的 logistic、dataset、model_registry、pipeline 和根锁文件本轮冻结；pipeline 仍引用本地子进程适配器，因此其必要兼容链保留。移除它需要独立处理 ResearchRelease 影响。

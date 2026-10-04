@@ -13,14 +13,13 @@ import uuid
 import httpx
 
 ROOT = Path(__file__).resolve().parents[1]
-IMAGE = 'ghcr.io/open-webui/open-webui@sha256:0b73f17a1e63c024ec6bb80a2c0d4a6d79dfd798a5b608531c52e340e6ef168f'
 
 
 def docker(*args):
     return subprocess.check_output(['docker', *args], text=True, stderr=subprocess.STDOUT).strip()
 
 
-def verify(assistant_image, webui_image=IMAGE):
+def verify(assistant_image, webui_image):
     assistant_image = docker("image", "inspect", "--format", "{{.Id}}", assistant_image)
     webui_image = docker("image", "inspect", "--format", "{{.Id}}", webui_image)
     prefix = 'youwei-native-' + uuid.uuid4().hex[:8]
@@ -133,6 +132,6 @@ def verify(assistant_image, webui_image=IMAGE):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--assistant-image", required=True, help="Explicit locally available image to verify")
-    parser.add_argument("--webui-image", default=IMAGE, help="Explicit WebUI build; default is legacy baseline")
+    parser.add_argument("--webui-image", required=True, help="Explicit locally available WebUI image to verify")
     args = parser.parse_args()
     verify(args.assistant_image, args.webui_image)

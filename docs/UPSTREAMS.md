@@ -95,7 +95,7 @@ python3 infra/validate_upstreams.py --mode deployment \
 | 持久数据 | 来源笔记保存→新聊天召回→修订/删除→重启；会话数据库、memory、知识和 WebUI 数据的备份副本迁移及隔离恢复 |
 | 研究 / 实验 | FrozenEvidence/Proposal 契约、能力令牌与租约、工具越权拒绝、模型归因补丁语义、取消及 Controller 接纳边界 |
 
-已有检查入口包括 trading-assistant 的 `ops/verify_assistant_native.py`、本仓库的 `ops/verify_assistant_webui.py --assistant-image <verified-image>` 和助手手册中的命令；测试脚本本身的固定 checkout / 镜像须随候选版本显式更新，否则只能证明旧组合。隔离 mock 测试不替代浏览器操作、目标机资源测量和真实模型业务验收。
+已有检查入口包括 trading-assistant 的 `ops/verify_assistant_native.py`、本仓库的 `ops/verify_assistant_webui.py --assistant-image <verified-image> --webui-image <verified-image>` 和助手手册中的命令；测试脚本本身的固定 checkout / 镜像须随候选版本显式更新，否则只能证明旧组合。隔离 mock 测试不替代浏览器操作、目标机资源测量和真实模型业务验收。
 
 切换前备份 WebUI 数据、Hermes profile/会话/memory/知识，并在副本验证新旧格式兼容。只切换旧镜像不能撤销不兼容的数据迁移；需要恢复时使用对应升级前副本，并事先明确恢复点之后新聊天、笔记的导出或补录方案。保留上一套镜像、配置、锁和部署清单；聊天回滚不恢复正式 Ledger。恢复步骤见 [个人助手手册](ops/hermes-personal-assistant.md)，正式发布仍按既有授权执行。
 

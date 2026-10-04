@@ -1,0 +1,34 @@
+name: Platform verification
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.11.16'
+      - run: docker info
+      - run: uv sync --frozen --group dev --python 3.13
+      - run: python3 infra/validate_upstreams.py --mode catalog
+      - run: uv run --frozen pytest -q --junitxml=/tmp/core-tests.xml
+      - name: Require integration tests to run
+        run: |
+          python3 - <<'PY'
+          from xml.etree import ElementTree
+          suites = ElementTree.parse('/tmp/core-tests.xml').getroot()
+          assert not suites.findall('.//skipped'), 'skipped tests are not acceptance'
+          PY
+  research-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.11.16'
+      - run: uv sync --project services/agent-runtime --frozen --group dev --python 3.14
+      - run: uv run --project services/agent-runtime --frozen pytest -q services/agent-runtime/tests
