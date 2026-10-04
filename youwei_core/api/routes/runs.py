@@ -72,4 +72,3 @@ async def list_events(
         }
     except RunNotFound:
         raise HTTPException(status_code=404, detail="run not found") from None
-

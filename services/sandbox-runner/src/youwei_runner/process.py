@@ -19,4 +19,3 @@ async def run(cmd: list[str], *, timeout: float | None = None) -> tuple[int, str
         out.decode("utf-8", errors="replace"),
         err.decode("utf-8", errors="replace"),
     )
-

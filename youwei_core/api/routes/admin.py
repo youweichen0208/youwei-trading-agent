@@ -50,4 +50,3 @@ async def admin_revoke_api_key(
     if not ok:
         raise HTTPException(status_code=404, detail="key not found or already revoked")
     return {"revoked": str(key_id)}
-

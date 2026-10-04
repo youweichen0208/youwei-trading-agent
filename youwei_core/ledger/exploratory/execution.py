@@ -247,4 +247,3 @@ def make_exploratory_research_handler(
         }
 
     return handle_exploratory
-

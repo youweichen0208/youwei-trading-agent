@@ -375,7 +375,7 @@ class RunnerState:
                 await asyncio.gather(work, return_exceptions=True)
 
 
-    def _find_experiment_receipt(self, 
+    def _find_experiment_receipt(self,
         experiment_id: uuid.UUID, computation_id: uuid.UUID, request: Request, scope: str
     ):
         cap = self.authorize_experiment_tool(request, scope)
@@ -437,5 +437,3 @@ class RunnerState:
             if work is not None and not work.done():
                 work.cancel()
                 await asyncio.gather(work, return_exceptions=True)
-
-

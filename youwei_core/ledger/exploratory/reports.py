@@ -351,4 +351,3 @@ async def get_exploratory_report(
         "content": content,
         "references_resolved": resolved,
     }
-

@@ -24,4 +24,3 @@ async def get_ops_status(
     outbox events, unreaped expired leases, overdue runs, WAL archive
     staleness)."""
     return await ops_status(request.app.state.engine, request.app.state.settings)
-

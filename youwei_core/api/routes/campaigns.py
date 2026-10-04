@@ -89,4 +89,3 @@ async def get_monthly_report(
     if view is None or view["tenant_id"] != str(tenant_id):
         raise HTTPException(status_code=404, detail="report not found")
     return view
-

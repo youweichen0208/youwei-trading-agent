@@ -29,4 +29,3 @@ async def get_daily_bars(
         raise HTTPException(status_code=404, detail="security not found") from None
     except (InvalidQuery, AmbiguousIdentifier) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from None
-

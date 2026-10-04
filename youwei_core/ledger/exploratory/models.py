@@ -51,4 +51,3 @@ class ReportSave:
     report_version: int
     created: bool
     fenced: bool
-

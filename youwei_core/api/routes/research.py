@@ -110,4 +110,3 @@ async def cancel_exploratory(
         )
     except exploratory.ExploratoryNotFound:
         raise HTTPException(status_code=404, detail="research not found") from None
-

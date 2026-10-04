@@ -454,4 +454,3 @@ async def cancel_exploratory_research(
         "status": "cancelled",
         "already_terminal": False,
     }
-

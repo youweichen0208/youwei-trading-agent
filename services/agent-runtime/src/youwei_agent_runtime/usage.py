@@ -246,4 +246,3 @@ def build_execution_attribution(agent, brief: str, config: "ResearchConfig") -> 
         model_returned=getattr(agent, "_last_turn_model", None),
         model_returned_scope="last_completed_provider_response",
     )
-
