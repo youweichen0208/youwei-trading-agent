@@ -171,7 +171,7 @@ Core 保留一个业务包及一条迁移链，任务、租户、PIT、Ledger �
 
 | 项目 | 版本维护与升级方式 | 发布边界 |
 | --- | --- | --- |
-| youwei-webui | main 只同步上游；youwei 从选定正式 Release tag 建立并维护定制；升级临时分支从 youwei 创建后合并目标 Release | fork 构建自己的镜像；平台固定上游 tag/SHA、fork SHA、镜像 digest 和兼容证据后部署 |
+| youwei-webui | develop 承接原 youwei 定制基线，作为默认协作分支；删除 main，保留旧 youwei 历史；升级临时分支从 develop 创建后合并官方目标 Release | fork 构建自己的镜像；平台固定上游 tag/SHA、fork SHA、镜像 digest 和兼容证据后部署 |
 | 个人 Hermes gateway | trading-assistant 固定官方 Release 与完整 SHA、独立 Python 3.13 环境、上游 frozen 依赖锁及插件版本；平台消费助手 commit 与镜像 digest | 独立候选、镜像和 profile；可先升级个人助手，不连带更换正式研究运行时 |
 | 研究 / 实验 Hermes | 平台仓库维护受控适配、源码补丁与工具契约，单独登记已验证版本 | 评估 ResearchRelease 影响并遵守既有审批；不得替换已批准预测环境或改写历史记录 |
 
