@@ -72,3 +72,11 @@ python3 ops/render_chat_release.py --check /private/candidate-compose.json
 生成后在受控目录检查差异、渲染 Compose 并按 UPSTREAMS 生成候选锁与清单。配置可能含秘密，不提交展开文件。`deploy_chat.sh` 的 up/webui 阶段只接受现有四服务、固定 digest 的部署副本，不再复制旧模板；它是实际运行操作，本轮未执行。
 
 跨服务 CI 由 `Chat compatibility` 工作流执行：`infra/chat/verification-sources.json` 固定助手和 WebUI 的完整候选提交；各自独立 checkout/构建，在临时卷里运行相同验收命令，不发布镜像、不读取生产凭证。该文件是测试组合，不替代已部署锁及 ResearchRelease。
+
+## Agent 工作台候选接线
+
+WebUI 新增工作台通过原生 gateway 的会话、运行、审批与 cron HTTP 接口访问个人助手。需设置 `YOUWEI_WORKBENCH_OWNER_ID` 为现有 WebUI 用户 ID，并指定 `YOUWEI_WEBUI_WORKBENCH_IMAGE` 为验证后的新 WebUI 镜像；助手镜像需包含 `workbench.py`。
+
+在现有 `chat.json`、`chat-assistant.json` 之后叠加 `infra/compose/chat-workbench.json`，它为 WebUI 设置服务端凭证与只读技能服务 URL，另起同镜像技能服务并只读挂载 `hermes_profile`。不挂载 WebUI 数据库到助手，不改变旧聊天存储，不开放技能写入或宿主执行。完整参数与行为见 [WebUI 工作台文档](https://github.com/youweichen0208/youwei-webui/blob/develop/docs/hermes/README.md)。
+
+这是候选配置，当前部署锁和 VM 未切换；部署前仍按固定镜像与兼容验收流程验证，不能直接把浮动分支当作生产镜像。

@@ -1,0 +1,44 @@
+{
+  "services": {
+    "openwebui": {
+      "image": "${YOUWEI_WEBUI_WORKBENCH_IMAGE:?set a verified workbench WebUI image digest}",
+      "environment": {
+        "HERMES_WORKBENCH_URL": "http://hermes-assistant:8642",
+        "HERMES_WORKBENCH_KEY": "${YOUWEI_ASSISTANT_API_KEY:?}",
+        "HERMES_WORKBENCH_OWNER_ID": "${YOUWEI_WORKBENCH_OWNER_ID:?set the existing WebUI owner user ID}",
+        "HERMES_WORKBENCH_SKILLS_URL": "http://hermes-workbench-skills:8643"
+      }
+    },
+    "hermes-workbench-skills": {
+      "image": "${YOUWEI_ASSISTANT_IMAGE:?set a verified assistant image digest}",
+      "entrypoint": [
+        "python",
+        "/opt/youwei-assistant/workbench.py"
+      ],
+      "environment": {
+        "API_SERVER_KEY": "${YOUWEI_ASSISTANT_API_KEY:?}"
+      },
+      "volumes": [
+        "hermes_profile:/var/lib/hermes/profile:ro"
+      ],
+      "networks": [
+        "chat"
+      ],
+      "read_only": true,
+      "tmpfs": [
+        "/tmp:rw,noexec,nosuid,size=32m"
+      ],
+      "cap_drop": [
+        "ALL"
+      ],
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "cpus": "0.25",
+      "mem_limit": "256m",
+      "pids_limit": 32,
+      "restart": "unless-stopped",
+      "init": true
+    }
+  }
+}

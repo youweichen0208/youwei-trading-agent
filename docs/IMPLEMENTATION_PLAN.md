@@ -60,3 +60,15 @@ S06e 分类与登记复核的原始验收见[历史记录](archive/implementatio
 所有者要求三仓以 develop 为默认协作分支，并将本轮重构 PR 合入 develop。平台现有 develop 为本轮分支祖先；助手 develop 从原 main 建立，WebUI develop 从原 youwei 定制基线建立。按所有者补充要求，确认 main 无独有提交后删除三仓远端及本地 main 分支；提交历史保留在 develop，旧 youwei 分支保留。不重写提交，不操作 VM；WebUI 自有镜像工作流同步为 develop。
 
 平台 PR 的 GitGuardian 对旧提交报 7 处告警，已逐项核对：4 处是一次性 PITR/pgBackRest 演练容器的固定测试密码，2 处为 Compose 必填环境变量引用，1 处是换行解析测试使用的不可解析 PEM 字符串（实际密码学加载拒绝）。这些不是可用生产凭证；未关闭扫描、添加忽略规则或改写历史，扫描告警与功能 CI 结果分别报告。
+
+## S12m — Hermes Agent 工作台（2026-10-04）
+
+按所有者提供的集成设计在 youwei-webui 0.11.4 新增 `/agent`、技能库、定时任务、消息网关四页。使用现有 WebUI 登录与指定 owner 校验，后端按方法/路径/字段允许列表代理固定 Hermes 原生 HTTP；密钥仅存服务器。会话、运行、审批、幂等、停止与 cron 权威仍在 Hermes。Calendar 展示最近/下次运行投影，不引入第二个调度器。
+
+trading-assistant 增 `integrations/hermes/workbench.py` 只读技能服务，处理固定 `v2026.9.24` 原生 `/v1/skills` 的实测 500（调用 `_find_all_skills` 时传入不支持的 `include_editorial` 参数）；复用上游读取器并关闭技能预处理，无上游源码补丁。平台仅新增可选 `infra/compose/chat-workbench.json`，仍须新镜像与既有 WebUI owner ID，不修改已部署 release 清单。
+
+实际隔离验证：助手 `uv run --frozen pytest -q` 25 通过；WebUI Python 3.12 代理测试 20 通过；Vitest SSE/Calendar 4 通过；Node 22 Vite production build 与助手 Docker build 通过。WebUI `ops/verify_hermes_workbench.py` 使用固定 Hermes、临时 HOME 和 mock 模型，验证发现、会话、运行幂等、SSE、持久历史、cron 创建/暂停/恢复/删除及只读技能正文；未调用真实付费模型。浏览器验证基于 mock HTTP，与原生服务验收分别记录。
+
+完整 svelte-check 在原始 archive 基线和修改后均报告 7001 errors / 198 warnings（344 files），新增工作台文件无类型错误；不能报告完整类型检查通过。平台 catalog 校验和三份 Compose 合并渲染通过（仅占位值，没有启动服务）。Core/Runner 业务代码未改，未重跑整个平台数据库测试集。
+
+未开放项：技能写入/自我改进审批、终端与运行环境切换、平台凭证/配对/启停控制；助手现有工具允许列表保持不变，界面明确说明。未发布工作台生产镜像、未做 VM 切换、未运行正式前向评估。WebUI 原生旧聊天保留；源码此前清空后重新导入 0.11.4，不能用旧已部署镜像身份代表本次候选。
