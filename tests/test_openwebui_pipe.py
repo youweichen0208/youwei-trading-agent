@@ -233,3 +233,47 @@ async def test_help_and_unparsable_research():
     assert "用法" in out
     out = await p.pipe(_body("研究"), __user__={"id": "u1"}, _client=_client(lambda r: None))
     assert "用法" in out or "无法解析" in out
+
+
+async def test_background_tasks_never_trigger_research():
+    """Open WebUI routes title/tag/follow-up generation through the selected
+    model with ``__task__`` set (metadata.task). The pipe must short-circuit:
+    no Core call, no research submission — a title derived from the first
+    user message is echoed instead."""
+    pipe = Pipe()
+    called = []
+
+    class Probe:
+        async def post(self, *a, **kw):
+            called.append(a)
+            raise AssertionError("background task must not call Core")
+
+    result = await pipe.pipe(
+        {
+            "messages": [
+                {"role": "system", "content": "generate a title"},
+                {"role": "user", "content": "研究 SPY D20"},
+            ]
+        },
+        __user__={"id": "u1"},
+        __task__="title_generation",
+        _client=Probe(),
+    )
+    assert result == "研究 SPY D20"
+    assert called == []
+
+
+async def test_background_task_without_user_message():
+    pipe = Pipe()
+
+    class Probe:
+        async def post(self, *a, **kw):
+            raise AssertionError("background task must not call Core")
+
+    result = await pipe.pipe(
+        {"messages": [{"role": "system", "content": "x"}]},
+        __user__={"id": "u1"},
+        __task__="tags_generation",
+        _client=Probe(),
+    )
+    assert result == "研究对话"

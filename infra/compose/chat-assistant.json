@@ -1,0 +1,68 @@
+{
+  "services": {
+    "hermes-assistant": {
+      "image": "${YOUWEI_ASSISTANT_IMAGE:?set a verified assistant image digest}",
+      "environment": {
+        "API_SERVER_KEY": "${YOUWEI_ASSISTANT_API_KEY:?}",
+        "YOUWEI_ASSISTANT_LLM_KEY": "${YOUWEI_ASSISTANT_LLM_KEY:?}",
+        "YOUWEI_ASSISTANT_CORE_KEY": "${YOUWEI_ASSISTANT_CORE_KEY:?}",
+        "YOUWEI_ASSISTANT_CORE_URL": "http://core-api:8000",
+        "EODHD_API_KEY": "${EODHD_API_KEY:-}"
+      },
+      "volumes": [
+        "hermes_profile:/var/lib/hermes/profile",
+        "hermes_knowledge:/var/lib/hermes/knowledge"
+      ],
+      "networks": [
+        "chat",
+        "core_edge"
+      ],
+      "read_only": true,
+      "tmpfs": [
+        "/tmp:rw,noexec,nosuid,size=128m"
+      ],
+      "cap_drop": [
+        "ALL"
+      ],
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "cpus": "1.0",
+      "mem_limit": "768m",
+      "pids_limit": 128,
+      "restart": "unless-stopped",
+      "stop_grace_period": "40s",
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      },
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8642/health',timeout=3)"
+        ],
+        "interval": "30s",
+        "timeout": "5s",
+        "retries": 3,
+        "start_period": "60s"
+      },
+      "init": true
+    },
+    "openwebui": {
+      "depends_on": {
+        "hermes-assistant": {
+          "condition": "service_healthy"
+        }
+      }
+    }
+  },
+  "volumes": {
+    "hermes_profile": {},
+    "hermes_knowledge": {}
+  }
+}

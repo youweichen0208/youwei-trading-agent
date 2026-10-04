@@ -1,0 +1,105 @@
+{
+  "date": "2026-10-04",
+  "assistant_commit": "3d4d7a7fa7dfbb85db6f3153041e71a738ae53e0",
+  "image": "ghcr.io/youweichen0208/trading-assistant@sha256:618f820ef3934ce69e526aa2105b7a0c49da44de254f650158123ee9d1cae235",
+  "hermes_revision": "f97608f178d1ffeca59860195ab7da295f7c8e5f",
+  "hermes_release": "v2026.9.24",
+  "python": "3.13.16",
+  "upstream_patches": [],
+  "extras": [
+    "messaging",
+    "mcp"
+  ],
+  "checks": {
+    "assistant_unit_tests": "20 passed",
+    "native_gateway": "PASS: seven MCP tools, credentials, errors, timeout, offline startup, original behavior",
+    "platform_contract_tests": "21 passed",
+    "vm_webui": "PASS",
+    "vm_data_copy": {
+      "result": "PASS",
+      "network": "none",
+      "startup_and_restart": true,
+      "preserved_rows": {
+        "sessions": 2,
+        "messages": 12
+      },
+      "preserved_files": 0,
+      "restored_databases": {
+        "kanban.db": 8,
+        "shared-state.db": 15,
+        "response_store.db": 2,
+        "state.db": 25,
+        "runs_idempotency.db": 1
+      }
+    },
+    "vm_native_mcp": {
+      "result": "PASS",
+      "tool_names": [
+        "mcp__eodhd__get_company_news",
+        "mcp__eodhd__get_fundamentals_data",
+        "mcp__eodhd__get_historical_stock_prices",
+        "mcp__eodhd__get_live_price_data",
+        "mcp__eodhd__get_stocks_from_search",
+        "mcp__eodhd__get_upcoming_earnings",
+        "mcp__eodhd__resolve_ticker",
+        "memory",
+        "web_extract",
+        "web_search",
+        "youwei_knowledge",
+        "youwei_platform"
+      ],
+      "native_quote": true,
+      "paid_model_calls": false
+    }
+  },
+  "live_mcp": {
+    "date": "2026-10-04",
+    "server": {
+      "name": "eodhd-datasets-legacy",
+      "version": "4.0.10"
+    },
+    "discovered_tools": 93,
+    "auth": "Authorization Bearer header",
+    "checks": {
+      "resolve_ticker": {
+        "status": "success",
+        "response_bytes": 1551,
+        "schema_sha256": "942778d3f7e0dfa7d4af4f580b011bcc3aa1dbcc4a7b7f06a82d4f7d6fad5362"
+      },
+      "get_stocks_from_search": {
+        "status": "success",
+        "response_bytes": 659,
+        "schema_sha256": "4e8a1c3242beef45631e222771843a849eda41d28daea63319bb383d60109798"
+      },
+      "get_historical_stock_prices": {
+        "status": "success",
+        "response_bytes": 1623,
+        "schema_sha256": "e1eaf805c604f66461fe8524229adf9bc6b00328be4a07f919092bc54b9584ac"
+      },
+      "get_live_price_data": {
+        "status": "success",
+        "response_bytes": 601,
+        "schema_sha256": "8ca915c021585126e9a06c6b216b3e598c9d1118462c2b92951f0da2c7c33569"
+      },
+      "get_fundamentals_data": {
+        "status": "subscription_denied",
+        "response_bytes": 668,
+        "schema_sha256": "5e0328e5ab7e5d19d8230dfff701d7a1f885464412aba09c9c10d86c20d6450a"
+      },
+      "get_company_news": {
+        "status": "success",
+        "response_bytes": 1241,
+        "schema_sha256": "415e3cc25692fdc75bbbd144886c9e4b614e5067aa936b2575fe7d5a2c797fe0"
+      },
+      "get_upcoming_earnings": {
+        "status": "subscription_denied",
+        "response_bytes": 668,
+        "schema_sha256": "dbff9298ba273c73555efdbe1425fd7d6f4fa8cc346bb449871ff6e2d2939694"
+      }
+    },
+    "paid_model_calls": false
+  },
+  "ci": "https://github.com/youweichen0208/trading-assistant/actions/runs/37191938460",
+  "paid_model_calls": false,
+  "formal_evaluation": false
+}

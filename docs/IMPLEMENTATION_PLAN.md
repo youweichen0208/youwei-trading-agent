@@ -302,6 +302,71 @@ S03 与 S04 在 S02 的身份、任务和对象契约确定后可并行；S09 �
 
 前置依赖（所有者）：数据源 LLM 转发授权；探索性研究的登记形态（是否绑 Trial/release 及审批边界）；正式模型与 prompt 定稿（Trial 登记）；公网入口研究发起的安全策略。
 
+### S12 集成方式调研（2026-10-03，设计建议，未实施）
+
+- **用户后续澄清**：Hermes 的主要价值是知识沉淀，研究只是一个应用。以下 S12 接法建议仅适用于受控美股研究；个人知识助手应评估独立持久 Hermes 实例，现有 Core 作为其可调用能力。知识库位置待了解现有使用习惯；本次未实施新运行模式或变更正式研究权限，详见调研报告 §0。
+- 调研：[Hermes 与 Open WebUI 接入评估](research/hermes-openwebui-integration-assessment.md)。核对用户提供的 Agntable 教程、Hermes 固定 `7fa45eb` 官方文档/源码、Open WebUI `v0.6.36` Pipe 源码，以及本仓库 S12 实现；原生 OpenAI-compatible 接口在已固定的 Hermes 版本中存在，无需为接入界面升级上游。
+- 建议继续 `Open WebUI → Pipe → Core 持久任务 → Runner → Hermes`；优先补齐真实问题/受控追问契约、按请求身份幂等、进度回执和后台任务分流。原生直连适用于另行隔离的通用 Agent；若以后增加 OpenAI-compatible 前端接口，仍通过 Core 执行业务。以上为调研建议，不代表新增功能已批准、实现或部署。
+- 状态核对：最新提交 `50dc5c3` 的完整提交说明称 Core r7 / Runner s12g 已按更新后的所有者决定滚动、研究接线开启、实验探索关闭；部分运行手册与上游备注仍保留暂存状态。未找到 Open WebUI Pipe 正式启用的完成证据。本次未登录目标机，不将镜像配置或提交说明代作聊天入口上线验收。
+- 实际验证：`.venv/bin/python -m pytest -q tests/test_openwebui_pipe.py` → **11 passed**（离线 MockTransport）；官方固定版本源码与本仓库静态核对。未进行生产操作、浏览器验收、真实模型调用或正式 Campaign 变更。
+
+### S12e 个人 Hermes 美股助手（2026-10-04）
+
+> 历史实现记录：以下助手源码、Dockerfile、原生验证和工具测试已在 S12g 迁往 trading-assistant；路径描述保留为当时证据，当前职责见 S12g。
+
+- 用户已确认主要交互改为 `Open WebUI → Hermes 原生 gateway → 工具 / LiteLLM`。前述 S12 调研的 Pipe 优先建议保留为历史；当前实现采用独立个人 profile，Core 为可调用能力，正式冻结研究链路保持独立。
+- 实现：`integrations/hermes/`（原生插件、Core HTTP 客户端、知识库、直接公共网页提取、启动校验、备份恢复）；`infra/images/hermes-assistant.Dockerfile`（固定 Hermes SHA + Python 3.14.7 + frozen messaging/ddgs）；`infra/compose/chat-assistant.json`（显式候选 overlay、独立卷/密钥、并发1）；`integrations/openwebui/configure_assistant.py`（单所有者持久配置、普通后台模型、旧 Pipe 停用且保留聊天）；`youwei_core/data/assistant.py` + API `GET /v1/data/daily-bars`（已有 PIT、来源/可用时间/质量、数据库时钟 cutoff）。无新增迁移，未改正式预测绑定文件或协议。
+- 知识：Hermes 偏好 memory 与长篇来源笔记分离；知识 ID 限定、no-follow 读取、原子替换、锁、容量限额、修订/删除 hash 冲突检查。个人知识不进入正式 Campaign；笔记不保留逐修订正文历史，旧备份按既有策略保留。
+- 研究：提交仍为证券/窗口问题，无任意正文；运行时 session/turn/tool-call 身份绑定幂等键，传输重试复用，新调用新键。报告授权复用 Core。用户显式取消调用平台接口，前端停止不是任务取消。
+- 本机验证：行情接口先观察 404 红测再实现，真实 PostgreSQL + Alembic 通过 cutoff/历史版本/空结果/来源/身份验证；知识和客户端先红后绿。`uv run --frozen pytest -q` **708 passed，无 skip**（此后增加网页提取两项，单独 **2 passed**）。`python3 infra/validate_upstreams.py --mode catalog` 及候选 `--lock infra/chat/assistant-upstreams.lock.json` 均 VALID；备份 shell 语法、候选 Compose 合并渲染（dummy secrets）通过；最终插件相关测试 **13 passed**。
+- 原生 Python 3.14 冒烟：`ops/verify_assistant_native.py` 使用真实固定 Hermes + mock 模型，通过模型发现/401 鉴权/工具循环/新聊天召回/修订/完整历史/SSE/偏好 memory/SQLite+知识备份恢复/重启/删除。镜像在本机 arm64 构建成功；容器入口遇到标准库 platform 名称冲突已修复为 core_client.py。
+- 固定容器接入：`uv run --frozen python ops/verify_assistant_webui.py` **PASS**（真实 Open WebUI v0.6.36 镜像 + 新建非 root/只读 Hermes 镜像 + mock 模型、隔离卷）。模型发现、中文提问/完整历史追问、SSE、WebUI 发起知识保存/新聊天读取、容器重启、容器内 SQLite+知识恢复验证、原聊天保留、注册关闭均通过。故障注入普通模型发现不可用时，标题仍由普通 key/无工具请求处理；发现并修复 WebUI 原有“辅助模型不在发现列表则回退到 Hermes”的行为，连接显式固定当前五模型清单以防回退。最终原生脚本还验证并发 429、流断开后恢复服务、非法空消息 400、运行时调用身份确实进入提交客户端。临时容器/卷/网络均已清理。
+- 免费联网探测：DDGS 返回 Apple 投资者关系/SEC 链接；Apple IR 提取实际 429，如实返回错误；Apple Newsroom HTML 可读取但列表内容依赖动态加载，不当作已读取公司财报。`127.0.0.1` 提取被拒绝。固定配置示例的 native 提取器实际未注册，因此采用插件公共 HTML/text 提取器；PDF/动态浏览器未支持。
+- 目标机/生产/真实业务：本轮未登录目标机或部署、未调用真实付费模型、未提交生产研究或写入正式 Ledger。浏览器实际渲染/点击停止未验收；HTTP 断流与错误路径已测。完整真实证券研究、原文引用质量、目标机资源与生产备份恢复仍待部署后验收；不得把 mock 链路算作真实业务验收。接入/切换/回滚与明确限制见 [个人助手手册](ops/hermes-personal-assistant.md)。
+
+### S12j 个人助手直连 EODHD MCP（2026-10-04）
+
+- 用户选择直接连接官方 MCP，首版常用美股查询；已在 trading-assistant 实现七工具允许列表、服务端 header 凭证、参数覆盖拒绝、日期/输出默认值、返回与日志脱敏、离线降级，沿用未修改的官方 Hermes v2026.9.24/Python 3.13，上游 frozen 安装新增 mcp extra。
+- 助手提交 `3d4d7a7fa7dfbb85db6f3153041e71a738ae53e0` 已推送；镜像 `sha256:618f820ef3934ce69e526aa2105b7a0c49da44de254f650158123ee9d1cae235` 已在 sg-prod 部署。仅更换助手镜像和 EODHD 环境接线，原数据卷及其他常驻服务保持。
+- 助手单元 **20 passed**；固定原生 mock Gateway/MCP/模型验收含七工具、403/429/超时/离线启动与原有聊天/知识/恢复 **PASS**；CI **PASS**；平台备份/WebUI 配置/上游契约 **21 passed**，未修改 Core 或共享 schema，未重复平台全量。
+- VM WebUI mock 兼容、无网络旧备份启动/重启、生产容器原生报价及 12 工具发现、线上鉴权/模型发现、切换后完整备份隔离恢复均通过。保留 WebUI 5 条聊天，备份副本 2 会话/12 消息内容 hash 一致。
+- 真实 MCP 七项有界探测：解析、搜索、历史、报价、新闻成功；基本面和财报日历被现有套餐拒绝，不采购。未调用真实付费模型、未做自然语言分析质量验收、未执行正式前向评估。个人查询结果不自动进入 PIT/ResearchRelease。
+- 发布锁、证据及限制见 [EODHD MCP 部署记录](ops/eodhd-mcp-rollout-20261004.md) 和 `infra/releases/20261004-eodhd-mcp/`；此前平台未提交内容保留。
+
+### S12i 个人助手对齐官方 Hermes v2026.9.24（2026-10-04）
+
+- 用户选择官方 v0.21.5 / v2026.9.24，明确授权个人助手独立 Python 3.13。上游完整 SHA `f97608f178d1ffeca59860195ab7da295f7c8e5f`，零源码补丁、原始 frozen 锁；研究/实验 Hermes 与 Core 保持不变。助手源码 `f594ec5765d3d71c68b6e69d58e416a84aece018` 已推送；新镜像 digest `b99e7edb7da1ffc42d7ef7bb2a47a06bb44b1332d2db083568a187cbe514aec1` 已在 sg-prod 部署。
+- 官方 Release 未定义 ddgs extra，单独固定带 hash 的原有可选搜索依赖；click 与上游锁一致，未修改上游依赖文件。独立测试 12 passed、原生验收 PASS、CI 全通过；平台相关测试 8 passed。VM WebUI mock 全链路、现有助手备份无网络启动/重启通过（2 会话/12 消息内容保留）。
+- 线上 CLI 确认 v0.21.5 / Python 3.13.16，健康、401、认证发现及 WebUI 接入通过；其他常驻容器 ID/StartedAt 均不变。新命名卷从最终停服数据完整复制，原卷保留。首次切换检查误纳临时容器导致自动回滚，修正名单后再次切换成功；经过记录的回滚未丢数据。
+- 切换后备份 chat-backup-20261004-023723 隔离恢复 ALL PASS，WebUI 5 聊天、助手 5 数据库；发布锁、manifest 与证据在 `infra/releases/20261004-hermes-v20260924/`，VALID deployment。构建失败历史、Python/搜索依赖调整、零补丁证明、操作和限制见 [Release 部署记录](ops/hermes-release-20260924-rollout.md)。未由本轮验收发起真实付费模型、生产研究或正式评估。
+
+### S12h 三仓库 VM 替换完成（2026-10-04，用户授权部署并选择最新 WebUI）
+
+- sg-prod 已替换为 youwei-webui v0.11.4（fork 0a8aa48，镜像 1ae57fd4）、独立 trading-assistant（3ff91cf，镜像 8be71b9a）及 Core API（干净工作区归档，镜像 678077ee）。公网入口、健康、版本和前端资源 200；线上鉴权/模型发现、5 根 SPY 日线、3 条旧聊天逐条保持、关闭注册通过。Worker/Runner/两套 PG/LiteLLM 容器 ID 和启动时间不变，未改正式研究运行时或批准 release。
+- VM 完整新版 WebUI→Hermes mock 接入验收、旧备份无网络迁移与重启通过；独立新 WebUI 数据卷升级，原卷保留回滚。v0.11 key/value 配置与 access_grant 权限适配经先失败后通过测试，保留单所有者、私有模型和后台普通模型分流。最终本地回归 **705 passed，无 skip**。
+- 新版前端在 VM 默认/4 GB heap 构建失败；fork youwei 分支仅增加 8 GB 构建堆与镜像 CI，GitHub Actions 构建发布成功。Core 首次归档带 macOS 元数据的镜像不采用，改用显式干净归档重建；完整源 hash 与镜像记录于 `infra/releases/20261004/`，平台当前工作区尚未提交。
+- 实际 cron 备份入口已更新。切换后备份 `chat-backup-20261004-015244` 隔离恢复 **ALL PASS**，包括 WebUI 3 条聊天/44 张表、LiteLLM、助手固定镜像内无网络恢复及秘密权限；两组完整部署清单 **VALID deployment**。PG readiness 改用 TCP，修复临时初始化服务误判。
+- 完整提交/digest、构建基础镜像、部署证据、数据归属与回滚步骤见 [三仓库部署记录](ops/three-repo-vm-rollout-20261004.md)。未做真实付费模型、人工浏览器操作、完整证券研究或正式前向评估；同机备份不等于异地备份。S12g/S12e 的“尚未部署”是当时历史状态，本片记录后续正式切换。
+
+### S12g 个人助手拆入 trading-assistant（2026-10-04）
+
+- 仓库：普通仓库 [trading-assistant](https://github.com/youweichen0208/trading-assistant)，初始化提交 `8de99ee586fede15f05cc7323d9e1ccca9ddd233`；当前已推送提交 `3ff91cf2f78a001c8454497d75ea6e0cfa3f7374`（后续仅 CI 环境修复与验收文档）。独立 Python 3.14.7、pyproject/uv.lock、README、CI；迁入个人插件、Core HTTP 客户端、知识/网页/备份、Dockerfile、原生验收及 12 项测试。先复制并验证，核对插件与 Dockerfile 字节一致后移除平台原位置；上游 Hermes SHA 及 frozen 运行依赖不变，不 fork Hermes。
+- 平台保留 Core 日线接口/数据库测试、研究实验运行时、Compose、WebUI 配置脚本；混合测试拆为 `tests/contracts/test_webui_configuration.py`。跨服务验证以 `--assistant-image` 显式选择镜像，独立 mock 入口 `ops/assistant_mock_model.py`，不导入助手原生脚本或源码。
+- `ops/backup/assistant_image.py`：备份集保存 image ID/RepoDigests 与归档 SHA256；校验身份后在无网络、只读根、无生产卷的临时容器恢复到 tmpfs。旧备份无元数据须显式已验证 immutable 镜像；不选 latest，不跳过助手。新增 6 项测试覆盖身份/归档不符拒绝、旧备份要求、隔离参数与镜像拉取。容器验收发现 Docker daemon 的 `docker cp` 无法读取 tmpfs 归档（最小容器复现）；备份脚本与验收改用 `docker exec cat` 二进制流，固定容器 ID 避免备份与记录间重建错配。
+- 助手独立验证：新仓库根目录 `uv sync --frozen --group dev --python 3.14.7`、`uv run --frozen pytest -q` → **12 passed，无 skip**；`docker build -f infra/images/hermes-assistant.Dockerfile -t trading-assistant:split-verification .` → linux/arm64 构建成功（仅新仓库上下文，复用固定构建缓存）；完整上游 SHA 核对后的 `/tmp/youwei-assistant-hermes/.venv/bin/python ops/verify_assistant_native.py /tmp/youwei-assistant-hermes` → **PASS**，发现/鉴权/工具循环/平台身份/429/断流恢复/非法输入/追问/SSE/memory/知识修订删除/重启与恢复。记录见新仓库 `VERIFICATION.md`。
+- 平台验证：受影响 22 项通过；`uv run --frozen pytest -q` → **704 passed，无 skip，202.82s**（真实临时 PostgreSQL + Alembic + Runner 集成）；备份 helper 后续兼容系统 Python 3.9 的 hash 读取调整后，6 项针对性测试再次通过。`uv run --frozen python ops/verify_assistant_webui.py --assistant-image trading-assistant:split-verification` → **PASS**，固定 WebUI v0.6.36、原生 gateway、旧聊天、注册关闭、知识/重启、普通模型发现故障时后台分流、镜像内无网络恢复；临时容器/卷/网络清理完成。
+- 工程检查：主 catalog 与候选 catalog；dummy 环境下聊天 Compose + assistant overlay 合并渲染；备份脚本 `bash -n`、差异空白、现行文档本地链接、已移走实现的失效导入/构建路径核对。架构、仓库边界、上游职责和手册按三仓库分工更新；候选锁区分助手 commit、Hermes SHA、基础镜像和本机构建 ID。
+- 限制：本地镜像 `sha256:a55f802a7f9dab523d604d03d0585c28859653902e94b481905d94e9be11fd40` 未发布；候选保持 disabled、部署 image=null。没有目标机 amd64 验收、生产切换或生产数据恢复、浏览器实际操作、真实付费模型及正式前向评估；WebUI fork 未改动。完整聊天备份 shell 未在目标机运行，本机验证覆盖助手镜像隔离恢复及已有平台测试，不能替代整体目标机恢复。[GitHub CI](https://github.com/youweichen0208/trading-assistant/actions/runs/37143909964)（最终提交 3ff91cf；前次 5279dea 同样通过）通过独立安装、12 项测试、原生 Hermes 验收和 amd64 构建；最初因固定 uv 下载清单缺 3.14.7 失败，改用现有固定 Python 基础镜像后通过。远程构建不等于目标机验收，未推送镜像。
+
+
+### S12f 双仓库职责与升级决策（2026-10-04，仅文档）
+
+- 用户已创建公开 `youwei-webui` fork，并决定以独立仓库维护界面定制；主聊天路径为 WebUI 服务端 → 个人 Hermes 原生 gateway → Core 工具 / LiteLLM。前述 S12 初始表中的“不 fork”与 Pipe 主入口保留为历史决策，由 S12e/f 替代。
+- [架构](ARCHITECTURE.md) 明确账户/聊天、个人 profile/知识、平台任务/报告/Ledger 的数据权威，服务端身份与凭证、接口路径、停止与取消语义，以及后台普通模型分流。当前报告仍走 Dashboard 链接，fork 内嵌任务卡片列为后续能力。
+- [仓库边界](REPOSITORY.md) 区分 fork 源码/界面测试/镜像构建与平台适配/兼容验证/部署编排；[上游管理](UPSTREAMS.md) 规定 main 跟踪上游、youwei 维护定制、正式 Release 升级分支与 digest 交付。
+- Hermes 个人 gateway 与研究/实验运行面分别升级；当前固定 SHA 不变。记录研究镜像归因补丁的语义复核与移除条件，以及正式 ResearchRelease 影响评估、持久数据迁移和恢复要求。
+- 验证：`git diff --check` 通过；Python 标准库脚本检查 4 份文档的 77 个本地链接、代码围栏闭合、Core 路由与 Hermes SHA 一致性通过；`python3 infra/validate_upstreams.py --mode catalog` 为 VALID。调用图已按接口与权限人工核对，未执行 Mermaid 渲染或运行时回归（本次仅文档）。未修改运行代码、依赖锁、fork 或线上配置；未执行目标机验证、生产部署或正式前向评估。新 fork 的版本选择、定制、构建和兼容验收尚未完成，不能继承官方 v0.6.36 的本地测试结论。
+
 ### S12a 完成记录（2026-10-03，离线实现 + 集成验收）
 
 - 状态：**Core 探索性研究后端闭环完成**——提交 → 持久任务 → 冻结输入 → 受控研究 → 校验引用 → 保存报告 → 查询；首次验收用合成证据 + mock 研究回合（真实 Runner 接线已就位，生产未配置，无 wiring 时任务如实失败）。

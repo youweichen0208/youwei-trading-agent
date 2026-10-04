@@ -1,0 +1,46 @@
+{
+  "verified_at": "2026-10-04T01:52:44.084289+00:00",
+  "services": {
+    "youwei-chat-openwebui-1": {
+      "image": "ghcr.io/youweichen0208/youwei-webui@sha256:1ae57fd42c216bfb165f0888ed2b0f42b1e23a9a6c22dc6edc6b6c78a2c9ec3b",
+      "image_id": "sha256:1ae57fd42c216bfb165f0888ed2b0f42b1e23a9a6c22dc6edc6b6c78a2c9ec3b",
+      "started_at": "2026-10-04T01:51:17.44537345Z",
+      "health": "healthy"
+    },
+    "youwei-chat-hermes-assistant-1": {
+      "image": "ghcr.io/youweichen0208/trading-assistant@sha256:8be71b9ac8df8019c3e6a2dac5321b8fba384c99e2baaf76e848284a622b9f10",
+      "image_id": "sha256:8be71b9ac8df8019c3e6a2dac5321b8fba384c99e2baaf76e848284a622b9f10",
+      "started_at": "2026-10-04T01:48:57.456299637Z",
+      "health": "healthy"
+    },
+    "youwei-production-core-api-1": {
+      "image": "ghcr.io/youweichen0208/youwei-core@sha256:678077eee1284099176d16172275455e206af8fc561ab84d00f075ba171de58e",
+      "image_id": "sha256:678077eee1284099176d16172275455e206af8fc561ab84d00f075ba171de58e",
+      "started_at": "2026-10-04T01:48:41.129702114Z",
+      "health": "healthy"
+    }
+  },
+  "unchanged_dependencies": [
+    "youwei-production-core-worker-1",
+    "youwei-production-sandbox-runner-1",
+    "youwei-chat-postgres-1",
+    "youwei-production-postgres-1",
+    "youwei-chat-litellm-1"
+  ],
+  "webui_version": "0.11.4",
+  "chats_preserved": 3,
+  "live_authenticated_read_only_acceptance": "passed",
+  "dedicated_gateway_key_discovery": "passed",
+  "paid_model_calls": false,
+  "public_entry": "https://trading.youwei-agent.com",
+  "public_checks": {
+    "health": 200,
+    "api_version": "0.11.4",
+    "html": 200,
+    "frontend_asset": 200
+  },
+  "postdeploy_backup": "/opt/youwei/backups/chat/daily/chat-backup-20261004-015244",
+  "isolated_backup_restore": "ALL PASS: LiteLLM 100 logs/7 tokens; WebUI 3 chats/44 tables; assistant 5 databases with exact image and archive hashes; separate secrets 0600",
+  "original_webui_volume_retained": "youwei-chat_openwebui_data",
+  "new_webui_volume": "youwei-chat_openwebui_data_v0114_20261004"
+}

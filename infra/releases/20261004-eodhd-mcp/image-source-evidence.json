@@ -1,0 +1,32 @@
+{
+  "result": "PASS",
+  "image": "ghcr.io/youweichen0208/trading-assistant@sha256:618f820ef3934ce69e526aa2105b7a0c49da44de254f650158123ee9d1cae235",
+  "source_commit": "3d4d7a7fa7dfbb85db6f3153041e71a738ae53e0",
+  "assistant_files": {
+    "config.yaml": "880cfc363923e3e80f04a13f68c406e84bd2ae36ab174f083998949d7202b3cc",
+    "core_client.py": "e8584dddd92ad1d20622a263a8f0e00f05830229ca7a34c1a8f9e10f1bb310ce",
+    "._plugin.yaml": "76e235bcfc20ddcb9759594ba808bfb0b8522cd8ce0b52526fa33f27c2404750",
+    "._web.py": "76e235bcfc20ddcb9759594ba808bfb0b8522cd8ce0b52526fa33f27c2404750",
+    "._core_client.py": "76e235bcfc20ddcb9759594ba808bfb0b8522cd8ce0b52526fa33f27c2404750",
+    ".___init__.py": "76e235bcfc20ddcb9759594ba808bfb0b8522cd8ce0b52526fa33f27c2404750",
+    "._eodhd.py": "76e235bcfc20ddcb9759594ba808bfb0b8522cd8ce0b52526fa33f27c2404750",
+    "__init__.py": "18b2432ec869a9c01776a3be6b7a6e0681a4b7b282899357ea176e181b60d02a",
+    "._knowledge.py": "76e235bcfc20ddcb9759594ba808bfb0b8522cd8ce0b52526fa33f27c2404750",
+    "entrypoint.py": "9c5d77d68074767f4a3cc23ec40f860b83d18f1fbe25cf1f9752072200566e4b",
+    "._backup.py": "76e235bcfc20ddcb9759594ba808bfb0b8522cd8ce0b52526fa33f27c2404750",
+    "instructions.txt": "473a004f0a52540cedea70522ce4897f065f721fc1479289fdf503189fbc3fcf",
+    "._entrypoint.py": "76e235bcfc20ddcb9759594ba808bfb0b8522cd8ce0b52526fa33f27c2404750",
+    "._instructions.txt": "76e235bcfc20ddcb9759594ba808bfb0b8522cd8ce0b52526fa33f27c2404750",
+    "backup.py": "d6d85a128c13b76a17da9e0a485e228f77d7d590a642e831a3c292ad2db98d05",
+    "web.py": "b2a35c29cbfa9903bbda68dfeee11aaa8b833ba1493b653a11d2fe2799acfbc4",
+    "eodhd.py": "07da9fa564d3b3ceef0ce619fa12b99c87b303271192637a5255b4a7513b45fa",
+    "knowledge.py": "39cbb6515fa52f58f1588d5250ab83f5679052870130ed450fd3824788454b5c",
+    "plugin.yaml": "f6779882bdf3bb329fddec171923b63f80075bdd34c28986bd52d0cd65dfc08f",
+    "._config.yaml": "76e235bcfc20ddcb9759594ba808bfb0b8522cd8ce0b52526fa33f27c2404750",
+    "upstreams.lock.json": "bdad04dc3ffd666468ed317a6fd97f167c6e73a2f15f09385b5ee62902e72e17"
+  },
+  "upstream_files": {
+    "pyproject.toml": "6f969b9fdff95e7269ec808361e3ae8be5357036e6257e53a3306878cf8c41dd",
+    "uv.lock": "5b3798f326209475abca8ef7cbf7c9406f12e687c28c0b540dfe597466f48590"
+  }
+}

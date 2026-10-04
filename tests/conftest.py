@@ -64,9 +64,10 @@ def pg_url():
     )
     url = f"postgresql+asyncpg://youwei:youwei@127.0.0.1:{port}/youwei"
     try:
+        # The entrypoint temporary server accepts sockets before final TCP startup.
         for _ in range(120):
             r = subprocess.run(
-                [docker, "exec", name, "pg_isready", "-U", "youwei"],
+                [docker, "exec", name, "pg_isready", "-h", "127.0.0.1", "-U", "youwei"],
                 capture_output=True,
             )
             if r.returncode == 0:

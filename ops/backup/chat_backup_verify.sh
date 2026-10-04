@@ -49,10 +49,10 @@ docker run -d --name youwei-chat-verify-pg \
     -e POSTGRES_PASSWORD=verify -e POSTGRES_DB=verify \
     "$VERIFY_PG_IMAGE" >/dev/null
 for i in $(seq 1 30); do
-    docker exec youwei-chat-verify-pg pg_isready -U postgres -d verify >/dev/null 2>&1 && break
+    docker exec youwei-chat-verify-pg pg_isready -h 127.0.0.1 -U postgres -d verify >/dev/null 2>&1 && break
     sleep 1
 done
-if docker exec youwei-chat-verify-pg pg_isready -U postgres -d verify >/dev/null 2>&1; then
+if docker exec youwei-chat-verify-pg pg_isready -h 127.0.0.1 -U postgres -d verify >/dev/null 2>&1; then
     pass "verify postgres ready"
 else
     bad "verify postgres did not become ready"
@@ -100,6 +100,23 @@ PY
 [ -d "$work/vector_db" ] && pass "vector_db/ present in archive" || bad "vector_db/ missing"
 
 [ -s "$dir/compose.json" ] && pass "compose.json archived" || bad "compose.json missing"
+
+# Assistant archive required when the saved deployment contains the service.
+assistant_enabled=$(python3 - "$dir/compose.json" <<'PY_CHECK'
+import json, sys
+print(int('hermes-assistant' in json.load(open(sys.argv[1]))['services']))
+PY_CHECK
+)
+if [ "$assistant_enabled" = 1 ] || [ -e "$dir/hermes-data.tar.gz" ]; then
+    image_args=()
+    if [ -n "${YOUWEI_VERIFY_ASSISTANT_IMAGE:-}" ]; then
+        image_args=(--image "$YOUWEI_VERIFY_ASSISTANT_IMAGE")
+    fi
+    python3 "$(dirname "$0")/assistant_image.py" verify \
+        --archive "$dir/hermes-data.tar.gz" --metadata "$dir/hermes-image.json" \
+        "${image_args[@]}" \
+        && pass "Hermes image-isolated restore hashes/SQLite/knowledge" || bad "Hermes restore failed"
+fi
 
 # --- 3. secrets archive -----------------------------------------------------
 if [ -n "$secrets_tar" ]; then

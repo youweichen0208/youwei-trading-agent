@@ -1,3 +1,7 @@
+> 当前主要入口改为 [原生 Hermes 美股助手](../../docs/ops/hermes-personal-assistant.md)。下文保留旧 Pipe 的实现与历史接入说明；切换脚本只停用入口，不删除历史聊天。
+
+> 2026-10-04：线上已切换 youwei-webui v0.11.4 + 原生 Hermes gateway，旧 Pipe 停用但保留代码与历史。本页以下 v0.6.36 Pipe 说明是历史实现；当前入口与操作见 [助手手册](../../docs/ops/hermes-personal-assistant.md) 和 [部署记录](../../docs/ops/three-repo-vm-rollout-20261004.md)。
+
 # Open WebUI 研究入口（S12c）
 
 把 Open WebUI（固定 v0.6.36，digest 见 `infra/compose/chat.json`）作为探索性研究的发起入口：

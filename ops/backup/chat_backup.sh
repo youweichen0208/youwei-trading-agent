@@ -30,6 +30,7 @@
 #                  YOUWEI_ALERT_LOG
 
 set -euo pipefail
+umask 077
 
 BASE="${YOUWEI_CHAT_BASE:-/opt/youwei/chat}"
 BACKUP_ROOT="${YOUWEI_CHAT_BACKUP_ROOT:-/opt/youwei/backups}"
@@ -99,6 +100,25 @@ tar -czf "$daily_dir/openwebui-data.tar.gz" \
     -C "$daily_dir" webui.db uploads vector_db
 rm -rf "$daily_dir/webui.db" "$daily_dir/uploads" "$daily_dir/vector_db"
 note "openwebui data archived ($(du -h "$daily_dir/openwebui-data.tar.gz" | cut -f1))"
+
+# Presence in the deployed Compose makes assistant backup mandatory, never silent.
+assistant_enabled=$(python3 - "$BASE/compose.json" <<'PY_CHECK'
+import json, sys
+print(int('hermes-assistant' in json.load(open(sys.argv[1]))['services']))
+PY_CHECK
+)
+if [ "$assistant_enabled" = 1 ]; then
+    ASSISTANT_CONTAINER="${YOUWEI_ASSISTANT_CONTAINER:-youwei-chat-hermes-assistant-1}"
+    ASSISTANT_CONTAINER=$(docker inspect --format '{{.Id}}' "$ASSISTANT_CONTAINER")
+    docker exec "$ASSISTANT_CONTAINER" python /opt/youwei-assistant/backup.py create /tmp/hermes-backup.tar.gz
+    # docker cp cannot read tmpfs-backed /tmp on some daemons.
+    docker exec "$ASSISTANT_CONTAINER" cat /tmp/hermes-backup.tar.gz > "$daily_dir/hermes-data.tar.gz"
+    docker exec "$ASSISTANT_CONTAINER" rm /tmp/hermes-backup.tar.gz
+    [ -s "$daily_dir/hermes-data.tar.gz" ]
+    python3 "$(dirname "$0")/assistant_image.py" capture --container "$ASSISTANT_CONTAINER" \
+        --archive "$daily_dir/hermes-data.tar.gz" --metadata "$daily_dir/hermes-image.json"
+    note "Hermes databases, memory and knowledge archived with image identity"
+fi
 
 # --- deployed compose config (no secrets) ------------------------------
 cp "$BASE/compose.json" "$daily_dir/compose.json"

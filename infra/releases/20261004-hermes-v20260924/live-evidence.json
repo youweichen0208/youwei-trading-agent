@@ -1,0 +1,26 @@
+{
+  "image": "ghcr.io/youweichen0208/trading-assistant@sha256:b99e7edb7da1ffc42d7ef7bb2a47a06bb44b1332d2db083568a187cbe514aec1",
+  "image_id": "sha256:b99e7edb7da1ffc42d7ef7bb2a47a06bb44b1332d2db083568a187cbe514aec1",
+  "release": "v2026.9.24",
+  "hermes_version": "0.21.5",
+  "hermes_revision": "f97608f178d1ffeca59860195ab7da295f7c8e5f",
+  "python": "3.13.16",
+  "healthy": true,
+  "old_volumes_retained": true,
+  "all_other_services_unchanged": true,
+  "paid_model_calls_by_deployment": false,
+  "webui_authenticated_discovery": "passed",
+  "webui_version": "0.11.4",
+  "webui_chat_count": 5,
+  "hermes_cli_version": "Hermes Agent v0.21.5 (2026.9.24)\nInstall directory: /opt/hermes\nInstall method: unknown\nPython: 3.13.16\nOpenAI SDK: 2.24.0",
+  "unauthenticated_discovery": 401,
+  "deployed_compose_hash_verified": true,
+  "cutover_at": "2026-10-04T02:36:09Z",
+  "postbackup": "/opt/youwei/backups/chat/daily/chat-backup-20261004-023723",
+  "postbackup_restore": "ALL PASS: WebUI 5 chats/44 tables; LiteLLM 115 spend logs/7 tokens; Hermes 5 databases via recorded image; separate secrets 0600",
+  "active_volumes": {
+    "profile": "youwei-chat_hermes_profile_v20260924_20261004_r2",
+    "knowledge": "youwei-chat_hermes_knowledge_v20260924_20261004_r2"
+  },
+  "first_cutover_rollback": "Verification list mistakenly included already-cleaned temporary test containers; prior image/original volumes restored healthy. Permanent-container-only check used for successful second cutover; both copies retain 2 sessions/12 messages."
+}

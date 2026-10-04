@@ -1,6 +1,6 @@
-# Hermes + Pi 美股研究平台技术架构 v0.3
+# Hermes 美股助手与研究平台技术架构 v0.3
 
-日期：2026-09-28（仓库边界与现行部署约束同步）；2026-10-01（MVP 暂缓 Pi，Hermes 唯一 Agent 框架）\
+日期：2026-09-28（仓库边界与现行部署约束同步）；2026-10-01（MVP 暂缓 Pi，Hermes 唯一 Agent 框架）；2026-10-04（三仓库职责、个人助手与升级边界）\
 状态：Core 已有开发环境纵向切片；独立部署、正式数据与完整 MVP 按实施计划逐项验收\
 输入：用户提供的 v0.2 架构；详细问题见 [v0.2 评审](ARCHITECTURE_REVIEW_v0.2.md)\
 适用范围：已确认自用或受控内部研究，不向公众提供服务、不自动交易、不对外提供投资建议；目标为中国大陆入口与新加坡核心。现有 SG 主机为 DigitalOcean 4 vCPU / 7.8 GB，国内入口尚待接入。范围扩大按第13节重新评估。
@@ -28,7 +28,63 @@ S00 的具体选择登记于 [protocols/](protocols/README.md)：固定20证券�
 
 上表按设计主题整理；实际开发遵循实施计划中的依赖顺序，持久任务与安全执行基础必须先于正式研究任务。
 
+## 个人助手交互入口（2026-10-04）
+
+主要聊天入口采用 `youwei-webui → 独立 Hermes 原生 gateway → LiteLLM / 受限工具`。`youwei-webui` 是用户已创建的 Open WebUI fork；持续定制界面和交互由该仓库承接，平台业务仍集中在 `youwei-trading-agent`。
+
+| 组件 / 仓库 | 负责内容 | 权威数据与限制 |
+| --- | --- | --- |
+| youwei-webui | 登录、聊天界面、聊天历史、流式展示；上游界面定制和镜像构建 | WebUI 数据库保存账户与聊天；不作为 Core 任务状态或正式研究记忆的权威 |
+| youwei-trading-agent | Core、quant、contracts、Runner、研究/实验 Hermes 适配、跨服务部署与备份调度 | PostgreSQL 管理平台任务、报告、PIT 与 Ledger；固定外部镜像及兼容组合 |
+| trading-assistant（个人 Hermes gateway） | 自由问答、搜索与网页读取、平台工具调用、个人知识沉淀 | 独立 Python 3.13、持久 profile、会话数据库、memory 与知识卷；不直连业务数据库 |
+| Core / Controller | 服务端身份与权限、PIT 行情、持久研究、冻结输入及受控提交 | 任务状态、幂等、租约和 fencing 均由 Core 决定 |
+| 研究 / 实验 Hermes | 在 Controller / Runner 授权链路中消费受控输入并返回提案 | 与个人助手分离配置、凭证、profile 和工具权限；不能自行封存正式预测 |
+| LiteLLM | 所有模型调用的统一出口 | 聊天后台任务、个人助手与研究使用各自的服务端凭证 |
+| Dashboard | 完整报告、证据和前向评估详情 | 消费 Core 只读接口；保留已有入口，后续内嵌 UI 不复制业务状态 |
+
+### 个人聊天与平台调用链
+
+```mermaid
+flowchart TD
+    Browser[浏览器] --> UI[youwei-webui 服务端]
+    UI --> ChatDB[(WebUI 账户与聊天记录)]
+    UI -->|完整消息历史 / 原生 Chat Completions / SSE| Personal[trading-assistant / 个人 Hermes gateway]
+    UI -->|标题、标签等普通模型任务| Gateway[LiteLLM]
+    Personal --> Gateway
+    Personal --> Notes[(个人 profile / memory / 来源笔记)]
+    Personal -->|允许列表：搜索与网页提取| Web[公开网页]
+    Personal -->|七项只读查询 / 服务端凭证| EODHD[EODHD 官方 MCP]
+    Personal -->|插件 / 服务端 Core 凭证 / HTTP| Core[Core API]
+    Core --> PG[(平台 PostgreSQL)]
+    Worker[Core Worker / Controller] --> PG
+    Worker --> Runner[受控 Runner / 研究与实验 Hermes]
+    Runner --> Gateway
+    Browser -->|报告详情链接| Dashboard[Dashboard 只读代理]
+    Dashboard --> Core
+```
+
+WebUI 服务端通过 Hermes 的 `GET /v1/models` 发现模型，以 `POST /v1/chat/completions` 传递完整历史并接收原生流式响应；不为每条消息启动 CLI 子进程。标题、标签等后台任务直接走 LiteLLM 普通模型，模型发现失败也不得回退到 Hermes 执行工具或写记忆。
+
+Hermes 平台插件使用以下 Core 接口；浏览器和模型参数均不提供 Core 身份：
+
+| 能力 | Core HTTP 接口 | 语义 |
+| --- | --- | --- |
+| 日线 | `GET /v1/data/daily-bars` | 证券、日期范围、可选 as_of；默认截止时间由 Core 确定，返回来源、可用时间和质量，不称为实时行情 |
+| 研究提交 / 列表 | `POST /v1/research` / `GET /v1/research` | 提交证券与 D1/D20/D60 窗口、可选基准；当前不支持任意问题正文 |
+| 状态 / 报告 | `GET /v1/research/{research_id}` / `GET /v1/research/{research_id}/report` | Core 校验归属，报告可按版本读取 |
+| 取消 | `POST /v1/research/{research_id}/cancel` | 显式取消持久研究任务 |
+
+自由问答不强制创建 Core 作业。需要平台研究时返回持久 ID、摘要及现有 Dashboard 报告链接；提交传输重试复用运行时 session/turn/tool-call 身份生成的幂等键，新调用不因文字相同永久去重。普通聊天不承诺断线或重启后自动续跑；前端停止响应不等于取消已经提交的 Core 任务，任务继续由 Worker 管理。
+
+首版仅当前单所有者可访问。WebUI 到 Hermes、Hermes 到 Core 的凭证分别留在服务端；不向浏览器暴露服务 key，不共享数据库或宿主目录来交接任务。未来 fork 内嵌研究进度卡片时，由 WebUI 服务端的鉴权适配访问 Core，仍以 Core 为权威；这是后续能力，尚未实现。新增用户前必须重新设计身份映射和 profile 隔离。
+
+个人偏好使用 Hermes memory，带来源长篇笔记使用限定目录知识工具。个人知识不自动进入正式预测输入；正式研究供应商访问经 Core。个人助手按用户授权直连 EODHD 官方 MCP，仅开放搜索、证券解析、历史行情、报价、基本面、新闻和财报日历七工具，返回结果不自动形成 PIT 快照或 Ledger 输入。公开网页检索由受限工具执行，不开放通用宿主终端或内置代码执行。工具与备份操作见 [个人助手接入](ops/hermes-personal-assistant.md)。
+
+状态区分：三仓库源码职责已拆分；2026-10-04 按用户授权把 youwei-webui v0.11.4、独立个人助手和 Core API 部署至 sg-prod。新组合已通过 VM mock 链路、无网络旧数据迁移、线上只读检查与完整备份隔离恢复，见 S12h 和[部署记录](ops/three-repo-vm-rollout-20261004.md)。未调用真实付费模型，未执行正式前向评估；Worker、Runner、研究镜像及正式 release 约束保持原状。 随后按用户选择将个人助手切到官方 v2026.9.24 / Python 3.13，目标机数据副本及 WebUI 兼容通过，详见[个人助手 Release 切换](ops/hermes-release-20260924-rollout.md)。
+
 ## 1. 关键决策
+
+个人查询的后续部署：EODHD MCP 已按用户授权在 sg-prod 上线，固定七项查询工具；当前套餐可用范围、验收证据和镜像回滚见 [EODHD MCP 记录](ops/eodhd-mcp-rollout-20261004.md)。该接线不改变下述正式研究协议。
 
 保留 v0.2 的 PIT 数据、三组预测、前向评估、独立记忆、沙箱和人工发布原则。优先让一次预测从计划、封存到评分都具有严格语义，再扩展研究角色与实验能力。
 
@@ -60,7 +116,7 @@ flowchart TD
     Edge -->|提交、轮询事件，mTLS| API[新加坡 Core API]
     API --> PG[(新加坡 PG：任务 / Ledger / Memory)]
     Controller[Core Worker：Workflow / Scheduler / Evaluation] --> PG
-    Controller -->|FrozenEvidence、能力令牌| Agent[Agent Runtime：Hermes 研究/实验实例，待接入]
+    Controller -->|FrozenEvidence、能力令牌| Agent[Agent Runtime：Hermes 研究/实验实例]
     Agent -->|ResearchProposal| Controller
     Agent -->|探索执行请求（生成代码）| Controller
     Controller -->|HTTP：授权快照字节、hash、作业| Runner[独立 Sandbox Runner]
@@ -76,11 +132,11 @@ flowchart TD
     LLM --> Models[模型供应商]
 ```
 
-上图表示目标职责和信任边界；Agent Runtime、独立 Data Service 与国内入口的实际接入按实施计划推进。当前原始数据、冻结快照与受限小产物保存在 PostgreSQL；本地 Ledger 导出和 WAL 归档分别管理。大对象存储以后按容量和许可选择，MVP 不依赖 OSS。
+上图表示正式平台的目标职责和信任边界，与前述个人聊天链路区分；各单元实际接入及验收状态以实施计划为准。当前原始数据、冻结快照与受限小产物保存在 PostgreSQL；本地 Ledger 导出和 WAL 归档分别管理。大对象存储以后按容量和许可选择，MVP 不依赖 OSS。
 
 国内目标部署：
 
-- nginx、Web、China API；Web 在 S09 评估 Open WebUI 接入或复用归档中的 Next.js 源码；
+- nginx、Web 入口、China API；主要聊天界面已选 youwei-webui，国内入口及 China API / 任务镜像属于目标拓扑，不因 fork 创建而视为已部署；
 - 独立小型 PostgreSQL：身份、租户成员关系、task mirror、提交 outbox；备份保存在境内；
 - Redis 仅在缓存或会话性能确有需要时添加。
 
@@ -91,11 +147,11 @@ flowchart TD
 | core-api | 私有入口、鉴权、任务与事件查询、受控提交、产物存取；API 内部包含 Ledger / Memory 的受限操作 |
 | core-worker | 同代码库的 Workflow / Scheduler / Evaluation；授权并冻结沙箱输入，通过 HTTP 调用 Runner，重新校验租约并保存产物，不持有容器运行时权限 |
 | agent-runtime | Hermes 适配器（研究/实验实例）；无数据库凭证、无供应商密钥、无运行时 socket |
-| data-service | 所有数据供应商适配、采集、版本化与快照；当前在 Core 数据模块实现，独立服务接线随权限隔离推进 |
+| data-service | 正式研究的数据供应商适配、采集、版本化与快照；当前在 Core 数据模块实现，独立服务接线随权限隔离推进；个人 EODHD MCP 查询单独由助手维护 |
 | llm-gateway | 模型出口与请求级限额；模型调用费用不设预算账本（预算/计费维度已删除），外部调用的实际收费与内部观测由 Gateway／供应商记录为准 |
 | sandbox-runner | 独立进程以固定模板创建 gVisor 作业；仅接收 Worker 授权并冻结的输入，不读业务数据库、不持有供应商密钥、不直接提交 Ledger 或保存业务产物 |
 
-另有 nginx、PostgreSQL、受控备份任务。上述职责保留在一个业务仓库，按权限需要独立运行；MVP 不要求提前启动所有目标单元。Hermes 通过版本化契约接入；Pi 保留为可替换候选但暂缓接入，外部 Agent 的业务接入仍属 S07/S08。
+另有 nginx、PostgreSQL、受控备份任务。上述平台业务职责保留在 youwei-trading-agent，界面 fork 位于独立 youwei-webui 仓库，按权限需要独立运行；MVP 不要求提前启动所有目标单元。Hermes 通过版本化契约接入；Pi 保留为可替换候选但暂缓接入，外部 Agent 的业务接入仍属 S07/S08。
 
 较重的标准量化计算也在批处理沙箱执行，但使用已发布的 quant 镜像和固定入口，不调用 Agent 模型循环。轻量评分可在 core-worker 执行。
 
@@ -107,7 +163,25 @@ Core 保留一个业务包及一条迁移链，任务、租户、PIT、Ledger �
 
 共享 contracts 承载冻结输入、执行请求和产物清单等传输结构，不依赖 Core 数据库、HTTP 路由或供应商 SDK。Runner 使用独立依赖环境，只依赖这些结构和执行组件；Worker 保留数据库授权及有副作用的提交。具体包与验证入口见 [仓库边界](REPOSITORY.md)。
 
-Hermes、Pi、Open WebUI、OpenViking 默认使用官方固定版本，通过业务适配层接入；需要独立运行时的组件分别维护依赖锁。上游版本登记不代表已安装或已接入业务，只有上游配置/扩展无法满足必要改动时才维护可追踪的最小 fork。
+`youwei-webui` 独立维护 Open WebUI 源码历史、界面定制、构建及界面测试；`trading-assistant` 保留个人 gateway、插件、memory/知识工具、独立镜像及原生测试；`youwei-trading-agent` 保留研究/实验 Hermes、Core 接口、跨服务接线与兼容验收、部署锁和整体备份调度。三仓通过 HTTP 契约与固定镜像交付，不相互导入业务实现。单业务仓库约束继续适用于平台领域规则，不要求把界面上游源码放进 Core。
+
+界面先通过配置禁用能力、精简导航，再按需求修改组件；隐藏入口不代替服务端权限控制。初期保留上游认证、聊天存储和迁移机制，以兼容旧聊天和后续升级。Hermes 等其他上游仍优先使用官方固定版本与扩展，必要源码补丁登记基线、原因和移除条件。
+
+### 2.2 上游版本与发布职责
+
+| 项目 | 版本维护与升级方式 | 发布边界 |
+| --- | --- | --- |
+| youwei-webui | main 只同步上游；youwei 从选定正式 Release tag 建立并维护定制；升级临时分支从 youwei 创建后合并目标 Release | fork 构建自己的镜像；平台固定上游 tag/SHA、fork SHA、镜像 digest 和兼容证据后部署 |
+| 个人 Hermes gateway | trading-assistant 固定官方 Release 与完整 SHA、独立 Python 3.13 环境、上游 frozen 依赖锁及插件版本；平台消费助手 commit 与镜像 digest | 独立候选、镜像和 profile；可先升级个人助手，不连带更换正式研究运行时 |
+| 研究 / 实验 Hermes | 平台仓库维护受控适配、源码补丁与工具契约，单独登记已验证版本 | 评估 ResearchRelease 影响并遵守既有审批；不得替换已批准预测环境或改写历史记录 |
+
+每月检查正式 Release，安全修复及时评估。Sync fork 只同步源码；部署必须使用已验证的固定版本，不自动跟随 main/latest。两个 Hermes 运行面可以使用不同的已验证版本，每次记录差异与兼容组合；本次文档决策不选择新的上游版本。
+
+当前两个 Hermes 构建基线均为 `7fa45eb349a1a6f1eebc010b3fef0a9d996f386a`。个人 gateway 无上游补丁；研究镜像有实际返回模型归因补丁，升级必须复核语义与移除条件，`git apply --check` 成功不等于兼容。Core 继续 Python 3.13，不能因 Hermes 升级而改变其解释器。
+
+统一升级流程为：选定候选并记录差异 → 隔离构建与契约测试 → 用备份副本验证迁移及恢复 → 目标机验证 → 固定镜像与部署清单 → 按授权切换。验证覆盖聊天/流式/后台分流、工具与权限、持久知识；研究运行时另验冻结证据、能力令牌、归因、取消及提案契约。正式研究行为变化按第 7–8 节处理，不由工程兼容测试代替批准。
+
+回滚先判断旧版本能否读取升级后的数据库、会话和知识格式；必要时恢复升级前的对应数据副本，并明确恢复点之后的数据处理方式。保留上一套镜像、配置、锁和备份，不通过恢复正式 Ledger 来回滚聊天入口。具体升级矩阵、补丁与验证入口统一维护在 [上游管理](UPSTREAMS.md)，运行验收证据维护在实施计划。
 
 ## 3. 四个核心 Interface
 

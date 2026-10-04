@@ -183,8 +183,21 @@ class Pipe:
         self,
         body: dict,
         __user__: dict | None = None,
+        __task__: str | None = None,
         _client: httpx.AsyncClient | None = None,
     ) -> str:
+        # Open WebUI background tasks (title/tag/follow-up generation) also
+        # route through the selected model — they must NEVER trigger a
+        # research submission or consume a Core call. The pinned v0.6.36
+        # injects ``__task__`` (metadata.task) for those requests; echo a
+        # short title derived from the first user message instead.
+        if __task__:
+            messages = body.get("messages") or []
+            for m in messages:
+                if m.get("role") == "user":
+                    text = (m.get("content") or "").strip().replace("\n", " ")
+                    return text[:48] or "研究对话"
+            return "研究对话"
         text = _last_user_message(body)
         client = _client or httpx.AsyncClient(
             base_url=self.valves.core_url, timeout=15.0

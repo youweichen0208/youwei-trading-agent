@@ -1,10 +1,14 @@
 # 仓库边界与外部组件接入
 
-更新：2026-09-28；2026-10-02 增 `apps/dashboard/`（S10a）。本文用于修改模块、依赖环境或部署边界时定位职责；实施进度与验证结果以 [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) 为准，领域术语见 [CONTEXT.md](../CONTEXT.md)。
+更新：2026-09-28；2026-10-02 增 `apps/dashboard/`（S10a）；2026-10-04 明确独立 WebUI fork 与两类 Hermes 边界。本文用于修改模块、依赖环境或部署边界时定位职责；实施进度与验证结果以 [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) 为准，领域术语见 [CONTEXT.md](../CONTEXT.md)。
 
-## 1. 一个业务仓库，按权限独立运行
+## 1. 一个平台业务仓库与独立界面 fork
 
 本仓库维护预测研究的业务规则、事务、迁移、契约、适配器和部署配置。Core API 与 Worker 共用 `youwei_core` 和同一条 Alembic 迁移链；Sandbox Runner 因持有容器运行时权限而独立打包和运行。包边界用于控制依赖与权限，不要求一开始把每个业务模块拆成服务或仓库。
+
+`youwei-webui` 是独立 Open WebUI fork，负责登录与聊天体验、界面定制、上游数据库迁移兼容、镜像构建和界面测试。trading-assistant 普通仓库负责个人 Hermes gateway、平台 HTTP 插件、memory/知识、助手镜像和原生测试；本仓库负责平台领域规则、研究/实验 Hermes、跨服务契约、部署编排、镜像版本登记和整体备份调度。界面仓库通过 HTTP 和固定镜像接入，不导入 Core 包、不复制研究任务状态机。主交互及升级规则见 [架构](ARCHITECTURE.md) 的个人助手入口与 §2.2。
+
+当前研究报告仍链接到本仓库 Dashboard；在 fork 内嵌任务卡片是后续能力，需要 WebUI 服务端鉴权适配，浏览器不持 Core key。2026-10-04 已部署 fork v0.11.4、独立助手与平台 Core API，完成目标机兼容、旧数据迁移及备份隔离恢复；版本、源码身份和未验证项见 [部署记录](ops/three-repo-vm-rollout-20261004.md)。
 
 | 边界 | 职责 | 依赖与权限 |
 | --- | --- | --- |
@@ -45,7 +49,7 @@ youwei-trading-agent/
   uv.lock                   # Core 运行依赖及本仓库开发依赖
 ```
 
-`services/agent-runtime/`（Hermes 研究/实验实例适配器，独立 Python 3.14 环境）已随 S07 建立；`integrations/openwebui/`（Open WebUI 研究入口的 Pipe Function 薄适配层，S12c）已建立；`integrations/pi/` 和 `integrations/openviking/` 在对应功能实际接入时创建。当前数据逻辑继续位于 `youwei_core/data/`；有独立部署需求时再提取 Data Service。Core 保持原路径，避免单纯搬目录影响现有导入、构建和迁移。
+`services/agent-runtime/`（Hermes 研究/实验实例适配器，独立 Python 3.14 环境）已随 S07 建立；`integrations/openwebui/`（Open WebUI 持久配置切换及保留的旧研究 Pipe，S12c/S12e）已建立；`integrations/pi/` 和 `integrations/openviking/` 在对应功能实际接入时创建。当前数据逻辑继续位于 `youwei_core/data/`；有独立部署需求时再提取 Data Service。Core 保持原路径，避免单纯搬目录影响现有导入、构建和迁移。
 
 ## 2. Worker 与 Runner 的执行交接
 
@@ -69,14 +73,14 @@ Runner 的状态只作短期执行缓存，PostgreSQL 是业务状态权威。Ru
 
 | 组件 | 本仓库负责的接入 | 当前边界 |
 | --- | --- | --- |
-| Hermes | 固定证据与研究权限；接收 ResearchProposal 后交 Controller 校验 | 已有独立 Python 3.14 适配与 Runtime 桥、冻结行引用预检；真实网关、平台工具授权与 Controller 封存接线仍待验收 |
+| Hermes | 个人 gateway 插件与研究/实验适配分别维护；后者输出 Proposal 交 Controller 校验 | 个人助手独立 Python 3.13，研究/实验独立 Python 3.14；profile、权限和发布分离；实际验收见 S07/S08/S12e |
 | Pi | MVP 暂缓接入（Hermes 为唯一 Agent 框架）；若日后接入则负责受控 RPC、工具/扩展允许列表、将探索代码提交到执行链路 | 版本锁保留；无业务接入，Node/TypeScript 包与 RPC wrapper 不设于当前 MVP |
-| Open WebUI | 作为可选界面消费 Core 身份、持久任务和研究结果接口 | S09 评估；不把其原生会话或执行状态作为 Core 权威 |
+| youwei-webui（Open WebUI fork） | 本仓库维护 Hermes 原生连接、后台模型分流、兼容测试和部署固定 | 外部仓库维护界面源码及镜像；账户/聊天归 WebUI，平台任务与报告归 Core |
 | OpenViking | 可选长文档派生检索适配器 | 尚未接入；事实与批准的研究记忆仍由 Core 管理 |
 
 Core 的运行依赖不含 Runner；根 dev 组安装 Runner 仅用于集成测试。Runner 自有独立锁，Hermes 及以后实际接入的前端/检索组件分别固定其解释器、依赖锁、上游完整提交或镜像 digest；Pi 保留为可替换候选（版本锁不变，暂缓接入）。[上游管理](UPSTREAMS.md) 中的登记和校验工具绑定 Compose、镜像引用、验收报告与清单，不能代替契约、权限和端到端业务测试。
 
-上游优先使用官方发布、配置和扩展能力；业务差异保留在本仓库适配层。必要能力确实无法通过这些入口实现时，再维护最小 fork，并登记上游基线、补丁、升级方式和相关验证。单业务仓库不意味着把 Hermes、Open WebUI、OpenViking 源码复制进 Core，也不要求现在创建尚无行为的接入目录。
+上游优先使用官方发布、配置和扩展能力；平台业务差异保留在本仓库适配层。用户已决定以独立 youwei-webui fork 承接持续界面定制，按正式 Release 维护可追踪差异。必要能力确实无法通过这些入口实现时，再维护最小 fork，并登记上游基线、补丁、升级方式和相关验证。单业务仓库不意味着把 Hermes、Open WebUI、OpenViking 源码复制进 Core，也不要求现在创建尚无行为的接入目录。
 
 ## 4. 现有能力与后续范围
 
@@ -87,3 +91,14 @@ Core 的运行依赖不含 Runner；根 dev 组安装 Runner 仅用于集成测�
 SG 使用现有 DigitalOcean **4 vCPU / 7.8 GB** 主机，重计算从并发1起步；国内与 SG 的旧原型已归档移除。需要复用原型 Next.js 源码时，从 [目标机记录](research/s01-target-verification.md) 指定归档提取并重新验收，不能将旧运行状态算作新实现上线。
 
 MVP 使用 PostgreSQL 保存当前规模的原始数据、冻结快照与受限产物，本地文件用于 Ledger 导出和 WAL/PITR 机制验证，**OSS 不在 MVP 范围**。同一管理权限下的文件与 hash 可以一起重写，本地归档不构成外部锚定或 WORM；独立恢复副本、归档调度与生产 RPO/RTO 由 S09 验收。
+
+## 个人助手边界（S12e）
+
+个人 gateway 插件、Core HTTP 客户端、知识工具、备份模块、Dockerfile 和原生验证已迁入
+[trading-assistant](https://github.com/youweichen0208/trading-assistant)，独立 Python 3.13 与锁文件，不依赖 Core 包或兄弟目录。
+本仓库通过 `infra/compose/chat-assistant.json` 消费助手镜像，不再从平台源码构建个人助手。
+`integrations/openwebui/configure_assistant.py`、日线 API 及数据库测试继续留在平台。
+`ops/verify_assistant_webui.py --assistant-image <image>` 使用独立 mock 入口验证跨服务组合。
+`ops/backup/assistant_image.py` 记录运行镜像身份并在无网络容器内恢复副本，不导入助手源码。
+`infra/chat/assistant-upstreams.lock.json` 固定已发布助手提交及镜像；平台部署组合保存在 `infra/releases/20261004/`，当前个人助手接入 EODHD MCP 后的聊天组合位于 `infra/releases/20261004-eodhd-mcp/`，此前官方 Release 切换记录保留在 `infra/releases/20261004-hermes-v20260924/`。助手仓库维护原生 MCP 配置、七工具允许列表及测试；平台维护镜像消费、私密凭证注入和部署备份。正式研究供应商访问继续由 Core 管理。
+详见 [个人助手接入](ops/hermes-personal-assistant.md)。历史实现路径与验证记录保留在 S12e，迁移结果见 S12g。
