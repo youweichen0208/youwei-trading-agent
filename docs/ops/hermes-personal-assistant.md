@@ -70,3 +70,5 @@ python3 ops/render_chat_release.py --check /private/candidate-compose.json
 ```
 
 生成后在受控目录检查差异、渲染 Compose 并按 UPSTREAMS 生成候选锁与清单。配置可能含秘密，不提交展开文件。`deploy_chat.sh` 的 up/webui 阶段只接受现有四服务、固定 digest 的部署副本，不再复制旧模板；它是实际运行操作，本轮未执行。
+
+跨服务 CI 由 `Chat compatibility` 工作流执行：`infra/chat/verification-sources.json` 固定助手和 WebUI 的完整候选提交；各自独立 checkout/构建，在临时卷里运行相同验收命令，不发布镜像、不读取生产凭证。该文件是测试组合，不替代已部署锁及 ResearchRelease。
