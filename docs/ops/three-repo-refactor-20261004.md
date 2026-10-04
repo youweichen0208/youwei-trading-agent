@@ -46,7 +46,7 @@ WebUI 本机首次构建因 Debian 软件源连接失败中断；重试到模型
 ## 交付
 
 - [平台草稿 PR](https://github.com/youweichen0208/youwei-trading-agent/pull/1)：基线单独提交，随后按 Core、Runner、研究运行时、旧入口与 CI 分片提交。
-- [助手草稿 PR](https://github.com/youweichen0208/trading-assistant/pull/1)：固定候选提交 `1637f72`。
+- [助手草稿 PR](https://github.com/youweichen0208/trading-assistant/pull/1)：当前完整候选提交见 `infra/chat/verification-sources.json`；最终跟进仅清理文件尾空行。
 - [WebUI 草稿 PR](https://github.com/youweichen0208/youwei-webui/pull/1)：固定候选提交 `09137c785`；官方功能和应用源码保持，修改仅自有镜像工作流。
 
 本机 WebUI 完整构建的网络失败如上保留；GitHub Linux 临时环境的完整构建与组合验收通过不能改写成本机构建成功。浏览器人工操作、目标机资源、真实模型与正式评估均不在本轮验证范围。
