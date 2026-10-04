@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "lock_sha256": "d6f8e284e0ba4b0625c3bc9e7da9230100d4c047ee797f8be3c947017c2c2edf",
+  "compose_sha256": "298e2618e0b91db1db67317fcb1066be81771bc75eb06f69f172b59cc85842b7",
+  "components": {
+    "hermes-assistant": {
+      "image": "ghcr.io/youweichen0208/trading-assistant@sha256:5686c66c00568511ea645c8402cfad6b37ae4019aceb12674ba27eb999618171",
+      "bindings": [
+        {
+          "service": "hermes-assistant",
+          "field": "image"
+        },
+        {
+          "service": "hermes-workbench-skills",
+          "field": "image"
+        }
+      ]
+    },
+    "hermes-workbench-skills": {
+      "image": "ghcr.io/youweichen0208/trading-assistant@sha256:5686c66c00568511ea645c8402cfad6b37ae4019aceb12674ba27eb999618171",
+      "bindings": [
+        {
+          "service": "hermes-workbench-skills",
+          "field": "image"
+        },
+        {
+          "service": "hermes-workbench-skills",
+          "field": "entrypoint"
+        }
+      ]
+    },
+    "openwebui": {
+      "image": "ghcr.io/youweichen0208/youwei-webui@sha256:171e0e83a7b03b29d1d3552dc637b1e71526085278a3717dc92989ce4cbd630f",
+      "bindings": [
+        {
+          "service": "openwebui",
+          "field": "image"
+        },
+        {
+          "service": "openwebui",
+          "field": "environment",
+          "name": "HERMES_WORKBENCH_URL"
+        },
+        {
+          "service": "openwebui",
+          "field": "environment",
+          "name": "HERMES_WORKBENCH_KEY"
+        },
+        {
+          "service": "openwebui",
+          "field": "environment",
+          "name": "HERMES_WORKBENCH_OWNER_ID"
+        },
+        {
+          "service": "openwebui",
+          "field": "environment",
+          "name": "HERMES_WORKBENCH_SKILLS_URL"
+        }
+      ]
+    },
+    "litellm": {
+      "image": "ghcr.io/berriai/litellm@sha256:f8043697479513b9ae6f3abac8e62d61b908cfd31541cc3c3c994e16a28d784e",
+      "bindings": [
+        {
+          "service": "litellm",
+          "field": "image"
+        }
+      ]
+    },
+    "postgres": {
+      "image": "postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea",
+      "bindings": [
+        {
+          "service": "postgres",
+          "field": "image"
+        }
+      ]
+    }
+  }
+}

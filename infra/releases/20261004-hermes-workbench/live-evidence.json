@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "cutover_at": "2026-10-04T15:18:40Z",
+  "deployed_compose_sha256": "ea905c45dedccc313896be321f5b7ae2146817dfd17889b0e34fe6a39e351614 (byte-identical to reviewed candidate)",
+  "recreated_containers": [
+    "youwei-chat-openwebui-1",
+    "youwei-chat-hermes-assistant-1"
+  ],
+  "created_containers": [
+    "youwei-chat-hermes-workbench-skills-1"
+  ],
+  "unchanged_containers": [
+    "youwei-chat-litellm-1 (f906e9ef6a06)",
+    "youwei-chat-postgres-1 (a10ed8749a5f)"
+  ],
+  "checks": {
+    "openwebui_health": "healthy; /health true; /api/version 0.11.4",
+    "hermes_assistant_health": "healthy",
+    "skills_service": "running (read-only root fs, cap_drop ALL, no-new-privileges)",
+    "workbench_routes": "/agent /agent/skills /agent/cron /agent/gateway all 200",
+    "bridge_auth": "unauthenticated /api/v1/hermes/config 401",
+    "bridge_owner_config": "200 {\"enabled\": true} for owner 229e8589-71b1-4d11-94bb-0fc37abe11bf (short-lived minted JWT, 10 min)",
+    "bridge_capabilities": "200 via native gateway :8642",
+    "bridge_gateway_health": "200; state_db/session_store/config/model/disk all ok",
+    "bridge_skills": "200; 53 skills from read-only skills service; skill detail returns name/description/content/tags",
+    "bridge_sessions": "200; existing api-server session history preserved",
+    "bridge_jobs": "200; empty job list (no cron jobs created yet)",
+    "model_discovery": "Hermes 美股助手 + litellm models discoverable as owner",
+    "old_chats": "5 chats, 1 user preserved",
+    "public_entry": "https://trading.youwei-agent.com/api/version 200 v0.11.4",
+    "postdeploy_backup": "/opt/youwei/backups/chat/daily/chat-backup-20261004-152218; chat_backup_verify.sh ALL PASS"
+  },
+  "rollback": "/root/workbench-20261004/rollback/compose.json (previous compose, previous digests 1ae57fd42c21 webui / 618f820ef393 assistant)"
+}

@@ -6,7 +6,7 @@
       "source": {
         "kind": "git",
         "url": "https://github.com/youweichen0208/trading-assistant",
-        "revision": "3d4d7a7fa7dfbb85db6f3153041e71a738ae53e0"
+        "revision": "df63763f86cf86d3e76343f5b416b0b9ff14cb65"
       },
       "runtime": {
         "python": "3.13.16"
@@ -15,20 +15,24 @@
       "verification": {
         "status": "passed",
         "evidence": {
-          "path": "infra/releases/20261004-eodhd-mcp/preflight-evidence.json",
-          "sha256": "cf9e5cec20e2869e82f9dfa9225538bb19a1b8cdbf61671c0c71ffba26a076cc"
+          "path": "infra/releases/20261004-hermes-workbench/preflight-evidence.json",
+          "sha256": "692a1327acbdfb3bab3b7d0ce57e6a313e973ff2176c32c2bc210271cddc76bb"
         }
       },
       "deployment": {
-        "image": "ghcr.io/youweichen0208/trading-assistant@sha256:618f820ef3934ce69e526aa2105b7a0c49da44de254f650158123ee9d1cae235",
+        "image": "ghcr.io/youweichen0208/trading-assistant@sha256:5686c66c00568511ea645c8402cfad6b37ae4019aceb12674ba27eb999618171",
         "bindings": [
           {
             "service": "hermes-assistant",
             "field": "image"
+          },
+          {
+            "service": "hermes-workbench-skills",
+            "field": "image"
           }
         ]
       },
-      "notes": "Official Hermes v2026.9.24 remains unmodified; frozen messaging/mcp extras. Personal queries connect directly to official EODHD MCP with seven explicit stock tools. Native and WebUI mock acceptance, image-source identity, isolated backup startup/restart, and VM live native quote passed. Five data capabilities available; fundamentals and earnings calendar denied by existing subscription. No paid model calls or formal evaluation. See docs/ops/eodhd-mcp-rollout-20261004.md.",
+      "notes": "Official Hermes v2026.9.24 remains unmodified; frozen messaging/mcp extras. Adds read-only workbench skills service (workbench.py, port 8643) beside the native gateway and the verified tool-policy/bootstrap refactor. Deployed with the owner-scoped Hermes workbench WebUI; see docs/ops/hermes-workbench-rollout-20261004.md and infra/releases/20261004-hermes-workbench/.",
       "upstream": {
         "kind": "git",
         "url": "https://github.com/NousResearch/hermes-agent",

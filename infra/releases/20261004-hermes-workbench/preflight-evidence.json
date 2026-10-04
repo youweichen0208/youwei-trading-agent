@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "executed_at": "2026-10-04T15:04:13Z/2026-10-04T15:18:00Z",
+  "webui_image_ci": {
+    "repository": "youweichen0208/youwei-webui",
+    "run": "https://github.com/youweichen0208/youwei-webui/actions/runs/37211620457",
+    "source_revision": "a94b7bbbbb81d59749a627958f2df1c2b5c7691c",
+    "image": "ghcr.io/youweichen0208/youwei-webui@sha256:171e0e83a7b03b29d1d3552dc637b1e71526085278a3717dc92989ce4cbd630f",
+    "result": "success (Youwei image workflow: build + publish source-bound tag)"
+  },
+  "assistant_image_build": {
+    "source_revision": "df63763f86cf86d3e76343f5b416b0b9ff14cb65 (git archive sha256 2290053f58b0b1f64efd725284522b9bc584053cf84d49b0362da5480f210476)",
+    "image": "ghcr.io/youweichen0208/trading-assistant@sha256:5686c66c00568511ea645c8402cfad6b37ae4019aceb12674ba27eb999618171",
+    "built_on": "sg-prod amd64, pushed as tag workbench-20261004",
+    "upstream": "NousResearch/hermes-agent f97608f178d1ffeca59860195ab7da295f7c8e5f (v2026.9.24, unmodified)",
+    "contains": "/opt/youwei-assistant/workbench.py verified inside image"
+  },
+  "isolated_skills_reader": {
+    "result": "PASS",
+    "detail": "new image + production profile volume mounted read-only, --network none --read-only; unauthenticated 401; authenticated catalogue 200 with 53 skills; container removed after test"
+  },
+  "cross_service_mock": {
+    "script": "ops/verify_assistant_webui.py (platform repo copy on VM)",
+    "images": [
+      "ghcr.io/youweichen0208/trading-assistant@sha256:5686c66c...",
+      "ghcr.io/youweichen0208/youwei-webui@sha256:171e0e83..."
+    ],
+    "result": "PASS pinned WebUI cutover/model discovery/chat/full-history follow-up/SSE/knowledge/restart/backup restore/background routing with discovery unavailable/signup disabled/history preserved"
+  },
+  "predeploy_backup": {
+    "path": "/opt/youwei/backups/chat/daily/chat-backup-20261004-151819",
+    "result": "complete"
+  }
+}
