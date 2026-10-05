@@ -1,0 +1,27 @@
+{
+  "date": "2026-10-05",
+  "source": "b8fc503f3c725518d25cedeb4387b34434de45be",
+  "image": "ghcr.io/youweichen0208/youwei-webui@sha256:52783da9334e73bc33c483873143fd9be4053861b6216dbf9959053305272e6f",
+  "architecture": "linux/amd64",
+  "built_on": "sg-prod, fixed git archive; original Dockerfile with BUILD_HASH and OCI revision label",
+  "checks": {
+    "sidebar_vitest": 14,
+    "existing_vitest": 4,
+    "workbench_pytest": 20,
+    "platform_contracts": 21,
+    "frontend_build": "passed",
+    "full_docker_build": "passed",
+    "registry_push_and_digest_pull": "passed",
+    "production_backup_restore": "passed",
+    "network_none_candidate_backup_restart": "passed; 6 chat JSONs, owner/password unchanged",
+    "cross_service_mock": "passed; discovery/chat/history/SSE/knowledge/restart/backup/background routing/signup",
+    "browser_mock": "passed; login, old fixture chat opened, lazy sidebar, workbench subroute deduplication, streaming and stop, return to chat clears details, direct workbench entry"
+  },
+  "limits": [
+    "Full svelte-check retains 7001 errors / 198 warnings in 344 files; changed files have no diagnostics.",
+    "Browser mock uses synthetic account and intercepted Hermes HTTP; native cross-service mock is separate.",
+    "No real paid model or formal forward evaluation.",
+    "Performance targets assessed separately from compatibility checks; edge warm median is not yet <=5 seconds."
+  ],
+  "rollback": "Same WebUI v0.11.4 backend/schema, no backend or migration changes. Restore previous fixed image with matching compose; retain live data. No Core/Ledger restore."
+}

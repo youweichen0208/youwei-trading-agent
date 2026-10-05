@@ -1,0 +1,6 @@
+{
+  "source": "12298d1d128d45eb9177fb7a01657645253349fb",
+  "image": "ghcr.io/youweichen0208/youwei-webui@sha256:8aa9d39f1a5fc1517c9e93e03d3069e44ca041765c074e337810cfb5b5cd168d",
+  "build_run": "https://github.com/youweichen0208/youwei-webui/actions/runs/37309345274",
+  "architecture": "linux/amd64"
+}

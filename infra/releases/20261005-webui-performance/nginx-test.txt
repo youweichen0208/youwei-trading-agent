@@ -1,0 +1,2 @@
+nginx: the configuration file /root/webui-perf-20261005/nginx.candidate.conf syntax is ok
+nginx: configuration file /root/webui-perf-20261005/nginx.candidate.conf test is successful

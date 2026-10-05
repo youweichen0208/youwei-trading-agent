@@ -1,0 +1,74 @@
+[
+  {
+    "host": "trading.youwei-agent.com",
+    "path": "/",
+    "status": "HTTP/1.1 200 OK",
+    "headers": {
+      "content-type": "text/html; charset=utf-8",
+      "vary": "Origin"
+    }
+  },
+  {
+    "host": "trading.youwei-agent.com",
+    "path": "/_app/immutable/entry/start.CxmH6x23.js",
+    "status": "HTTP/1.1 200 OK",
+    "headers": {
+      "content-type": "text/javascript; charset=utf-8",
+      "vary": "Origin",
+      "x-cache-status": "HIT"
+    }
+  },
+  {
+    "host": "trading.youwei-agent.com",
+    "path": "/_app/immutable/nonexistent-perf-check.js",
+    "status": "HTTP/1.1 404 Not Found",
+    "headers": {
+      "content-type": "application/json",
+      "vary": "Origin"
+    }
+  },
+  {
+    "host": "trading.youwei-agent.com",
+    "path": "/_app/version.json",
+    "status": "HTTP/1.1 200 OK",
+    "headers": {
+      "content-type": "application/json",
+      "vary": "Origin"
+    }
+  },
+  {
+    "host": "trading.youwei-agent.com",
+    "path": "/api/version",
+    "status": "HTTP/1.1 200 OK",
+    "headers": {
+      "content-type": "text/html; charset=utf-8",
+      "vary": "Origin"
+    }
+  },
+  {
+    "host": "trading.youwei-agent.com",
+    "path": "/static/custom.css",
+    "status": "HTTP/1.1 200 OK",
+    "headers": {
+      "content-type": "text/css; charset=utf-8",
+      "vary": "Origin",
+      "x-cache-status": "EXPIRED"
+    }
+  },
+  {
+    "host": "dash.youwei-agent.com",
+    "path": "/",
+    "status": "HTTP/1.1 401 Unauthorized",
+    "headers": {
+      "content-type": "application/json"
+    }
+  },
+  {
+    "host": "market.youwei-agent.com",
+    "path": "/",
+    "status": "HTTP/1.1 502 Bad Gateway",
+    "headers": {
+      "content-type": "text/html"
+    }
+  }
+]

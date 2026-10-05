@@ -6,6 +6,7 @@
 | --- | --- |
 | 固定上游、候选和发布检查 | [上游管理](UPSTREAMS.md) |
 | 个人助手、WebUI 与工作台 | [个人助手手册](ops/hermes-personal-assistant.md) |
+| WebUI 加载性能、入口缓存与恢复 | [入口切片验收](ops/webui-performance-20261005.md)、[热加载验收](ops/webui-warm-loading-20261005.md) |
 | 免费金融包上线与恢复证据 | [金融部署记录](ops/trading-core-20261005.md) |
 | 目标机资源与历史环境 | [目标机记录](research/s01-target-verification.md) |
 | gVisor 与受限执行 | [沙箱验证](research/gvisor-quant-stack.md) |

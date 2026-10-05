@@ -1,0 +1,40 @@
+{
+  "before": {
+    "samples": 5,
+    "readyMs": [
+      9691.5,
+      7877,
+      7284.700000047684,
+      10049.600000023842,
+      6139.799999952316
+    ],
+    "medianMs": 7877,
+    "maxMs": 10049.600000023842,
+    "medianResourceTransferBytes": 15399,
+    "medianMaxPreRequestWaitMs": 540.7000000476837,
+    "protocols": [
+      "h2"
+    ]
+  },
+  "after": {
+    "samples": 5,
+    "readyMs": [
+      6924,
+      5166.200000047684,
+      3761.7999999523163,
+      5026.600000023842,
+      6287
+    ],
+    "medianMs": 5166.200000047684,
+    "maxMs": 6924,
+    "medianResourceTransferBytes": 17197,
+    "medianMaxPreRequestWaitMs": 3.100000023841858,
+    "protocols": [
+      "h2"
+    ]
+  },
+  "medianReductionPercent": 34.41411704903283,
+  "warmTargetMs": 5000,
+  "warmTargetMet": false,
+  "firstNewVersionMs": 15114.299999952316
+}

@@ -1,0 +1,15 @@
+{
+  "purpose": "Post-measurement diagnosis of remaining serial startup API wait; separate from the 30 navigation samples",
+  "endpoint": "/api/config",
+  "browser": [
+    {"duration_ms": 833.7, "status": 200, "server_process_seconds": 0.014699},
+    {"duration_ms": 856.2, "status": 200, "server_process_seconds": 0.044082},
+    {"duration_ms": 922.3, "status": 200, "server_process_seconds": 0.038965}
+  ],
+  "container_loopback": [
+    {"duration_ms": 47.776, "status": 200, "server_process_seconds": 0.014587},
+    {"duration_ms": 78.25, "status": 200, "server_process_seconds": 0.044916},
+    {"duration_ms": 34.863, "status": 200, "server_process_seconds": 0.030748}
+  ],
+  "inference": "Most observed end-to-end configuration latency is outside application processing, consistent with browser/proxy/network round-trip overhead; exact network root cause is not established."
+}

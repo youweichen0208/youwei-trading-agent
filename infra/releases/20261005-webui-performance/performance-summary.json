@@ -1,0 +1,86 @@
+[
+  {
+    "stage": "before",
+    "cache": "cold",
+    "n": 5,
+    "median_ms": 31030.399999976158,
+    "max_ms": 44142.09999990463,
+    "median_resource_transfer_bytes": 2786800,
+    "median_encoded_resource_bytes": 2874942,
+    "median_max_pre_request_wait_ms": 21993,
+    "max_pre_request_wait_ms": 24086.799999952316,
+    "protocols": [
+      "http/1.1"
+    ]
+  },
+  {
+    "stage": "before",
+    "cache": "warm",
+    "n": 5,
+    "median_ms": 10303.5,
+    "max_ms": 12148.899999976158,
+    "median_resource_transfer_bytes": 16209,
+    "median_encoded_resource_bytes": 3148939,
+    "median_max_pre_request_wait_ms": 1743.2999999523163,
+    "max_pre_request_wait_ms": 3043.8000000715256,
+    "protocols": [
+      "http/1.1"
+    ]
+  },
+  {
+    "stage": "edge",
+    "cache": "cold",
+    "n": 5,
+    "median_ms": 10718.800000071526,
+    "max_ms": 13780.699999928474,
+    "median_resource_transfer_bytes": 2787904,
+    "median_encoded_resource_bytes": 2899534,
+    "median_max_pre_request_wait_ms": 1058.8999999761581,
+    "max_pre_request_wait_ms": 5367.700000047684,
+    "protocols": [
+      "h2"
+    ]
+  },
+  {
+    "stage": "edge",
+    "cache": "warm",
+    "n": 5,
+    "median_ms": 6720.100000023842,
+    "max_ms": 23592.600000023842,
+    "median_resource_transfer_bytes": 19222,
+    "median_encoded_resource_bytes": 3148995,
+    "median_max_pre_request_wait_ms": 508.60000002384186,
+    "max_pre_request_wait_ms": 14067.5,
+    "protocols": [
+      "h2"
+    ]
+  },
+  {
+    "stage": "frontend",
+    "cache": "cold",
+    "n": 5,
+    "median_ms": 10568.200000047684,
+    "max_ms": 23773.400000095367,
+    "median_resource_transfer_bytes": 2020380,
+    "median_encoded_resource_bytes": 2896868,
+    "median_max_pre_request_wait_ms": 1013.1999999284744,
+    "max_pre_request_wait_ms": 6233.400000095367,
+    "protocols": [
+      "h2"
+    ]
+  },
+  {
+    "stage": "frontend",
+    "cache": "warm",
+    "n": 5,
+    "median_ms": 6739.600000023842,
+    "max_ms": 7917.699999928474,
+    "median_resource_transfer_bytes": 15990,
+    "median_encoded_resource_bytes": 3126064,
+    "median_max_pre_request_wait_ms": 3.5999999046325684,
+    "max_pre_request_wait_ms": 517.6000000238419,
+    "protocols": [
+      "h2"
+    ]
+  }
+]

@@ -1,0 +1,16 @@
+{
+  "environment": "amd64 candidate WebUI on sg-prod; disposable synthetic account/data; localhost SSH tunnel; separate browser context",
+  "login": "passed via fixture credentials",
+  "old_chat": "preserve marker fixture opened through client routing",
+  "chat_sidebar_calls": ["config"],
+  "workbench_entry_sidebar_details": ["sessions?limit=5", "skills", "jobs"],
+  "subroute_navigation": "skills page displayed; sidebar sessions?limit=5 still requested once",
+  "streaming": "Browser mock streamed text visibly rendered while run active",
+  "stop": "POST runs/mock-run/stop observed; stop button removed and streamed text retained",
+  "return_to_chat": "input editable; sidebar details/counts cleared; no extra sidebar detail request",
+  "direct_workbench_entry": "textarea rendered; sidebar details requested once",
+  "mock_boundary": "Hermes requests intercepted in browser only; native WebUI-to-Hermes mock tested independently in cross-service.log",
+  "production_backup_candidate": "network-none startup/restart preserved 6 real chat JSONs and owner/password, see candidate-restore.log",
+  "paid_model_calls": false,
+  "cleanup": "test page closed; SSH tunnel stopped; disposable containers/volumes/network removed"
+}

@@ -1,0 +1,74 @@
+{
+  "browser": [
+    {
+      "path": "/api/config",
+      "status": 200,
+      "totalMs": 896.3000000715256,
+      "serverProcess": "0.014996"
+    },
+    {
+      "path": "/api/v1/tools/",
+      "status": 200,
+      "totalMs": 807.8000000715256,
+      "serverProcess": "0.014610"
+    },
+    {
+      "path": "/api/config",
+      "status": 200,
+      "totalMs": 917.3999999761581,
+      "serverProcess": "0.015648"
+    },
+    {
+      "path": "/api/v1/tools/",
+      "status": 200,
+      "totalMs": 824.3999999761581,
+      "serverProcess": "0.018393"
+    },
+    {
+      "path": "/api/config",
+      "status": 200,
+      "totalMs": 1324.6000000238419,
+      "serverProcess": "0.013535"
+    },
+    {
+      "path": "/api/v1/tools/",
+      "status": 200,
+      "totalMs": 833.8999999761581,
+      "serverProcess": "0.020336"
+    }
+  ],
+  "loopback": [
+    {
+      "path": "/api/config",
+      "totalMs": 189.30043099680915,
+      "serverProcess": "0.103304"
+    },
+    {
+      "path": "/api/v1/tools/",
+      "totalMs": 14.300244045443833,
+      "serverProcess": "0.012125"
+    },
+    {
+      "path": "/api/config",
+      "totalMs": 124.20649197883904,
+      "serverProcess": "0.120833"
+    },
+    {
+      "path": "/api/v1/tools/",
+      "totalMs": 108.58022299362347,
+      "serverProcess": "0.106201"
+    },
+    {
+      "path": "/api/config",
+      "totalMs": 14.256588008720428,
+      "serverProcess": "0.012270"
+    },
+    {
+      "path": "/api/v1/tools/",
+      "totalMs": 17.306972004007548,
+      "serverProcess": "0.015048"
+    }
+  ],
+  "serverProcessUnit": "seconds",
+  "note": "Non-simultaneous diagnostic probes. Loopback overlapped read-only browser navigation and post-deploy backup; not included in loading samples. Does not isolate individual network hops."
+}

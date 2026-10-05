@@ -1,0 +1,51 @@
+{
+  "passed": true,
+  "source": "b8fc503f3c725518d25cedeb4387b34434de45be",
+  "image": "ghcr.io/youweichen0208/youwei-webui@sha256:52783da9334e73bc33c483873143fd9be4053861b6216dbf9959053305272e6f",
+  "checks": {
+    "/health": {
+      "status": 200
+    },
+    "/api/version": {
+      "status": 200
+    },
+    "/_app/version.json": {
+      "status": 200
+    },
+    "/api/v1/auths/": {
+      "status": 200
+    },
+    "/api/v1/chats/": {
+      "status": 200
+    },
+    "/api/v1/hermes/config": {
+      "status": 200
+    },
+    "/api/v1/hermes/sessions?limit=5": {
+      "status": 200
+    },
+    "/api/v1/hermes/skills": {
+      "status": 200
+    },
+    "/api/v1/hermes/jobs": {
+      "status": 200
+    }
+  },
+  "other_containers_unchanged": 15,
+  "rollback_executed": false,
+  "browser": {
+    "source_version": "b8fc503f3c725518d25cedeb4387b34434de45be",
+    "new_entries": [
+      "/_app/immutable/entry/start.BcWoRP0q.js",
+      "/_app/immutable/entry/app.D4l0_wIE.js"
+    ],
+    "existing_login_retained": true,
+    "chat_input_actual_edit_and_undo": true,
+    "chat_hermes_requests": [
+      "/api/v1/hermes/config"
+    ],
+    "production_workbench_and_skills_navigation": true,
+    "production_old_chat_opened_and_editable": true,
+    "returned_to_chat": true
+  }
+}

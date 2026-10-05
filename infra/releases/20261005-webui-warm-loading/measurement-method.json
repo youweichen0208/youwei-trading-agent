@@ -1,0 +1,16 @@
+{
+  "browser": "Chrome 154 macOS",
+  "endpoint": "visible editable #chat-input",
+  "warm": "ordinary reload(ignoreCache=false), same browser context/network/login, five samples each",
+  "firstVersion": "recorded separately; new hashes downloaded; not included in warm samples",
+  "navigationGapSecondsAtLeast": 25,
+  "browserContextNote": "Original tabs closed during candidate validation; reopened in same browser contexts with login/caches retained. No production logout or credentials entered.",
+  "instrumentation": "ops/chat_loading_timing.js; readiness resource snapshot; no query strings, headers or bodies recorded",
+  "queueNote": "Resource Timing estimate, not exact CDP queue",
+  "buildConcurrency": "CI build; no production-host compilation; after measurements started after candidate cleanup and production health",
+  "sha256": {
+    "browser-before.json.gz": "a719f5fd34e50b2f2dbd7e4827652fea3e82ecf5bde0d58143dd486b66a097d0",
+    "browser-first-version.json.gz": "6398b40a125f0d77b87da6ae29f4c07270d4f90348c7a6907c91fa6d0ba4b7ea",
+    "browser-after.json.gz": "e16d1a258d89146d6ed9d489415522c67cb603e4e53bb0ca11b166d7c3f037fc"
+  }
+}

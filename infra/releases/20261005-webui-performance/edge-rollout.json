@@ -1,0 +1,14 @@
+{
+  "host": "aliyun-akshare",
+  "nginx": "1.18.0, existing http_v2 module; no upgrade",
+  "backup": "/root/webui-perf-20261005/trading.before.conf",
+  "candidate": "infra/chat/nginx-ecs-trading.conf",
+  "validation": "nginx -t against complete staged config, then nginx -t and systemctl reload nginx on live configuration",
+  "websocket_across_reload": {"opened": true, "messages_before": 2, "messages_after": 3, "closed": false, "readyState": 1},
+  "websocket_cleanup": "test connection explicitly closed after verification",
+  "shared_sites": {"dash": "401 before and after", "market": "existing 502 before and after; no unrelated repair attempted"},
+  "protocol": "h2 observed by curl and browser; shared IPv4 TLS listener also enables h2 for other sites in Nginx 1.18",
+  "rollback_executed": false,
+  "rollback": "restore trading.before.conf, nginx -t, systemctl reload nginx",
+  "sse": "proxy_buffering off and 600s timeouts unchanged; SSE tested in isolated WebUI/Hermes mock, not with paid public model"
+}

@@ -1,0 +1,30 @@
+{
+  "passed": true,
+  "status_cases": [
+    {
+      "status": 200,
+      "cache_control": "public, max-age=31536000, immutable"
+    },
+    {
+      "status": 206,
+      "cache_control": "public, max-age=31536000, immutable"
+    },
+    {
+      "status": 304,
+      "cache_control": "public, max-age=31536000, immutable"
+    },
+    {
+      "status": 302,
+      "cache_control": ""
+    },
+    {
+      "status": 404,
+      "cache_control": ""
+    },
+    {
+      "status": 500,
+      "cache_control": ""
+    }
+  ],
+  "proxy_hit_and_encoding_variants": true
+}

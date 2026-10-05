@@ -2,7 +2,7 @@
 
 `infra/upstreams.lock.yaml` 是候选与启用组件的登记表。文件采用 **JSON 语法（YAML 1.2 子集）**，由 Python 标准库解析，不新增 PyYAML 运行依赖。暂未选择的版本、镜像填 `null`；安装冒烟通过不等于业务接入验收通过。
 
-当前源版本、候选状态和已登记镜像以锁文件及其验收证据为准，不从早期调研状态推断是否部署。个人 Hermes gateway 登记位于 `infra/chat/assistant-upstreams.lock.json`。2026-10-04 已按用户授权部署 youwei-webui v0.11.4、独立助手与新 Core API；当前生产平台锁为 `infra/releases/20261004/production.lock.json`；聊天栈已随后按用户选择切换官方 Hermes v2026.9.24，当前锁为 `infra/releases/20261005-trading-core/chat.lock.json`，各自配对应 manifest（Core API 与 Worker 分别绑定版本）。主 catalog 和旧聊天 Compose 中的历史基线不代表本次线上版本。目标机兼容、迁移、备份恢复及限制见 [部署记录](ops/three-repo-vm-rollout-20261004.md)。
+当前源版本、候选状态和已登记镜像以锁文件及其验收证据为准，不从早期调研状态推断是否部署。个人 Hermes gateway 登记位于 `infra/chat/assistant-upstreams.lock.json`。2026-10-04 已按用户授权部署 youwei-webui v0.11.4、独立助手与新 Core API；当前生产平台锁为 `infra/releases/20261004/production.lock.json`；聊天栈已随后按用户选择切换官方 Hermes v2026.9.24，当前锁为 `infra/releases/20261005-webui-warm-loading/chat.lock.json`，各自配对应 manifest（Core API 与 Worker 分别绑定版本）。主 catalog 和旧聊天 Compose 中的历史基线不代表本次线上版本。目标机兼容、迁移、备份恢复及限制见 [部署记录](ops/three-repo-vm-rollout-20261004.md)。
 
 发布检查覆盖渲染配置中的全部服务镜像，包括 Core、Runner、数据库及沙箱内部镜像。源码同步、隔离验收、目标机验证和生产切换分别记录；只有实际部署证据才能证明线上版本。
 
@@ -141,3 +141,7 @@ API只映射本机 `127.0.0.1:8000`，并接入普通 `edge` 网络供本机发�
 ### trading_core 金融能力（S12p）
 
 独立金融包的源码 SHA、uv.lock hash、wheel hash 由助手 `upstreams.lock.json` 固定。助手 Dockerfile 校验 wheel，按带 hash 的补充依赖安装，并检查所有既有包版本不变；官方 Hermes/Python 基线保持原锁。2026-10-05 已构建 amd64 registry 镜像并部署，见 [验收记录](ops/trading-core-20261005.md)。[候选登记](../infra/releases/20261005-trading-core/candidate.lock.json)保留首轮 disabled / smoke_only 历史。所有者提供联系信息后，SEC真实财报及32个inline-XBRL数值验收通过，两助手服务已切换；当前发布使用 [chat.lock.json](../infra/releases/20261005-trading-core/chat.lock.json) 和 [chat.manifest.json](../infra/releases/20261005-trading-core/chat.manifest.json)，上线结果见同目录 contact-postflight.json。
+
+### WebUI 性能切片（2026-10-05）
+
+上海入口已启用 HTTP/2 与哈希静态资源浏览器缓存；历史三阶段测量见 [入口与侧栏验收](ops/webui-performance-20261005.md)。最新聊天组合仅替换 WebUI，助手、网关和数据库保持原身份，使用 [热加载切片锁](../infra/releases/20261005-webui-warm-loading/chat.lock.json) 和 [清单](../infra/releases/20261005-webui-warm-loading/chat.manifest.json)。源码、镜像、备份恢复与本轮热缓存 7.877 → 5.166 秒见 [热加载验收](ops/webui-warm-loading-20261005.md)；5 秒目标仍未达到，不宣称两分钟现象已解决。

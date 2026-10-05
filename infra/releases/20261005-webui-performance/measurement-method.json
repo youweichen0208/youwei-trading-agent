@@ -1,0 +1,18 @@
+{
+  "browser": "Chrome 154.0.0.0 on macOS; same existing logged-in session and network",
+  "readiness": "navigation start to #chat-input visible with isContentEditable; final actual insertion/undo verified",
+  "cold": "DevTools Page.reload(ignoreCache=true); no cookie or localStorage clearing",
+  "warm": "ordinary reload",
+  "sample_interval": "25 seconds minimum where possible to avoid existing auth rate limit",
+  "cold_proxy_cache": "not cleared; first new-version cold load included",
+  "network_cpu_emulation": false,
+  "resource_scope": "completed Resource Timing entries at readiness, excluding HTML; no bodies/credentials/query strings",
+  "queue_metric": "estimate: requestStart - fetchStart - DNS duration - connect duration; not exact CDP queueing",
+  "excluded": "early before-build-concurrent samples excluded because of SG build memory/swap pressure; preserved separately",
+  "raw_gzip_sha256": {
+    "browser-before-build-concurrent.json.gz": "b4b4567c592dd4fae1f56fbb2100cd4f71647ce3ac627a3e56636c581f0bf51b",
+    "browser-before.json.gz": "608be0f11bc39e02c5f140ccbdb3c2671c4ee50850267c5c6b3500dd0ef4b03b",
+    "browser-edge.json.gz": "8b7971d630d0d8c5cc42c9158a12d2122248ecfe50159a69eadba4bd3386ba49",
+    "browser-frontend.json.gz": "09c3e8032f0bc9cd0585d0e4d4d729f82a6913ac373347f4a3b4a79e0549e7be"
+  }
+}
