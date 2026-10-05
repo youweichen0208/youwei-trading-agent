@@ -1,0 +1,13 @@
+{
+  "public_origin": "https://trading.youwei-agent.com",
+  "revision": "7a868661e41563f1bae33ddbfdcdd061a66cc5a5",
+  "http_protocol": "h2",
+  "existing_login_preserved": true,
+  "chat_composer_editable": true,
+  "old_chat_editable": true,
+  "agent_workspace_rendered": true,
+  "transient_502_during_startup": true,
+  "recovered_after_startup": true,
+  "new_paid_model_messages": 0,
+  "full_performance_matrix_repeated": false
+}

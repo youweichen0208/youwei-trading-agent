@@ -1,8 +1,8 @@
 # Hermes 普通聊天金融卡片：候选验收
 
-日期：2026-10-06（上海时区）。状态：开发与隔离验证，**未生产部署**。
+日期：2026-10-06（上海时区）。状态：**已按用户授权部署 SG**，保留此前候选验证记录。
 
-WebUI [PR #5](https://github.com/youweichen0208/youwei-webui/pull/5)，功能源码 `7a868661e41563f1bae33ddbfdcdd061a66cc5a5`，基于已合并 `9f038b659`。Hermes 固定 `f97608f178d1ffeca59860195ab7da295f7c8e5f`，金融包与助手生产镜像不变。[候选构建](https://github.com/youweichen0208/youwei-webui/actions/runs/37344666708) 的身份另记于本次 release 目录，没有修改现行生产锁或 Compose。
+WebUI [PR #5](https://github.com/youweichen0208/youwei-webui/pull/5)，功能源码 `7a868661e41563f1bae33ddbfdcdd061a66cc5a5`，基于已合并 `9f038b659`。Hermes 固定 `f97608f178d1ffeca59860195ab7da295f7c8e5f`，金融包与助手生产镜像不变。[候选构建](https://github.com/youweichen0208/youwei-webui/actions/runs/37344666708) 的身份另记于本次 release 目录，候选阶段未修改生产；本轮发布使用 release 目录的 `chat.lock.json` 与 `chat.manifest.json`。
 
 ## 行为与权限
 
@@ -46,4 +46,16 @@ python integrations/openwebui/configure_hermes_chat.py \
 
 脚本仅修改已登记 Hermes 连接的 hermes_chat 与 hermes_owner_id，不重跑首次配置。随后只更新 WebUI，助手、金融包、Core 不切换。异常时停 WebUI，用 `--enabled false` 撤销开关并恢复旧固定镜像与匹配配置，不覆盖研究数据库。
 
-未验证：正式 VM 切换、生产备份恢复、公网冷/热复测、真实付费模型选工具质量、正式前向评估。没有真实付费模型调用或正式研究数据变更。
+候选阶段未验证：正式 VM 切换、生产备份恢复、公网冷/热复测、真实付费模型选工具质量、正式前向评估。后续 VM 切换与生产备份恢复结果见下节。没有真实付费模型调用或正式研究数据变更。
+
+## SG 生产发布（2026-10-06）
+
+用户授权将已合并功能部署到 VM。发布前核对 WebUI develop `87a3f58da21a21802441811a6f8cee5a47629a7d` 与候选源码 `7a868661e41563f1bae33ddbfdcdd061a66cc5a5` 的文件差异为空；助手与金融包相对已部署版本仅文档变化，平台此次合并不改 Core/Worker/Runner 功能代码。只切换 WebUI，不为文档变化重启其余服务。
+
+固定 amd64 镜像 `sha256:203a484b5dfa6237a98536b2fbeb650f910fa7635bdb34a771cf785237b8e345`，启用所有者限定 `hermes_chat`。目标机 `/root/hermes-cards-20261006/` 保存私密备份、渲染配置、切换日志和 rollback 副本；源码与部署脚本不含凭证。新的锁/清单与线上实际渲染 Compose 的 deployment 校验通过。
+
+实际验证：切换前标准聊天/Hermes/配置备份恢复 ALL PASS；真实备份在候选镜像中无网络启动/重启通过，7 条聊天 JSON、账户和密码保持一致。切换后 WebUI healthy，版本、登录、聊天与工作台 API 均 200；未认证工作台 401，原始 Responses 绕过 403；新开关/所有者匹配。旧聊天及账户保留，另外 15 个容器 ID/StartedAt/镜像未变。部署后标准备份隔离恢复 ALL PASS。
+
+公网浏览器保留原登录，确认新版本、h2、首页输入框和旧聊天可编辑，工作台正常渲染。切换启动期间一次导航返回 502；健康就绪后重新导航恢复正常。本轮没有重新测量冷/热五次矩阵，也没有发送真实付费模型消息；卡片/mock 流式行为沿用同源码实际候选的前述验证。没有正式研究数据变更或正式前向评估。
+
+回滚：停止 WebUI，对当前数据库执行 `configure_hermes_chat.py --enabled false`，恢复 `/root/hermes-cards-20261006/rollback/compose.json`，以现有 secrets 文件执行 `docker compose -p youwei-chat --project-directory /opt/youwei/chat -f /opt/youwei/chat/compose.json --env-file /opt/youwei/chat/secrets.env up -d --no-deps openwebui`。旧镜像为 `sha256:8aa9d39f1a5fc1517c9e93e03d3069e44ca041765c074e337810cfb5b5cd168d`；保留当前聊天卷，不覆盖研究库。本次没有触发回滚，不能称实际回滚演练。

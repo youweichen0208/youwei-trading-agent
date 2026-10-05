@@ -1,0 +1,9 @@
+{
+  "passed": true,
+  "revision": "7a868661e41563f1bae33ddbfdcdd061a66cc5a5",
+  "image": "ghcr.io/youweichen0208/youwei-webui@sha256:203a484b5dfa6237a98536b2fbeb650f910fa7635bdb34a771cf785237b8e345",
+  "backup_restore": "ALL PASS",
+  "candidate_restore": "PASS network-isolated backup migration/restart: 7 chats byte-preserved, owner/password preserved, private model grants and signup disabled",
+  "previous_mock_verification": "candidate.json",
+  "paid_models_called": false
+}
