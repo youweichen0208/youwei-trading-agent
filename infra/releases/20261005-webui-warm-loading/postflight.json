@@ -1,0 +1,47 @@
+{
+  "passed": true,
+  "source": "12298d1d128d45eb9177fb7a01657645253349fb",
+  "image": "ghcr.io/youweichen0208/youwei-webui@sha256:8aa9d39f1a5fc1517c9e93e03d3069e44ca041765c074e337810cfb5b5cd168d",
+  "checks": {
+    "/health": {
+      "status": 200
+    },
+    "/api/version": {
+      "status": 200
+    },
+    "/_app/version.json": {
+      "status": 200
+    },
+    "/api/v1/auths/": {
+      "status": 200
+    },
+    "/api/v1/chats/": {
+      "status": 200
+    },
+    "/api/v1/hermes/config": {
+      "status": 200
+    },
+    "/api/v1/hermes/sessions?limit=5": {
+      "status": 200
+    },
+    "/api/v1/hermes/skills": {
+      "status": 200
+    },
+    "/api/v1/hermes/jobs": {
+      "status": 200
+    }
+  },
+  "other_containers_unchanged": 15,
+  "rollback_executed": false,
+  "production_browser": {
+    "loginRetained": true,
+    "oldChatOpenedAndEditable": true,
+    "workbenchAndSkillsNavigation": true,
+    "returnToChatEditable": true,
+    "fiveWarmMeasurementsRecorded": true
+  },
+  "live_compose_matches_candidate": true,
+  "live_deployment_validation": "passed",
+  "post_backup_restore": "ALL PASS",
+  "unauthenticated_workbench_status": 401
+}

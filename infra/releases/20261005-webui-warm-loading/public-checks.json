@@ -1,0 +1,47 @@
+{
+  "browserHead": [
+    {
+      "path": "/_app/immutable/entry/start.C9DiGow3.js",
+      "status": 200,
+      "cacheControl": "public, max-age=31536000, immutable",
+      "proxyCache": "MISS"
+    },
+    {
+      "path": "/_app/immutable/missing-warm-fixture.js",
+      "status": 404,
+      "cacheControl": null,
+      "proxyCache": null
+    },
+    {
+      "path": "/",
+      "status": 200,
+      "cacheControl": null,
+      "proxyCache": null
+    },
+    {
+      "path": "/_app/version.json",
+      "status": 200,
+      "cacheControl": null,
+      "proxyCache": null
+    },
+    {
+      "path": "/api/config",
+      "status": 200,
+      "cacheControl": null,
+      "proxyCache": null
+    }
+  ],
+  "curlGetImmutable": {
+    "protocol": "h2",
+    "statuses": [
+      200,
+      200
+    ],
+    "proxyCache": [
+      "HIT",
+      "HIT"
+    ],
+    "cacheControl": "public, max-age=31536000, immutable"
+  },
+  "unauthenticatedWorkbench": 401
+}
