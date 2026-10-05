@@ -6,7 +6,7 @@
       "source": {
         "kind": "git",
         "url": "https://github.com/youweichen0208/trading-assistant",
-        "revision": "df63763f86cf86d3e76343f5b416b0b9ff14cb65"
+        "revision": "cc33c14ca9ed10c98a295fdbdea42a3861a72010"
       },
       "runtime": {
         "python": "3.13.16"
@@ -15,12 +15,12 @@
       "verification": {
         "status": "passed",
         "evidence": {
-          "path": "infra/releases/20261004-hermes-workbench/preflight-evidence.json",
-          "sha256": "692a1327acbdfb3bab3b7d0ce57e6a313e973ff2176c32c2bc210271cddc76bb"
+          "path": "infra/releases/20261005-eodhd-marketplace/preflight-evidence.json",
+          "sha256": "e99906f78cf6dfd2e8e96cff5e65637278052b091cc8c02cfb61cfd2bf86d403"
         }
       },
       "deployment": {
-        "image": "ghcr.io/youweichen0208/trading-assistant@sha256:5686c66c00568511ea645c8402cfad6b37ae4019aceb12674ba27eb999618171",
+        "image": "ghcr.io/youweichen0208/trading-assistant@sha256:0e67de9ad23c66f61453f72c8acde9cbc4aff2f004eb3b602728e3ba39db460e",
         "bindings": [
           {
             "service": "hermes-assistant",
@@ -32,7 +32,7 @@
           }
         ]
       },
-      "notes": "Official Hermes v2026.9.24 remains unmodified; frozen messaging/mcp extras. Adds read-only workbench skills service (workbench.py, port 8643) beside the native gateway and the verified tool-policy/bootstrap refactor. Deployed with the owner-scoped Hermes workbench WebUI; see docs/ops/hermes-workbench-rollout-20261004.md and infra/releases/20261004-hermes-workbench/.",
+      "notes": "Marketplace index tools deployed alongside original seven queries; source/image/evidence in infra/releases/20261005-eodhd-marketplace. Official Hermes and runtime locks unchanged.",
       "upstream": {
         "kind": "git",
         "url": "https://github.com/NousResearch/hermes-agent",

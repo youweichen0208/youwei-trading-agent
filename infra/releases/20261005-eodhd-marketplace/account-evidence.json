@@ -1,0 +1,37 @@
+{
+  "result": "PASS",
+  "marketplace": {
+    "mp_indices_list": {
+      "status": "success",
+      "validated": [
+        "index_ids_and_names"
+      ],
+      "rows": 110
+    },
+    "mp_index_components": {
+      "status": "success",
+      "validated": [
+        "index_symbol_current_and_historical_membership"
+      ],
+      "rows": null
+    }
+  },
+  "tool_names": [
+    "mcp__eodhd__get_company_news",
+    "mcp__eodhd__get_fundamentals_data",
+    "mcp__eodhd__get_historical_stock_prices",
+    "mcp__eodhd__get_live_price_data",
+    "mcp__eodhd__get_stocks_from_search",
+    "mcp__eodhd__get_upcoming_earnings",
+    "mcp__eodhd__mp_index_components",
+    "mcp__eodhd__mp_indices_list",
+    "mcp__eodhd__resolve_ticker",
+    "memory",
+    "web_extract",
+    "web_search",
+    "youwei_knowledge",
+    "youwei_platform"
+  ],
+  "native_quote": true,
+  "paid_model_calls": false
+}

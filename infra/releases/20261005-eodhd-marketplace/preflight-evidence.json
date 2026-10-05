@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-05",
+  "source_revision": "cc33c14ca9ed10c98a295fdbdea42a3861a72010",
+  "image": "ghcr.io/youweichen0208/trading-assistant@sha256:0e67de9ad23c66f61453f72c8acde9cbc4aff2f004eb3b602728e3ba39db460e",
+  "platform": "linux/amd64",
+  "assistant_unit_tests": {
+    "passed": 60,
+    "command": "uv run --frozen pytest -q"
+  },
+  "platform_contracts": {
+    "passed": 21,
+    "command": "uv run --frozen pytest -q tests/contracts/test_webui_configuration.py tests/contracts/test_assistant_image_backup.py tests/contracts/test_upstreams.py"
+  },
+  "native_checkout_and_local_image": "PASS",
+  "vm_checks": {
+    "native_mock": "PASS native auth/concurrency/stream/history/memory/knowledge/backup/restore/restart; MCP nine-tool loop/allowlist/credentials/redaction/403/429/timeout/offline startup",
+    "webui_mock": "PASS pinned WebUI cutover/model discovery/chat/full-history follow-up/SSE/knowledge/restart/backup restore/background routing with discovery unavailable/signup disabled/history preserved"
+  },
+  "account_evidence_sha256": "cee635d7d62b29318835bd1b87ef5742b04369f3d627939d5eed083b25d239bf",
+  "marketplace_schema_sha256": "09dde6a655109ea85e27f501fc1c9774d6daf5816bf8e92a4df11d4bba7bb563",
+  "pre_backup": "chat-backup-20261005-061148",
+  "backup_verify": "ALL PASS",
+  "candidate_image_restore": {
+    "databases": {
+      "kanban.db": 8,
+      "shared-state.db": 15,
+      "response_store.db": 2,
+      "state.db": 25,
+      "runs_idempotency.db": 1
+    },
+    "notes_checked_up_to_100": 0,
+    "files": 5
+  },
+  "startup_verifier_retry": "Two 30s startup-deadline failures; verifier-only 120s deadline then full PASS. Business MCP timeout unchanged at 30s.",
+  "unchanged_components": "Existing WebUI digest exercised in mock; LiteLLM/Postgres production images unchanged, backup recovery PASS. Before identities recorded.",
+  "paid_model_calls": false,
+  "formal_forward_evaluation": false
+}

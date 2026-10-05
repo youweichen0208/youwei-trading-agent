@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-05",
+  "result": "passed",
+  "changed_services": [
+    "hermes-assistant",
+    "hermes-workbench-skills"
+  ],
+  "unchanged_container_ids_and_started_at": 12,
+  "native_runtime": {
+    "result": "PASS",
+    "marketplace": {
+      "mp_indices_list": {
+        "status": "success",
+        "validated": [
+          "index_ids_and_names"
+        ],
+        "rows": 110
+      },
+      "mp_index_components": {
+        "status": "success",
+        "validated": [
+          "index_symbol_current_and_historical_membership"
+        ],
+        "rows": null
+      }
+    },
+    "tool_names": [
+      "mcp__eodhd__get_company_news",
+      "mcp__eodhd__get_fundamentals_data",
+      "mcp__eodhd__get_historical_stock_prices",
+      "mcp__eodhd__get_live_price_data",
+      "mcp__eodhd__get_stocks_from_search",
+      "mcp__eodhd__get_upcoming_earnings",
+      "mcp__eodhd__mp_index_components",
+      "mcp__eodhd__mp_indices_list",
+      "mcp__eodhd__resolve_ticker",
+      "memory",
+      "web_extract",
+      "web_search",
+      "youwei_knowledge",
+      "youwei_platform"
+    ],
+    "native_quote": true,
+    "paid_model_calls": false
+  },
+  "workbench": {
+    "result": "PASS",
+    "unauthenticated_gateway_skills_bridge": 401,
+    "owner_bridge": {
+      "config": {
+        "status": 200
+      },
+      "capabilities": {
+        "status": 200
+      },
+      "gateway": {
+        "status": 200
+      },
+      "skills": {
+        "status": 200,
+        "count": 53
+      },
+      "sessions": {
+        "status": 200
+      },
+      "jobs": {
+        "status": 200
+      },
+      "models": {
+        "status": 200
+      }
+    },
+    "paid_model_calls": false
+  },
+  "post_backup": "chat-backup-20261005-062649",
+  "post_backup_verify": "ALL PASS",
+  "deployment_validation": "VALID deployment (private rendered compose, four image components, five services)",
+  "rollback_executed": false,
+  "real_paid_models": false,
+  "formal_forward_evaluation": false
+}

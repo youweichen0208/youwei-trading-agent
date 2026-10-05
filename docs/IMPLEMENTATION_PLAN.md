@@ -26,7 +26,7 @@
 | S09 | 平台及聊天部署、备份、恢复和运维演练已有记录 | 国内入口、独立故障域备份等未完成能力不能从同机演练推导 |
 | S10 | Dashboard 只读报告、案例和评估视图已实现 | 正式评估等待成熟标签；研究 Memory/审批扩展另验收 |
 | S11 | 受控进化与后续扩展 | 按登记、比较、人工批准推进，不由个人记忆自动启用 |
-| S12 | 探索研究接口、Dashboard 与个人助手原生入口已实现；三仓拆分与 EODHD 接入已部署 | 当前重构候选尚未部署；套餐权限限制保留 |
+| S12 | 探索研究接口、Dashboard 与个人助手原生入口已实现；三仓拆分与 EODHD 接入已部署 | Marketplace 指数查询已加入当前发布；Extended 候选仍阻断，套餐权限限制保留 |
 
 ## S12 子任务与证据
 
@@ -80,3 +80,9 @@ trading-assistant 增 `integrations/hermes/workbench.py` 只读技能服务，�
 实际验证：助手 TDD 后完整 pytest 50 passed；固定 Hermes 原生 mock 与无网络镜像内十九工具循环、鉴权、越界/凭证拒绝、脱敏、超时/断连、流式/历史、备份恢复通过。平台三个相关契约文件 21 passed，catalog 与三份 Compose 合并占位渲染通过。VM 候选隔离容器原生发现全部 24 工具、真实 AAPL 报价字段校验通过，无真实模型调用。
 
 真实账户十九项验收：15 项有效；盘中历史、技术指标、筛选返回 403；BTC-USD 实时采集连接断开。两项国债接口忽略 limit，但年份验证通过，保留此限制。按计划暂停生产切换，未静默删除失败项；候选锁 disabled/smoke_only，生产镜像/配置/卷保持原值。切换前配置与数据备份、生产副本隔离恢复、切换后工作台鉴权和真实查询验收尚未执行，须账户缺口解除后执行；本轮未跑 Core 全量数据库测试、付费模型选工具质量或正式前向评估。VM 上新助手与现有 WebUI 的隔离 mock 全部通过（工具/历史/流式/备份恢复/后台分流）；详见候选验收记录。
+
+## S12o — Marketplace 指数工具接入与部署（2026-10-05）
+
+用户确认购买 Indices Historical Constituents Data API 并授权部署。trading-assistant 保留生产七项 MCP，新增 `mp_indices_list`、`mp_index_components`，共九项 MCP + 五项基础工具。单指数 JSON/凭证覆盖拒绝和脱敏通过原生执行边界；官方 schema 与 hash 登记。旧 Token 轮换后实测 401，助手秘密配置更新为用户提供的新 Token，Core 凭证不变。
+
+助手 TDD 后完整测试 60 passed；固定 checkout/本地镜像原生九工具循环通过。平台相关契约 21 passed。sg-prod 只替换助手及 skills；原生发现 14 工具，110 项指数及 GSPC 当前/历史成分实测通过；工作台未认证 401、owner 接口全 200。最终 amd64 原生/mock、WebUI 跨服务 mock、切换前后备份恢复及部署清单校验全部通过，其余 12 个既有容器身份/启动时间不变。候选和上线实测、发布身份与局限以[本次部署记录](ops/eodhd-marketplace-rollout-20261005.md)及 release preflight/postflight evidence 为准。未调用真实付费模型、未变更正式研究数据链路或评估协议，未重复 Core 全量数据库测试；此前 S12n 的 Extended 权限/连接阻断仍保留，不因本次两工具接入宣称已解决。

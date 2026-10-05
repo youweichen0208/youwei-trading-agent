@@ -2,7 +2,7 @@
 
 `infra/upstreams.lock.yaml` 是候选与启用组件的登记表。文件采用 **JSON 语法（YAML 1.2 子集）**，由 Python 标准库解析，不新增 PyYAML 运行依赖。暂未选择的版本、镜像填 `null`；安装冒烟通过不等于业务接入验收通过。
 
-当前源版本、候选状态和已登记镜像以锁文件及其验收证据为准，不从早期调研状态推断是否部署。个人 Hermes gateway 登记位于 `infra/chat/assistant-upstreams.lock.json`。2026-10-04 已按用户授权部署 youwei-webui v0.11.4、独立助手与新 Core API；当前生产平台锁为 `infra/releases/20261004/production.lock.json`；聊天栈已随后按用户选择切换官方 Hermes v2026.9.24，当前锁为 `infra/releases/20261004-hermes-workbench/chat.lock.json`，各自配对应 manifest（Core API 与 Worker 分别绑定版本）。主 catalog 和旧聊天 Compose 中的历史基线不代表本次线上版本。目标机兼容、迁移、备份恢复及限制见 [部署记录](ops/three-repo-vm-rollout-20261004.md)。
+当前源版本、候选状态和已登记镜像以锁文件及其验收证据为准，不从早期调研状态推断是否部署。个人 Hermes gateway 登记位于 `infra/chat/assistant-upstreams.lock.json`。2026-10-04 已按用户授权部署 youwei-webui v0.11.4、独立助手与新 Core API；当前生产平台锁为 `infra/releases/20261004/production.lock.json`；聊天栈已随后按用户选择切换官方 Hermes v2026.9.24，当前锁为 `infra/releases/20261005-eodhd-marketplace/chat.lock.json`，各自配对应 manifest（Core API 与 Worker 分别绑定版本）。主 catalog 和旧聊天 Compose 中的历史基线不代表本次线上版本。目标机兼容、迁移、备份恢复及限制见 [部署记录](ops/three-repo-vm-rollout-20261004.md)。
 
 发布检查覆盖渲染配置中的全部服务镜像，包括 Core、Runner、数据库及沙箱内部镜像。源码同步、隔离验收、目标机验证和生产切换分别记录；只有实际部署证据才能证明线上版本。
 
@@ -133,3 +133,7 @@ API只映射本机 `127.0.0.1:8000`，并接入普通 `edge` 网络供本机发�
 ### EODHD Extended 候选（2026-10-05）
 
 十九工具候选登记在 `infra/releases/20261005-eodhd-extended/assistant.candidate.lock.json`，`enabled=false`、`verification.status=smoke_only`。固定源码、真实 registry digest 与开发/目标机隔离验证见同目录证据和[验收记录](ops/eodhd-extended-20261005.md)。账户权限和实时连接未通过，生产助手登记、工作台镜像与 VM Compose 保持原值；不得把候选 catalog 通过解释为已部署。
+
+### EODHD Marketplace 指数发布（2026-10-05）
+
+个人助手保留七工具基线，增加 `mp_indices_list` 与 `mp_index_components`。固定助手源码、amd64 digest、账户实测、备份恢复和生产验收见 [发布记录](ops/eodhd-marketplace-rollout-20261005.md) 与 `infra/releases/20261005-eodhd-marketplace/`。本次不启用此前 Extended 十九项实验，官方 Hermes/Python/依赖锁、WebUI 和 Core 不变。部署锁按四个组件登记，助手同时绑定 gateway/skills 两个服务；manifest 的 bindings 只登记镜像，工作台环境信息保留在 WebUI 元数据，不伪装成镜像绑定。

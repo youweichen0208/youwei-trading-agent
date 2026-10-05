@@ -1,0 +1,56 @@
+{
+  "mp_indices_list": {
+    "inputSchema": {
+      "properties": {
+        "fmt": {
+          "default": "json",
+          "type": "string"
+        },
+        "api_token": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "type": "object",
+      "additionalProperties": false
+    },
+    "sha256": "3d7c19464524fb349d024c18670935cdb1053ae1fa2cf2091cfc85c151f61acc"
+  },
+  "mp_index_components": {
+    "inputSchema": {
+      "properties": {
+        "symbol": {
+          "type": "string"
+        },
+        "fmt": {
+          "default": "json",
+          "type": "string"
+        },
+        "api_token": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "symbol"
+      ],
+      "type": "object",
+      "additionalProperties": false
+    },
+    "sha256": "e2d1ff45c2c361cb68c4271eacaae6f8da244185128037479d255868e7116d48"
+  }
+}

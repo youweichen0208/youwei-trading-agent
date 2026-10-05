@@ -80,3 +80,7 @@ WebUI 新增工作台通过原生 gateway 的会话、运行、审批与 cron HT
 在现有 `chat.json`、`chat-assistant.json` 之后叠加 `infra/compose/chat-workbench.json`，它为 WebUI 设置服务端凭证与只读技能服务 URL，另起同镜像技能服务并只读挂载 `hermes_profile`。不挂载 WebUI 数据库到助手，不改变旧聊天存储，不开放技能写入或宿主执行。完整参数与行为见 [WebUI 工作台文档](https://github.com/youweichen0208/youwei-webui/blob/develop/docs/hermes/README.md)。
 
 这是候选配置，当前部署锁和 VM 未切换；部署前仍按固定镜像与兼容验收流程验证，不能直接把浮动分支当作生产镜像。
+
+## 2026-10-05 Marketplace 指数工具
+
+当前允许列表为九项 MCP + 五项基础工具：原有七项加 `mp_indices_list` / `mp_index_components`。用 `GSPC.INDX` 查询当前与历史成分，先查指数列表，不自动批量下载。独立 Marketplace 配额与通用 API 权限分开；旧有基本面/财报日历仍受套餐限制。最新源码、镜像及部署验收见 [Marketplace 记录](eodhd-marketplace-rollout-20261005.md)；Extended 十九项候选未启用。
