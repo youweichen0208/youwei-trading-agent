@@ -1,0 +1,40 @@
+{
+  "passed": true,
+  "image": "ghcr.io/youweichen0208/trading-assistant-candidates@sha256:73e28618c2fe5a67c05098e855a668e808a8e336ca498339d23af0a865315ad7",
+  "revision": "9b38567be3f401730bc5a150e83bbb5b92f6c58f",
+  "live": {
+    "passed": true,
+    "queries": [
+      {
+        "operation": "price_history",
+        "period": {
+          "start": "2026-07-05",
+          "end_exclusive": "2026-10-06",
+          "first": "2026-07-06",
+          "last": "2026-10-05"
+        },
+        "rows": 65,
+        "source": "Yahoo Finance via yfinance",
+        "passed": true
+      },
+      {
+        "operation": "indicators",
+        "period": {
+          "start": "2026-07-05",
+          "end_exclusive": "2026-10-06",
+          "first": "2026-07-06",
+          "last": "2026-10-05"
+        },
+        "rows": 65,
+        "source": "Yahoo Finance via yfinance",
+        "passed": true
+      }
+    ],
+    "date_error_guidance": true,
+    "paid_models_called": false
+  },
+  "backup_restore": "ALL PASS",
+  "candidate_restore": "{\"databases\": {\"state.db\": 25, \"shared-state.db\": 15, \"runs_idempotency.db\": 1, \"response_store.db\": 2, \"kanban.db\": 8}, \"notes_checked_up_to_100\": 0, \"files\": 5}",
+  "cross_service": "PASS pinned WebUI",
+  "paid_models_called": false
+}

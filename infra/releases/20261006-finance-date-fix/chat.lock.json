@@ -1,0 +1,141 @@
+{
+  "schema_version": 1,
+  "components": {
+    "hermes-assistant": {
+      "enabled": true,
+      "source": {
+        "kind": "git",
+        "url": "https://github.com/youweichen0208/trading-assistant",
+        "revision": "9b38567be3f401730bc5a150e83bbb5b92f6c58f"
+      },
+      "integration_status": "integrated",
+      "verification": {
+        "status": "passed",
+        "evidence": {
+          "path": "infra/releases/20261006-finance-date-fix/preflight.json",
+          "sha256": "b486fb47e781c8aa870ddbe7eefe1f3c66d87c4e4ef2547110000ea10fd8d762"
+        }
+      },
+      "deployment": {
+        "image": "ghcr.io/youweichen0208/trading-assistant-candidates@sha256:73e28618c2fe5a67c05098e855a668e808a8e336ca498339d23af0a865315ad7",
+        "bindings": [
+          {
+            "service": "hermes-assistant",
+            "field": "image"
+          },
+          {
+            "service": "hermes-workbench-skills",
+            "field": "image"
+          }
+        ]
+      },
+      "runtime": {
+        "python": "3.13.16"
+      },
+      "upstream": {
+        "release": "v2026.9.24",
+        "revision": "f97608f178d1ffeca59860195ab7da295f7c8e5f",
+        "patches": []
+      },
+      "notes": "Exclusive date boundary repair; safe date guidance; grounded personal analysis instructions. No research release change.",
+      "trading_core": {
+        "repository": "https://github.com/youweichen0208/trading_core",
+        "revision": "a0e396b9b0fc50a62f5e5715e269514e2c8e06e7",
+        "wheel": "vendor/trading_core-0.1.0-py3-none-any.whl",
+        "wheel_sha256": "e5a9b0061bff4c1193614a9d7d1d723d452b72e349633fc7ee1340c6c4eb0ed1",
+        "uv_lock_sha256": "7b9de652de5f74c5141a44ace33079969d5a975a58b3c827c6a136f973f73ef2",
+        "requirements": "infra/finance-requirements.txt"
+      }
+    },
+    "litellm": {
+      "enabled": true,
+      "source": {
+        "kind": "image",
+        "url": "ghcr.io/berriai/litellm"
+      },
+      "integration_status": "integrated",
+      "verification": {
+        "status": "passed",
+        "evidence": {
+          "path": "infra/releases/20261005-eodhd-marketplace/preflight-evidence.json",
+          "sha256": "e99906f78cf6dfd2e8e96cff5e65637278052b091cc8c02cfb61cfd2bf86d403"
+        }
+      },
+      "deployment": {
+        "image": "ghcr.io/berriai/litellm@sha256:f8043697479513b9ae6f3abac8e62d61b908cfd31541cc3c3c994e16a28d784e",
+        "bindings": [
+          {
+            "service": "litellm",
+            "field": "image"
+          }
+        ]
+      }
+    },
+    "openwebui": {
+      "enabled": true,
+      "source": {
+        "kind": "git",
+        "url": "https://github.com/youweichen0208/youwei-webui",
+        "revision": "7a868661e41563f1bae33ddbfdcdd061a66cc5a5"
+      },
+      "integration_status": "integrated",
+      "verification": {
+        "status": "passed",
+        "evidence": {
+          "path": "infra/releases/20261006-hermes-chat-cards/preflight.json",
+          "sha256": "48a19fc488c46683c5402d82ecb8c91c9152524a2b9d93726b549d215ecd7315"
+        }
+      },
+      "deployment": {
+        "image": "ghcr.io/youweichen0208/youwei-webui@sha256:203a484b5dfa6237a98536b2fbeb650f910fa7635bdb34a771cf785237b8e345",
+        "bindings": [
+          {
+            "service": "openwebui",
+            "field": "image"
+          }
+        ]
+      },
+      "notes": "Owner-scoped Hermes Responses presentation; persisted full tool results and lazy financial cards.",
+      "workbench": {
+        "environment": {
+          "HERMES_WORKBENCH_URL": "http://hermes-assistant:8642",
+          "HERMES_WORKBENCH_KEY": "${YOUWEI_ASSISTANT_API_KEY}",
+          "HERMES_WORKBENCH_OWNER_ID": "229e8589-71b1-4d11-94bb-0fc37abe11bf",
+          "HERMES_WORKBENCH_SKILLS_URL": "http://hermes-workbench-skills:8643"
+        },
+        "owner_scoped": true,
+        "routes": [
+          "/agent",
+          "/agent/skills",
+          "/agent/cron",
+          "/agent/gateway"
+        ],
+        "api_prefix": "/api/v1/hermes"
+      }
+    },
+    "postgres": {
+      "enabled": true,
+      "source": {
+        "kind": "image",
+        "url": "postgres:16-alpine"
+      },
+      "integration_status": "integrated",
+      "verification": {
+        "status": "passed",
+        "evidence": {
+          "path": "infra/releases/20261005-eodhd-marketplace/preflight-evidence.json",
+          "sha256": "e99906f78cf6dfd2e8e96cff5e65637278052b091cc8c02cfb61cfd2bf86d403"
+        }
+      },
+      "deployment": {
+        "image": "postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea",
+        "bindings": [
+          {
+            "service": "postgres",
+            "field": "image"
+          }
+        ]
+      }
+    }
+  }
+}

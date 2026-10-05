@@ -1,0 +1,10 @@
+{
+  "public_origin": "https://trading.youwei-agent.com",
+  "workspace_rendered": true,
+  "health": 200,
+  "hermes_config": 200,
+  "skills": 200,
+  "instructions_sha256": "20ca03db2f63af232e3464a76eea68572893e2c10fe2b4f77e07dd042d918404",
+  "production_instructions_match": true,
+  "new_paid_model_messages": 0
+}
