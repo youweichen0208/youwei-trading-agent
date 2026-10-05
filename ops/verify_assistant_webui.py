@@ -83,6 +83,11 @@ def verify(assistant_image, webui_image):
                          {'role':'user','content':'接着解释刚才的回答。'}]
             follow=client.post('/api/chat/completions',json={'model':'Hermes 美股助手','messages':messages,'stream':True})
             assert follow.status_code == 200 and '[DONE]' in follow.text, follow.text
+            for name in ('trading_price_history', 'trading_indicators', 'trading_financials'):
+                financial = client.post('/api/chat/completions',json={'model':'Hermes 美股助手','stream':False,
+                    'messages':[{'role':'user','content':'VERIFY:'+json.dumps({'tool':name,'args':{'symbol':'../bad','api_key':'forbidden'}})}]})
+                assert financial.status_code == 200, financial.text
+                assert json.loads(financial.json()['choices'][0]['message']['content']) == {'error':'invalid_financial_arguments'}
             def note_call(action, arguments):
                 result=client.post('/api/chat/completions',json={'model':'Hermes 美股助手','stream':False,
                     'messages':[{'role':'user','content':'VERIFY:'+json.dumps({'tool':'youwei_knowledge','args':{'action':action,'arguments':arguments}})}]})

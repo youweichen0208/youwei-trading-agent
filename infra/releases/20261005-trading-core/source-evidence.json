@@ -1,0 +1,63 @@
+{
+  "status": "candidate_not_deployed",
+  "assistant_revision": "0480ccec2bf221556106b8b4d7ef7a739955ad5f",
+  "trading_core": {
+    "repository": "https://github.com/youweichen0208/trading_core",
+    "revision": "b915800aef7682010db36fb911fe5669ce45c37d",
+    "wheel": "vendor/trading_core-0.1.0-py3-none-any.whl",
+    "wheel_sha256": "64734560ea7446d50a7ece645e42b10c4a351e2df042f2007e552bed5cfeddbd",
+    "uv_lock_sha256": "7b9de652de5f74c5141a44ace33079969d5a975a58b3c827c6a136f973f73ef2",
+    "requirements": "infra/finance-requirements.txt"
+  },
+  "assistant_uv_lock_sha256": "b7d00f52945148acc7194cb508bcf3650f2fa61ee6c966dc753c5d58df267aec",
+  "finance_requirements_sha256": "5f7cc662c7ef651d2079e3ca5e446369f5884ba09866717b11f0727a072c4b42",
+  "local": {
+    "core_tests": "23 passed",
+    "assistant_tests": "67 passed",
+    "platform_contracts": "21 passed",
+    "native_mock": "passed",
+    "independent_wheel": "passed without Hermes/Core imports",
+    "fixed_commit_wheel_rebuild": "matching sha256",
+    "dependency_check": "passed; existing upstream distributions unchanged",
+    "real_AAPL_prices": "rate_limited"
+  },
+  "not_validated": [
+    "SEC live queries pending owner contact User-Agent",
+    "paid model tool selection",
+    "formal forward evaluation"
+  ],
+  "production_changed": false,
+  "image": "ghcr.io/youweichen0208/trading-assistant@sha256:ffd1768a4eb036083c37f4d16627922db66dd4318b4d949336c815e9ba4dcdc1",
+  "platform": "linux/amd64",
+  "target": {
+    "finance_offline_native": "passed; 8 base tools discovered, MCP disabled in isolated finance probe",
+    "assistant_native_mock": "passed; 17 tools with mock MCP",
+    "prices_and_indicators": "AAPL/MSFT/SPY passed, 23 daily bars each; 2026-09-01 <= date < 2026-10-03",
+    "financials": "blocked: sec_contact_not_configured; no actual SEC values verified",
+    "backup": "chat-backup-20261005-090321",
+    "backup_verify": "ALL PASS",
+    "candidate_restore": {
+      "databases": 5,
+      "files": 5,
+      "network": "none",
+      "production_volumes": false
+    },
+    "webui_mock": "passed: new tools argument rejection, model discovery, full-history follow-up, SSE, knowledge, restart, backup restore, background routing, signup disabled, history preserved",
+    "verification_retries": [
+      "Host system Python lacked httpx; no business failure.",
+      "First containerized WebUI verifier reached backup stage but failed because its temporary archive path was absent on host; repeated using existing host project venv, all passed."
+    ],
+    "production_containers_unchanged": 14
+  },
+  "evidence_sha256": {
+    "finance-offline.json": "65d6e4c0d19c3c35db20e2f37d85b974562790b6c0bce6fa74809664adf6a5e3",
+    "finance-live.json": "63f1eb08df1491e71e6af9dd220ea17ca4d71a4fc24098c256e534833bcc586c",
+    "production-unchanged.json": "6eda10afe6d60d945b4022d505f934d35cd588de9b140b3196079388c2995cd2",
+    "candidate-restore.json": "3205b34dcc0b4e8c1cf1b99e53439c801caf8ad0d2ee9de52b85d8719e733eea"
+  },
+  "ci": {
+    "trading_core": "https://github.com/youweichen0208/trading_core/actions/runs/37286713934",
+    "trading_assistant": "https://github.com/youweichen0208/trading-assistant/actions/runs/37286907174",
+    "conclusions": "success"
+  }
+}

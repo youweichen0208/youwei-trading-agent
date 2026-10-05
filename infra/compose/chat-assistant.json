@@ -7,7 +7,8 @@
         "YOUWEI_ASSISTANT_LLM_KEY": "${YOUWEI_ASSISTANT_LLM_KEY:?}",
         "YOUWEI_ASSISTANT_CORE_KEY": "${YOUWEI_ASSISTANT_CORE_KEY:?}",
         "YOUWEI_ASSISTANT_CORE_URL": "http://core-api:8000",
-        "EODHD_API_KEY": "${EODHD_API_KEY:-}"
+        "EODHD_API_KEY": "${EODHD_API_KEY:-}",
+        "TRADING_SEC_USER_AGENT": "${TRADING_SEC_USER_AGENT:-}"
       },
       "volumes": [
         "hermes_profile:/var/lib/hermes/profile",

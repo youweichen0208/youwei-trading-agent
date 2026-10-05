@@ -26,7 +26,7 @@
 | S09 | 平台及聊天部署、备份、恢复和运维演练已有记录 | 国内入口、独立故障域备份等未完成能力不能从同机演练推导 |
 | S10 | Dashboard 只读报告、案例和评估视图已实现 | 正式评估等待成熟标签；研究 Memory/审批扩展另验收 |
 | S11 | 受控进化与后续扩展 | 按登记、比较、人工批准推进，不由个人记忆自动启用 |
-| S12 | 探索研究接口、Dashboard 与个人助手原生入口已实现；三仓拆分与 EODHD 接入已部署 | Marketplace 指数查询已加入当前发布；Extended 候选仍阻断，套餐权限限制保留 |
+| S12 | 探索研究接口、Dashboard 与个人助手原生入口已实现；三仓拆分与 EODHD 接入已部署；独立金融包及免费工具候选已实现 | Marketplace 为当前发布；金融候选待 SEC 实测，Extended 限制保留 |
 
 ## S12 子任务与证据
 
@@ -86,3 +86,11 @@ trading-assistant 增 `integrations/hermes/workbench.py` 只读技能服务，�
 用户确认购买 Indices Historical Constituents Data API 并授权部署。trading-assistant 保留生产七项 MCP，新增 `mp_indices_list`、`mp_index_components`，共九项 MCP + 五项基础工具。单指数 JSON/凭证覆盖拒绝和脱敏通过原生执行边界；官方 schema 与 hash 登记。旧 Token 轮换后实测 401，助手秘密配置更新为用户提供的新 Token，Core 凭证不变。
 
 助手 TDD 后完整测试 60 passed；固定 checkout/本地镜像原生九工具循环通过。平台相关契约 21 passed。sg-prod 只替换助手及 skills；原生发现 14 工具，110 项指数及 GSPC 当前/历史成分实测通过；工作台未认证 401、owner 接口全 200。最终 amd64 原生/mock、WebUI 跨服务 mock、切换前后备份恢复及部署清单校验全部通过，其余 12 个既有容器身份/启动时间不变。候选和上线实测、发布身份与局限以[本次部署记录](ops/eodhd-marketplace-rollout-20261005.md)及 release preflight/postflight evidence 为准。未调用真实付费模型、未变更正式研究数据链路或评估协议，未重复 Core 全量数据库测试；此前 S12n 的 Extended 权限/连接阻断仍保留，不因本次两工具接入宣称已解决。
+
+## S12p — 独立 trading_core 与免费金融工具（2026-10-05，候选）
+
+新增私有 `youweichen0208/trading_core`，默认 develop；Python 3.13 独立包提供 Yahoo/yfinance 日线、调整收盘价基础指标、SEC Company Facts 财报。保留平台 Core、quant、协议与已批准研究版本。助手注册 `trading_price_history`、`trading_indicators`、`trading_financials`，日线/指标/财报默认使用免费源；EODHD 指数与既有工具继续保留。
+
+固定金融源码构建 wheel，重复构建 hash 一致；助手固定补充依赖，安装前后确认官方 Hermes 已有包版本不变。独立安装无 Hermes/Core 依赖。TDD 先观察缺失模块/API失败，再通过指标、价格、财报及工具边界测试：金融包 `uv run --frozen pytest -q` 23 passed，助手同命令 67 passed；平台三个相关契约文件21 passed，catalog通过。
+
+sg-prod 已构建推送 amd64 候选，隔离原生金融执行、完整原生mock、WebUI跨服务mock及候选备份恢复均通过；AAPL/MSFT/SPY真实日线均23行，六项日线/指标查询通过。SEC因未配置联系 User-Agent 拒绝执行，尚未完成AAPL/MSFT真实财报及申报来源数值对照。因此不切换生产，不把行情通过当成核心能力全部通过。当前生产仍为Marketplace登记镜像。完整源码/wheel/镜像身份、跨服务验证、备份恢复和限制见 [本次验收记录](ops/trading-core-20261005.md) 与 [候选证据](../infra/releases/20261005-trading-core/source-evidence.json)。未执行真实付费模型或正式前向评估。

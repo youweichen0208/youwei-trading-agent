@@ -137,3 +137,7 @@ API只映射本机 `127.0.0.1:8000`，并接入普通 `edge` 网络供本机发�
 ### EODHD Marketplace 指数发布（2026-10-05）
 
 个人助手保留七工具基线，增加 `mp_indices_list` 与 `mp_index_components`。固定助手源码、amd64 digest、账户实测、备份恢复和生产验收见 [发布记录](ops/eodhd-marketplace-rollout-20261005.md) 与 `infra/releases/20261005-eodhd-marketplace/`。本次不启用此前 Extended 十九项实验，官方 Hermes/Python/依赖锁、WebUI 和 Core 不变。部署锁按四个组件登记，助手同时绑定 gateway/skills 两个服务；manifest 的 bindings 只登记镜像，工作台环境信息保留在 WebUI 元数据，不伪装成镜像绑定。
+
+### trading_core 金融候选（S12p）
+
+独立金融包的源码 SHA、uv.lock hash、wheel hash 由助手 `upstreams.lock.json` 固定。助手 Dockerfile 校验 wheel，按带 hash 的补充依赖安装，并检查所有既有包版本不变；官方 Hermes/Python 基线保持原锁。2026-10-05 候选已构建为 amd64 registry digest，见 [候选登记](../infra/releases/20261005-trading-core/candidate.lock.json) 与 [验收记录](ops/trading-core-20261005.md)。该登记 disabled / smoke_only，SEC真实财报验收未完成，当前生产仍使用前述 Marketplace 发布；本次不生成声称上线的 deployment manifest。

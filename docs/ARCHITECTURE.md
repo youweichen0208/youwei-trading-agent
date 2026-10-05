@@ -497,3 +497,11 @@ MVP 在每次研究中共享行情/财务/新闻包，按需启用角色；一�
 公开产品还需核对 AI 生成内容标识要求；“非投资建议”文字不代替资质、许可或其他义务。[生成合成内容标识办法](https://www.cac.gov.cn/2025-03/14/c_1743654684782215.htm)
 
 若确认完全自用且无国内入口需求，可进一步收敛为单新加坡私有部署；这是需由使用场景决定的可选版本，不改变本文国内入口与新加坡核心的目标分工。
+
+## 个人金融库边界（2026-10-05，S12p）
+
+独立私有 `trading_core` 提供 Yahoo/yfinance 美股与 ETF 日线、调整收盘价基础指标和 SEC Company Facts 财报；Hermes 插件仍由 trading-assistant 注册 `trading_price_history`、`trading_indicators`、`trading_financials`。普通日线、指标、财报使用免费工具；明确指定 EODHD/平台及指数查询保留原入口。失败不静默混合来源。
+
+金融库不依赖 Hermes 或 youwei_core，不接管正式数据入口、数据库、快照、Ledger、Campaign 或 ResearchRelease。查询返回最新取得历史，明确 `pit=false`；SEC 单季度只接纳明确季度期间，不把累计现金流当单季、不推导 Q4。金融计算与平台正式评分算法分开版本化。
+
+助手对固定可信 worker 施加40秒总时限、取消回收、单并发、512KiB响应和16条/120秒进程内缓存；不向 worker 传 Core、LLM、EODHD 凭证。SEC 联系 User-Agent 仅从服务端配置注入，无模型 URL、文件路径或密钥参数。既有 Hermes、Python基础镜像与上游锁不变，金融 wheel/源码/依赖分别固定并检查兼容。候选测试不等同生产可用；发布限制见 [验收记录](ops/trading-core-20261005.md)。

@@ -1,0 +1,58 @@
+[
+  {
+    "name": "/youwei-chat-hermes-assistant-1",
+    "unchanged": true
+  },
+  {
+    "name": "/youwei-chat-hermes-workbench-skills-1",
+    "unchanged": true
+  },
+  {
+    "name": "/youwei-chat-openwebui-1",
+    "unchanged": true
+  },
+  {
+    "name": "/youwei-production-core-api-1",
+    "unchanged": true
+  },
+  {
+    "name": "/youwei-production-sandbox-runner-1",
+    "unchanged": true
+  },
+  {
+    "name": "/youwei-production-core-worker-1",
+    "unchanged": true
+  },
+  {
+    "name": "/youwei-chat-litellm-1",
+    "unchanged": true
+  },
+  {
+    "name": "/youwei-dashboard-dashboard-1",
+    "unchanged": true
+  },
+  {
+    "name": "/youwei-production-postgres-1",
+    "unchanged": true
+  },
+  {
+    "name": "/youwei-chat-postgres-1",
+    "unchanged": true
+  },
+  {
+    "name": "/youwei-acceptance-core-api-1",
+    "unchanged": true
+  },
+  {
+    "name": "/youwei-acceptance-core-worker-1",
+    "unchanged": true
+  },
+  {
+    "name": "/youwei-acceptance-mock-tiingo-1",
+    "unchanged": true
+  },
+  {
+    "name": "/youwei-acceptance-postgres-1",
+    "unchanged": true
+  }
+]

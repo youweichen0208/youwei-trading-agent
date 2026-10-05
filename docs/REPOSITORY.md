@@ -110,3 +110,11 @@ Runner 的 app 只装配，routes 管 HTTP，state 管授权、执行句柄与�
 研究运行时 runtime 管 Hermes 调用和解析，usage 管计数与归因，不导入 Core。
 
 正式 release 绑定的 logistic、dataset、model_registry、pipeline 和根锁文件本轮冻结；pipeline 仍引用本地子进程适配器，因此其必要兼容链保留。移除它需要独立处理 ResearchRelease 影响。
+
+## 独立金融能力包（S12p）
+
+[trading_core](https://github.com/youweichen0208/trading_core) 是私有、默认分支 `develop` 的独立 Python 3.13 包，维护免费日线取得、标准化、纯指标计算与 SEC 财报解析。不导入 Hermes、平台 Core 或数据库，不迁移本仓库 `quant/`、PIT 或已批准 ResearchRelease。
+
+`trading-assistant` 持有三个 Hermes 工具入口、参数转换、允许列表、缓存、总时限及取消控制；从固定金融源码提交构建 wheel 并校验 hash，补充依赖须与官方 Hermes 及已有 DDGS 依赖兼容，冲突阻断构建。新增金融 worker 是同一助手容器中的固定可信 Python 入口，不接受生成代码，也不是新的服务、MCP 或 Runner。
+
+本仓库维护跨服务验证、Compose 配置与候选/生产登记；youwei-webui 延用现有入口。四仓职责是平台、助手、界面、金融库；正式平台仍保持单业务仓和原执行边界。当前交付及真实供应商限制见 [S12p 记录](ops/trading-core-20261005.md)。

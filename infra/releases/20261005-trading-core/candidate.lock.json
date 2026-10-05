@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "components": {
+    "hermes-assistant": {
+      "enabled": false,
+      "source": {
+        "kind": "git",
+        "url": "https://github.com/youweichen0208/trading-assistant",
+        "revision": "0480ccec2bf221556106b8b4d7ef7a739955ad5f"
+      },
+      "integration_status": "integrated",
+      "verification": {
+        "status": "smoke_only",
+        "evidence": {
+          "path": "infra/releases/20261005-trading-core/source-evidence.json",
+          "sha256": "ef0d4373cf04d0188ade9ff5eef96c9b492f8fd7dc3276df1aa1252662cb20f8"
+        }
+      },
+      "deployment": {
+        "image": "ghcr.io/youweichen0208/trading-assistant@sha256:ffd1768a4eb036083c37f4d16627922db66dd4318b4d949336c815e9ba4dcdc1",
+        "bindings": [
+          {
+            "service": "hermes-assistant",
+            "field": "image"
+          },
+          {
+            "service": "hermes-workbench-skills",
+            "field": "image"
+          }
+        ]
+      },
+      "trading_core": {
+        "repository": "https://github.com/youweichen0208/trading_core",
+        "revision": "b915800aef7682010db36fb911fe5669ce45c37d",
+        "wheel": "vendor/trading_core-0.1.0-py3-none-any.whl",
+        "wheel_sha256": "64734560ea7446d50a7ece645e42b10c4a351e2df042f2007e552bed5cfeddbd",
+        "uv_lock_sha256": "7b9de652de5f74c5141a44ace33079969d5a975a58b3c827c6a136f973f73ef2",
+        "requirements": "infra/finance-requirements.txt"
+      },
+      "notes": "Candidate only. SEC live acceptance not completed; never switch production without it."
+    }
+  }
+}
