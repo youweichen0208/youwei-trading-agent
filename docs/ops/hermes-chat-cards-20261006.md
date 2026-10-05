@@ -16,8 +16,11 @@ WebUI [PR #5](https://github.com/youweichen0208/youwei-webui/pull/5)，功能源
 - Node 22 前端构建通过。全仓 svelte-check 仍为基线 **7001 errors / 198 warnings / 344 files**，新增图表警告已修正，不能称全仓类型检查通过。
 - 固定 Hermes 原生 gateway + mock 模型/工具：三类金融结果的流式、非流式、完整结果序列化通过。fixture 初次未关闭上游 tool_search，未产生预期调用；对齐助手配置后重新通过，失败轮次保留为验证背景。
 - 本机 Docker amd64 WebUI，以现行固定镜像作依赖基线、挂载本次代码/构建：真实聊天 API、保存历史、普通模型、原始 Responses 绕过阻断通过。这是挂载联调，不等于最终候选镜像恢复验收。
+- 实际发布镜像：`linux/amd64`、源码标签与 [候选身份](../../infra/releases/20261006-hermes-chat-cards/candidate.json) 一致。`ops/verify_webui_upgrade.py` 对合成备份执行无网络恢复/重启，2 条聊天 JSON、账户与密码保持一致，私有授权与关闭注册检查通过。另用未挂载源码的候选容器执行 `verify_hermes_chat.py --webui-url`，三类工具流式/非流式、持久历史、普通连接与原始 Responses 阻断均通过。
 - 浏览器：同一聊天三类卡片、数据表、价格口径切换、SEC 链接、刷新、390px 手机/暗色通过，无水平溢出。慢流在运行中停止后，消息 done=true、已收到内容 incomplete 保留，输入框可编辑。极早停止时观察到短暂恢复运行，任务登记/停止竞态另行核实，本次未改该机制。
 - 平台配置、WebUI 初始化、聊天发布和助手备份四个契约文件共 20 项通过；开关覆盖两种配置表格式，保留其他连接、后台模型和历史。
+
+CI：WebUI 的 bridge、native-chat、frontend、image 全部通过；平台完整 Core 测试及 research-runtime 通过（[运行记录](https://github.com/youweichen0208/youwei-trading-agent/actions/runs/37345364162)）。旧固定组合 compatibility 首轮在金融返回 JSON 断言失败（[记录](https://github.com/youweichen0208/youwei-trading-agent/actions/runs/37345364094)），已请求重跑。该流程的 WebUI 固定为 `09137c785a5a78fc2ada6878e5de05cfbe2454cf`，并非本次候选；固定来源、脚本与 mock 本次均未改，尚不能确定失败根因。
 
 原生验证：WebUI `ops/verify_hermes_chat.py <固定 checkout>`，可加 `--webui-url http://127.0.0.1:<一次性容器端口>` 做 HTTP 联调。只使用临时 HOME、合成凭证和数据，不应指向生产。
 
