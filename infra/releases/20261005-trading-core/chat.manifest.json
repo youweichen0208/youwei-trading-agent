@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "lock_sha256": "f5239b4cb7e3d7d1b059b0f12b3de2d3654537ee5e81f0050091e09affa35999",
+  "compose_sha256": "097cb053bf04cd15449827ac5218101508200faaeff944f7220685c33dfcf8e8",
+  "components": {
+    "hermes-assistant": {
+      "image": "ghcr.io/youweichen0208/trading-assistant@sha256:ffd1768a4eb036083c37f4d16627922db66dd4318b4d949336c815e9ba4dcdc1",
+      "bindings": [
+        {
+          "service": "hermes-assistant",
+          "field": "image"
+        },
+        {
+          "service": "hermes-workbench-skills",
+          "field": "image"
+        }
+      ]
+    },
+    "litellm": {
+      "image": "ghcr.io/berriai/litellm@sha256:f8043697479513b9ae6f3abac8e62d61b908cfd31541cc3c3c994e16a28d784e",
+      "bindings": [
+        {
+          "service": "litellm",
+          "field": "image"
+        }
+      ]
+    },
+    "openwebui": {
+      "image": "ghcr.io/youweichen0208/youwei-webui@sha256:171e0e83a7b03b29d1d3552dc637b1e71526085278a3717dc92989ce4cbd630f",
+      "bindings": [
+        {
+          "service": "openwebui",
+          "field": "image"
+        }
+      ]
+    },
+    "postgres": {
+      "image": "postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea",
+      "bindings": [
+        {
+          "service": "postgres",
+          "field": "image"
+        }
+      ]
+    }
+  }
+}

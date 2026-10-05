@@ -6,7 +6,7 @@
       "source": {
         "kind": "git",
         "url": "https://github.com/youweichen0208/trading-assistant",
-        "revision": "cc33c14ca9ed10c98a295fdbdea42a3861a72010"
+        "revision": "0480ccec2bf221556106b8b4d7ef7a739955ad5f"
       },
       "runtime": {
         "python": "3.13.16"
@@ -15,12 +15,12 @@
       "verification": {
         "status": "passed",
         "evidence": {
-          "path": "infra/releases/20261005-eodhd-marketplace/preflight-evidence.json",
-          "sha256": "e99906f78cf6dfd2e8e96cff5e65637278052b091cc8c02cfb61cfd2bf86d403"
+          "path": "infra/releases/20261005-trading-core/contact-preflight.json",
+          "sha256": "b7cb771f8317e68ae09a3bf4d21052a7bea24dd739f94def5f11e8af98655f57"
         }
       },
       "deployment": {
-        "image": "ghcr.io/youweichen0208/trading-assistant@sha256:0e67de9ad23c66f61453f72c8acde9cbc4aff2f004eb3b602728e3ba39db460e",
+        "image": "ghcr.io/youweichen0208/trading-assistant@sha256:ffd1768a4eb036083c37f4d16627922db66dd4318b4d949336c815e9ba4dcdc1",
         "bindings": [
           {
             "service": "hermes-assistant",
@@ -32,7 +32,7 @@
           }
         ]
       },
-      "notes": "Marketplace index tools deployed alongside original seven queries; source/image/evidence in infra/releases/20261005-eodhd-marketplace. Official Hermes and runtime locks unchanged.",
+      "notes": "Eight base tools plus nine EODHD tools; finance free-source live and 32 inline-XBRL facts verified. SEC contact injected from server config.",
       "upstream": {
         "kind": "git",
         "url": "https://github.com/NousResearch/hermes-agent",
@@ -62,7 +62,23 @@
             "version": "9.16.0",
             "reason": "Official release provides DDGS integration without a dependency extra; retain existing keyless search without patching upstream"
           }
+        },
+        "trading_core": {
+          "repository": "https://github.com/youweichen0208/trading_core",
+          "revision": "b915800aef7682010db36fb911fe5669ce45c37d",
+          "wheel": "vendor/trading_core-0.1.0-py3-none-any.whl",
+          "wheel_sha256": "64734560ea7446d50a7ece645e42b10c4a351e2df042f2007e552bed5cfeddbd",
+          "uv_lock_sha256": "7b9de652de5f74c5141a44ace33079969d5a975a58b3c827c6a136f973f73ef2",
+          "requirements": "infra/finance-requirements.txt"
         }
+      },
+      "trading_core": {
+        "repository": "https://github.com/youweichen0208/trading_core",
+        "revision": "b915800aef7682010db36fb911fe5669ce45c37d",
+        "wheel": "vendor/trading_core-0.1.0-py3-none-any.whl",
+        "wheel_sha256": "64734560ea7446d50a7ece645e42b10c4a351e2df042f2007e552bed5cfeddbd",
+        "uv_lock_sha256": "7b9de652de5f74c5141a44ace33079969d5a975a58b3c827c6a136f973f73ef2",
+        "requirements": "infra/finance-requirements.txt"
       }
     }
   }

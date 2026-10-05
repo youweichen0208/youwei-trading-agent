@@ -1,0 +1,29 @@
+{
+  "result": "PASS",
+  "unauthenticated_gateway_skills_bridge": 401,
+  "owner_bridge": {
+    "config": {
+      "status": 200
+    },
+    "capabilities": {
+      "status": 200
+    },
+    "gateway": {
+      "status": 200
+    },
+    "skills": {
+      "status": 200,
+      "count": 53
+    },
+    "sessions": {
+      "status": 200
+    },
+    "jobs": {
+      "status": 200
+    },
+    "models": {
+      "status": 200
+    }
+  },
+  "paid_model_calls": false
+}

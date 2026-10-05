@@ -1,0 +1,114 @@
+[
+  {
+    "name": "/youwei-chat-hermes-assistant-1",
+    "id": "b9d0eed816329bcd4151d8aafa3df31c8da3fb13f80fa98ba4a3262329b3d548",
+    "started": "2026-10-05T09:20:37.743810256Z",
+    "image": "ghcr.io/youweichen0208/trading-assistant@sha256:ffd1768a4eb036083c37f4d16627922db66dd4318b4d949336c815e9ba4dcdc1",
+    "health": "healthy",
+    "running": true
+  },
+  {
+    "name": "/youwei-chat-hermes-workbench-skills-1",
+    "id": "09fcbb679360af52a47f7184efa107b76ea7338ffc86caf2d3bfa9c69d25f796",
+    "started": "2026-10-05T09:20:37.736571199Z",
+    "image": "ghcr.io/youweichen0208/trading-assistant@sha256:ffd1768a4eb036083c37f4d16627922db66dd4318b4d949336c815e9ba4dcdc1",
+    "health": null,
+    "running": true
+  },
+  {
+    "name": "/youwei-chat-openwebui-1",
+    "id": "1b4c4f7e72b9ab53f7cb3008c88335878fb6b497b35add40e76582b569f4a353",
+    "started": "2026-10-04T15:19:32.493273309Z",
+    "image": "ghcr.io/youweichen0208/youwei-webui@sha256:171e0e83a7b03b29d1d3552dc637b1e71526085278a3717dc92989ce4cbd630f",
+    "health": "healthy",
+    "running": true
+  },
+  {
+    "name": "/youwei-production-core-api-1",
+    "id": "11610105a6852aca4f60e15a0ab45cb484097575a87770dba10f71b6984c0add",
+    "started": "2026-10-04T01:48:41.129702114Z",
+    "image": "ghcr.io/youweichen0208/youwei-core@sha256:678077eee1284099176d16172275455e206af8fc561ab84d00f075ba171de58e",
+    "health": "healthy",
+    "running": true
+  },
+  {
+    "name": "/youwei-production-sandbox-runner-1",
+    "id": "8f5aa75041cea1821ecf485fd463b193f8c77565987fad58f9f8d549d06c9d40",
+    "started": "2026-10-03T14:16:53.967922912Z",
+    "image": "ghcr.io/youweichen0208/youwei-runner@sha256:c44c3d4a361422572edb258c58d83b8b2268181a8888a4c35d0062eda0955de9",
+    "health": "healthy",
+    "running": true
+  },
+  {
+    "name": "/youwei-production-core-worker-1",
+    "id": "a50b8a2079b7a77665bb42424aace91f029bfe503bc682db7164d6997569a896",
+    "started": "2026-10-03T14:16:53.984963989Z",
+    "image": "ghcr.io/youweichen0208/youwei-core@sha256:f18c8289a8d05b1b9913ac22973532c8c1683703b2f38a955ad7ca8d264abe40",
+    "health": null,
+    "running": true
+  },
+  {
+    "name": "/youwei-chat-litellm-1",
+    "id": "f906e9ef6a06382d985abc0d0ee4da0af37ca8b6f5867181c46434ce14a95add",
+    "started": "2026-10-03T04:59:46.513109749Z",
+    "image": "ghcr.io/berriai/litellm@sha256:f8043697479513b9ae6f3abac8e62d61b908cfd31541cc3c3c994e16a28d784e",
+    "health": null,
+    "running": true
+  },
+  {
+    "name": "/youwei-dashboard-dashboard-1",
+    "id": "24e59905a55e6540068f398d72b73df0c70d253740479d70cd34b16af5c9dade",
+    "started": "2026-10-02T16:13:38.441142272Z",
+    "image": "ghcr.io/youweichen0208/youwei-core@sha256:54df4db578b05327dee233a962260599077a561a32a8ce9118b0086aa255dad4",
+    "health": null,
+    "running": true
+  },
+  {
+    "name": "/youwei-production-postgres-1",
+    "id": "c564a4d63bb66d6ff8ec8d08c80dfe87479b91a2401685151d6788b9c8f01e1b",
+    "started": "2026-10-02T14:31:18.475093794Z",
+    "image": "ghcr.io/youweichen0208/youwei-postgres@sha256:8d69232c1d2b7771ae8f9dbb04cd56bbd6334972f37e90956f6a5bad05382053",
+    "health": "healthy",
+    "running": true
+  },
+  {
+    "name": "/youwei-chat-postgres-1",
+    "id": "a10ed8749a5fff673d70e3baf2fe916a5dae011bdfabb41da74ab480bcbe6dd0",
+    "started": "2026-10-02T03:43:24.770893939Z",
+    "image": "postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea",
+    "health": "healthy",
+    "running": true
+  },
+  {
+    "name": "/youwei-acceptance-core-api-1",
+    "id": "35d8ae08b5532cfa8b9394e30ed95346299943a6a5690921820136e75d10717f",
+    "started": "2026-10-02T02:41:02.920783017Z",
+    "image": "ghcr.io/youweichen0208/youwei-core:phase1a-s09b",
+    "health": "healthy",
+    "running": true
+  },
+  {
+    "name": "/youwei-acceptance-core-worker-1",
+    "id": "b50dbbbeb7c819efbfa7aa7cd3ffaaa5268308bf5ee1500b0c68605b48f633e4",
+    "started": "2026-10-02T02:41:02.859575493Z",
+    "image": "ghcr.io/youweichen0208/youwei-core:phase1a-s09b",
+    "health": null,
+    "running": true
+  },
+  {
+    "name": "/youwei-acceptance-mock-tiingo-1",
+    "id": "a38c581291a362b68d2dbe12bb5b8078bd4457e5018a53310dd667cb02775a8e",
+    "started": "2026-10-02T02:41:02.866456818Z",
+    "image": "ghcr.io/youweichen0208/youwei-core:phase1a-s09b",
+    "health": null,
+    "running": true
+  },
+  {
+    "name": "/youwei-acceptance-postgres-1",
+    "id": "1e261a9f78e8a363231d273e0f98e56abde3c861206120635cbd866dd389ed44",
+    "started": "2026-10-02T02:41:02.893250172Z",
+    "image": "postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea",
+    "health": "healthy",
+    "running": true
+  }
+]

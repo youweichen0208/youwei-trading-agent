@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "source_revision": "0480ccec2bf221556106b8b4d7ef7a739955ad5f",
+  "trading_core": {
+    "repository": "https://github.com/youweichen0208/trading_core",
+    "revision": "b915800aef7682010db36fb911fe5669ce45c37d",
+    "wheel": "vendor/trading_core-0.1.0-py3-none-any.whl",
+    "wheel_sha256": "64734560ea7446d50a7ece645e42b10c4a351e2df042f2007e552bed5cfeddbd",
+    "uv_lock_sha256": "7b9de652de5f74c5141a44ace33079969d5a975a58b3c827c6a136f973f73ef2",
+    "requirements": "infra/finance-requirements.txt"
+  },
+  "image": "ghcr.io/youweichen0208/trading-assistant@sha256:ffd1768a4eb036083c37f4d16627922db66dd4318b4d949336c815e9ba4dcdc1",
+  "platform": "linux/amd64",
+  "prior_candidate_evidence": {
+    "path": "infra/releases/20261005-trading-core/source-evidence.json",
+    "sha256": "ef0d4373cf04d0188ade9ff5eef96c9b492f8fd7dc3276df1aa1252662cb20f8"
+  },
+  "finance_live": "all 8 queries passed with configured contact User-Agent",
+  "sec_filing_values": {
+    "matched_facts": 32,
+    "filings": 7,
+    "path": "infra/releases/20261005-trading-core/sec-filing-values.json",
+    "sha256": "3a16de251319b9d667b0350d3ce360b5e46093340eb77338df0e0ebad4f74c06"
+  },
+  "live_evidence_sha256": "4076a4932d1ca452ba0af5eff427f74205f2109d0a8063cf6bedacdedbcdb83b",
+  "production_switch_authorization": "Original user implementation and deployment plan; owner supplied SEC contact on 2026-10-05",
+  "contact_value_persisted_in_repository": false,
+  "paid_model_calls": false,
+  "formal_forward_evaluation": false
+}

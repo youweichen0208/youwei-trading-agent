@@ -1,0 +1,388 @@
+{
+  "status": "passed",
+  "matched_facts": 32,
+  "documents": {
+    "0000320193-26-000020": {
+      "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000020/aapl-20260627.htm",
+      "sha256": "5491d6c0dd0ca7e121dbbedc961274e34008557c984f36e8c001ed6923cca26b"
+    },
+    "0000320193-26-000013": {
+      "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000013/aapl-20260328.htm",
+      "sha256": "3471e25dbae124c15b5f240e419e8e7a5feaac98bdf62e2ceafc3c766aef7c78"
+    },
+    "0000320193-26-000006": {
+      "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000006/aapl-20251227.htm",
+      "sha256": "419eb281e1514dbe0304a97d893e1c9b251a4df2b420db6045bdce4659b86a3c"
+    },
+    "0001193125-26-323660": {
+      "url": "https://www.sec.gov/Archives/edgar/data/789019/000119312526323660/msft-20260630.htm",
+      "sha256": "6d241c09ee528abca8955f2a08c43f0d54673293a80345cd0ff0134eacc22d1f"
+    },
+    "0001193125-26-191507": {
+      "url": "https://www.sec.gov/Archives/edgar/data/789019/000119312526191507/msft-20260331.htm",
+      "sha256": "05a18da94ddf52a5e15a2e8e04ca81828743684c54a743bd76f8ec948142d576"
+    },
+    "0001193125-26-027207": {
+      "url": "https://www.sec.gov/Archives/edgar/data/789019/000119312526027207/msft-20251231.htm",
+      "sha256": "36ac91b65d134f029270353467db77ddb8990b4bd1b5e99edf051638b67aef9f"
+    },
+    "0001193125-25-256321": {
+      "url": "https://www.sec.gov/Archives/edgar/data/789019/000119312525256321/msft-20250930.htm",
+      "sha256": "5e443d216a08814c201477dbb99cdb5a1c6ca73fe3bbfaea4ee44192215d39b6"
+    }
+  },
+  "checks": [
+    {
+      "symbol": "AAPL",
+      "metric": "revenue",
+      "start": "2026-03-29",
+      "end": "2026-06-27",
+      "unit": "USD",
+      "value": 109417000000,
+      "accession": "0000320193-26-000020",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000020/aapl-20260627.htm",
+      "matched": true
+    },
+    {
+      "symbol": "AAPL",
+      "metric": "net_income",
+      "start": "2026-03-29",
+      "end": "2026-06-27",
+      "unit": "USD",
+      "value": 29789000000,
+      "accession": "0000320193-26-000020",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000020/aapl-20260627.htm",
+      "matched": true
+    },
+    {
+      "symbol": "AAPL",
+      "metric": "assets",
+      "start": null,
+      "end": "2026-06-27",
+      "unit": "USD",
+      "value": 383266000000,
+      "accession": "0000320193-26-000020",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000020/aapl-20260627.htm",
+      "matched": true
+    },
+    {
+      "symbol": "AAPL",
+      "metric": "liabilities",
+      "start": null,
+      "end": "2026-06-27",
+      "unit": "USD",
+      "value": 275746000000,
+      "accession": "0000320193-26-000020",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000020/aapl-20260627.htm",
+      "matched": true
+    },
+    {
+      "symbol": "AAPL",
+      "metric": "revenue",
+      "start": "2025-12-28",
+      "end": "2026-03-28",
+      "unit": "USD",
+      "value": 111184000000,
+      "accession": "0000320193-26-000013",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000013/aapl-20260328.htm",
+      "matched": true
+    },
+    {
+      "symbol": "AAPL",
+      "metric": "net_income",
+      "start": "2025-12-28",
+      "end": "2026-03-28",
+      "unit": "USD",
+      "value": 29578000000,
+      "accession": "0000320193-26-000013",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000013/aapl-20260328.htm",
+      "matched": true
+    },
+    {
+      "symbol": "AAPL",
+      "metric": "assets",
+      "start": null,
+      "end": "2026-03-28",
+      "unit": "USD",
+      "value": 371082000000,
+      "accession": "0000320193-26-000013",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000013/aapl-20260328.htm",
+      "matched": true
+    },
+    {
+      "symbol": "AAPL",
+      "metric": "liabilities",
+      "start": null,
+      "end": "2026-03-28",
+      "unit": "USD",
+      "value": 264591000000,
+      "accession": "0000320193-26-000013",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000013/aapl-20260328.htm",
+      "matched": true
+    },
+    {
+      "symbol": "AAPL",
+      "metric": "revenue",
+      "start": "2025-09-28",
+      "end": "2025-12-27",
+      "unit": "USD",
+      "value": 143756000000,
+      "accession": "0000320193-26-000006",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000006/aapl-20251227.htm",
+      "matched": true
+    },
+    {
+      "symbol": "AAPL",
+      "metric": "net_income",
+      "start": "2025-09-28",
+      "end": "2025-12-27",
+      "unit": "USD",
+      "value": 42097000000,
+      "accession": "0000320193-26-000006",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000006/aapl-20251227.htm",
+      "matched": true
+    },
+    {
+      "symbol": "AAPL",
+      "metric": "assets",
+      "start": null,
+      "end": "2025-12-27",
+      "unit": "USD",
+      "value": 379297000000,
+      "accession": "0000320193-26-000006",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000006/aapl-20251227.htm",
+      "matched": true
+    },
+    {
+      "symbol": "AAPL",
+      "metric": "liabilities",
+      "start": null,
+      "end": "2025-12-27",
+      "unit": "USD",
+      "value": 291107000000,
+      "accession": "0000320193-26-000006",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000006/aapl-20251227.htm",
+      "matched": true
+    },
+    {
+      "symbol": "AAPL",
+      "metric": "operating_cash_flow",
+      "start": "2025-09-28",
+      "end": "2025-12-27",
+      "unit": "USD",
+      "value": 53925000000,
+      "accession": "0000320193-26-000006",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000006/aapl-20251227.htm",
+      "matched": true
+    },
+    {
+      "symbol": "AAPL",
+      "metric": "assets",
+      "start": null,
+      "end": "2025-09-27",
+      "unit": "USD",
+      "value": 359241000000,
+      "accession": "0000320193-26-000020",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000020/aapl-20260627.htm",
+      "matched": true
+    },
+    {
+      "symbol": "AAPL",
+      "metric": "liabilities",
+      "start": null,
+      "end": "2025-09-27",
+      "unit": "USD",
+      "value": 285508000000,
+      "accession": "0000320193-26-000020",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000020/aapl-20260627.htm",
+      "matched": true
+    },
+    {
+      "symbol": "MSFT",
+      "metric": "assets",
+      "start": null,
+      "end": "2026-06-30",
+      "unit": "USD",
+      "value": 758376000000,
+      "accession": "0001193125-26-323660",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/789019/000119312526323660/msft-20260630.htm",
+      "matched": true
+    },
+    {
+      "symbol": "MSFT",
+      "metric": "liabilities",
+      "start": null,
+      "end": "2026-06-30",
+      "unit": "USD",
+      "value": 315989000000,
+      "accession": "0001193125-26-323660",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/789019/000119312526323660/msft-20260630.htm",
+      "matched": true
+    },
+    {
+      "symbol": "MSFT",
+      "metric": "revenue",
+      "start": "2026-01-01",
+      "end": "2026-03-31",
+      "unit": "USD",
+      "value": 82886000000,
+      "accession": "0001193125-26-191507",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/789019/000119312526191507/msft-20260331.htm",
+      "matched": true
+    },
+    {
+      "symbol": "MSFT",
+      "metric": "net_income",
+      "start": "2026-01-01",
+      "end": "2026-03-31",
+      "unit": "USD",
+      "value": 31778000000,
+      "accession": "0001193125-26-191507",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/789019/000119312526191507/msft-20260331.htm",
+      "matched": true
+    },
+    {
+      "symbol": "MSFT",
+      "metric": "assets",
+      "start": null,
+      "end": "2026-03-31",
+      "unit": "USD",
+      "value": 694228000000,
+      "accession": "0001193125-26-191507",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/789019/000119312526191507/msft-20260331.htm",
+      "matched": true
+    },
+    {
+      "symbol": "MSFT",
+      "metric": "liabilities",
+      "start": null,
+      "end": "2026-03-31",
+      "unit": "USD",
+      "value": 279861000000,
+      "accession": "0001193125-26-191507",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/789019/000119312526191507/msft-20260331.htm",
+      "matched": true
+    },
+    {
+      "symbol": "MSFT",
+      "metric": "operating_cash_flow",
+      "start": "2026-01-01",
+      "end": "2026-03-31",
+      "unit": "USD",
+      "value": 46679000000,
+      "accession": "0001193125-26-191507",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/789019/000119312526191507/msft-20260331.htm",
+      "matched": true
+    },
+    {
+      "symbol": "MSFT",
+      "metric": "revenue",
+      "start": "2025-10-01",
+      "end": "2025-12-31",
+      "unit": "USD",
+      "value": 81273000000,
+      "accession": "0001193125-26-027207",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/789019/000119312526027207/msft-20251231.htm",
+      "matched": true
+    },
+    {
+      "symbol": "MSFT",
+      "metric": "net_income",
+      "start": "2025-10-01",
+      "end": "2025-12-31",
+      "unit": "USD",
+      "value": 38458000000,
+      "accession": "0001193125-26-027207",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/789019/000119312526027207/msft-20251231.htm",
+      "matched": true
+    },
+    {
+      "symbol": "MSFT",
+      "metric": "assets",
+      "start": null,
+      "end": "2025-12-31",
+      "unit": "USD",
+      "value": 665302000000,
+      "accession": "0001193125-26-027207",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/789019/000119312526027207/msft-20251231.htm",
+      "matched": true
+    },
+    {
+      "symbol": "MSFT",
+      "metric": "liabilities",
+      "start": null,
+      "end": "2025-12-31",
+      "unit": "USD",
+      "value": 274427000000,
+      "accession": "0001193125-26-027207",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/789019/000119312526027207/msft-20251231.htm",
+      "matched": true
+    },
+    {
+      "symbol": "MSFT",
+      "metric": "operating_cash_flow",
+      "start": "2025-10-01",
+      "end": "2025-12-31",
+      "unit": "USD",
+      "value": 35758000000,
+      "accession": "0001193125-26-027207",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/789019/000119312526027207/msft-20251231.htm",
+      "matched": true
+    },
+    {
+      "symbol": "MSFT",
+      "metric": "revenue",
+      "start": "2025-07-01",
+      "end": "2025-09-30",
+      "unit": "USD",
+      "value": 77673000000,
+      "accession": "0001193125-25-256321",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/789019/000119312525256321/msft-20250930.htm",
+      "matched": true
+    },
+    {
+      "symbol": "MSFT",
+      "metric": "net_income",
+      "start": "2025-07-01",
+      "end": "2025-09-30",
+      "unit": "USD",
+      "value": 27747000000,
+      "accession": "0001193125-25-256321",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/789019/000119312525256321/msft-20250930.htm",
+      "matched": true
+    },
+    {
+      "symbol": "MSFT",
+      "metric": "assets",
+      "start": null,
+      "end": "2025-09-30",
+      "unit": "USD",
+      "value": 636351000000,
+      "accession": "0001193125-25-256321",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/789019/000119312525256321/msft-20250930.htm",
+      "matched": true
+    },
+    {
+      "symbol": "MSFT",
+      "metric": "liabilities",
+      "start": null,
+      "end": "2025-09-30",
+      "unit": "USD",
+      "value": 273275000000,
+      "accession": "0001193125-25-256321",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/789019/000119312525256321/msft-20250930.htm",
+      "matched": true
+    },
+    {
+      "symbol": "MSFT",
+      "metric": "operating_cash_flow",
+      "start": "2025-07-01",
+      "end": "2025-09-30",
+      "unit": "USD",
+      "value": 45057000000,
+      "accession": "0001193125-25-256321",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/789019/000119312525256321/msft-20250930.htm",
+      "matched": true
+    }
+  ]
+}

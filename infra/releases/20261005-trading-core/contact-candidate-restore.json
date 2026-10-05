@@ -1,0 +1,1 @@
+{"databases": {"state.db": 25, "shared-state.db": 15, "runs_idempotency.db": 1, "response_store.db": 2, "kanban.db": 8}, "notes_checked_up_to_100": 0, "files": 5}

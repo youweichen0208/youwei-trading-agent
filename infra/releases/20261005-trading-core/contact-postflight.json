@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "status": "deployed",
+  "image": "ghcr.io/youweichen0208/trading-assistant@sha256:ffd1768a4eb036083c37f4d16627922db66dd4318b4d949336c815e9ba4dcdc1",
+  "assistant_revision": "0480ccec2bf221556106b8b4d7ef7a739955ad5f",
+  "trading_core": {
+    "repository": "https://github.com/youweichen0208/trading_core",
+    "revision": "b915800aef7682010db36fb911fe5669ce45c37d",
+    "wheel": "vendor/trading_core-0.1.0-py3-none-any.whl",
+    "wheel_sha256": "64734560ea7446d50a7ece645e42b10c4a351e2df042f2007e552bed5cfeddbd",
+    "uv_lock_sha256": "7b9de652de5f74c5141a44ace33079969d5a975a58b3c827c6a136f973f73ef2",
+    "requirements": "infra/finance-requirements.txt"
+  },
+  "services_changed": [
+    "/youwei-chat-hermes-assistant-1",
+    "/youwei-chat-hermes-workbench-skills-1"
+  ],
+  "other_containers_unchanged": 12,
+  "healthy": true,
+  "finance_live": "all 8 passed",
+  "tool_count": 17,
+  "sec_inline_xbrl": {
+    "facts_matched": 32,
+    "filings": 7
+  },
+  "legacy_eodhd": {
+    "result": "PASS",
+    "marketplace": {
+      "mp_indices_list": {
+        "status": "success",
+        "validated": [
+          "index_ids_and_names"
+        ],
+        "rows": 110
+      },
+      "mp_index_components": {
+        "status": "success",
+        "validated": [
+          "index_symbol_current_and_historical_membership"
+        ],
+        "rows": null
+      }
+    },
+    "tool_names": [
+      "mcp__eodhd__get_company_news",
+      "mcp__eodhd__get_fundamentals_data",
+      "mcp__eodhd__get_historical_stock_prices",
+      "mcp__eodhd__get_live_price_data",
+      "mcp__eodhd__get_stocks_from_search",
+      "mcp__eodhd__get_upcoming_earnings",
+      "mcp__eodhd__mp_index_components",
+      "mcp__eodhd__mp_indices_list",
+      "mcp__eodhd__resolve_ticker",
+      "memory",
+      "trading_financials",
+      "trading_indicators",
+      "trading_price_history",
+      "web_extract",
+      "web_search",
+      "youwei_knowledge",
+      "youwei_platform"
+    ],
+    "native_quote": true,
+    "paid_model_calls": false
+  },
+  "workbench": {
+    "result": "PASS",
+    "unauthenticated_gateway_skills_bridge": 401,
+    "owner_bridge": {
+      "config": {
+        "status": 200
+      },
+      "capabilities": {
+        "status": 200
+      },
+      "gateway": {
+        "status": 200
+      },
+      "skills": {
+        "status": 200,
+        "count": 53
+      },
+      "sessions": {
+        "status": 200
+      },
+      "jobs": {
+        "status": 200
+      },
+      "models": {
+        "status": 200
+      }
+    },
+    "paid_model_calls": false
+  },
+  "pre_backup": "chat-backup-20261005-091659",
+  "pre_restore": "ALL PASS; candidate 5 SQLite databases and 5 files restored without network",
+  "post_backup": "chat-backup-20261005-092410",
+  "post_restore": "ALL PASS",
+  "deployment_validation": "VALID; production rendered Compose equals preflight bytes",
+  "rollback_executed": false,
+  "paid_model_calls": false,
+  "formal_forward_evaluation": false,
+  "contact_address_in_repository": false,
+  "platform_contract_tests": "21 passed",
+  "evidence_sha256": {
+    "postflight-finance.json": "e5383d5fa081acd85923234e27a3da77044d3c16e587b6b55ab1e2ce97d6f569",
+    "postflight-eodhd.json": "5ff5c727414be5f5ee496f462f2adf87b1454b59bc47663b5ae8788cd5641fc5",
+    "sec-filing-values.json": "3a16de251319b9d667b0350d3ce360b5e46093340eb77338df0e0ebad4f74c06",
+    "workbench-postflight.json": "4b7f150e5fdd84e7582630852647ea04d094d4310c6be1fc3649e6248ce2d045",
+    "after-contact-rollout.json": "5952998f780d6ecd064fcf4ad1bbec142db11f90441a57f3a7bcdf4415b6c49f",
+    "contact-candidate-restore.json": "3205b34dcc0b4e8c1cf1b99e53439c801caf8ad0d2ee9de52b85d8719e733eea",
+    "chat.lock.json": "f5239b4cb7e3d7d1b059b0f12b3de2d3654537ee5e81f0050091e09affa35999",
+    "chat.manifest.json": "3e71856413ef81e8740c1b10be8a82ccb2a21e72904424da79962a600a01db90"
+  }
+}
