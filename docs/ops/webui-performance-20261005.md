@@ -13,7 +13,7 @@
 
 同一 Chrome 154、网络、已有登录会话，未启用网络/CPU 模拟。终点由每次导航开始前安装的 observer 记录：`#chat-input` 可见且 `isContentEditable`。上线后另实际插入测试文字并撤销，确认编辑成功、原草稿恢复，未发送消息。冷加载采用 DevTools `reload(ignoreCache=true)`，热加载采用普通 reload；这是强制刷新口径，并非删除整个浏览器配置。代理缓存未人为清空。脚本：[chat_loading_timing.js](../../ops/chat_loading_timing.js)。
 
-每阶段冷/热各 5 次；连续快速样本之间尽量保持至少 25 秒，避免既有 auth 限流。最初边构建边测的数据因 SG 内存/换页负载单独留在 `browser-before-build-concurrent.json`，不进入下表；构建和隔离容器结束、确认无换页活动后重测基线。
+每阶段冷/热各 5 次；连续快速样本之间尽量保持至少 25 秒，避免既有 auth 限流。最初边构建边测的数据因 SG 内存/换页负载单独留在 `browser-before-build-concurrent.json.gz`，不进入下表；构建和隔离容器结束、确认无换页活动后重测基线。
 
 | 阶段 | 冷中位数 / 最大 | 热中位数 / 最大 | 实际协议 |
 | --- | --- | --- | --- |
@@ -28,7 +28,7 @@
 | 资源传输字节（不含 HTML） | 2,786,800 / 16,209 | 2,787,904 / 19,222 | 2,020,380 / 15,990 |
 | 单次页面最大预请求等待 | 21.993 / 1.743 秒 | 1.059 / 0.509 秒 | 1.013 / 0.0036 秒 |
 
-预请求等待使用 Resource Timing 的 `requestStart - fetchStart - DNS - connect` 估计，不能冒充精确 CDP Queueing；资源统计仅包含输入框就绪时已完成的资源，资源复用、压缩变体和时机影响字节数，不能将字节差都归因于代码缩减。原始每次资源/API 耗时、协议和体积见 [测量汇总](../../infra/releases/20261005-webui-performance/performance-summary.json) 与同目录三份 `browser-{before,edge,frontend}.json`。
+预请求等待使用 Resource Timing 的 `requestStart - fetchStart - DNS - connect` 估计，不能冒充精确 CDP Queueing；资源统计仅包含输入框就绪时已完成的资源，资源复用、压缩变体和时机影响字节数，不能将字节差都归因于代码缩减。原始每次资源/API 耗时、协议和体积见 [测量汇总](../../infra/releases/20261005-webui-performance/performance-summary.json) 与同目录三份 `browser-{before,edge,frontend}.json.gz`。
 
 主要收益来自入口。侧栏三类请求确实消除，但仅入口与最终中位数近似，不能宣称已证明侧栏的独立加载时间收益。最终冷加载较基线降低约 66%，热加载降低约 35%。
 
@@ -57,7 +57,7 @@
 | 平台 | `uv run --frozen pytest -q tests/contracts/test_webui_configuration.py tests/contracts/test_assistant_image_backup.py tests/contracts/test_upstreams.py` 21 passed；主 catalog、新聊天 catalog 与候选/live Compose deployment 校验通过 |
 | CI / 完整镜像 | WebUI PR 的 bridge、frontend、image 均成功；SG 固定源码完整 Docker build（含 Pyodide）及 digest push/pull 通过 |
 | 入口隔离 | `python3 ops/verify_chat_edge.py --config <candidate>` 在目标机 Nginx 1.18 上用临时端口/cache 测 200/206/304、302/404/500、代理 HIT、gzip/identity 通过；完整 staged/live `nginx -t` 通过 |
-| 备份 / 候选 | 标准备份恢复 ALL PASS；最新切换前备份再次恢复 ALL PASS；候选无网络启动/重启保留 6 条聊天 JSON、账户、密码，见 candidate-restore.log |
+| 备份 / 候选 | 标准备份恢复 ALL PASS；最新切换前及切换后备份再次恢复 ALL PASS；候选无网络启动/重启保留 6 条聊天 JSON、账户、密码，见 candidate-restore.log |
 | 跨服务 | 固定新 WebUI + 当前助手 + mock 模型：发现、聊天、完整历史、SSE、知识、重启、备份、后台分流及关闭注册全部通过；无生产密钥和数据卷 |
 | 浏览器隔离 | 合成账号登录、旧 fixture 聊天打开、聊天页仅 config、进入工作台才加载、子路由不重复、返回清空、直接打开、mock 流式显示与停止通过；[细节](../../infra/releases/20261005-webui-performance/browser-mock.json) |
 | 生产 | 只替换 WebUI；healthy，版本/登录/聊天/工作台接口 200，未认证工作台 401；其余 15 个容器 ID/StartedAt 不变。真实浏览器旧聊天打开及可编辑、工作台/技能/返回聊天正常，新 HTML 加载新哈希入口且保留登录 |
