@@ -2,7 +2,14 @@
 
 更新：2026-09-28；2026-10-02 增 `apps/dashboard/`（S10a）；2026-10-04 明确独立 WebUI fork 与两类 Hermes 边界。本文用于修改模块、依赖环境或部署边界时定位职责；实施进度与验证结果以 [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) 为准，领域术语见 [CONTEXT.md](../CONTEXT.md)。
 
-## 1. 三仓库职责
+## 1. 四仓库职责
+
+| 仓库 | 职责 | 文档入口 |
+| --- | --- | --- |
+| [trading_core](https://github.com/youweichen0208/trading_core) | 独立金融查询、标准化与纯计算，无 Hermes/Core 依赖 | [文档](https://github.com/youweichen0208/trading_core/blob/develop/docs/README.md) |
+| [trading-assistant](https://github.com/youweichen0208/trading-assistant) | 个人 Hermes 接线、权限、会话、知识与镜像 | [文档](https://github.com/youweichen0208/trading-assistant/blob/develop/docs/README.md) |
+| [youwei-webui](https://github.com/youweichen0208/youwei-webui) | 登录、聊天、工作台及界面镜像 | [文档](https://github.com/youweichen0208/youwei-webui/blob/develop/docs/README.md) |
+| youwei-trading-agent | 正式研究、数据库、任务、评估与跨仓部署登记 | [文档](README.md) |
 
 本仓库维护预测研究的业务规则、事务、迁移、契约、适配器和部署配置。Core API 与 Worker 共用 `youwei_core` 和同一条 Alembic 迁移链；Sandbox Runner 因持有容器运行时权限而独立打包和运行。包边界用于控制依赖与权限，不要求一开始把每个业务模块拆成服务或仓库。
 
@@ -100,7 +107,7 @@ MVP 使用 PostgreSQL 保存当前规模的原始数据、冻结快照与受限�
 `integrations/openwebui/configure_assistant.py`、日线 API 及数据库测试继续留在平台。
 `ops/verify_assistant_webui.py --assistant-image <image> --webui-image <image>` 使用独立 mock 入口验证跨服务组合。
 `ops/backup/assistant_image.py` 记录运行镜像身份并在无网络容器内恢复副本，不导入助手源码。
-`infra/chat/assistant-upstreams.lock.json` 固定已发布助手提交及镜像；平台部署组合保存在 `infra/releases/20261004/`，当前个人助手接入 EODHD MCP 后的聊天组合位于 `infra/releases/20261004-eodhd-mcp/`，此前官方 Release 切换记录保留在 `infra/releases/20261004-hermes-v20260924/`。助手仓库维护原生 MCP 配置、七工具允许列表及测试；平台维护镜像消费、私密凭证注入和部署备份。正式研究供应商访问继续由 Core 管理。
+`infra/chat/assistant-upstreams.lock.json` 固定已发布助手提交及镜像；平台部署组合保存在 `infra/releases/20261004/`，当前金融工具上线后的聊天组合位于 `infra/releases/20261005-trading-core/`，旧 EODHD 切换记录保留在 `infra/releases/20261004-eodhd-mcp/`，此前官方 Release 切换记录保留在 `infra/releases/20261004-hermes-v20260924/`。助手仓库维护原生 MCP 配置、八项基础工具、九项 EODHD MCP 允许列表及测试；平台维护镜像消费、私密凭证注入和部署备份。正式研究供应商访问继续由 Core 管理。
 详见 [个人助手接入](ops/hermes-personal-assistant.md)。历史实现路径与验证记录保留在 S12e，迁移结果见 S12g。
 
 ## 模块维护入口

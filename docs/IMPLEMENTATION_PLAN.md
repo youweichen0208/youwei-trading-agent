@@ -1,12 +1,12 @@
 # 实施计划与交付状态
 
-更新：2026-10-04。领域语义见 [CONTEXT](../CONTEXT.md)，设计见 [架构](ARCHITECTURE.md)，代码职责见 [仓库边界](REPOSITORY.md)。历史计划和逐次完成证据集中于 [历史实施记录](archive/implementation-through-20261004.md)，其中旧 Pipe、旧版本、预算方案及当时的待办不再作为当前操作指令。
+更新：2026-10-05。领域语义见 [CONTEXT](../CONTEXT.md)，设计见 [架构](ARCHITECTURE.md)，代码职责见 [仓库边界](REPOSITORY.md)。历史计划和逐次完成证据集中于 [历史实施记录](archive/implementation-through-20261004.md)，其中旧 Pipe、旧版本、预算方案及当时的待办不再作为当前操作指令。
 
 ## 当前状态与后续节点
 
-- 三仓源码职责已拆分；根据 2026-10-04 部署记录，聊天链路为 youwei-webui v0.11.4 → 官方 Hermes v2026.9.24 个人助手 → LiteLLM / Core / EODHD MCP。具体提交、镜像及数据路径以 [上游登记](UPSTREAMS.md) 指向的已部署组合为准。
+- 四仓源码职责已拆分；根据 2026-10-05 金融工具部署记录，聊天链路为 youwei-webui v0.11.4 → 官方 Hermes v2026.9.24 个人助手 → LiteLLM / trading_core / Core / EODHD MCP。具体提交、镜像及数据路径以 [上游登记](UPSTREAMS.md) 指向的已部署组合为准。
 - Phase 1A 已按所有者批准登记，首个 cutoff 为 2026-10-10 06:00 ET。正式预测仍遵循批准 release、既有代码例外与封存守卫；个人助手重构不启用 Phase 1B。
-- 当前重构只交付源码、测试与候选构建，不部署 VM，不执行真实付费模型或正式前向评估。历史部署通过不等于本轮候选已上线。
+- 源码、测试、候选、目标机与生产结果按各次完成记录分别验收；S12p 已部署，不据此宣称真实付费模型或正式前向评估通过。后续候选也不能继承历史部署状态。
 
 ## 任务索引
 
@@ -94,3 +94,9 @@ trading-assistant 增 `integrations/hermes/workbench.py` 只读技能服务，�
 固定金融源码构建 wheel，重复构建 hash 一致；助手固定补充依赖，安装前后确认官方 Hermes 已有包版本不变。独立安装无 Hermes/Core 依赖。TDD 先观察缺失模块/API失败，再通过指标、价格、财报及工具边界测试：金融包 `uv run --frozen pytest -q` 23 passed，助手同命令 67 passed；平台三个相关契约文件21 passed，catalog通过。
 
 sg-prod 已构建推送 amd64 镜像，隔离原生金融执行、完整原生mock、WebUI跨服务mock及候选备份恢复均通过；AAPL/MSFT/SPY真实日线均23行，六项日线/指标查询通过。首轮因缺少SEC联系信息保持候选。所有者随后提供联系邮箱，AAPL/MSFT财报实查通过，32个非缺失值与7份申报inline XBRL的期间/单位/值逐项匹配。刷新备份并通过候选恢复及deployment校验后，仅切换助手与skills两服务；健康、17工具发现、真实免费查询、EODHD报价/指数及工作台鉴权通过，其余12个容器身份/启动时间不变，未触发回滚。完整源码/wheel/镜像身份、跨服务验证、备份恢复和限制见 [本次验收记录](ops/trading-core-20261005.md) 与 [生产证据](../infra/releases/20261005-trading-core/contact-postflight.json)。未执行真实付费模型或正式前向评估。
+
+## S12q — 四仓 Markdown 维护入口统一（2026-10-05）
+
+四仓统一 README、AGENTS、CONTEXT 与 docs 下的索引、架构、开发、运维、状态入口。trading_core、trading-assistant 和 youwei-webui 补齐缺失文档；平台沿用现有领域与架构文档，补充开发、运维和状态导航。四仓职责集中在仓库边界，生产身份继续引用上游登记与发布证据；保留 WebUI 上游 README 正文和各次历史验收。同步修正当前三仓表述、基础/MCP 工具数量、原生金融依赖安装步骤和工作台已部署状态。
+
+实际验证：检查36个新增或修改 Markdown 的本地及跨仓相对目标、统一文档入口和代码块闭合；四仓 `git diff --check` 通过。命令、工具允许列表、环境变量及 CI 入口与当前源码核对。原始证据、协议、依赖锁、运行代码及生产配置未改，平台已有 `.playwright-mcp/` 保留。纯文档任务未重跑业务测试、完整镜像、目标机、真实供应商或正式前向评估；本次没有生产操作。

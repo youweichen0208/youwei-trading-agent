@@ -2,9 +2,9 @@
 
 2026-10-04。助手原生配置、插件、构建和备份格式由 [trading-assistant](https://github.com/youweichen0208/trading-assistant) 维护。本平台只消费固定助手提交与镜像，保留 WebUI 切换、Core 接口、编排、跨服务兼容及整体备份调度。源码拆分不代表镜像发布或生产切换。
 
-`youwei-webui → trading-assistant（Hermes gateway）→ LiteLLM / EODHD MCP / Core HTTP / 个人知识`
+`youwei-webui → trading-assistant（Hermes gateway）→ LiteLLM / trading_core / EODHD MCP / Core HTTP / 个人知识`
 
-历史兼容基线：官方 Open WebUI v0.6.36 + Hermes `7fa45eb349a1a6f1eebc010b3fef0a9d996f386a`。用户已授权部署 youwei-webui 最新 v0.11.4；本次具体提交、数据迁移和目标机结果见 [三仓库部署记录](three-repo-vm-rollout-20261004.md)。个人 profile/知识与研究实验实例及正式 Ledger 分离；保持单所有者，基础五工具之外按明确允许列表接入 EODHD 七项查询。
+历史兼容基线：官方 Open WebUI v0.6.36 + Hermes `7fa45eb349a1a6f1eebc010b3fef0a9d996f386a`。用户已授权部署 youwei-webui 最新 v0.11.4；本次具体提交、数据迁移和目标机结果见 [三仓库部署记录](three-repo-vm-rollout-20261004.md)。个人 profile/知识与研究实验实例及正式 Ledger 分离；保持单所有者，当前八项基础工具之外按明确允许列表接入 EODHD 九项查询；免费金融能力的上线证据见 [金融部署记录](trading-core-20261005.md)。
 
 当前个人助手已按用户选择切换官方 **v2026.9.24 / v0.21.5**，独立 Python **3.13.16**；源码与上游依赖锁零修改。版本身份、DDGS 可选依赖、旧数据兼容及回滚见 [Release 切换记录](hermes-release-20260924-rollout.md)。研究/实验运行时保持原版本。
 
@@ -12,12 +12,14 @@
 
 ## 部署与升级
 
+以下包含首次接入步骤；已接入环境按实际差异升级，不重复迁移 WebUI 或发布 Core。金融工具升级需注入服务端 `TRADING_SEC_USER_AGENT="应用名称 联系邮箱"`，真实邮箱保留于受控配置。只更新助手和同镜像技能服务，验证免费数据能力后切换，具体边界见 [金融部署记录](trading-core-20261005.md)。
+
 资产：[助手构建仓库](https://github.com/youweichen0208/trading-assistant)、[Compose overlay](../../infra/compose/chat-assistant.json)、[WebUI 配置脚本](../../integrations/openwebui/configure_assistant.py)。现有 `chat.json` 的服务/卷保持可单独使用；显式合并 overlay 才引入助手。目标机必须使用自己的部署副本按字段合并，不能覆盖其路径适配。
 
-1. 在 trading-assistant 独立构建并发布目标 amd64 镜像，取得真实 registry digest；本机 arm64 冒烟镜像不等于目标机验收。发布前将候选组件及当前聊天栈依赖合入部署登记、生成清单，运行 UPSTREAMS deployment 检查。2026-10-04 首次发布已经完成，当前启用聊天组合见 `infra/releases/20261004-eodhd-mcp/`；以后升级仍按此流程验证。
+1. 在 trading-assistant 独立构建并发布目标 amd64 镜像，取得真实 registry digest；本机 arm64 冒烟镜像不等于目标机验收。发布前将候选组件及当前聊天栈依赖合入部署登记、生成清单，运行 UPSTREAMS deployment 检查。2026-10-04 首次发布已经完成，当前启用聊天组合见 `infra/releases/20261005-trading-core/`；以后升级仍按此流程验证。
 2. 建立专用 Core tenant key（当前所有者租户）和 LiteLLM 虚拟 key（alias `hermes-personal`、models `["glm-5.3"]`、max_parallel_requests=1）。后者只存在助手服务，不用 chat key/master key 代替。随机生成 `YOUWEI_ASSISTANT_API_KEY`（至少 32 随机字节）。写入目标受控 secrets.env，0600；Compose 需要 `YOUWEI_ASSISTANT_IMAGE`、`YOUWEI_ASSISTANT_API_KEY`、`YOUWEI_ASSISTANT_LLM_KEY`、`YOUWEI_ASSISTANT_CORE_KEY`。
 3. 发布含日线接口的 Core API 镜像；本片无数据库迁移，不改 Worker 预测路径。先核对当前 release 绑定文件与部署例外记录；不得从本地测试通过推导发布获批。
-4. 备份 WebUI 库/附件和部署配置。启动 overlay 的 `hermes-assistant`，确认 health、鉴权、基础五工具和 Core 可达。启用 EODHD 时在私密 secrets.env 注入 `EODHD_API_KEY`，仅映射给助手，另验收七项 MCP 工具发现与查询。助手不发布宿主端口，只经内部服务地址访问。
+4. 备份 WebUI 库/附件和部署配置。启动 overlay 的 `hermes-assistant`，确认 health、鉴权、八项基础工具和 Core 可达。启用 EODHD 时在私密 secrets.env 注入 `EODHD_API_KEY`，仅映射给助手，另验收九项 MCP 工具发现与查询。助手不发布宿主端口，只经内部服务地址访问。
 5. **停止 Open WebUI** 后，先保留原卷，将停服一致副本复制到新卷，再在挂载新卷的一次性固定镜像中运行 `python /workspace/integrations/openwebui/configure_assistant.py`（仓库只读挂载）。环境为 `YOUWEI_WEBUI_OWNER_ID`、`YOUWEI_ASSISTANT_API_KEY`、已有 `YOUWEI_CHAT_KEY`、确切 `YOUWEI_OLD_PIPE_ID`，默认数据库 `/app/backend/data/webui.db`。脚本兼容 v0.6.36 blob/access_control 与 v0.11.4 per-key/access_grant 两种实际 schema，必须先在数据副本执行真实上游迁移。脚本要求库中恰有这个 admin 所有者，在单事务内修改持久配置、私有模型 ACL、默认模型、普通任务模型及静态五模型清单（防止模型发现故障时后台请求回退到 Hermes）、关闭注册、停用旧 Pipe。保留原 Pipe 代码/配置及所有聊天，失败则事务回滚。不要删除卷或仅修改 env 来假定覆盖已有持久配置。
 6. 启动 WebUI；检查默认入口、连续追问、知识闭环、标题/标签模型、停止/异常显示。生产不允许添加第二个管理员共享此 profile；新增用户前重新设计身份与记忆隔离。
 7. 备份 cron 必须使用包含助手服务的合并部署 compose（仍是变量模板，不写展开的秘密）。安装新版聊天备份脚本及同目录 `ops/backup/assistant_image.py`；恢复不依赖助手源码。备份脚本由 compose 判断助手为必备产物，缺失/备份失败进入既有失败监控。
@@ -73,14 +75,14 @@ python3 ops/render_chat_release.py --check /private/candidate-compose.json
 
 跨服务 CI 由 `Chat compatibility` 工作流执行：`infra/chat/verification-sources.json` 固定助手和 WebUI 的完整候选提交；各自独立 checkout/构建，在临时卷里运行相同验收命令，不发布镜像、不读取生产凭证。该文件是测试组合，不替代已部署锁及 ResearchRelease。
 
-## Agent 工作台候选接线
+## Agent 工作台接线
 
 WebUI 新增工作台通过原生 gateway 的会话、运行、审批与 cron HTTP 接口访问个人助手。需设置 `YOUWEI_WORKBENCH_OWNER_ID` 为现有 WebUI 用户 ID，并指定 `YOUWEI_WEBUI_WORKBENCH_IMAGE` 为验证后的新 WebUI 镜像；助手镜像需包含 `workbench.py`。
 
 在现有 `chat.json`、`chat-assistant.json` 之后叠加 `infra/compose/chat-workbench.json`，它为 WebUI 设置服务端凭证与只读技能服务 URL，另起同镜像技能服务并只读挂载 `hermes_profile`。不挂载 WebUI 数据库到助手，不改变旧聊天存储，不开放技能写入或宿主执行。完整参数与行为见 [WebUI 工作台文档](https://github.com/youweichen0208/youwei-webui/blob/develop/docs/hermes/README.md)。
 
-这是候选配置，当前部署锁和 VM 未切换；部署前仍按固定镜像与兼容验收流程验证，不能直接把浮动分支当作生产镜像。
+工作台已部署，当前组合见 [上游登记](../UPSTREAMS.md)，鉴权和只读技能服务的后续复验见 [金融部署记录](trading-core-20261005.md)。这里的 overlay 是接线模板；升级仍须验证固定镜像与兼容性，不能覆盖目标机部署副本或直接使用浮动分支镜像。
 
 ## 2026-10-05 Marketplace 指数工具
 
-当前允许列表为九项 MCP + 五项基础工具：原有七项加 `mp_indices_list` / `mp_index_components`。用 `GSPC.INDX` 查询当前与历史成分，先查指数列表，不自动批量下载。独立 Marketplace 配额与通用 API 权限分开；旧有基本面/财报日历仍受套餐限制。最新源码、镜像及部署验收见 [Marketplace 记录](eodhd-marketplace-rollout-20261005.md)；Extended 十九项候选未启用。
+当前允许列表为九项 MCP + 八项基础工具（包含三项免费金融工具）：原有七项加 `mp_indices_list` / `mp_index_components`。用 `GSPC.INDX` 查询当前与历史成分，先查指数列表，不自动批量下载。独立 Marketplace 配额与通用 API 权限分开；旧有基本面/财报日历仍受套餐限制。最新源码、镜像及部署验收见 [Marketplace 记录](eodhd-marketplace-rollout-20261005.md)；Extended 十九项候选未启用。

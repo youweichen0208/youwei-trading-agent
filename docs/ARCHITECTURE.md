@@ -1,7 +1,7 @@
 # Hermes 美股助手与研究平台技术架构 v0.3
 
 日期：2026-09-28（仓库边界与现行部署约束同步）；2026-10-01（MVP 暂缓 Pi，Hermes 唯一 Agent 框架）；2026-10-04（三仓库职责、个人助手与升级边界）\
-状态：三仓职责已拆分，平台与个人助手已有部署记录；正式前向评估与后续能力按实施计划逐项验收\
+状态：四仓职责已拆分（2026-10-05 增独立金融包），平台与个人助手已有部署记录；正式前向评估与后续能力按实施计划逐项验收\
 输入：用户提供的 v0.2 架构；详细问题见 [v0.2 评审](archive/ARCHITECTURE_REVIEW_v0.2.md)\
 适用范围：已确认自用或受控内部研究，不向公众提供服务、不自动交易、不对外提供投资建议；目标为中国大陆入口与新加坡核心。现有 SG 主机为 DigitalOcean 4 vCPU / 7.8 GB，国内入口尚待接入。范围扩大按第13节重新评估。
 
@@ -37,6 +37,7 @@ S00 的具体选择登记于 [protocols/](protocols/README.md)：固定20证券�
 | youwei-webui | 登录、聊天界面、聊天历史、流式展示；上游界面定制和镜像构建 | WebUI 数据库保存账户与聊天；不作为 Core 任务状态或正式研究记忆的权威 |
 | youwei-trading-agent | Core、quant、contracts、Runner、研究/实验 Hermes 适配、跨服务部署与备份调度 | PostgreSQL 管理平台任务、报告、PIT 与 Ledger；固定外部镜像及兼容组合 |
 | trading-assistant（个人 Hermes gateway） | 自由问答、搜索与网页读取、平台工具调用、个人知识沉淀 | 独立 Python 3.13、持久 profile、会话数据库、memory 与知识卷；不直连业务数据库 |
+| trading_core | 免费日线、基础指标、SEC 财报查询与纯计算 | 独立 Python 3.13 包；不导入 Hermes/Core，最新历史资料不承诺正式 PIT |
 | Core / Controller | 服务端身份与权限、PIT 行情、持久研究、冻结输入及受控提交 | 任务状态、幂等、租约和 fencing 均由 Core 决定 |
 | 研究 / 实验 Hermes | 在 Controller / Runner 授权链路中消费受控输入并返回提案 | 与个人助手分离配置、凭证、profile 和工具权限；不能自行封存正式预测 |
 | LiteLLM | 所有模型调用的统一出口 | 聊天后台任务、个人助手与研究使用各自的服务端凭证 |

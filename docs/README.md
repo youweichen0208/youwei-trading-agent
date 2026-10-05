@@ -1,9 +1,13 @@
 # 项目文档
 
-三仓共同组成个人助手与美股研究平台：WebUI 管登录和聊天，trading-assistant 管个人 Hermes、插件与知识，平台管 Core、Runner、研究和评估。个人知识不自动成为正式研究输入。
+四仓共同组成个人助手与美股研究平台：WebUI 管登录和聊天，trading-assistant 管个人 Hermes、插件与知识，trading_core 管独立金融查询与计算，平台管 Core、Runner、研究、评估与部署登记。个人知识不自动成为正式研究输入。
 
 | 入口 | 用途 |
 | --- | --- |
+| [项目入口](../README.md) / [Agent 指引](../AGENTS.md) / [领域术语](../CONTEXT.md) | 定位、修改规则与共同语言 |
+| [开发](DEVELOPMENT.md) | 独立环境、测试与本地运行 |
+| [运维](OPERATIONS.md) | 发布、备份和恢复入口 |
+| [状态](STATUS.md) | 当前证据及未完成项 |
 | [架构](ARCHITECTURE.md) | 当前职责、调用链、数据与权限 |
 | [仓库边界](REPOSITORY.md) | 模块、依赖环境及测试入口 |
 | [实施计划](IMPLEMENTATION_PLAN.md) | 当前状态、Sxx 索引、后续节点 |
