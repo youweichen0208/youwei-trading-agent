@@ -1,0 +1,20 @@
+{
+  "source_repository": "https://github.com/youweichen0208/youwei-webui",
+  "source_revision": "7a868661e41563f1bae33ddbfdcdd061a66cc5a5",
+  "image": "ghcr.io/youweichen0208/youwei-webui@sha256:203a484b5dfa6237a98536b2fbeb650f910fa7635bdb34a771cf785237b8e345",
+  "platform": "linux/amd64",
+  "build": "https://github.com/youweichen0208/youwei-webui/actions/runs/37344666708",
+  "pull_request": "https://github.com/youweichen0208/youwei-webui/pull/5",
+  "deployment_status": "candidate_not_deployed",
+  "production_lock_unchanged": true,
+  "paid_models_called": false,
+  "formal_forward_evaluation": false,
+  "verification": {
+    "image_architecture_and_revision": "matched docker image inspect",
+    "network_isolated_restore": "passed: 2 chats byte-preserved; owner/password preserved; private grants/signup disabled; restart passed",
+    "actual_image_mock_integration": "passed: three financial tools stream/nonstream, saved history, ordinary connection, raw Responses bypass denied",
+    "webui_ci": "passed bridge/native-chat/frontend/image",
+    "platform_core_ci": "passed full suite (run 37345364162)",
+    "legacy_compatibility_ci": "run 37345364094 first attempt failed financial JSON assertion on unchanged old fixed source combination; rerun requested"
+  }
+}
