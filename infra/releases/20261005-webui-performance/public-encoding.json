@@ -1,0 +1,72 @@
+[
+  {
+    "requested_encoding": "gzip",
+    "bytes": 57461,
+    "decoded_sha256": "4df3b928ff7f8889e33ccec15ac4c9fd0d4cc7f9182baa9c2da186b526dc672e",
+    "headers": {
+      "content-encoding": [
+        "gzip"
+      ],
+      "vary": [
+        "Accept-Encoding, Origin"
+      ],
+      "cache-control": [
+        "public, max-age=31536000, immutable"
+      ],
+      "x-cache-status": [
+        "MISS"
+      ]
+    }
+  },
+  {
+    "requested_encoding": "identity",
+    "bytes": 146588,
+    "decoded_sha256": "4df3b928ff7f8889e33ccec15ac4c9fd0d4cc7f9182baa9c2da186b526dc672e",
+    "headers": {
+      "vary": [
+        "Accept-Encoding, Origin"
+      ],
+      "cache-control": [
+        "public, max-age=31536000, immutable"
+      ],
+      "x-cache-status": [
+        "MISS"
+      ]
+    }
+  },
+  {
+    "requested_encoding": "gzip",
+    "bytes": 57461,
+    "decoded_sha256": "4df3b928ff7f8889e33ccec15ac4c9fd0d4cc7f9182baa9c2da186b526dc672e",
+    "headers": {
+      "content-encoding": [
+        "gzip"
+      ],
+      "vary": [
+        "Accept-Encoding, Origin"
+      ],
+      "cache-control": [
+        "public, max-age=31536000, immutable"
+      ],
+      "x-cache-status": [
+        "HIT"
+      ]
+    }
+  },
+  {
+    "requested_encoding": "identity",
+    "bytes": 146588,
+    "decoded_sha256": "4df3b928ff7f8889e33ccec15ac4c9fd0d4cc7f9182baa9c2da186b526dc672e",
+    "headers": {
+      "vary": [
+        "Accept-Encoding, Origin"
+      ],
+      "cache-control": [
+        "public, max-age=31536000, immutable"
+      ],
+      "x-cache-status": [
+        "HIT"
+      ]
+    }
+  }
+]

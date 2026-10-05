@@ -1,0 +1,69 @@
+[
+  {
+    "host": "trading.youwei-agent.com",
+    "path": "/",
+    "status": "HTTP/2 200 ",
+    "headers": {
+      "content-type": "text/html; charset=utf-8",
+      "vary": "Accept-Encoding, Origin"
+    }
+  },
+  {
+    "host": "trading.youwei-agent.com",
+    "path": "/_app/immutable/entry/start.BcWoRP0q.js",
+    "status": "HTTP/2 200 ",
+    "headers": {
+      "content-type": "text/javascript; charset=utf-8",
+      "vary": "Origin",
+      "cache-control": "public, max-age=31536000, immutable",
+      "x-cache-status": "HIT"
+    }
+  },
+  {
+    "host": "trading.youwei-agent.com",
+    "path": "/_app/immutable/entry/start.BcWoRP0q.js",
+    "status": "HTTP/2 200 ",
+    "headers": {
+      "content-type": "text/javascript; charset=utf-8",
+      "vary": "Origin",
+      "cache-control": "public, max-age=31536000, immutable",
+      "x-cache-status": "HIT"
+    }
+  },
+  {
+    "host": "trading.youwei-agent.com",
+    "path": "/_app/immutable/nonexistent-perf-check.js",
+    "status": "HTTP/2 404 ",
+    "headers": {
+      "content-type": "application/json",
+      "vary": "Origin"
+    }
+  },
+  {
+    "host": "trading.youwei-agent.com",
+    "path": "/_app/version.json",
+    "status": "HTTP/2 200 ",
+    "headers": {
+      "content-type": "application/json",
+      "vary": "Origin"
+    }
+  },
+  {
+    "host": "trading.youwei-agent.com",
+    "path": "/api/version",
+    "status": "HTTP/2 200 ",
+    "headers": {
+      "content-type": "application/json",
+      "vary": "Origin"
+    }
+  },
+  {
+    "host": "trading.youwei-agent.com",
+    "path": "/api/v1/hermes/config",
+    "status": "HTTP/2 401 ",
+    "headers": {
+      "content-type": "application/json",
+      "vary": "Origin"
+    }
+  }
+]

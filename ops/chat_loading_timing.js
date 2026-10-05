@@ -33,6 +33,8 @@ export const readChatLoadingTiming = async () => {
       path: new URL(r.name).pathname.replace(/\/[0-9a-f-]{32,}/g, "/[id]"),
       protocol: r.nextHopProtocol,
       status: r.responseStatus,
+      startMs: r.startTime,
+      endMs: r.responseEnd,
       durationMs: r.duration,
       transferBytes: r.transferSize,
       encodedBytes: r.encodedBodySize,
