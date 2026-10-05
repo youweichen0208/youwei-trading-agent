@@ -145,3 +145,8 @@ API只映射本机 `127.0.0.1:8000`，并接入普通 `edge` 网络供本机发�
 ### WebUI 性能切片（2026-10-05）
 
 上海入口已启用 HTTP/2 与哈希静态资源浏览器缓存；历史三阶段测量见 [入口与侧栏验收](ops/webui-performance-20261005.md)。最新聊天组合仅替换 WebUI，助手、网关和数据库保持原身份，使用 [热加载切片锁](../infra/releases/20261005-webui-warm-loading/chat.lock.json) 和 [清单](../infra/releases/20261005-webui-warm-loading/chat.manifest.json)。源码、镜像、备份恢复与本轮热缓存 7.877 → 5.166 秒见 [热加载验收](ops/webui-warm-loading-20261005.md)；5 秒目标仍未达到，不宣称两分钟现象已解决。
+
+
+### Hermes 聊天金融卡片发布（2026-10-06）
+
+当前聊天栈锁为 `infra/releases/20261006-hermes-chat-cards/chat.lock.json`，配套 `chat.manifest.json`。WebUI digest `203a484b…b8e345` 已上线，等价于合并后的 develop `87a3f58da` 文件内容；助手、金融包、Core 镜像不变。用户授权、真实备份恢复、线上验证及回滚见 [发布记录](ops/hermes-chat-cards-20261006.md)。旧发布日期锁保留为历史，不代表当前 WebUI 镜像。

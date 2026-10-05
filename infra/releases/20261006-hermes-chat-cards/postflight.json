@@ -1,0 +1,24 @@
+{
+  "passed": true,
+  "revision": "7a868661e41563f1bae33ddbfdcdd061a66cc5a5",
+  "image": "ghcr.io/youweichen0208/youwei-webui@sha256:203a484b5dfa6237a98536b2fbeb650f910fa7635bdb34a771cf785237b8e345",
+  "checks": {
+    "/health": 200,
+    "/api/version": 200,
+    "/_app/version.json": 200,
+    "/api/v1/auths/": 200,
+    "/api/v1/chats/": 200,
+    "/api/v1/hermes/config": 200,
+    "/api/v1/hermes/sessions?limit=5": 200,
+    "/api/v1/hermes/skills": 200,
+    "/api/v1/hermes/jobs": 200,
+    "anonymous_workbench": 401,
+    "hermes_chat_enabled": true,
+    "raw_responses_blocked": 403
+  },
+  "chats_preserved": 7,
+  "account_password_preserved": true,
+  "other_containers_unchanged": 15,
+  "rollback_executed": false,
+  "paid_models_called": false
+}

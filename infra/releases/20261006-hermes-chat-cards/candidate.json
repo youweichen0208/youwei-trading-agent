@@ -5,8 +5,8 @@
   "platform": "linux/amd64",
   "build": "https://github.com/youweichen0208/youwei-webui/actions/runs/37344666708",
   "pull_request": "https://github.com/youweichen0208/youwei-webui/pull/5",
-  "deployment_status": "candidate_not_deployed",
-  "production_lock_unchanged": true,
+  "deployment_status": "deployed_sg_20261006",
+  "production_lock_unchanged": false,
   "paid_models_called": false,
   "formal_forward_evaluation": false,
   "verification": {
@@ -16,5 +16,7 @@
     "webui_ci": "passed bridge/native-chat/frontend/image",
     "platform_core_ci": "passed full suite (run 37345364162)",
     "legacy_compatibility_ci": "run 37345364094 first attempt failed financial JSON assertion on unchanged old fixed source combination; rerun requested"
-  }
+  },
+  "production_lock": "chat.lock.json",
+  "postflight": "postflight.json"
 }
