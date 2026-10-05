@@ -150,3 +150,7 @@ API只映射本机 `127.0.0.1:8000`，并接入普通 `edge` 网络供本机发�
 ### Hermes 聊天金融卡片发布（2026-10-06）
 
 当前聊天栈锁为 `infra/releases/20261006-hermes-chat-cards/chat.lock.json`，配套 `chat.manifest.json`。WebUI digest `203a484b…b8e345` 已上线，等价于合并后的 develop `87a3f58da` 文件内容；助手、金融包、Core 镜像不变。用户授权、真实备份恢复、线上验证及回滚见 [发布记录](ops/hermes-chat-cards-20261006.md)。旧发布日期锁保留为历史，不代表当前 WebUI 镜像。
+
+### 日期边界修复发布（2026-10-06）
+
+当前聊天栈锁更新为 `infra/releases/20261006-finance-date-fix/chat.lock.json`，配套同目录 manifest。只替换两个助手服务，WebUI 金融卡片镜像不变。消费新金融 wheel，镜像由助手关联的 `trading-assistant-candidates` GHCR 包发布并固定 digest；旧包写权限拒绝的失败记录保留。来源、验证及回滚见 [发布记录](ops/finance-date-fix-20261006.md)。

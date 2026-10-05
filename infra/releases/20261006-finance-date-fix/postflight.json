@@ -1,0 +1,23 @@
+{
+  "passed": true,
+  "image": "ghcr.io/youweichen0208/trading-assistant-candidates@sha256:73e28618c2fe5a67c05098e855a668e808a8e336ca498339d23af0a865315ad7",
+  "revision": "9b38567be3f401730bc5a150e83bbb5b92f6c58f",
+  "build": "https://github.com/youweichen0208/trading-assistant/actions/runs/37387250503",
+  "checks": {
+    "/health": 200,
+    "/api/version": 200,
+    "/_app/version.json": 200,
+    "/api/v1/auths/": 200,
+    "/api/v1/chats/": 200,
+    "/api/v1/hermes/config": 200,
+    "/api/v1/hermes/sessions?limit=5": 200,
+    "/api/v1/hermes/skills": 200,
+    "/api/v1/hermes/jobs": 200,
+    "anonymous_workbench": 401,
+    "hermes_chat_enabled": true,
+    "raw_responses_blocked": 403
+  },
+  "other_containers_unchanged": 14,
+  "rollback_executed": false,
+  "paid_models_called": false
+}
