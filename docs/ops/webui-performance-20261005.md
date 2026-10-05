@@ -47,6 +47,8 @@
 
 源码对应 WebUI `src/routes/+layout.svelte` 的配置、session 校验、配置刷新，以及 `src/routes/(app)/+layout.svelte` 的 `setUserSettings` 回调后 `setModels`。模型列表使用用户设置中的 directConnections，配置刷新处于身份初始化流程中，不能未经语义验证就删请求或提前复用匿名配置。后续需对这条初始化链单独设计并行/去重及登录失效、配置变化、连接设置的回归验证；本次保留该行为，未扩大修改登录权限或模型配置。
 
+补充三次配置 API 对照：浏览器总耗时 834–922 毫秒，而响应头记录服务端处理 15–44 毫秒；容器回环总耗时 35–78 毫秒。由此推断差额主要在浏览器/代理/网络链路，未据此认定具体网络故障；详见 [延迟记录](../../infra/releases/20261005-webui-performance/config-latency.json)。
+
 ## 验证分层
 
 | 层次 | 实际验证与结果 |
@@ -70,4 +72,4 @@
 
 SG 工作目录 `/root/webui-perf-20261005/`；`rollback/compose.json`、`rollback/secrets.env` 为切换前配置，备份在 `backups/` 的受控目录。仅 WebUI image 字段改变，秘密配置不变。自动切换脚本 [cutover.py](../../infra/releases/20261005-webui-performance/cutover.py) 在健康/后验失败时恢复旧 Compose，仅 `up -d --no-deps openwebui`。同版本无迁移，保留现有卷及新聊天；不覆盖正式研究数据。此次没有触发生产回滚，不能将其称为实际回滚演练通过。
 
-实际部署清单为 [chat.lock.json](../../infra/releases/20261005-webui-performance/chat.lock.json) / [chat.manifest.json](../../infra/releases/20261005-webui-performance/chat.manifest.json)，渲染配置仅在 SG `production-rendered-private.json`（0600），与验收候选逐字节一致。没有重跑 Core 全量数据库测试，没有真实付费模型质量或正式前向评估。热加载目标与偶发长等待仍需后续处理。
+实际部署清单为 [chat.lock.json](../../infra/releases/20261005-webui-performance/chat.lock.json) / [chat.manifest.json](../../infra/releases/20261005-webui-performance/chat.manifest.json)，渲染配置仅在 SG `production-rendered-private.json`（0600），与验收候选逐字节一致。没有在本地重跑 Core 全量数据库测试，没有真实付费模型质量或正式前向评估。热加载目标与偶发长等待仍需后续处理。
