@@ -1,0 +1,17 @@
+== verifying /root/parallel-research-20261006/backups/chat/daily/chat-backup-20261006-002852 ==
+PASS: verify postgres ready
+PASS: pg_restore completed
+PASS: LiteLLM_SpendLogs restored (147 rows)
+PASS: LiteLLM_VerificationToken restored (7 rows)
+PASS: openwebui archive extracts
+  chat rows: 8; tables: 44
+PASS: webui.db integrity_check + tables
+PASS: uploads/ present in archive
+PASS: vector_db/ present in archive
+PASS: compose.json archived
+{"databases": {"state.db": 25, "shared-state.db": 15, "runs_idempotency.db": 1, "response_store.db": 2, "kanban.db": 8}, "notes_checked_up_to_100": 0, "files": 5}
+PASS: Hermes image-isolated restore hashes/SQLite/knowledge
+PASS: secrets archive contains secrets.env
+PASS: secrets archive contains config.yaml
+PASS: secrets archive is 0600
+== verify result: ALL PASS ==

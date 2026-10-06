@@ -1,0 +1,26 @@
+{
+  "passed": true,
+  "image": "ghcr.io/youweichen0208/trading-assistant-candidates@sha256:4c2c8798568775a3795465dd0d409de63e2465055a2e781f05c59c9cc0726c88",
+  "revision": "5b7631b291139c4d8ddb9ce218c99453e35dce9f",
+  "build": "https://github.com/youweichen0208/trading-assistant/actions/runs/37391484575",
+  "webui_image": "ghcr.io/youweichen0208/youwei-webui@sha256:2c5ffcdf5648ebae62c968115fdf1447b8134efa917ffd7951f63b7f0a6166fd",
+  "webui_revision": "e689ef4acec1b0e6686650c1a950c163d2a214fa",
+  "webui_build": "https://github.com/youweichen0208/youwei-webui/actions/runs/37392453050",
+  "checks": {
+    "/health": 200,
+    "/api/version": 200,
+    "/_app/version.json": 200,
+    "/api/v1/auths/": 200,
+    "/api/v1/chats/": 200,
+    "/api/v1/hermes/config": 200,
+    "/api/v1/hermes/sessions?limit=5": 200,
+    "/api/v1/hermes/skills": 200,
+    "/api/v1/hermes/jobs": 200,
+    "anonymous_workbench": 401,
+    "hermes_chat_enabled": true,
+    "raw_responses_blocked": 403
+  },
+  "other_containers_unchanged": 13,
+  "rollback_executed": false,
+  "paid_models_called": false
+}
