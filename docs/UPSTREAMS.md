@@ -154,3 +154,7 @@ API只映射本机 `127.0.0.1:8000`，并接入普通 `edge` 网络供本机发�
 ### 日期边界修复发布（2026-10-06）
 
 当前聊天栈锁更新为 `infra/releases/20261006-finance-date-fix/chat.lock.json`，配套同目录 manifest。只替换两个助手服务，WebUI 金融卡片镜像不变。消费新金融 wheel，镜像由助手关联的 `trading-assistant-candidates` GHCR 包发布并固定 digest；旧包写权限拒绝的失败记录保留。来源、验证及回滚见 [发布记录](ops/finance-date-fix-20261006.md)。
+
+### 并行研究发布（2026-10-06）
+
+当前聊天栈使用 `infra/releases/20261006-parallel-research/chat.lock.json` 与配套 manifest。固定新助手/金融wheel/WebUI组合，保留官方Hermes基线、网关、数据库与Core镜像。候选恢复、Responses子代理同轮返回、真实来源缺失限制、生产验证与回滚见 [发布记录](ops/parallel-research-20261006.md)。PR交付不等于已合并；部署身份以本次固定digest为准。

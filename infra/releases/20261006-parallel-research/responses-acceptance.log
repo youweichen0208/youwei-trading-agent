@@ -1,0 +1,2 @@
+PASS native auth/concurrency/stream/history/memory/knowledge/backup/restore/restart; MCP nine-tool loop/allowlist/credentials/redaction/403/429/timeout/offline startup
+PASS Responses store=false: parallel children joined, restricted discovery and rejected platform submit

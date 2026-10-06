@@ -1,0 +1,131 @@
+{
+  "passed": true,
+  "image": "ghcr.io/youweichen0208/trading-assistant-candidates@sha256:4c2c8798568775a3795465dd0d409de63e2465055a2e781f05c59c9cc0726c88",
+  "revision": "5b7631b291139c4d8ddb9ce218c99453e35dce9f",
+  "build": "https://github.com/youweichen0208/trading-assistant/actions/runs/37391484575",
+  "webui_image": "ghcr.io/youweichen0208/youwei-webui@sha256:2c5ffcdf5648ebae62c968115fdf1447b8134efa917ffd7951f63b7f0a6166fd",
+  "webui_revision": "e689ef4acec1b0e6686650c1a950c163d2a214fa",
+  "webui_build": "https://github.com/youweichen0208/youwei-webui/actions/runs/37392453050",
+  "webui_restore": "PASS network-isolated backup migration/restart: 8 chats byte-preserved, owner/password preserved, private model grants and signup disabled",
+  "live": {
+    "passed": true,
+    "queries": [
+      {
+        "operation": "analysis",
+        "period": {
+          "start": "2026-07-05",
+          "end_exclusive": "2026-10-06",
+          "first": "2026-07-06",
+          "last": "2026-10-05"
+        },
+        "rows": 65,
+        "missing_adjusted_close_dates": [
+          "2026-10-05"
+        ],
+        "warnings": [
+          "Latest retrieved history; not formal point-in-time data.",
+          "Missing adjusted closes; indicators will not bridge gaps."
+        ],
+        "source": "Yahoo Finance via yfinance",
+        "metrics": {
+          "sma20": {
+            "value": null,
+            "reason": "missing_or_invalid_adjusted_close"
+          },
+          "sma50": {
+            "value": null,
+            "reason": "missing_or_invalid_adjusted_close"
+          },
+          "sma200": {
+            "value": null,
+            "reason": "missing_or_invalid_adjusted_close"
+          },
+          "rsi14": {
+            "value": null,
+            "reason": "missing_or_invalid_adjusted_close"
+          },
+          "period_return": {
+            "value": null,
+            "reason": "missing_or_invalid_adjusted_close"
+          },
+          "annualized_volatility": {
+            "value": null,
+            "reason": "missing_or_invalid_adjusted_close"
+          },
+          "max_drawdown": {
+            "value": null,
+            "reason": "missing_or_invalid_adjusted_close"
+          }
+        },
+        "indicator_history": {
+          "start": "2025-09-01",
+          "end_exclusive": "2026-10-06",
+          "first": "2025-09-02",
+          "last": "2026-10-05",
+          "sample_size": 275
+        },
+        "passed": true
+      },
+      {
+        "operation": "analysis",
+        "period": {
+          "start": "2026-07-05",
+          "end_exclusive": "2026-10-03",
+          "first": "2026-07-06",
+          "last": "2026-10-02"
+        },
+        "rows": 64,
+        "missing_adjusted_close_dates": [],
+        "warnings": [
+          "Latest retrieved history; not formal point-in-time data."
+        ],
+        "source": "Yahoo Finance via yfinance",
+        "metrics": {
+          "sma20": {
+            "value": 331.8949996948242,
+            "reason": null
+          },
+          "sma50": {
+            "value": 322.3551904296875,
+            "reason": null
+          },
+          "sma200": {
+            "value": 288.79897071838377,
+            "reason": null
+          },
+          "period_return": {
+            "value": 0.06818197581868257,
+            "reason": null
+          },
+          "max_drawdown": {
+            "value": -0.11047195570954838,
+            "reason": null
+          },
+          "annualized_volatility": {
+            "value": 0.2672397215566029,
+            "reason": null
+          },
+          "rsi14": {
+            "value": 54.738372647479096,
+            "reason": null
+          }
+        },
+        "indicator_history": {
+          "start": "2025-08-29",
+          "end_exclusive": "2026-10-03",
+          "first": "2025-08-29",
+          "last": "2026-10-02",
+          "sample_size": 275
+        },
+        "passed": true
+      }
+    ],
+    "date_error_guidance": true,
+    "paid_models_called": false
+  },
+  "backup_restore": "ALL PASS",
+  "candidate_restore": "{\"databases\": {\"state.db\": 25, \"shared-state.db\": 15, \"runs_idempotency.db\": 1, \"response_store.db\": 2, \"kanban.db\": 8}, \"notes_checked_up_to_100\": 0, \"files\": 5}",
+  "responses": "PASS Responses store=false",
+  "cross_service": "PASS pinned WebUI",
+  "paid_models_called": false
+}
