@@ -1,0 +1,333 @@
+{
+  "observed_at": "2026-10-28T02:56:39.591134+00:00",
+  "scope": "Local container REPLAY verification; not staging or LIVE research qualification",
+  "services": {
+    "yta-web": {
+      "image_digest": "sha256:0f8351220de319e70899bd12ad3769e68b7c445e205a8045680c06dc6a175b36",
+      "architecture": "arm64",
+      "user": "node",
+      "read_only": true,
+      "health": "healthy"
+    },
+    "yta-bff": {
+      "image_digest": "sha256:df9b2863899419fd5754f80a62bd9b4c7e56de519b159b614c596d15999b952d",
+      "architecture": "arm64",
+      "user": "node",
+      "read_only": true,
+      "health": "healthy"
+    },
+    "alpha-engine": {
+      "image_digest": "sha256:dfc6c80a8cdd54aac20b35240eb1115a615f1339e8f2ee54b309c319aaab6f30",
+      "architecture": "arm64",
+      "user": "10001:10001",
+      "read_only": true,
+      "health": "healthy"
+    }
+  },
+  "quota_probe": {
+    "data_mode": "REPLAY",
+    "authenticated_http": true,
+    "quota": 2,
+    "accepted": 2,
+    "rejected_status": 429,
+    "same_key_original_run": true,
+    "persisted_user_messages": 2,
+    "packaged_openapi_has_quota": true,
+    "persisted_login_account_slots": 1,
+    "normalized_stock_paths_verified": true,
+    "database_readiness": "ready",
+    "real_provider_requests": 0
+  },
+  "migration_probe": {
+    "image_digest": "sha256:f1a964e4dbfb1214a69cf64572d99ea2c46c3fecf8c455ddd0a1723da0883618",
+    "latest_migration": "013_market_bars.sql",
+    "fresh_and_upgrade": "passed",
+    "repeated_migration": "passed",
+    "existing_audit_preserved": true,
+    "runtime_role_denied": true,
+    "disposable_databases_removed": true,
+    "verification_observed_at": "2026-10-28T02:47:55.035802+00:00",
+    "not_rebuilt_in_this_increment": true
+  },
+  "container_smoke": "passed",
+  "symbol_history_authenticated_http": true,
+  "web_test_artifacts_absent": true,
+  "external_model_or_provider_requests": 0,
+  "qualification_status": "UNVERIFIED",
+  "tracing_packaging": {
+    "bff_entrypoint_imported": true,
+    "actual_otlp_export_in_containers": false,
+    "tools_image_rebuilt": false
+  },
+  "files": {
+    ".dockerignore": "8fa64b50b74417fc7e67537cc1ec1f4cccb47a8d4df20f2a91799bf1da6f1857",
+    "apps/bff/package.json": "76cf20dd4be53a965a06d40baa87f4687dff944eae4d0139deffed2602a3e12d",
+    "apps/bff/src/alpha.ts": "be553d6890f0959dbc5ba46df2e276c26c4e81514d7eab36a5047e1d9b6d1bdf",
+    "apps/bff/src/auth.ts": "de04cf49d7f395151d878b64f3b24471199954758f4105dee2d98bb6b7e31928",
+    "apps/bff/src/config.ts": "d0bd7a9ba0ac49de268b56917be0cf9f4efbff850478727d962fbeaa8ba0d9c5",
+    "apps/bff/src/login-limiter.ts": "2b25c283964fe76b3619d819bc692721ca16f679930054a699b00971f6893b6d",
+    "apps/bff/src/main.ts": "7d435bf5707f341b84375d273b6c58b1c6fef2f831aace99c88e3d915b75483b",
+    "apps/bff/src/observability.ts": "e211b1282a91424687a9d228b1f888cadab9e741ef314a82b98703900b783ab1",
+    "apps/bff/src/readiness.ts": "1ceb359e0a537a1fca925745c32adec9a0ff560d0d2d220b8f82c2e643f1f22f",
+    "apps/bff/src/research-store.ts": "22481a276ae5c1db19125d2a0eea713391f3c422f789e934db14939d5345b2b3",
+    "apps/bff/src/tracing.ts": "9ad87ab1b49ee6daafded4e6dff052665328a8fbb1d29e3a7ffe5fd7bac14422",
+    "apps/web/components/research-workspace.tsx": "9c166aac73051ec40de0abf0a992eee5af6f0a210663f5e5bbc3b638e6c97010",
+    "infra/compose/compose.app-local.yaml": "af0d95235039dba672c7b16efe83e0a5f4f9992f4e822b0abe7da28ebe6c490a",
+    "infra/docker/alpha.Dockerfile": "887a00ea8e81d2411ebbe6d0eb44060e4993ec5ae59ef059fc5552d8e51f5f56",
+    "infra/docker/node.Dockerfile": "d941159ceeaf3d88942a9dfe66d14b3088627e5681aed560f00a1d77bdfc71e8",
+    "infra/migrations/011_login_account_attempts.sql": "bf01c3d588464940c1453175bb440bfc972b6d890cd32deae7add5b7323b48c9",
+    "infra/migrations/012_symbols.sql": "8a4ba6e4c340a936f8cdcfebca8336f1bc4a2dbe84eadc5359c0fd59a9d09e93",
+    "infra/migrations/013_market_bars.sql": "f1b0878e5941860e6f6616501befca715524bc7371c7104ca7c1d3c0033b76f2",
+    "packages/contracts/bff.openapi.json": "da5bda8a48329adaa4e3e7bf5ebeccaac8d39dd672a402f801480e551695d669",
+    "packages/contracts/src/requests.ts": "ca60119c3e0a0216607d8e4a68681d95e5621316c398ffbae819013864b4d6cb",
+    "pnpm-lock.yaml": "9eebf1cd50795451dd606c90593c933b5868a0323d7acaadec43908b009ecf6f",
+    "pyproject.toml": "628f408fc119622442f2c9c8ca46c960dc8cbb2149cb192fec07a6bcd5344abe",
+    "scripts/check_container_quota.mjs": "9e410fc144486721716bbf9b6df607dac9e8fa136a10ab64106df3f16111de9e",
+    "scripts/check_container_stack.py": "1aa5fb8d8932e23ff4f27da1e8477c9b3a101b58fb4a8a10df5da6f5247a53be",
+    "scripts/check_dependency_outage.py": "e96481443c15a3b6d1e38da747e8a34bbe92799090cde1349835c9ad5887e4de",
+    "scripts/check_migration_container.py": "caf18cb1a7d9d313a3db17e0bb558a53b4b3421301edc9b453ccc0f388c80df7",
+    "services/alpha-engine/src/yta_alpha/acquisition_store.py": "b37122269d6acf382fc52a2804aed3e9a554daa9fce373b2a0054f76d99f0265",
+    "services/alpha-engine/src/yta_alpha/api.py": "3eb35dd1093ab4ec91e1dafbd8124e9fa0284c27d5684c272fb3321fd32e802d",
+    "services/alpha-engine/src/yta_alpha/market_bars.py": "e70f6598b1f01168469d582d9ee2050380ddff27191b6713e31accde24274a6b",
+    "services/alpha-engine/src/yta_alpha/settings.py": "bb388cab6139b0106d3f45e6d25d2371c268c0cf9f78d9e270353ddde19debda",
+    "services/alpha-engine/src/yta_alpha/symbols.py": "ec167c9c8e9e7279096c26434293dc41986d135bd7462b8debe11cfd100c8a64",
+    "services/alpha-engine/src/yta_alpha/tracing.py": "e08d8496321941bd448141504beecf5e90b24ce77f7712fb64662908421afacf",
+    "uv.lock": "eff5d9937ec66d588da5571ac75823697c2e1a1b921fd555afd97f3dc8cd8445"
+  },
+  "prior_observations": [
+    {
+      "observed_at": "2026-10-27T12:10:10.530223+00:00",
+      "scope": "Local container REPLAY verification; not staging or LIVE research qualification",
+      "services": {
+        "yta-web": {
+          "image_digest": "sha256:a7fb896f217121a148925b2f82be6cdaaff1e56916f0858ccf5fa1c7ddf508c8",
+          "architecture": "arm64",
+          "user": "node",
+          "read_only": true,
+          "health": "healthy"
+        },
+        "yta-bff": {
+          "image_digest": "sha256:68172b1b25a600cdfd3c1eddd35f1b11759e6f890e708ad399327fbc471ec747",
+          "architecture": "arm64",
+          "user": "node",
+          "read_only": true,
+          "health": "healthy"
+        },
+        "alpha-engine": {
+          "image_digest": "sha256:dec0e9965f41d7e95443d4bc2000d3214e9902e8b3fc2c0effcb51abfefa9d5a",
+          "architecture": "arm64",
+          "user": "10001:10001",
+          "read_only": true,
+          "health": "healthy"
+        }
+      },
+      "quota_probe": {
+        "configured": 2,
+        "accepted": 2,
+        "refused_http_status": 429,
+        "same_key_original_run": true,
+        "persisted_user_messages": 2,
+        "packaged_openapi_has_quota": true
+      },
+      "container_smoke": "passed",
+      "same_images_recreated_healthy": true,
+      "web_test_artifacts_absent": true,
+      "external_model_or_provider_requests": 0,
+      "qualification_status": "UNVERIFIED",
+      "files": {
+        ".dockerignore": "8fa64b50b74417fc7e67537cc1ec1f4cccb47a8d4df20f2a91799bf1da6f1857",
+        "infra/compose/compose.app-local.yaml": "af0d95235039dba672c7b16efe83e0a5f4f9992f4e822b0abe7da28ebe6c490a",
+        "infra/docker/node.Dockerfile": "d941159ceeaf3d88942a9dfe66d14b3088627e5681aed560f00a1d77bdfc71e8",
+        "scripts/check_container_stack.py": "82790219f2a8b72eb19fa288559709c84946af718ff5e82732fcd18773c7b718",
+        "scripts/check_container_quota.mjs": "d6d4f2ffd520b1ac7a9cd09d0fec7ea4555074f711105c14f018ac5b3336942b",
+        "apps/bff/src/config.ts": "4aee89e3a4ce3e38c6da1ea4b8cfaef840bf5f1a3b046f7136803034d8f0f04e",
+        "apps/bff/src/research-store.ts": "22481a276ae5c1db19125d2a0eea713391f3c422f789e934db14939d5345b2b3",
+        "apps/web/components/research-workspace.tsx": "9c166aac73051ec40de0abf0a992eee5af6f0a210663f5e5bbc3b638e6c97010",
+        "packages/contracts/bff.openapi.json": "30d27a6cc3d59719a5be7c72fc9978d7b09e6feca73fe54c2868739690e7f87f"
+      }
+    },
+    {
+      "observed_at": "2026-10-27T12:23:05.604502+00:00",
+      "scope": "Local container REPLAY verification; not staging or LIVE research qualification",
+      "services": {
+        "yta-web": {
+          "image_digest": "sha256:1be12e6a552e847a5d30975b2ea8a6e0f9e2bfd8c9bb9e9120cd2434d7c10524",
+          "architecture": "arm64",
+          "user": "node",
+          "read_only": true,
+          "health": "healthy"
+        },
+        "yta-bff": {
+          "image_digest": "sha256:8caaa32dd563d5952c91dec7d1ef66d9af6a6f229878ee5cb07af5bd1bed74f3",
+          "architecture": "arm64",
+          "user": "node",
+          "read_only": true,
+          "health": "healthy"
+        },
+        "alpha-engine": {
+          "image_digest": "sha256:61ba71ccf3da79428259eb1508228608dc2f6272ec79276802b861015889293f",
+          "architecture": "arm64",
+          "user": "10001:10001",
+          "read_only": true,
+          "health": "healthy"
+        }
+      },
+      "quota_probe": {
+        "data_mode": "REPLAY",
+        "authenticated_http": true,
+        "quota": 2,
+        "accepted": 2,
+        "rejected_status": 429,
+        "same_key_original_run": true,
+        "persisted_user_messages": 2,
+        "packaged_openapi_has_quota": true,
+        "persisted_login_account_slots": 1,
+        "database_readiness": "ready",
+        "real_provider_requests": 0
+      },
+      "migration_probe": {
+        "image_digest": "sha256:a2f02e4a52d8a38efffabbf93f5d311b9f111b3ef07c4390efaea7713263b596",
+        "latest_migration": "011_login_account_attempts.sql",
+        "fresh_and_upgrade": "passed",
+        "repeated_migration": "passed",
+        "existing_audit_preserved": true,
+        "runtime_role_denied": true,
+        "disposable_databases_removed": true
+      },
+      "container_smoke": "passed",
+      "web_test_artifacts_absent": true,
+      "external_model_or_provider_requests": 0,
+      "qualification_status": "UNVERIFIED",
+      "files": {
+        ".dockerignore": "8fa64b50b74417fc7e67537cc1ec1f4cccb47a8d4df20f2a91799bf1da6f1857",
+        "infra/compose/compose.app-local.yaml": "af0d95235039dba672c7b16efe83e0a5f4f9992f4e822b0abe7da28ebe6c490a",
+        "infra/docker/node.Dockerfile": "d941159ceeaf3d88942a9dfe66d14b3088627e5681aed560f00a1d77bdfc71e8",
+        "scripts/check_container_stack.py": "82790219f2a8b72eb19fa288559709c84946af718ff5e82732fcd18773c7b718",
+        "scripts/check_container_quota.mjs": "af71174bf5b29f3bd8a8e48b157b2e79cff5935f150f70e91a0bd098cb4a50fa",
+        "apps/bff/src/config.ts": "4aee89e3a4ce3e38c6da1ea4b8cfaef840bf5f1a3b046f7136803034d8f0f04e",
+        "apps/bff/src/research-store.ts": "22481a276ae5c1db19125d2a0eea713391f3c422f789e934db14939d5345b2b3",
+        "apps/web/components/research-workspace.tsx": "9c166aac73051ec40de0abf0a992eee5af6f0a210663f5e5bbc3b638e6c97010",
+        "packages/contracts/bff.openapi.json": "30d27a6cc3d59719a5be7c72fc9978d7b09e6feca73fe54c2868739690e7f87f",
+        "apps/bff/src/auth.ts": "de04cf49d7f395151d878b64f3b24471199954758f4105dee2d98bb6b7e31928",
+        "apps/bff/src/login-limiter.ts": "2b25c283964fe76b3619d819bc692721ca16f679930054a699b00971f6893b6d",
+        "apps/bff/src/readiness.ts": "1ceb359e0a537a1fca925745c32adec9a0ff560d0d2d220b8f82c2e643f1f22f",
+        "infra/migrations/011_login_account_attempts.sql": "bf01c3d588464940c1453175bb440bfc972b6d890cd32deae7add5b7323b48c9",
+        "scripts/check_migration_container.py": "caf18cb1a7d9d313a3db17e0bb558a53b4b3421301edc9b453ccc0f388c80df7"
+      }
+    },
+    {
+      "observed_at": "2026-10-28T02:06:49.606118+00:00",
+      "scope": "Local container REPLAY verification; not staging or LIVE research qualification",
+      "services": {
+        "yta-web": {
+          "image_digest": "sha256:05739a574e98e809483bf6d1c7817d91a670081a45b19d15397f3ff364fa0346",
+          "architecture": "arm64",
+          "user": "node",
+          "read_only": true,
+          "health": "healthy"
+        },
+        "yta-bff": {
+          "image_digest": "sha256:721f81891063cfa57e2f7451338c2ce131d7b3df49a1419bac60cfc5fd78fd0d",
+          "architecture": "arm64",
+          "user": "node",
+          "read_only": true,
+          "health": "healthy"
+        },
+        "alpha-engine": {
+          "image_digest": "sha256:d9fde18c15f21b63e2d270c33e7f6e289641b225601d5c42d9a181e85c4bd720",
+          "architecture": "arm64",
+          "user": "10001:10001",
+          "read_only": true,
+          "health": "healthy"
+        }
+      },
+      "quota_probe": {
+        "data_mode": "REPLAY",
+        "authenticated_http": true,
+        "quota": 2,
+        "accepted": 2,
+        "rejected_status": 429,
+        "same_key_original_run": true,
+        "persisted_user_messages": 2,
+        "packaged_openapi_has_quota": true,
+        "persisted_login_account_slots": 1,
+        "database_readiness": "ready",
+        "real_provider_requests": 0
+      },
+      "migration_probe": {
+        "image_digest": "sha256:a2f02e4a52d8a38efffabbf93f5d311b9f111b3ef07c4390efaea7713263b596",
+        "latest_migration": "011_login_account_attempts.sql",
+        "fresh_and_upgrade": "passed",
+        "repeated_migration": "passed",
+        "existing_audit_preserved": true,
+        "runtime_role_denied": true,
+        "disposable_databases_removed": true,
+        "verification_observed_at": "2026-10-27T12:23:05.604502+00:00",
+        "not_rebuilt_in_this_increment": true
+      },
+      "container_smoke": "passed",
+      "web_test_artifacts_absent": true,
+      "external_model_or_provider_requests": 0,
+      "qualification_status": "UNVERIFIED",
+      "files": {
+        ".dockerignore": "8fa64b50b74417fc7e67537cc1ec1f4cccb47a8d4df20f2a91799bf1da6f1857",
+        "apps/bff/package.json": "76cf20dd4be53a965a06d40baa87f4687dff944eae4d0139deffed2602a3e12d",
+        "apps/bff/src/alpha.ts": "be553d6890f0959dbc5ba46df2e276c26c4e81514d7eab36a5047e1d9b6d1bdf",
+        "apps/bff/src/auth.ts": "de04cf49d7f395151d878b64f3b24471199954758f4105dee2d98bb6b7e31928",
+        "apps/bff/src/config.ts": "d0bd7a9ba0ac49de268b56917be0cf9f4efbff850478727d962fbeaa8ba0d9c5",
+        "apps/bff/src/login-limiter.ts": "2b25c283964fe76b3619d819bc692721ca16f679930054a699b00971f6893b6d",
+        "apps/bff/src/main.ts": "7d435bf5707f341b84375d273b6c58b1c6fef2f831aace99c88e3d915b75483b",
+        "apps/bff/src/observability.ts": "e211b1282a91424687a9d228b1f888cadab9e741ef314a82b98703900b783ab1",
+        "apps/bff/src/readiness.ts": "1ceb359e0a537a1fca925745c32adec9a0ff560d0d2d220b8f82c2e643f1f22f",
+        "apps/bff/src/research-store.ts": "22481a276ae5c1db19125d2a0eea713391f3c422f789e934db14939d5345b2b3",
+        "apps/bff/src/tracing.ts": "9ad87ab1b49ee6daafded4e6dff052665328a8fbb1d29e3a7ffe5fd7bac14422",
+        "apps/web/components/research-workspace.tsx": "9c166aac73051ec40de0abf0a992eee5af6f0a210663f5e5bbc3b638e6c97010",
+        "infra/compose/compose.app-local.yaml": "af0d95235039dba672c7b16efe83e0a5f4f9992f4e822b0abe7da28ebe6c490a",
+        "infra/docker/alpha.Dockerfile": "887a00ea8e81d2411ebbe6d0eb44060e4993ec5ae59ef059fc5552d8e51f5f56",
+        "infra/docker/node.Dockerfile": "d941159ceeaf3d88942a9dfe66d14b3088627e5681aed560f00a1d77bdfc71e8",
+        "infra/migrations/011_login_account_attempts.sql": "bf01c3d588464940c1453175bb440bfc972b6d890cd32deae7add5b7323b48c9",
+        "packages/contracts/bff.openapi.json": "30d27a6cc3d59719a5be7c72fc9978d7b09e6feca73fe54c2868739690e7f87f",
+        "pnpm-lock.yaml": "9eebf1cd50795451dd606c90593c933b5868a0323d7acaadec43908b009ecf6f",
+        "pyproject.toml": "628f408fc119622442f2c9c8ca46c960dc8cbb2149cb192fec07a6bcd5344abe",
+        "scripts/check_container_quota.mjs": "af71174bf5b29f3bd8a8e48b157b2e79cff5935f150f70e91a0bd098cb4a50fa",
+        "scripts/check_container_stack.py": "82790219f2a8b72eb19fa288559709c84946af718ff5e82732fcd18773c7b718",
+        "scripts/check_dependency_outage.py": "e96481443c15a3b6d1e38da747e8a34bbe92799090cde1349835c9ad5887e4de",
+        "scripts/check_migration_container.py": "caf18cb1a7d9d313a3db17e0bb558a53b4b3421301edc9b453ccc0f388c80df7",
+        "services/alpha-engine/src/yta_alpha/api.py": "c0d0609b8762ebf401a929d44cf0a87bd60edb9e3f4955c2f8133408f77c7cf9",
+        "services/alpha-engine/src/yta_alpha/settings.py": "bb388cab6139b0106d3f45e6d25d2371c268c0cf9f78d9e270353ddde19debda",
+        "services/alpha-engine/src/yta_alpha/tracing.py": "e08d8496321941bd448141504beecf5e90b24ce77f7712fb64662908421afacf",
+        "uv.lock": "eff5d9937ec66d588da5571ac75823697c2e1a1b921fd555afd97f3dc8cd8445"
+      },
+      "dependency_outage": {
+        "phases": [
+          {
+            "phase": "healthy",
+            "elapsed_seconds": 0.07
+          },
+          {
+            "phase": "alpha_unavailable_database_ready_bff_alive",
+            "elapsed_seconds": 0.46
+          },
+          {
+            "phase": "both_readiness_alerts_firing",
+            "elapsed_seconds": 138.82
+          },
+          {
+            "phase": "recovered_alerts_resolved",
+            "elapsed_seconds": 153.5
+          }
+        ],
+        "actual_dependency": "app-local alpha-engine",
+        "database_stopped": false,
+        "host_services_changed": false,
+        "notifications_sent": 0,
+        "deployment_qualification": "NOT_ASSESSED"
+      },
+      "tracing_packaging": {
+        "bff_entrypoint_imported": true,
+        "actual_otlp_export_in_containers": false,
+        "tools_image_rebuilt": false
+      }
+    }
+  ]
+}

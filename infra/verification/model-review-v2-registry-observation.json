@@ -1,0 +1,68 @@
+{
+  "observed_at": "2026-10-29T11:01:45.639276+00:00",
+  "scope": "Immutable v2 review persistence and mixed v1/v2 chains; local PostgreSQL only",
+  "python_tests": {
+    "passed": 747,
+    "skipped": 0,
+    "warnings": 4,
+    "seconds": 169.45,
+    "postgres_required": true,
+    "log": ".local/clean-suite-1f9e829153b34bbf9e30bf627517cf1e.log"
+  },
+  "restore": {
+    "python_suite": "passed",
+    "log": ".local/clean-suite-1f9e829153b34bbf9e30bf627517cf1e.log",
+    "verification": {
+      "restored_database": "yta_restore_ffa27c76ea4e45e1b50ab5ff22c79d63_test",
+      "tables_verified": 40,
+      "immutable_guards_verified": 38,
+      "identity_sequences_verified": 6,
+      "forecasts_reproduced": 46,
+      "settlements_reproduced": 20,
+      "evidence_items_verified": 9,
+      "model_proposals_verified": 52,
+      "quality_policies_verified": 55,
+      "quality_assessments_verified": 51,
+      "model_reviews_verified": 21,
+      "model_quality_gates_verified": 16,
+      "probability_policies_verified": 41,
+      "probability_assessments_verified": 35,
+      "elapsed_seconds": 14.386
+    },
+    "acquisitions": {
+      "raw_tables_identical": true,
+      "market_bars_identical": true,
+      "valid_acquisitions_reconstructed": 40,
+      "invalid_acquisitions_still_rejected": 4,
+      "valid_projections_reconstructed": 39,
+      "missing_or_invalid_projections_still_rejected": 1,
+      "daily_records_reconstructed": 23,
+      "qualification_status": "UNVERIFIED"
+    },
+    "scope": "Fresh local Python test dataset; not remote CI or production"
+  },
+  "runtime_replay": {
+    "runtime_reviews_replayed": 21,
+    "versions": {
+      "model-review-record-v1": 17,
+      "model-review-record-v2": 4
+    }
+  },
+  "migrator": {
+    "result": "Migration container passed: fresh/upgrade, existing evidence, repeatability, roles, cleanup",
+    "migration": 22
+  },
+  "limitations": [
+    "No v2 write HTTP/BFF/UI integration at this observation",
+    "No formal qualification or model promotion",
+    "Application images not rebuilt"
+  ],
+  "files_sha256": {
+    "infra/migrations/022_combined_model_reviews.sql": "040e932a1f608aaec726f0ef2a05f359c1c63f469279368766bd86639d288259",
+    "services/alpha-engine/src/yta_alpha/model_review_registry.py": "ebba6d62cbd6f7650c6bf384b3048fb3899d1202b2b58c0edd3c74c80bfd7db9",
+    "services/alpha-engine/src/yta_alpha/model_review_contracts.py": "69d8efe0fa4444c15c1be097e08d90dc7f0f8e080d382bfb4096285871c71bd3",
+    "scripts/backup_local.py": "045bbf7418993af9b26dfa67ea6807efc02297397da7d022ca9a67aa69930cf6",
+    "scripts/check_test_database_restore.py": "ade3ce99098cfe280874feb7495a3e3ab25facf3876c299af7ab6b8cb2eda124",
+    "tests/integration/test_calibration_registry.py": "a662c581f4ed86c33ca2c32a2054dc5576c228e5df1ee8b5fbde86b0ea431f5d"
+  }
+}

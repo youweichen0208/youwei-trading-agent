@@ -1,0 +1,44 @@
+{
+  "observed_at": "2026-10-29T10:18:09.685222+00:00",
+  "scope": "Probability quality rule selection and fixed assessment UI; authenticated browser with controlled synthetic evidence responses",
+  "browser_tests": {
+    "passed": 51,
+    "seconds": 40.2,
+    "new_scenarios": 3,
+    "log": ".local/probability-ui-browser.log"
+  },
+  "typescript_tests": {
+    "contracts": 34,
+    "bff": 112,
+    "total": 146,
+    "postgres_enabled": true
+  },
+  "typecheck": "passed",
+  "build": "passed",
+  "checks": {
+    "ruff": "passed",
+    "contract_drift": "Alpha and BFF passed",
+    "docs": "passed"
+  },
+  "screenshots": [
+    ".local/probability-ui/probability-quality-desktop.png",
+    ".local/probability-ui/probability-quality-mobile.png"
+  ],
+  "screenshot_review": "Desktop and 390px mobile inspected; table scroll is local, no page overflow",
+  "limitations": [
+    "Actual container browser probability quality chain not yet rerun",
+    "No combined proposal gate or verified production data qualification",
+    "Numeric success cannot authorize promotion",
+    "No Python/schema/transaction changes; prior 726 Python tests and restore evidence not rerun",
+    "Application images not rebuilt"
+  ],
+  "files_sha256": {
+    "apps/web/components/probability-quality.tsx": "84838854f440a9318cf35e85d1a7501b9cd486329810169ea46e54a9644b22ac",
+    "apps/web/components/model-calibration.tsx": "71c535a8bcd856d9197c420fce2f59e4f00c5587902d0ccda30d8567ac3a800e",
+    "apps/web/components/shell.tsx": "453cd76b802c05a5f8decdb3118f9928d59fd9edd03a42e26211d1b73fa40b50",
+    "apps/web/app/probability-quality/[id]/page.tsx": "99658c4371c2de210155065d3cb0a00636755ac8d3e244123583b2985bd50799",
+    "apps/web/app/probability-checks/[id]/page.tsx": "5d5f0bf32dbab34e130f701a2a95b130f1de7315ccfad9453f990f563ad9d655",
+    "tests/e2e/models.spec.ts": "070866b4ecfd51473431d95c2c88805ac2964376df95116bc1b47627ca4c728a",
+    "packages/contracts/fixtures/probability-quality-source.json": "7473f8abef307dc6bde33e4f83542b8632a9cb0c3c9641dab666092a06cd3f48"
+  }
+}

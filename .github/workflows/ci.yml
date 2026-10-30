@@ -1,0 +1,111 @@
+name: verify
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  contracts-and-alpha:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17@sha256:b8faeff7712663c2773a190181e1246e37e364b887611c04658c28b44e2408fe
+        env:
+          POSTGRES_USER: yta_owner
+          POSTGRES_PASSWORD: local-yta-owner
+          POSTGRES_DB: yta
+        ports: ["54329:5432"]
+        options: >-
+          --health-cmd "pg_isready -U yta_owner -d yta"
+          --health-interval 2s --health-timeout 3s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: 0.11.16
+      - name: Install CPU training runtime
+        run: sudo apt-get update && sudo apt-get install -y libgomp1
+      - run: uv sync --locked
+      - run: pnpm install --frozen-lockfile
+      - run: uv run python scripts/bootstrap_local.py
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: python3 scripts/check_docs.py
+      - run: uv run python scripts/export_contracts.py --check
+      - run: pnpm contracts:bff:check
+      - run: pnpm contracts:report:check
+      - run: uv run openapi-spec-validator packages/contracts/bff.openapi.json
+      - run: uv run pytest -q --require-postgres
+        env:
+          YTA_TEST_DATABASE_URL: postgresql://yta_owner:local-yta-owner@127.0.0.1:54329/yta_test
+      - run: pnpm typecheck
+      - run: pnpm test
+        env:
+          YTA_TEST_DATABASE_URL: postgresql://yta_app:local-yta-app@127.0.0.1:54329/yta_test
+      - run: pnpm build
+      - run: uv run python scripts/check_bff_readiness.py
+      - run: uv run python scripts/check_tracing.py
+      - run: uv run python scripts/check_tracing.py --collector reject
+      - run: uv run python scripts/check_tracing.py --collector stall
+      - run: uv run python scripts/check_tracing.py --collector refused
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
+      - name: Restore database and verify acquisition evidence
+        run: |
+          mkdir -p .local
+          uv run python scripts/backup_local.py --source yta_test --drill --pg-container "$YTA_PG_CONTAINER" > .local/backup-drill.json
+          uv run python - <<'PY'
+          import json
+          import subprocess
+          import sys
+          with open('.local/backup-drill.json') as source:
+              result = json.load(source)
+          subprocess.run([
+              sys.executable, 'scripts/check_acquisition_restore.py',
+              '--restored', result['verification']['restored_database'],
+          ], check=True)
+          PY
+        env:
+          YTA_PG_CONTAINER: ${{ job.services.postgres.id }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-evidence
+          path: test-results/
+
+
+  container-smoke:
+    runs-on: ubuntu-latest
+    env:
+      YTA_RESEARCH_RUNS_PER_24H: "2"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: 0.11.16
+      - run: uv sync --locked
+      - run: docker compose -f infra/compose/compose.dev.yaml up -d --wait
+      - run: uv run python scripts/bootstrap_local.py
+      - run: docker build -f infra/docker/alpha.Dockerfile --target migrator -t yta-migrator:local .
+      - run: uv run python scripts/check_migration_container.py
+      - run: docker compose -f infra/compose/compose.app-local.yaml build
+      - run: uv run python scripts/check_acquisition_container.py
+      - run: docker compose -f infra/compose/compose.app-local.yaml -f infra/compose/compose.monitoring-local.yaml pull blackbox prometheus
+      - run: uv run python scripts/check_monitoring.py
+      - run: uv run python scripts/check_monitoring_lifecycle.py
+      - run: docker compose -f infra/compose/compose.app-local.yaml up -d --wait --wait-timeout 120
+      - run: uv run python scripts/check_container_stack.py
+      - run: docker compose -f infra/compose/compose.app-local.yaml exec -T yta-bff node --input-type=module < scripts/check_container_quota.mjs
+      - run: docker compose -f infra/compose/compose.app-local.yaml -f infra/compose/compose.monitoring-local.yaml up -d --wait --wait-timeout 120
+      - run: uv run python scripts/check_dependency_outage.py
+      - if: always()
+        run: docker compose -f infra/compose/compose.app-local.yaml -f infra/compose/compose.monitoring-local.yaml down --remove-orphans
+      - if: always()
+        run: docker compose -f infra/compose/compose.dev.yaml down

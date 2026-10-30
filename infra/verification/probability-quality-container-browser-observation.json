@@ -1,0 +1,172 @@
+{
+  "scope": "Real browser -> Web -> BFF -> Alpha -> PostgreSQL; synthetic REPLAY",
+  "response_mocking": false,
+  "research_runner": false,
+  "images": {
+    "alpha-engine": {
+      "id": "sha256:b763c1a8f19c4cb01f2ad181022a14ed11b99f61756734fb6f222638e2183836",
+      "user": "10001:10001",
+      "read_only": true
+    },
+    "yta-bff": {
+      "id": "sha256:aaf3691d97d3b74ff0199102f6bb895543b2df2e674db50edbb33a76f6e3937d",
+      "user": "node",
+      "read_only": true
+    },
+    "yta-web": {
+      "id": "sha256:aab748f3a5d4d5151d2770364a6a7301cd37a2026799fa6bfe34a10fc1a33d89",
+      "user": "node",
+      "read_only": true
+    }
+  },
+  "browser": {
+    "authenticated": true,
+    "database_order_equal": true,
+    "first_page": 10,
+    "second_page": 10,
+    "filtered_horizon": 5,
+    "filtered_count": 10,
+    "full_identity_visible": true,
+    "decimal_string_visible": true,
+    "mobile_width": 390,
+    "document_overflow": false,
+    "page_errors": 0,
+    "same_origin_only": true
+  },
+  "report": {
+    "id": "model-evaluation-experimental-48e00b2f22059378b3a1c82b6bbaf2f8933a33a37f23dc66c3a0f31743794d5f",
+    "database_payload_equal": true,
+    "list_to_detail": true,
+    "sample_count": 5,
+    "decimal_string_visible": true,
+    "snapshot_hash_visible": true,
+    "mobile_width": 390,
+    "document_overflow": false,
+    "page_errors": 0
+  },
+  "comparison": {
+    "database_payloads_equal": true,
+    "explicit_request_order": true,
+    "different_models": 2,
+    "same_cohort": "0fdd9a7d06d8cad78d5090f26b2d77acaed9a02590b2f8932f8147bb1197a2b9",
+    "response_mocking": false,
+    "refresh_preserves_selection": true,
+    "removal_clears_result": true,
+    "mobile_width": 390,
+    "document_overflow": false,
+    "page_errors": 0
+  },
+  "proposal_history": {
+    "records": 11,
+    "page_sizes": [
+      10,
+      1
+    ],
+    "responses_equal_registered_records": true,
+    "session_storage_cleared": true,
+    "detail_navigation": true,
+    "mobile_width": 390,
+    "document_overflow": false
+  },
+  "quality": {
+    "policy_id": "historical-quality-policy-39920f3430ee0252eb30196bab75f7bfa76cb372a2f349e76e4c12377beafcea",
+    "assessment_id": "historical-quality-assessment-6d8743dd6696f9ac1a77bba52994b591c25bde8edcbd97e1a0f7ee047b557052",
+    "explicit_selection": true,
+    "policy_database_equal": true,
+    "assessment_database_equal": true,
+    "exact_retry_equal": true,
+    "fixed_detail_equal": true,
+    "detail_reload": true,
+    "facts": 1,
+    "audits": 1,
+    "promotion_allowed": false,
+    "qualification": "UNVERIFIED",
+    "mobile_width": 390,
+    "document_overflow": false
+  },
+  "proposal": {
+    "id": "1d6055fb-4ffc-4ca8-903c-0499174831a6",
+    "authenticated_owner": true,
+    "response_mocking": false,
+    "explicit_submit": true,
+    "exact_retry_equal": true,
+    "detail_equal": true,
+    "database_payload_equal": true,
+    "facts": 1,
+    "audits": 1,
+    "returning_form_links_existing": true,
+    "mobile_width": 390,
+    "document_overflow": false,
+    "page_errors": 0,
+    "status": "SUBMITTED",
+    "qualification": "UNVERIFIED"
+  },
+  "review": {
+    "synthetic_reviewer_only": true,
+    "inbox": true,
+    "explicit_quality_selection": true,
+    "explicit_submit": true,
+    "exact_retry_equal": true,
+    "retry_after_closed_equal": true,
+    "fixed_detail_reload": true,
+    "database_payload_equal": true,
+    "authenticated_audit_actor": true,
+    "records": 2,
+    "audits": 2,
+    "dispositions": [
+      "BLOCKED",
+      "REJECTED"
+    ],
+    "promotion_allowed": false,
+    "predecessor_binding": true,
+    "rejected_ui_closed": true,
+    "full_history_equal": true,
+    "mobile_width": 390,
+    "document_overflow": false,
+    "page_errors": 0,
+    "response_mocking": false
+  },
+  "calibration": {
+    "id": "calibration-experimental-bac82356fe5779712e8bdb89f0632ed444e7f996f1cce3327f4502845284c33b",
+    "fixed_report_link": true,
+    "response_fixture_equal": true,
+    "database_report_equal": true,
+    "bins": 10,
+    "detail_reload": true,
+    "raw_brier_ece_visible": true,
+    "source_identity_visible": true,
+    "qualification": "UNVERIFIED",
+    "mobile_width": 390,
+    "document_overflow": false,
+    "page_errors": 0,
+    "response_mocking": false
+  },
+  "probability_quality": {
+    "policy_id": "probability-quality-policy-df658cdbabd07aac4ddb5284458740b619cae90f57c4abf3be0be11b9ff60809",
+    "assessment_id": "probability-quality-assessment-5b7f1eb4145bcd383ebbfcc719bb13f9a1bc3f8224ba03c4c8f9ac9455cfe0bc",
+    "calibration_id": "calibration-experimental-bac82356fe5779712e8bdb89f0632ed444e7f996f1cce3327f4502845284c33b",
+    "explicit_selection": true,
+    "exact_retry_equal": true,
+    "checks": 6,
+    "raw_brier_ece_visible": true,
+    "response_database_equal": true,
+    "audit_count": 1,
+    "detail_reload": true,
+    "qualification": "UNVERIFIED",
+    "promotion_allowed": false,
+    "mobile_width": 390,
+    "document_overflow": false,
+    "page_errors": 0,
+    "response_mocking": false
+  },
+  "observed_at": "2026-10-29T10:20:23.150Z",
+  "containers_cleaned": true,
+  "verification_script_sha256": "f43836feb92b75f2c4d97227d984177221624426aeb066d7a2319d69c0b5a711",
+  "limitations": [
+    "Local container chain over synthetic REPLAY only, not staging/release qualification",
+    "No combined proposal qualification gate or production thresholds",
+    "Numeric success does not authorize promotion",
+    "No product behavior changes this turn; prior 146 TS, 51 browser and 726 Python suites not repeated",
+    "No database schema or transaction changes; prior backup restore evidence retained"
+  ]
+}

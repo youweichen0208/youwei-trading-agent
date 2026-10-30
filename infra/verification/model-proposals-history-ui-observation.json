@@ -1,0 +1,27 @@
+{
+  "observed_at": "2026-10-29T07:42:02.968415+00:00",
+  "scope": "Proposal history UI, real login and controlled proposal responses",
+  "typescript_tests": 120,
+  "browser_tests": {
+    "passed": 39,
+    "seconds": 34.1,
+    "initial_failure": "Alert locator matched Next route announcer; scoped assertion to main and reran full suite"
+  },
+  "typecheck": "passed",
+  "build": "passed",
+  "contract_drift": "passed",
+  "ruff": "passed",
+  "screenshots": ".local/model-proposal-history-ui",
+  "images_rebuilt": false,
+  "limitations": [
+    "Current history UI not yet verified in actual containers",
+    "No approval, champion rollout or release qualification"
+  ],
+  "files_sha256": {
+    "apps/web/components/model-proposal-history.tsx": "923fd6b6703c94ab56eeb3f5d1497bab7df97bdbaa86624883020ff5dd889fdb",
+    "apps/web/app/model-proposals/page.tsx": "1f668df574c3f208a9bc3eb8040068ce4ba4f2d09dc5e173338a5c2863ae9496",
+    "apps/web/components/models.tsx": "94ecfe010ec32e24412b4c44e171954f55630fecbda3d08c9324b1ab3e58a100",
+    "apps/web/components/model-proposal.tsx": "2e36c65b05200f255baaa9728ff1c58d51892a6dd59e451eb885256540c88eed",
+    "tests/e2e/models.spec.ts": "229746f99099bc7bd960000499cc6b8ba9a9e4b95b2d8f32b1f4e53d86f214c7"
+  }
+}

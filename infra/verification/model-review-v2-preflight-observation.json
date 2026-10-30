@@ -1,0 +1,30 @@
+{
+  "observed_at": "2026-10-29T10:48:23.675799+00:00",
+  "scope": "Read-only v2 human review preflight bound to immutable combined gate; v1 semantics unchanged",
+  "python_tests": {
+    "passed": 743,
+    "skipped": 0,
+    "warnings": 4,
+    "seconds": 151.49,
+    "postgres_required": true,
+    "log": ".local/combined-review-full.log"
+  },
+  "targeted_tests": 4,
+  "checks": {
+    "ruff": "passed",
+    "format": "193 files passed",
+    "alpha_contract_drift": "passed",
+    "docs": "passed"
+  },
+  "limitations": [
+    "No v2 persistence, mixed review chain, HTTP or UI integration yet",
+    "BFF authorization remains a required caller prerequisite",
+    "Historical evidence remains unqualified; approval intent yields BLOCKED, never promotion",
+    "No schema/transaction/TS/UI change; prior suites and restore evidence not rerun",
+    "Application images not rebuilt"
+  ],
+  "files_sha256": {
+    "services/alpha-engine/src/yta_alpha/model_review_v2.py": "00720f7661075af806316066dca15d6185ed535ace1bb5b5612f9a498609c255",
+    "tests/integration/test_calibration_registry.py": "e896d6970fef3380fb16662df6afe1f49f0583fc2fa05784219431cc2583df92"
+  }
+}

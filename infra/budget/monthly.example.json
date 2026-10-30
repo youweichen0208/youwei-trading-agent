@@ -1,0 +1,11 @@
+{
+  "schema_version": "yta-cost-budget-v1",
+  "billing_month": "2026-10",
+  "as_of": "2026-10-29T00:00:00Z",
+  "currency": "USD",
+  "monthly_limit": null,
+  "infrastructure": {"incurred": null, "remaining_commitment": null},
+  "model": {"incurred": null, "remaining_commitment": null},
+  "market_data": {"incurred": null, "remaining_commitment": null},
+  "storage_and_backup": {"incurred": null, "remaining_commitment": null}
+}

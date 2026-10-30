@@ -1,0 +1,28 @@
+{
+  "observed_at": "2026-10-29T08:43:22.589767+00:00",
+  "scope": "Service-only review creation/read API and strict blocked/rejected records",
+  "python_tests": {
+    "passed": 689,
+    "skipped": 0,
+    "seconds": 89.35,
+    "warnings": 4,
+    "postgres_required": true
+  },
+  "shared_contract_tests": 30,
+  "openapi": "valid",
+  "contract_drift": "passed",
+  "ruff": "passed",
+  "format": "181 files passed",
+  "images_rebuilt": false,
+  "limitations": [
+    "BFF reviewer permission guard not yet connected to public review routes",
+    "No approved state or champion transition"
+  ],
+  "files_sha256": {
+    "services/alpha-engine/src/yta_alpha/model_review_contracts.py": "a8df56ed045f897ba3a8803c4f890ef987efd5bd31d2236fa5af3d2878b959fd",
+    "services/alpha-engine/src/yta_alpha/api.py": "a6df9464316e451e48bbbd8dfe657b3f42ccec8fa3df0adfdc9973ef8651968b",
+    "tests/integration/test_calibration_registry.py": "567eb715fd49c9fc0a01e517873eb5da0670c7f33791b3ceb6984edfa68ee471",
+    "packages/contracts/alpha.openapi.json": "f30ed05bcdc5d81968e4d1aeb6f5db67eaa8e32033596293fde07f60d3e86db4",
+    "packages/contracts/bff.openapi.json": "72bad1cb2fc1264e170fce03f3c31ce04a5c8f2c0609c589dc61eb4b9813b56d"
+  }
+}

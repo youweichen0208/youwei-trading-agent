@@ -1,0 +1,181 @@
+{
+  "scope": "Real browser -> Web -> BFF -> Alpha -> PostgreSQL; synthetic REPLAY",
+  "response_mocking": false,
+  "research_runner": false,
+  "images": {
+    "alpha-engine": {
+      "id": "sha256:f10ef0a444b722a726e952a329bbda4ce41772705c75fe3811fea53220b11e3b",
+      "user": "10001:10001",
+      "read_only": true
+    },
+    "yta-bff": {
+      "id": "sha256:53cb0f768d7ef366c03bebfc8ad47813cd1b05a851215ad0c55603003d10445d",
+      "user": "node",
+      "read_only": true
+    },
+    "yta-web": {
+      "id": "sha256:cecb94f6e94dbfd533e2e1c89d998a0a1f05d36fcb144f74f992c3305270c430",
+      "user": "node",
+      "read_only": true
+    }
+  },
+  "browser": {
+    "authenticated": true,
+    "database_order_equal": true,
+    "first_page": 10,
+    "second_page": 10,
+    "filtered_horizon": 5,
+    "filtered_count": 10,
+    "full_identity_visible": true,
+    "decimal_string_visible": true,
+    "mobile_width": 390,
+    "document_overflow": false,
+    "page_errors": 0,
+    "same_origin_only": true
+  },
+  "report": {
+    "id": "model-evaluation-experimental-48e00b2f22059378b3a1c82b6bbaf2f8933a33a37f23dc66c3a0f31743794d5f",
+    "database_payload_equal": true,
+    "list_to_detail": true,
+    "sample_count": 5,
+    "decimal_string_visible": true,
+    "snapshot_hash_visible": true,
+    "mobile_width": 390,
+    "document_overflow": false,
+    "page_errors": 0
+  },
+  "comparison": {
+    "database_payloads_equal": true,
+    "explicit_request_order": true,
+    "different_models": 2,
+    "same_cohort": "0fdd9a7d06d8cad78d5090f26b2d77acaed9a02590b2f8932f8147bb1197a2b9",
+    "response_mocking": false,
+    "refresh_preserves_selection": true,
+    "removal_clears_result": true,
+    "mobile_width": 390,
+    "document_overflow": false,
+    "page_errors": 0
+  },
+  "proposal_history": {
+    "records": 11,
+    "page_sizes": [
+      10,
+      1
+    ],
+    "responses_equal_registered_records": true,
+    "session_storage_cleared": true,
+    "detail_navigation": true,
+    "mobile_width": 390,
+    "document_overflow": false
+  },
+  "quality": {
+    "policy_id": "historical-quality-policy-496b46e5b60316eed43a3a2c35ffaaad1a2d73a1ea439603afda19880fba4787",
+    "assessment_id": "historical-quality-assessment-9338be726a584aa9cd85561dab273aafccac8f1ecb42530021ce55ef0d0a641e",
+    "explicit_selection": true,
+    "policy_database_equal": true,
+    "assessment_database_equal": true,
+    "exact_retry_equal": true,
+    "fixed_detail_equal": true,
+    "detail_reload": true,
+    "facts": 1,
+    "audits": 1,
+    "promotion_allowed": false,
+    "qualification": "UNVERIFIED",
+    "mobile_width": 390,
+    "document_overflow": false
+  },
+  "proposal": {
+    "id": "a7a0e00a-de25-4146-b60b-e98c396c3de3",
+    "authenticated_owner": true,
+    "response_mocking": false,
+    "explicit_submit": true,
+    "exact_retry_equal": true,
+    "detail_equal": true,
+    "database_payload_equal": true,
+    "facts": 1,
+    "audits": 1,
+    "returning_form_links_existing": true,
+    "mobile_width": 390,
+    "document_overflow": false,
+    "page_errors": 0,
+    "status": "SUBMITTED",
+    "qualification": "UNVERIFIED"
+  },
+  "review": {
+    "schema_version": "model-review-record-v2",
+    "combined_gate": "model-quality-gate-dcb0bf127fe8c6dd718f850a570cf2544bca34b650e2391fa2647c4ffc654e32",
+    "combined_gate_facts": 1,
+    "combined_gate_audits": 1,
+    "probability_assessment": "probability-quality-assessment-cc194aee7981e133e77d0a8f2eaf9a32ff137df9e4a86f77ae3f312d68a3c962",
+    "explicit_probability_selection": true,
+    "synthetic_reviewer_only": true,
+    "inbox": true,
+    "explicit_quality_selection": true,
+    "explicit_submit": true,
+    "exact_retry_equal": true,
+    "retry_after_closed_equal": true,
+    "fixed_detail_reload": true,
+    "database_payload_equal": true,
+    "authenticated_audit_actor": true,
+    "records": 2,
+    "audits": 2,
+    "dispositions": [
+      "BLOCKED",
+      "REJECTED"
+    ],
+    "promotion_allowed": false,
+    "predecessor_binding": true,
+    "rejected_ui_closed": true,
+    "full_history_equal": true,
+    "mobile_width": 390,
+    "document_overflow": false,
+    "page_errors": 0,
+    "response_mocking": false
+  },
+  "calibration": {
+    "id": "calibration-experimental-bac82356fe5779712e8bdb89f0632ed444e7f996f1cce3327f4502845284c33b",
+    "fixed_report_link": true,
+    "response_fixture_equal": true,
+    "database_report_equal": true,
+    "bins": 10,
+    "detail_reload": true,
+    "raw_brier_ece_visible": true,
+    "source_identity_visible": true,
+    "qualification": "UNVERIFIED",
+    "mobile_width": 390,
+    "document_overflow": false,
+    "page_errors": 0,
+    "response_mocking": false
+  },
+  "probability_quality": {
+    "policy_id": "probability-quality-policy-5dec84f6d6758f9c08f142c8e226715ec5713698c9f74e58afb19e1c88d85522",
+    "assessment_id": "probability-quality-assessment-af61e78de36411c35dbef381a5ce2cc89349c41a9a66e171cf946e7dda5e5689",
+    "calibration_id": "calibration-experimental-bac82356fe5779712e8bdb89f0632ed444e7f996f1cce3327f4502845284c33b",
+    "explicit_selection": true,
+    "exact_retry_equal": true,
+    "checks": 6,
+    "raw_brier_ece_visible": true,
+    "response_database_equal": true,
+    "audit_count": 1,
+    "detail_reload": true,
+    "qualification": "UNVERIFIED",
+    "promotion_allowed": false,
+    "mobile_width": 390,
+    "document_overflow": false,
+    "page_errors": 0,
+    "response_mocking": false
+  },
+  "observed_at": "2026-10-29T11:26:28.510Z",
+  "containers_cleaned": true,
+  "script_sha256": "c28c1b1c09c2d06962cf75277af5cb8f6006b4d975c3f368cd2048dfbc060262",
+  "screenshots": {
+    "directory": ".local/model-catalog-browser",
+    "mobile_review_inspected": true
+  },
+  "limitations": [
+    "Local synthetic REPLAY container integration, not formal data qualification or staging acceptance",
+    "Synthetic reviewer only; no real reviewer permissions configured",
+    "No real LLM/market provider invocation or research jobs",
+    "Actual approval, champion switch and rollback remain incomplete"
+  ]
+}

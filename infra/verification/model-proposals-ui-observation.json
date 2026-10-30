@@ -1,0 +1,33 @@
+{
+  "observed_at": "2026-10-29T07:19:39.264161+00:00",
+  "scope": "Model proposal form/detail and exact retry UI; synthetic REPLAY",
+  "browser_tests": {
+    "passed": 36,
+    "seconds": 33.4,
+    "responses": "controlled registered report/proposal fixtures; real login"
+  },
+  "typescript_tests": {
+    "contracts": 27,
+    "bff": 90,
+    "postgres_enabled": true
+  },
+  "typecheck": "passed",
+  "build": "passed",
+  "contract_drift": "passed",
+  "ruff": "passed",
+  "images_rebuilt": false,
+  "screenshots": [
+    ".local/model-proposal-ui/desktop.png",
+    ".local/model-proposal-ui/mobile.png"
+  ],
+  "files_sha256": {
+    "apps/web/components/model-proposal.tsx": "15a6df312a9a224d5affeb9275733f0d4056972f682d78a13df1027f16f4afe2",
+    "apps/web/components/model-evaluations.tsx": "eaf5f0ef02ee83b473ca41ca49e23d837f091d89f99142361dceb2b2e540f187",
+    "apps/web/components/model-comparison.tsx": "3a8da31e19895b28e32127851b20a1a21e114363bd89b679163e98dc7a0c49a5",
+    "apps/web/components/shell.tsx": "163f88e1bf81aa5d4812a8d51d7cea17261097f6606c51f2608b637539bc792b",
+    "apps/web/app/models/propose/[candidate]/[reference]/page.tsx": "2ef0f0b592880b7fcdf87a8bd857b05adf1ee3b46fde2f2c21a58ff198f1406a",
+    "apps/web/app/model-proposals/[id]/page.tsx": "e74b75b66718588fa9d1592183ccfbc34d9bb6038811f017ed79e26dd7402117",
+    "apps/web/app/style.css": "c5606f84ea889ae30caeb4124592c0d53379d5e485c294a82c7c6b3ef1b565e8",
+    "tests/e2e/models.spec.ts": "49e482624e0d8ebc5c38dd5de9831cfefdc9bd7be4813227343f6eca810e3c10"
+  }
+}

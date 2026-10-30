@@ -1,0 +1,31 @@
+{
+  "real_model_record": true,
+  "authenticated_browser": true,
+  "report_matches": true,
+  "refresh_matches": true,
+  "mobile_no_overflow": true,
+  "page_errors": 0,
+  "same_origin_only": true,
+  "model_resubmissions": 0,
+  "completed_history_sse_requests": 0,
+  "prediction_detail": true,
+  "logged_out": true,
+  "database": "yta_restore_a9c081ecc27c4fcd86713e77770a26a6_test",
+  "scope": "Authenticated browser reads restored real-pi model records; synthetic REPLAY market data; no new inference",
+  "sources": {
+    "scripts/check_hermes_history_browser.mjs": "844492cbac14403534ad2c28acb98be3a4e0d6c0fc45fcf6834d21a2ec2899ae",
+    "apps/web/components/research-workspace.tsx": "2f3ddc6956a88192829114d7f8558413867a343f4c89e9c09b8d9c910c87a16c",
+    "apps/bff/src/research-store.ts": "49ca54cea763a778875478b7f7bf5db997b0777c93ea599877edafd836c69dfb",
+    "tests/e2e/research.spec.ts": "f078574be8dce5ef029ec08cda2432c9364ee271738fee26c49d0c33b269dd0c"
+  },
+  "screenshots": [
+    ".local/hermes-history-browser/desktop.png",
+    ".local/hermes-history-browser/mobile.png",
+    ".local/hermes-history-browser/prediction.png"
+  ],
+  "limitations": [
+    "Default real driver not enabled",
+    "No browser-triggered real model streaming in this check",
+    "No LIVE market qualification or deployment"
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "python_suite": "passed",
+  "log": ".local/clean-suite-fd84671c7ee141d4bb8fadb829cba9ac.log",
+  "verification": {
+    "restored_database": "yta_restore_657b19ff7c544894aa52f9efdbfe628d_test",
+    "tables_verified": 33,
+    "immutable_guards_verified": 31,
+    "identity_sequences_verified": 6,
+    "forecasts_reproduced": 46,
+    "settlements_reproduced": 20,
+    "evidence_items_verified": 9,
+    "elapsed_seconds": 1.358
+  },
+  "acquisitions": {
+    "raw_tables_identical": true,
+    "market_bars_identical": true,
+    "valid_acquisitions_reconstructed": 39,
+    "invalid_acquisitions_still_rejected": 4,
+    "valid_projections_reconstructed": 38,
+    "missing_or_invalid_projections_still_rejected": 1,
+    "daily_records_reconstructed": 23,
+    "qualification_status": "UNVERIFIED"
+  },
+  "scope": "Fresh local Python test dataset; not remote CI or production",
+  "runtime_role_evaluations_replayed": 7,
+  "observed_at": "2026-10-29T03:55:46.412413+00:00",
+  "python_tests": {
+    "passed": 627,
+    "warnings": 4,
+    "skipped": 0,
+    "seconds": 36.57
+  },
+  "targeted_tests": 21,
+  "ruff": "passed",
+  "format_files": 168,
+  "alpha_contract_drift": "passed",
+  "migration_container": "passed",
+  "migrator_image": "sha256:b6beaed3bcdfc1954c16392f873777e07bb363b20bc9809a75f769616eb9c054",
+  "files_sha256": {
+    "infra/migrations/016_model_evaluation_records.sql": "14e984c0e97dce8e7a2da46c207f71dff7216f50791cb1596c6bdd48deb8ccf8",
+    "services/alpha-engine/src/yta_alpha/model_evaluation_registry.py": "1df209736463fee5a9c9ad7a7145325dfa228fa7cb9a64529873785ed3b63cb7",
+    "services/alpha-engine/src/yta_alpha/model_evaluation.py": "9f6c9007dacc414ed771b0032191f6979171aa1fa9741e5cd8eb748dd6030f57",
+    "scripts/backup_local.py": "70b24c58bd681d58d5cbb35c930614a09020ebd7579a04d8d1bae8a03b157b97",
+    "tests/integration/test_calibration_registry.py": "1022c2a4f391baabe9679a77f770f01f197e777c364f08fb1e96ccae6775484c"
+  }
+}

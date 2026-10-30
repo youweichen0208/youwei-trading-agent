@@ -1,0 +1,44 @@
+{
+  "observed_at": "2026-10-29T06:38:42.573657+00:00",
+  "scope": "Authenticated BFF explicit report comparison; synthetic REPLAY only",
+  "typescript_tests": {
+    "contracts": 26,
+    "bff": 87,
+    "postgres_enabled": true
+  },
+  "typecheck": "passed",
+  "build": "passed",
+  "openapi": "valid",
+  "contract_drift": "passed",
+  "ruff": "passed",
+  "images_rebuilt": false,
+  "actual_process_probe": {
+    "scope": "Actual local BFF -> Alpha -> PostgreSQL; synthetic REPLAY",
+    "anonymous": 401,
+    "authenticated": 200,
+    "alpha_response_equal": true,
+    "registered_report_equal": true,
+    "comparison_alpha_equal": true,
+    "comparison_registered_payload_equal": true,
+    "report_list_alpha_equal": true,
+    "report_list_next_page_disjoint": true,
+    "disjoint_second_page": true,
+    "items": 2,
+    "logout": 200
+  },
+  "files_sha256": {
+    "packages/contracts/src/index.ts": "ed1b95075073d000b36662ea2379d3c54b07f842f907367a87b75efcc30d58b4",
+    "packages/contracts/src/requests.ts": "8119c0fad2ff528582b8be5359a1ff1f86acf3eaae34dea7ec0076d6a4901a09",
+    "packages/contracts/scripts/build-bff-openapi.mjs": "5c0e47d3e047e8449f380b36334390bdcd965c2bc8b2a6cb07b1cd7b7e6e173d",
+    "packages/contracts/scripts/export-requests.mjs": "006232c0778a1a534de9dec2dec608b6d5f7006e86c987df8cf85afc8ece326a",
+    "packages/contracts/fixtures/experimental-report-comparison.json": "47a3730d2d5fb287790c5a6c5032034650c97742e08a04967e4b4c6fff1ca255",
+    "packages/contracts/bff.openapi.json": "a34e9d5ce8b13270b6dd07b9258e5a2c77ccf9e30fbd70f8b4d6b3b48811fd93",
+    "apps/bff/src/app.ts": "4cbf921beb4c2c44a39f034886fb76cd411153ed5dbbd852d8c746f83a23f6ff",
+    "apps/bff/src/alpha.ts": "9b0e2e6ee3366cca1877464c317c477937a9f8d8349306ad1b51261b731c9681",
+    "apps/bff/src/experimental-report.ts": "59fb8932c6740480232a0d6d5be01f935d01cc8712ba737b47adc6d953641f72",
+    "apps/bff/src/observability.ts": "44e3f33c36cffbbcf1fc88c110cf661266809158464077296ee5c1e7f1ec593f",
+    "apps/bff/tests/bff.integration.test.ts": "92dd7e6b9e13bc4240b91a78dd198be6a0008f96a213620357a72458e4381242",
+    "apps/bff/tests/experimental-report.test.ts": "055c700c93186676a0619424fe7c8c73fb6605f5ced14787fe68b2adfa690a21",
+    "packages/contracts/tests/experimental-reports.test.ts": "110476fe2b2ac21287cf4f4d8eebbb69c9c52f8c0134f5873f4e41f2ac59f4a7"
+  }
+}

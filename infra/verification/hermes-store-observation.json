@@ -1,0 +1,68 @@
+{
+  "observed_at": "2026-10-29T16:29:52.703797+00:00",
+  "scope": "Private persistent Hermes session/run identities and one-time admission",
+  "tests": {
+    "ts_passed": 185,
+    "contracts": 42,
+    "bff": 143,
+    "real_postgres": true,
+    "migration_backup_unit_passed": 12,
+    "log": ".local/hermes-store-tests.log"
+  },
+  "checks": {
+    "typecheck": "passed",
+    "bff_build": "passed",
+    "ruff": "passed",
+    "format_files": 212,
+    "alpha_contract_drift": "passed",
+    "migration_container": "fresh/upgrade/repeatability/roles/cleanup passed"
+  },
+  "restore": {
+    "owner_guards": 9,
+    "audit_rollback": true,
+    "test_log": ".local/yta_backup_fixture_087805f82245412eb4dbc6522909a1c7_test.log",
+    "verification": {
+      "restored_database": "yta_restore_f0910a3f9b7644fbbfbf5321167755ff_test",
+      "tables_verified": 46,
+      "immutable_guards_verified": 44,
+      "identity_sequences_verified": 6,
+      "forecasts_reproduced": 0,
+      "settlements_reproduced": 0,
+      "evidence_items_verified": 0,
+      "model_proposals_verified": 0,
+      "quality_policies_verified": 0,
+      "quality_assessments_verified": 0,
+      "model_reviews_verified": 0,
+      "model_quality_gates_verified": 0,
+      "backtest_reports_verified": 0,
+      "training_evidence_verified": 0,
+      "probability_policies_verified": 0,
+      "probability_assessments_verified": 0,
+      "elapsed_seconds": 0.64
+    },
+    "hermes": {
+      "requests": 7,
+      "receipts": 4,
+      "unknown": 3,
+      "no_resend": true,
+      "no_new_audit": true
+    },
+    "scope": "Fresh local Hermes facts, not production restore"
+  },
+  "limitations": [
+    "ResearchRunner still not wired to Hermes; SSE event persistence and cancellation reconciliation pending",
+    "Existing request without receipt is EXECUTION_UNKNOWN; no POST replay is authorized",
+    "Current changes use HTTP fault tests; no new real LLM calls",
+    "Dedicated test DB migrated to 025; ordinary yta untouched",
+    "Full prior 827 Python financial tests not repeated; targeted migration/backup plus real PG used",
+    "No application image rebuild or browser changes"
+  ],
+  "files_sha256": {
+    "infra/migrations/025_hermes_bindings.sql": "23e2443a438d21ea7d70962e8c2ae3cbb5f48fdbcaaf88806e56689a9d777ffc",
+    "apps/bff/src/hermes-client.ts": "d77c3bf02eff7b26ff9e5ed84c802df9ea676c3d985ed2b06ce84374d2af9563",
+    "apps/bff/src/hermes-store.ts": "1b53f2496732e9746582b35116d1c81701f350fcd08b3596d359a5d0cbcef5a2",
+    "apps/bff/src/hermes-admission.ts": "f9cff929544812e51e7b698800ee1b581587b0d94c18cf82495cf6231c7b3e9a",
+    "apps/bff/tests/hermes-store.integration.test.ts": "7a01d3b94453827c8e043b0a5621be2f57c801ea51757d7a9dbb37b163aa20c4",
+    "scripts/check_hermes_store_restore.py": "ed547f52bb127b697cdbe07952ee4aa14443c0e9ad5f473bf28c610d26e26a11"
+  }
+}

@@ -1,0 +1,83 @@
+{
+  "observed_at": "2026-10-29T12:08:17.464847+00:00",
+  "scope": "Immutable registered backtest inputs, replayed reports and FK model references",
+  "python_tests": {
+    "passed": 796,
+    "seconds": 194.23,
+    "warnings": 4,
+    "skipped": 0,
+    "postgres_required": true,
+    "log": ".local/clean-suite-55184537c0714434a419a63065a03454.log"
+  },
+  "targeted_tests": {
+    "passed": 10,
+    "seconds": 2.13,
+    "note": "Additional incomplete/cost-version test and two boolean-volume regressions passed in full suite"
+  },
+  "restore": {
+    "python_suite": "passed",
+    "log": ".local/clean-suite-55184537c0714434a419a63065a03454.log",
+    "verification": {
+      "restored_database": "yta_restore_ac711409e42c4bc78ffd94930af2808b_test",
+      "tables_verified": 42,
+      "immutable_guards_verified": 40,
+      "identity_sequences_verified": 6,
+      "forecasts_reproduced": 46,
+      "settlements_reproduced": 20,
+      "evidence_items_verified": 9,
+      "model_proposals_verified": 55,
+      "quality_policies_verified": 58,
+      "quality_assessments_verified": 54,
+      "model_reviews_verified": 24,
+      "model_quality_gates_verified": 19,
+      "backtest_reports_verified": 11,
+      "probability_policies_verified": 44,
+      "probability_assessments_verified": 38,
+      "elapsed_seconds": 15.412
+    },
+    "acquisitions": {
+      "raw_tables_identical": true,
+      "market_bars_identical": true,
+      "valid_acquisitions_reconstructed": 39,
+      "invalid_acquisitions_still_rejected": 4,
+      "valid_projections_reconstructed": 38,
+      "missing_or_invalid_projections_still_rejected": 1,
+      "daily_records_reconstructed": 23,
+      "qualification_status": "UNVERIFIED"
+    },
+    "scope": "Fresh local Python test dataset; not remote CI or production"
+  },
+  "runtime_replay": {
+    "runtime_reports_replayed": 11,
+    "statuses": {
+      "COMPLETE": 10,
+      "INCOMPLETE": 1
+    }
+  },
+  "migration": {
+    "version": 23,
+    "container_result": "Migration container passed: fresh/upgrade, existing evidence, repeatability, roles, cleanup",
+    "normal_application_database_changed": false
+  },
+  "checks": {
+    "ruff": "passed",
+    "format": "200 files passed",
+    "alpha_contract_drift": "passed",
+    "docs": "passed"
+  },
+  "limitations": [
+    "Internal registration only; no public creation/catalog/detail UI yet",
+    "Signal inference replay does not establish historical provider or training qualification",
+    "Incomplete report metrics remain null; no model approval or promotion",
+    "No TS/browser changes; prior frontend suites not repeated",
+    "Migrator rebuilt; application images not rebuilt"
+  ],
+  "files_sha256": {
+    "infra/migrations/023_backtest_reports.sql": "2d13fb1a03883845361a01bd0f25d1862bc2dc830601afdd515eae727b49d70b",
+    "services/alpha-engine/src/yta_alpha/backtest_registry.py": "28a762b5b6535b364abe42fd197c607473afdaf84a7121265f4efd498112722c",
+    "services/alpha-engine/src/yta_alpha/backtest.py": "d8ed89843dfc17a6784d587f37c73bfad13d4a2fa39609e817e0388fde4f0fb0",
+    "services/alpha-engine/src/yta_alpha/backtest_report.py": "6ede46ec28c80fe6868a9e37f1ee91246900a35082f309244f6027ee92a6b29d",
+    "scripts/backup_local.py": "2ff1c5e673eb16186433b5bc9e594447192c35e2e2a87789b6c7436379628d13",
+    "tests/integration/test_calibration_registry.py": "077d12cf1578d0b2de70f1009f0bd11e6862463f5f8e8344de80e95681e34002"
+  }
+}

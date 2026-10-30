@@ -1,0 +1,48 @@
+{
+  "observed_at": "2026-10-29T15:36:04.672967+00:00",
+  "scope": "Strict private Alpha GET projection after full native retraining of fixed training evidence",
+  "targeted_tests": {
+    "passed": 4,
+    "seconds": 4.97,
+    "warnings": 4,
+    "postgres_required": true,
+    "log": ".local/training-evidence-api-tests.log"
+  },
+  "python_tests": {
+    "passed": 824,
+    "seconds": 228.5,
+    "warnings": 4,
+    "skipped": 0,
+    "postgres_required": true,
+    "log": ".local/training-evidence-api-full-python.log"
+  },
+  "checks": {
+    "shared_contract_regression_tests": 39,
+    "alpha_contract_drift": "passed",
+    "bff_contract_drift": "passed",
+    "ruff": "passed",
+    "format": "209 files passed",
+    "docs": "120 task DAG passed"
+  },
+  "fixtures": {
+    "MATCHED": "packages/contracts/fixtures/training-evidence-matched.json",
+    "MISMATCH": "packages/contracts/fixtures/training-evidence-mismatch.json",
+    "method": "Runtime database role, full retraining before projection"
+  },
+  "limitations": [
+    "No public BFF training-evidence route, shared Zod schema, catalog or page yet",
+    "Response projection does not include original input; its hash alone cannot reproduce registration identity",
+    "No new persistence behavior; previous full restore not repeated",
+    "No application image rebuild or browser suite",
+    "Training match does not qualify data or authorize model promotion"
+  ],
+  "files_sha256": {
+    "services/alpha-engine/src/yta_alpha/training_evidence_contracts.py": "43292e3e81c005c22abb1f3588a5c7d321d25eeffc27bffe9f4d7339fad8efb4",
+    "services/alpha-engine/src/yta_alpha/training_evidence_reports.py": "045d5032d42fe0bbb9661fefcfe07514c831bfac0c81546f9f95b27ebe8f26df",
+    "services/alpha-engine/src/yta_alpha/api.py": "fa8662a47dcd23642d6eed54e719ba7d2a26156b077350476e07141225d91532",
+    "tests/integration/test_training_evidence_registry.py": "e4a751acbccfe842e28ff6319dbb14c9353b31d39e9c60910b0c1058703b6b29",
+    "packages/contracts/fixtures/training-evidence-matched.json": "10543dbd5cc16545becb410a90a48da803be7181dc35013140499479ca492f0c",
+    "packages/contracts/fixtures/training-evidence-mismatch.json": "11bb8ca6116593d682e3cc731fadf99dd3e3aec182a70edebc5e8733f34593f9",
+    "packages/contracts/alpha.openapi.json": "8104ed88d426c576ea743718d2a44f8fccee019101a0edbe6ab7769ae83fdae2"
+  }
+}

@@ -1,0 +1,248 @@
+[
+  {
+    "scope": "POST_CALIBRATION_HISTORICAL_EVALUATION",
+    "cohort": {
+      "cutoff": "2023-06-16T20:10:55.100159+00:00",
+      "data_mode": "REPLAY",
+      "label_ids": [
+        "8454e6844f100082103cad1e505efd3b5d8871e849c7b47859d33b9fa898bf84",
+        "ab3278a91b7f4c287e0f5a22ceba0d1be4338826b76688e5964f69f2b184d237",
+        "cf2c8133bf89f69910849810043c8384977356a8154096629a4f760980e40495",
+        "2a167027cbae23c9280ffc279c61fa3c98aaf6088c009d986bff35b68e214f96",
+        "1886cfe46bbcc5b40dc97d6df430d800af97e689a1850339abc4545256b469d0"
+      ],
+      "calendar_version": "exchange-calendars-4.13.2:XNYS",
+      "horizon_sessions": 5
+    },
+    "status": "EXPERIMENTAL",
+    "metrics": {
+      "model": {
+        "mae": "0.078482678960",
+        "sample_count": 5,
+        "direction_accuracy": "1.000000000000"
+      },
+      "momentum20-v1": {
+        "mae": "0.124140081990",
+        "sample_count": 5,
+        "direction_accuracy": "0.400000000000"
+      },
+      "zero-return-v1": {
+        "mae": "0.120276768728",
+        "sample_count": 5,
+        "direction_accuracy": "0.000000000000"
+      }
+    },
+    "manifest": [
+      {
+        "label_id": "8454e6844f100082103cad1e505efd3b5d8871e849c7b47859d33b9fa898bf84",
+        "base_session": "2023-06-05",
+        "actual_return": "0.132075471698",
+        "feature_as_of": "2023-06-05T20:10:00+00:00",
+        "target_session": "2023-06-12",
+        "actual_direction": "UP",
+        "base_snapshot_hash": "ad9b18ec1ffdf320048de5aad71be491baaa094d1d3bf8a7ebec0d7df3107a04",
+        "label_available_at": "2023-06-12T20:10:00+00:00",
+        "zero_expected_return": "0.000000000000",
+        "model_expected_return": "0.026976589598",
+        "momentum_expected_return": "-0.020366068407",
+        "observation_snapshot_hash": "90721cc21131e1e5c04648cf7ad1988b9dcb150015f96f4fe84537bc57f8d377"
+      },
+      {
+        "label_id": "ab3278a91b7f4c287e0f5a22ceba0d1be4338826b76688e5964f69f2b184d237",
+        "base_session": "2023-06-06",
+        "actual_return": "0.129629629630",
+        "feature_as_of": "2023-06-06T20:10:00+00:00",
+        "target_session": "2023-06-13",
+        "actual_direction": "UP",
+        "base_snapshot_hash": "6682ce4172c36904ed94f83d58055737c1609f5cbf31fb3789108ebef05ba791",
+        "label_available_at": "2023-06-13T20:10:00+00:00",
+        "zero_expected_return": "0.000000000000",
+        "model_expected_return": "0.065798253009",
+        "momentum_expected_return": "0.025334519283",
+        "observation_snapshot_hash": "54b5c83c6d8ffa9905ae299fc2487e8534801c81831ce2c3e5a9aa40438a215b"
+      },
+      {
+        "label_id": "cf2c8133bf89f69910849810043c8384977356a8154096629a4f760980e40495",
+        "base_session": "2023-06-07",
+        "actual_return": "0.127272727273",
+        "feature_as_of": "2023-06-07T20:10:00+00:00",
+        "target_session": "2023-06-14",
+        "actual_direction": "UP",
+        "base_snapshot_hash": "fc1d70d3fa5e72e99728f087e39cc6fcd251ebdeb763135105af5aa47a75be6d",
+        "label_available_at": "2023-06-14T20:10:00+00:00",
+        "zero_expected_return": "0.000000000000",
+        "model_expected_return": "0.059007459769",
+        "momentum_expected_return": "0.025062188128",
+        "observation_snapshot_hash": "2ed24cefad2b03306d89ed047c615153533cf85de9ea46f06697972bb2a6d71e"
+      },
+      {
+        "label_id": "2a167027cbae23c9280ffc279c61fa3c98aaf6088c009d986bff35b68e214f96",
+        "base_session": "2023-06-08",
+        "actual_return": "-0.107142857143",
+        "feature_as_of": "2023-06-08T20:10:00+00:00",
+        "target_session": "2023-06-15",
+        "actual_direction": "DOWN",
+        "base_snapshot_hash": "7a6cdf27ffefb1751be7091e3b268da0ad36c20649de6d298105b601ad119a5b",
+        "label_available_at": "2023-06-15T20:10:00+00:00",
+        "zero_expected_return": "0.000000000000",
+        "model_expected_return": "-0.028594073232",
+        "momentum_expected_return": "0.024799950366",
+        "observation_snapshot_hash": "6e15457fd2f7fb389b460558584a98205b648494eef19a48749a2e66432c67ce"
+      },
+      {
+        "label_id": "1886cfe46bbcc5b40dc97d6df430d800af97e689a1850339abc4545256b469d0",
+        "base_session": "2023-06-09",
+        "actual_return": "-0.105263157895",
+        "feature_as_of": "2023-06-09T20:10:00+00:00",
+        "target_session": "2023-06-16",
+        "actual_direction": "DOWN",
+        "base_snapshot_hash": "a7d08aa5813dc493e4f90ec549f5d98043a1eeb84d9e21f95cf71f2ab9dde12f",
+        "label_available_at": "2023-06-16T20:10:00+00:00",
+        "zero_expected_return": "0.000000000000",
+        "model_expected_return": "-0.028594073232",
+        "momentum_expected_return": "0.024547254948",
+        "observation_snapshot_hash": "4b359b3179b8da3750a6078c28a696f7ca2b280c80717cc09d47ff9c4bef43a7"
+      }
+    ],
+    "model_id": "lightgbm-experimental-f529b5d53b58b30035dda5757d00787e488f0a7e94927e01418440f16f2ea28e",
+    "code_sha256": {
+      "forecast": "a77c28a6f4b3781d0cee94061110632bba54f89cc27fbe20f05fdfee1f86d9d0",
+      "training": "e91f19ffe90dc2eeebabfaa67719c3c6c091527f398818b1ade0f7349ea268b4",
+      "calibration": "5b3d1af37926ff6301465171ceeb9f4cbd137443f2656e7a9c25c32b70250128",
+      "price_evaluation": "9f6c9007dacc414ed771b0032191f6979171aa1fa9741e5cd8eb748dd6030f57"
+    },
+    "cohort_hash": "fe50cc74d0eb26609dc7a667c41d989c3c3c4ecc9e7a069a4b0d61fe578a6cb5",
+    "content_hash": "a933e9bb0867486c94a93f27b97690f9f91697a6724ad542bdf78d38c9d87c46",
+    "model_sha256": "22ab3a117e241e43a810e683d44794c97f83c374a96629906975071c92c9b78e",
+    "return_basis": "split-only-price-return",
+    "qualification": "UNVERIFIED",
+    "calibration_id": "calibration-experimental-9f62e8ef5e9b0671196d013f81f8e5aaa3d7591a541caa472e079258053cb8d1",
+    "schema_version": "experimental-price-evaluation-v1",
+    "protocol_version": "eod-price-v1",
+    "calibration_content_hash": "9f62e8ef5e9b0671196d013f81f8e5aaa3d7591a541caa472e079258053cb8d1",
+    "momentum_unavailable_reason": null
+  },
+  {
+    "scope": "POST_CALIBRATION_HISTORICAL_EVALUATION",
+    "cohort": {
+      "cutoff": "2023-06-16T20:10:55.100159+00:00",
+      "data_mode": "REPLAY",
+      "label_ids": [
+        "8454e6844f100082103cad1e505efd3b5d8871e849c7b47859d33b9fa898bf84",
+        "ab3278a91b7f4c287e0f5a22ceba0d1be4338826b76688e5964f69f2b184d237",
+        "cf2c8133bf89f69910849810043c8384977356a8154096629a4f760980e40495",
+        "2a167027cbae23c9280ffc279c61fa3c98aaf6088c009d986bff35b68e214f96",
+        "1886cfe46bbcc5b40dc97d6df430d800af97e689a1850339abc4545256b469d0"
+      ],
+      "calendar_version": "exchange-calendars-4.13.2:XNYS",
+      "horizon_sessions": 5
+    },
+    "status": "EXPERIMENTAL",
+    "metrics": {
+      "model": {
+        "mae": "0.078482678960",
+        "sample_count": 5,
+        "direction_accuracy": "1.000000000000"
+      },
+      "momentum20-v1": {
+        "mae": "0.124140081990",
+        "sample_count": 5,
+        "direction_accuracy": "0.400000000000"
+      },
+      "zero-return-v1": {
+        "mae": "0.120276768728",
+        "sample_count": 5,
+        "direction_accuracy": "0.000000000000"
+      }
+    },
+    "manifest": [
+      {
+        "label_id": "8454e6844f100082103cad1e505efd3b5d8871e849c7b47859d33b9fa898bf84",
+        "base_session": "2023-06-05",
+        "actual_return": "0.132075471698",
+        "feature_as_of": "2023-06-05T20:10:00+00:00",
+        "target_session": "2023-06-12",
+        "actual_direction": "UP",
+        "base_snapshot_hash": "ad9b18ec1ffdf320048de5aad71be491baaa094d1d3bf8a7ebec0d7df3107a04",
+        "label_available_at": "2023-06-12T20:10:00+00:00",
+        "zero_expected_return": "0.000000000000",
+        "model_expected_return": "0.026976589598",
+        "momentum_expected_return": "-0.020366068407",
+        "observation_snapshot_hash": "90721cc21131e1e5c04648cf7ad1988b9dcb150015f96f4fe84537bc57f8d377"
+      },
+      {
+        "label_id": "ab3278a91b7f4c287e0f5a22ceba0d1be4338826b76688e5964f69f2b184d237",
+        "base_session": "2023-06-06",
+        "actual_return": "0.129629629630",
+        "feature_as_of": "2023-06-06T20:10:00+00:00",
+        "target_session": "2023-06-13",
+        "actual_direction": "UP",
+        "base_snapshot_hash": "6682ce4172c36904ed94f83d58055737c1609f5cbf31fb3789108ebef05ba791",
+        "label_available_at": "2023-06-13T20:10:00+00:00",
+        "zero_expected_return": "0.000000000000",
+        "model_expected_return": "0.065798253009",
+        "momentum_expected_return": "0.025334519283",
+        "observation_snapshot_hash": "54b5c83c6d8ffa9905ae299fc2487e8534801c81831ce2c3e5a9aa40438a215b"
+      },
+      {
+        "label_id": "cf2c8133bf89f69910849810043c8384977356a8154096629a4f760980e40495",
+        "base_session": "2023-06-07",
+        "actual_return": "0.127272727273",
+        "feature_as_of": "2023-06-07T20:10:00+00:00",
+        "target_session": "2023-06-14",
+        "actual_direction": "UP",
+        "base_snapshot_hash": "fc1d70d3fa5e72e99728f087e39cc6fcd251ebdeb763135105af5aa47a75be6d",
+        "label_available_at": "2023-06-14T20:10:00+00:00",
+        "zero_expected_return": "0.000000000000",
+        "model_expected_return": "0.059007459769",
+        "momentum_expected_return": "0.025062188128",
+        "observation_snapshot_hash": "2ed24cefad2b03306d89ed047c615153533cf85de9ea46f06697972bb2a6d71e"
+      },
+      {
+        "label_id": "2a167027cbae23c9280ffc279c61fa3c98aaf6088c009d986bff35b68e214f96",
+        "base_session": "2023-06-08",
+        "actual_return": "-0.107142857143",
+        "feature_as_of": "2023-06-08T20:10:00+00:00",
+        "target_session": "2023-06-15",
+        "actual_direction": "DOWN",
+        "base_snapshot_hash": "7a6cdf27ffefb1751be7091e3b268da0ad36c20649de6d298105b601ad119a5b",
+        "label_available_at": "2023-06-15T20:10:00+00:00",
+        "zero_expected_return": "0.000000000000",
+        "model_expected_return": "-0.028594073232",
+        "momentum_expected_return": "0.024799950366",
+        "observation_snapshot_hash": "6e15457fd2f7fb389b460558584a98205b648494eef19a48749a2e66432c67ce"
+      },
+      {
+        "label_id": "1886cfe46bbcc5b40dc97d6df430d800af97e689a1850339abc4545256b469d0",
+        "base_session": "2023-06-09",
+        "actual_return": "-0.105263157895",
+        "feature_as_of": "2023-06-09T20:10:00+00:00",
+        "target_session": "2023-06-16",
+        "actual_direction": "DOWN",
+        "base_snapshot_hash": "a7d08aa5813dc493e4f90ec549f5d98043a1eeb84d9e21f95cf71f2ab9dde12f",
+        "label_available_at": "2023-06-16T20:10:00+00:00",
+        "zero_expected_return": "0.000000000000",
+        "model_expected_return": "-0.028594073232",
+        "momentum_expected_return": "0.024547254948",
+        "observation_snapshot_hash": "4b359b3179b8da3750a6078c28a696f7ca2b280c80717cc09d47ff9c4bef43a7"
+      }
+    ],
+    "model_id": "lightgbm-experimental-e2f7fe4161556b3c962831af652a7cf1394ad0a52f8a479b3722dd470f6a76f3",
+    "code_sha256": {
+      "forecast": "a77c28a6f4b3781d0cee94061110632bba54f89cc27fbe20f05fdfee1f86d9d0",
+      "training": "e91f19ffe90dc2eeebabfaa67719c3c6c091527f398818b1ade0f7349ea268b4",
+      "calibration": "5b3d1af37926ff6301465171ceeb9f4cbd137443f2656e7a9c25c32b70250128",
+      "price_evaluation": "9f6c9007dacc414ed771b0032191f6979171aa1fa9741e5cd8eb748dd6030f57"
+    },
+    "cohort_hash": "fe50cc74d0eb26609dc7a667c41d989c3c3c4ecc9e7a069a4b0d61fe578a6cb5",
+    "content_hash": "3970551b037fb127d0690cc11948dfb82041794459caffbc47cf194d95805d4e",
+    "model_sha256": "22ab3a117e241e43a810e683d44794c97f83c374a96629906975071c92c9b78e",
+    "return_basis": "split-only-price-return",
+    "qualification": "UNVERIFIED",
+    "calibration_id": "calibration-experimental-3c14812feee5f3204f66930e13ca2c151ffd7916f5af24f6256165f352d2b2a3",
+    "schema_version": "experimental-price-evaluation-v1",
+    "protocol_version": "eod-price-v1",
+    "calibration_content_hash": "3c14812feee5f3204f66930e13ca2c151ffd7916f5af24f6256165f352d2b2a3",
+    "momentum_unavailable_reason": null
+  }
+]

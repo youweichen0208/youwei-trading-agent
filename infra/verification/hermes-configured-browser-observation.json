@@ -1,0 +1,214 @@
+{
+  "observed_on": "2026-10-30",
+  "qualification": "LOCAL_REPLAY_FUNCTIONAL_ONLY_HOST_SLEEP_AFFECTED_LATENCY",
+  "provider": "volc-glm",
+  "model": "deepseek-v4-pro",
+  "database": "yta_pi_app_5d30d605b29f_test",
+  "images": {
+    "application": {
+      "image": "sha256:9f8a8232195edd611635d91b33dda4656fe17baeaa144b59d85c837d7c59ccc8",
+      "no_bind_mounts": true,
+      "readonly_root": true,
+      "entrypoint": [
+        "node",
+        "dist/main.js"
+      ]
+    },
+    "web": {
+      "image": "sha256:8831be2711ab54df88cf85d3ece993f7492b1081ff4fdb7f2eb874edcc0ed66e",
+      "no_bind_mounts": true,
+      "readonly_root": true,
+      "entrypoint": [
+        "docker-entrypoint.sh"
+      ]
+    },
+    "alpha": {
+      "image": "sha256:80ee6d4cd54224274939a38de603ae6794d16f0dddf41b9b3f728a7da5bed933",
+      "no_bind_mounts": true,
+      "readonly_root": true,
+      "entrypoint": null
+    },
+    "finance-tools": {
+      "image": "sha256:55519aaf7f664092479caee5280f43df3a754369037a97ab92a53853aa000725",
+      "no_bind_mounts": true,
+      "readonly_root": true,
+      "entrypoint": null
+    }
+  },
+  "browser": {
+    "scope": "real pi model browser flow on synthetic REPLAY",
+    "run_id": "60bcfbb4-d1ce-4538-841c-daeefe389335",
+    "authenticated": true,
+    "csrf": true,
+    "no_auto_freeze": true,
+    "explicit_confirmation": true,
+    "settlement": true,
+    "refresh": true,
+    "history_no_sse": true,
+    "mobile_no_overflow": true,
+    "page_errors": 0,
+    "same_origin_only": true,
+    "predictions": 1,
+    "outcomes": 1,
+    "real_model": true,
+    "live_market": false,
+    "logged_out": true
+  },
+  "counts": {
+    "research_runs": 1,
+    "hermes_run_requests": 1,
+    "research_tool_observations": 2,
+    "predictions": 1,
+    "prediction_outcomes": 1
+  },
+  "event_types": [
+    {
+      "type": "run.started",
+      "count": 1,
+      "min_sequence": 1,
+      "max_sequence": 1,
+      "first_at": "2026-10-30T00:17:43.700884+00:00",
+      "last_at": "2026-10-30T00:17:43.700884+00:00"
+    },
+    {
+      "type": "tool.started",
+      "count": 2,
+      "min_sequence": 2,
+      "max_sequence": 4,
+      "first_at": "2026-10-30T00:17:48.865102+00:00",
+      "last_at": "2026-10-30T00:17:49.038141+00:00"
+    },
+    {
+      "type": "tool.completed",
+      "count": 2,
+      "min_sequence": 3,
+      "max_sequence": 5,
+      "first_at": "2026-10-30T00:17:49.034781+00:00",
+      "last_at": "2026-10-30T00:17:49.181385+00:00"
+    },
+    {
+      "type": "message.delta",
+      "count": 787,
+      "min_sequence": 6,
+      "max_sequence": 792,
+      "first_at": "2026-10-30T01:07:11.249868+00:00",
+      "last_at": "2026-10-30T01:07:17.013431+00:00"
+    },
+    {
+      "type": "canvas.command",
+      "count": 1,
+      "min_sequence": 793,
+      "max_sequence": 793,
+      "first_at": "2026-10-30T01:07:17.186384+00:00",
+      "last_at": "2026-10-30T01:07:17.186384+00:00"
+    },
+    {
+      "type": "prediction.draft",
+      "count": 1,
+      "min_sequence": 794,
+      "max_sequence": 794,
+      "first_at": "2026-10-30T01:07:17.186384+00:00",
+      "last_at": "2026-10-30T01:07:17.186384+00:00"
+    },
+    {
+      "type": "message.completed",
+      "count": 1,
+      "min_sequence": 795,
+      "max_sequence": 795,
+      "first_at": "2026-10-30T01:07:17.186384+00:00",
+      "last_at": "2026-10-30T01:07:17.186384+00:00"
+    },
+    {
+      "type": "run.completed",
+      "count": 1,
+      "min_sequence": 796,
+      "max_sequence": 796,
+      "first_at": "2026-10-30T01:07:17.186384+00:00",
+      "last_at": "2026-10-30T01:07:17.186384+00:00"
+    }
+  ],
+  "stream_replay": {
+    "frames": 796,
+    "errors": [],
+    "completed": true
+  },
+  "initial_observation": {
+    "browser_timeout_ms": 300000,
+    "result": "Timed out before model output; original run later completed. Resumed same run, no prompt resubmission.",
+    "wall_clock_gap": "Approximately 49 minutes; host clamshell sleep began at 08:18:00 +08:00, after tools completed at 08:17:49. First delta arrived at 09:07:11 following a maintenance wake. Not a provider latency pass or failure."
+  },
+  "limitations": [
+    "Real model with synthetic REPLAY market, not LIVE qualification",
+    "Hermes bootstrap still uses explicit probe configuration",
+    "Standard sealed BFF main and sealed Web/Alpha/tools have no bind mounts",
+    "Live completion UI not observed within original timeout; later same-run history and event replay verified",
+    "No staging or remote CI/review"
+  ],
+  "source_sha256": {
+    "scripts/start_hermes_application_probe.py": "8b8574ef1b0a9a0e4b5f751c4c5a637c7d4e787d139efe8271877e685ead0844",
+    "infra/compose/compose.hermes-configured-probe.yaml": "38cfaa45755f1b9f676f0fb63724d2202e218f27f13be69cebf72fe55640a5e2",
+    "scripts/probe_mvp_container_browser.mjs": "6813a9cf6dcea9cb459c408f5cd8322ff8f438a0647b7c51dc54a422b5d5a5cc",
+    "apps/bff/src/configured-driver.ts": "88cc1c773963c3b8d1b57da025053f86f485133ef4732c2392c8adda5c74b010"
+  },
+  "host_power_evidence": {
+    "source": "macOS pmset -g log, inspected 2026-10-30",
+    "events": [
+      {
+        "local_time": "2026-10-30 08:18:00",
+        "utc_offset": "+08:00",
+        "kind": "Sleep",
+        "clamshell": true
+      },
+      {
+        "local_time": "2026-10-30 08:35:31",
+        "utc_offset": "+08:00",
+        "kind": "DarkWake",
+        "clamshell": false
+      },
+      {
+        "local_time": "2026-10-30 08:35:33",
+        "utc_offset": "+08:00",
+        "kind": "Sleep",
+        "clamshell": false
+      },
+      {
+        "local_time": "2026-10-30 08:35:41",
+        "utc_offset": "+08:00",
+        "kind": "DarkWake",
+        "clamshell": false
+      },
+      {
+        "local_time": "2026-10-30 08:35:51",
+        "utc_offset": "+08:00",
+        "kind": "Sleep",
+        "clamshell": false
+      },
+      {
+        "local_time": "2026-10-30 08:51:35",
+        "utc_offset": "+08:00",
+        "kind": "DarkWake",
+        "clamshell": false
+      },
+      {
+        "local_time": "2026-10-30 08:51:37",
+        "utc_offset": "+08:00",
+        "kind": "Sleep",
+        "clamshell": false
+      },
+      {
+        "local_time": "2026-10-30 09:07:03",
+        "utc_offset": "+08:00",
+        "kind": "DarkWake",
+        "clamshell": false
+      },
+      {
+        "local_time": "2026-10-30 09:07:05",
+        "utc_offset": "+08:00",
+        "kind": "Sleep",
+        "clamshell": false
+      }
+    ],
+    "conclusion": "Clamshell sleep and repeated maintenance sleep overlap the tool-to-text wall-clock gap. This run is not a valid uninterrupted provider latency measurement.",
+    "limits": "Does not isolate provider/network time during awake intervals or qualify production deadlines."
+  }
+}

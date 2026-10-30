@@ -1,0 +1,21 @@
+groups:
+  - name: yta-availability
+    rules:
+      - alert: YTAServiceNotReady
+        expr: probe_success{job="yta-readiness"} == 0
+        for: 2m
+        labels: {severity: critical}
+        annotations:
+          summary: 'YTA {{ $labels.service }} readiness is failing'
+      - alert: YTAProbeScrapeFailed
+        expr: up{job="yta-readiness"} == 0
+        for: 1m
+        labels: {severity: critical}
+        annotations:
+          summary: 'YTA {{ $labels.service }} probe cannot be scraped'
+      - alert: YTAReadinessSeriesMissing
+        expr: absent(probe_success{job="yta-readiness",service="bff"}) or absent(probe_success{job="yta-readiness",service="web"})
+        for: 1m
+        labels: {severity: critical}
+        annotations:
+          summary: 'YTA {{ $labels.service }} readiness series is missing'

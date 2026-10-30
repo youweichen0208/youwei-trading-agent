@@ -1,0 +1,48 @@
+{
+  "scope": "Real browser -> Web -> BFF -> Alpha -> PostgreSQL; synthetic REPLAY",
+  "response_mocking": false,
+  "research_runner": false,
+  "images": {
+    "alpha-engine": {
+      "id": "sha256:60463d6eaa3d78d96908ced8833fe33a9be70f564dddd28d438a6ddd1f635396",
+      "user": "10001:10001",
+      "read_only": true
+    },
+    "yta-bff": {
+      "id": "sha256:079153bf43f568dde0a8bab67c03feb62fe49c8c7ff7ff0ad6a92f12433229e1",
+      "user": "node",
+      "read_only": true
+    },
+    "yta-web": {
+      "id": "sha256:77813e3adbad2ebc90fc0b50b5e436be0eddbf654a179afe2f48b286c6e6391c",
+      "user": "node",
+      "read_only": true
+    }
+  },
+  "browser": {
+    "authenticated": true,
+    "database_order_equal": true,
+    "first_page": 10,
+    "second_page": 10,
+    "filtered_horizon": 5,
+    "filtered_count": 10,
+    "full_identity_visible": true,
+    "decimal_string_visible": true,
+    "mobile_width": 390,
+    "document_overflow": false,
+    "page_errors": 0,
+    "same_origin_only": true
+  },
+  "observed_at": "2026-10-29T03:33:39.141Z",
+  "containers_cleaned": true,
+  "script_sha256": "99835d55e0ed5b952cb0e7e701fc831f85d6fb1e07b43a62776774ee5c83d0db",
+  "screenshots": [
+    ".local/model-catalog-browser/desktop.png",
+    ".local/model-catalog-browser/mobile.png"
+  ],
+  "screenshots_inspected": true,
+  "node_syntax": "passed",
+  "ruff": "passed",
+  "task_graph": "passed",
+  "remote_staging": false
+}

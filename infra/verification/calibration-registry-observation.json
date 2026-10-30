@@ -1,0 +1,31 @@
+{
+  "observed_at": "2026-10-29T02:40:59.893774+00:00",
+  "scope": "Local immutable calibration registry, actual PostgreSQL and container migrations, real backup/restore replay of synthetic REPLAY experiments",
+  "targeted_postgres_tests": 7,
+  "full_python_result": "599 passed, 4 warnings in 34.12s",
+  "require_postgres": true,
+  "restored_database": "yta_restore_39512cf0e67c4c10ba14a59ff43a3dfb_test",
+  "restored_calibration_records_replayed": 2,
+  "restored_calibration_ids": [
+    "calibration-experimental-2fe9b1668c6bfe7c2db97a34fa306b76386d7cae9bcd015b03b1ed908c0f2964",
+    "calibration-experimental-85cbefc390776d03821a22a6287c737cc0e09b262244bbcdf46eac6c6824a60a"
+  ],
+  "tables_verified": 32,
+  "immutable_guards_verified": 30,
+  "identity_sequences_verified": 6,
+  "forecasts_reproduced": 46,
+  "settlements_reproduced": 20,
+  "evidence_items_verified": 9,
+  "migration_container": "fresh/upgrade/repeat/roles/evidence/cleanup passed",
+  "migrator_image_digest": "sha256:44a3f673dc6eb657e57a54cfc582753365a89439e080fda31547285daed5fc40",
+  "ruff": "passed",
+  "format_files": 162,
+  "alpha_contract_drift": "passed",
+  "task_graph": "passed",
+  "files_sha256": {
+    "infra/migrations/015_calibration_records.sql": "a86149ce4d58b7dcc840075dd9b7092a6a1b6aa3c4014dc0c33cbd5e8857650d",
+    "services/alpha-engine/src/yta_alpha/calibration_registry.py": "50b5998246c055ead7447fa66edd2530674e594cdffd504675971ea6981ed1b0",
+    "tests/integration/test_calibration_registry.py": "a06eb3c7aafd66571e1753ebff0f1ba73cd3a3b78c70c0d9be83d9df9781dff2",
+    "scripts/backup_local.py": "220f7cf7481bc4cfca18ec45271c117159b32dfc06f9d739c51af807d1f8f251"
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "observed_at": "2026-10-29T12:41:25.807263+00:00",
+  "scope": "Mode-scoped immutable backtest discovery with model/status filters and keyset pagination",
+  "targeted_python": {
+    "passed": 3,
+    "seconds": 1.98,
+    "postgres_required": true,
+    "log": ".local/backtest-catalog-tests.log",
+    "note": "After full suite, scoped read-only audit assertion to fixture report identities to avoid interference from unrelated concurrent requests; all three targeted tests passed again"
+  },
+  "ts_tests": {
+    "passed": 164,
+    "contracts": 39,
+    "bff": 125,
+    "postgres_role": "yta_app",
+    "log": ".local/backtest-catalog-ts-tests.log"
+  },
+  "checks": {
+    "typecheck": "passed",
+    "build": "passed",
+    "alpha_contract_drift": "passed",
+    "bff_contract_drift": "passed",
+    "ruff": "passed",
+    "format": "203 files passed",
+    "docs": "120 task DAG passed"
+  },
+  "live": {
+    "authenticated": true,
+    "alpha_replayed": true,
+    "runtime_database_role": "yta_app",
+    "reports": [
+      "COMPLETE",
+      "INCOMPLETE"
+    ],
+    "catalog_pages": 4,
+    "catalog_reports": 4,
+    "status_filter_verified": true,
+    "exact_fixture_and_direct_match": true,
+    "logged_out": true
+  },
+  "limitations": [
+    "Catalog validates stored registration/report/input integrity and model references; does not execute native inference",
+    "Fixed detail still requires full native replay and may be unavailable even if catalog is readable",
+    "No report UI or browser generation workflow yet",
+    "No new persistence behavior or migrations; prior restore not repeated",
+    "No browser suite or application image rebuild",
+    "Historical qualification remains UNVERIFIED"
+  ],
+  "files_sha256": {
+    "services/alpha-engine/src/yta_alpha/backtest_catalog.py": "74ce2cd832ba0b3c68a58ec402cba669df09ad86da3ad21e4dad9cf85100aebc",
+    "services/alpha-engine/src/yta_alpha/api.py": "97dfa237f9cab64e8860597d98e0e9050001a8e8fcd03ae0ead574f1431c0ef0",
+    "tests/integration/test_calibration_registry.py": "03f4757bf548edea6a856ba775da5f8bba2feeb01e1cf68a6cf9fbca8575a143",
+    "packages/contracts/src/backtest.ts": "bea822e7d725f3673f62accf34c671c1b02f553cb8b8ee2066b34f1e48e4b75d",
+    "apps/bff/src/backtest-report.ts": "9c893484c13aead0491c8c79f11f0450a4fa7f06ecf7617f52dfd6f0e33eadac",
+    "apps/bff/src/alpha.ts": "5307af06dffc90545f67b9cc19aee2f2e897bf47649d18c5f8e78694c384939a",
+    "apps/bff/src/app.ts": "578b63e64dca0347fa897faddd6d23ff50ce5980bdc3878a7aae64ffc9654630",
+    "packages/contracts/tests/backtest.test.ts": "9767ad1ff933323569f18a9d3afb005a623733aeaac3dd982d60a0d5fd1c7513",
+    "apps/bff/tests/backtest-report.test.ts": "e47401b2df71fb5b9fcc16ea8014150999150b408a9e9c369f845d5336251a68",
+    "apps/bff/tests/bff.integration.test.ts": "2e6b16711ab2ab443301a6e195364dced239ad95b3446f34482aed25e2a3a0e7",
+    "packages/contracts/fixtures/backtest-page.json": "1d9033c1c10f463b3ff58fd4b8e08d0400be529ea5164d16a93a2f23e0e164cd"
+  },
+  "python_tests": {
+    "passed": 802,
+    "warnings": 4,
+    "seconds": 210.23,
+    "skipped": 0,
+    "postgres_required": true,
+    "log": ".local/backtest-catalog-full-python.log"
+  }
+}

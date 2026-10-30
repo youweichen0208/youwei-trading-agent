@@ -1,0 +1,45 @@
+{
+  "observed_at": "2026-10-29T16:15:45.471599+00:00",
+  "scope": "Private locked-profile Hermes transport; not yet a research driver",
+  "tests": {
+    "transport_passed": 7,
+    "ts_passed": 179,
+    "contracts": 42,
+    "bff": 137,
+    "real_postgres": true,
+    "log": ".local/hermes-client-tests.log"
+  },
+  "checks": {
+    "typecheck": "passed",
+    "bff_build": "passed",
+    "ruff": "passed",
+    "alpha_contract_drift": "passed",
+    "docs": "120 task DAG passed"
+  },
+  "locked_gateway": {
+    "image": "sha256:67f82b05c5c083f2795cff9c361b4f5c464116fcc4301671709376e6f64e3226",
+    "profile": "alpha-orchestrator",
+    "same_request_same_run": true,
+    "status": "failed",
+    "events": [
+      "run.failed"
+    ],
+    "cursor_resume": true,
+    "real_gateway": true,
+    "model_credentials": false,
+    "network": "internal",
+    "qualification": "UNVERIFIED"
+  },
+  "limitations": [
+    "No application wiring or persistent session/run mapping yet",
+    "No model credentials in this protocol check; pi real-model integration still pending",
+    "Stop acknowledgement is not cancellation; driver must reconcile terminal state",
+    "No source qualification or Hermes capability matrix promotion",
+    "No Python, database or UI behavior changes; corresponding previous suites not repeated"
+  ],
+  "files_sha256": {
+    "apps/bff/src/hermes-client.ts": "3de38b94e8b902adfdc096b5ab34c143a6faf9e2c33a14b9a5d5a946dfd86ca0",
+    "apps/bff/tests/hermes-client.test.ts": "7f749aafbe4a5e38eb4b429974bdc1d37741013c3dfb8f82d5795b268f314cf6",
+    "scripts/check_hermes_client.mjs": "93de996a8eed0b19922c342c705fa94db4a4ea6e128fc2084f2b8bc138ada5dd"
+  }
+}

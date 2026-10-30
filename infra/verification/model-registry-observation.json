@@ -1,0 +1,27 @@
+{
+  "observed_at": "2026-10-29T02:11:40.573266+00:00",
+  "scope": "Local PostgreSQL experimental model registry and actual backup/restore; synthetic REPLAY training evidence",
+  "targeted_postgres_tests": 9,
+  "full_python_result": "566 passed, 4 warnings in 28.05s",
+  "require_postgres": true,
+  "restored_database": "yta_restore_5e8f028a46b24d2a9829b39d04e9d331_test",
+  "restored_trained_models_verified_and_inferred": 7,
+  "restored_predictions_equal": true,
+  "tables_verified": 31,
+  "immutable_guards_verified": 29,
+  "identity_sequences_verified": 6,
+  "forecasts_reproduced": 46,
+  "settlements_reproduced": 20,
+  "evidence_items_verified": 9,
+  "ruff": "passed",
+  "format_files": 156,
+  "alpha_contract_drift": "passed",
+  "task_graph": "passed",
+  "source_test_database_cleaned": true,
+  "files_sha256": {
+    "services/alpha-engine/src/yta_alpha/model_registry.py": "9bbe10d1987478708ad030689114df0b038db3804407e3fbcef65c98d2a4dea8",
+    "services/alpha-engine/src/yta_alpha/train_cli.py": "af14502ebad16ee0a28021fe71df18b876cf5584e37e4f5e43aedd869620693f",
+    "tests/integration/test_model_registry.py": "94c81ebf787189f6290f3a434d5a78666e12caa60b5ebb9e197f7a0785b6475e",
+    "scripts/backup_local.py": "6751dd6b06b6ee70448c09908c43b079ce65a5d325cceeeff0646a0e8b9a4ec3"
+  }
+}

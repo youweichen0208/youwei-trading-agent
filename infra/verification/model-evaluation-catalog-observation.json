@@ -1,0 +1,26 @@
+{
+  "observed_at": "2026-10-29T06:14:21.754950+00:00",
+  "scope": "Model-scoped report discovery; real local PostgreSQL and synthetic REPLAY",
+  "python_suite": {
+    "passed": 632,
+    "warnings": 4,
+    "skipped": 0,
+    "seconds": 39.76,
+    "database": "yta_test",
+    "require_postgres": true
+  },
+  "shared_contract_tests": 24,
+  "openapi_validation": "passed",
+  "contract_drift": "passed",
+  "ruff": "passed",
+  "format_files": 170,
+  "images_rebuilt": false,
+  "bff_list_route": false,
+  "files_sha256": {
+    "services/alpha-engine/src/yta_alpha/model_evaluation_catalog.py": "0afdb984904ae773d7cdc9a960fd8e5446cdf11d6c8a91e097a19139cc4337a4",
+    "services/alpha-engine/src/yta_alpha/api.py": "553c1d1965e6a5cb52451842a6332698a299a817e97320d6004a017746d4047d",
+    "tests/integration/test_calibration_registry.py": "c7b03e7dbc407f42e88a162aad0a49254304b940adb2312d7f6b867f8ea27ccc",
+    "packages/contracts/alpha.openapi.json": "46fd45d762928a4414bcfc15f45d62315fb41f97da31da496e426e17b5e524d7",
+    "packages/contracts/bff.openapi.json": "bb34d84668706ae8b3e0411b8b39b2747656e24f69980dbdcbec67b63e1583e7"
+  }
+}

@@ -1,0 +1,27 @@
+[
+  {
+    "value": {
+      "": "bmp",
+      "𐀀": "astral",
+      "a": {
+        "𐀀": "二",
+        "": "一"
+      }
+    },
+    "sha256": "ff4fdfe7a4f5a79a409251509ee3b1badfeff855f21138ffb6824cbf4cf79291"
+  },
+  {
+    "value": {
+      "quotes\"\n": "反斜线\\",
+      "array": [
+        false,
+        null,
+        0,
+        "0E-12"
+      ],
+      "__proto__": "own-key",
+      "constructor": "own-key"
+    },
+    "sha256": "c243503ab9429a798beacc0ab2c823a4789095c1893c1c8745141fd10ea162f1"
+  }
+]

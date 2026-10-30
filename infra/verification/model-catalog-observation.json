@@ -1,0 +1,23 @@
+{
+  "observed_at": "2026-10-29T03:12:49.540457+00:00",
+  "scope": "Private experimental model metadata catalog; real local PostgreSQL and synthetic REPLAY artifacts",
+  "python_suite": {
+    "passed": 609,
+    "warnings": 4,
+    "skipped": 0,
+    "seconds": 32.45,
+    "require_postgres": true,
+    "database": "yta_test"
+  },
+  "ruff": "passed",
+  "alpha_contract_drift": "passed",
+  "openapi_validation": "passed",
+  "images_rebuilt": false,
+  "bff_connected": false,
+  "files_sha256": {
+    "services/alpha-engine/src/yta_alpha/model_catalog.py": "6f39aeabc582d8175b1b5f68efabfdb035a596b479bd6abc0d2e6526a6c38869",
+    "services/alpha-engine/src/yta_alpha/api.py": "85ebe7cb2171517aeeec53ea80dd5b7534707b55ce00936d1741c86e626c431a",
+    "tests/integration/test_model_registry.py": "fc57cedd17a6335a104db635c2ca8f0d72c758d754e57eccf512d53c8e0cd44d",
+    "packages/contracts/alpha.openapi.json": "6a1ebb6825335b804aed45142d72574f996502d8c2f03b728968b3347225e8ce"
+  }
+}

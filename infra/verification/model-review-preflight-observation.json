@@ -1,0 +1,26 @@
+{
+  "observed_at": "2026-10-29T08:30:18.775477+00:00",
+  "scope": "Read-only proposal review preflight over fully replayed evidence",
+  "python_tests": {
+    "passed": 680,
+    "skipped": 0,
+    "seconds": 67.65,
+    "warnings": 4,
+    "postgres_required": true
+  },
+  "ruff": "passed",
+  "format": "179 files passed",
+  "alpha_contract_drift": "passed",
+  "images_rebuilt": false,
+  "limitations": [
+    "No persisted review decision or changed proposal state",
+    "No HTTP review endpoint",
+    "Historical approval requests remain blocked",
+    "No champion transition"
+  ],
+  "files_sha256": {
+    "services/alpha-engine/src/yta_alpha/model_review.py": "13a857b31007161abf451a68ca329f95e6b5d0371b9a9f1f6478790505fd61c3",
+    "services/alpha-engine/tests/test_model_review.py": "e7205a0c8fe997b113aadac9e7274590650e0baab9bb9159ea19266337cfced1",
+    "tests/integration/test_calibration_registry.py": "cb3dd4532cbe3879c67f0c02de330fab13243205d668c812b19353743c7fa00d"
+  }
+}

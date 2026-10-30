@@ -1,0 +1,70 @@
+{
+  "checks": [
+    {
+      "name": "minimum_samples",
+      "passed": true,
+      "observed": 5,
+      "required": 5
+    },
+    {
+      "name": "maximum_mae",
+      "passed": true,
+      "observed": "0.078482678960",
+      "required": "1"
+    },
+    {
+      "name": "minimum_direction_accuracy",
+      "passed": true,
+      "observed": "1.000000000000",
+      "required": "0"
+    },
+    {
+      "name": "required_reference",
+      "passed": true,
+      "observed": true,
+      "required": true
+    },
+    {
+      "name": "mae_improvement:zero-return-v1",
+      "passed": true,
+      "observed": "0.041794089768",
+      "required": "0"
+    },
+    {
+      "name": "mae_improvement:momentum20-v1",
+      "passed": true,
+      "observed": "0.045657403030",
+      "required": "0"
+    },
+    {
+      "name": "mae_improvement:reference",
+      "passed": true,
+      "observed": "0.000000000000",
+      "required": "0"
+    }
+  ],
+  "policy": {
+    "data_mode": "REPLAY",
+    "maximum_mae": "1",
+    "policy_version": "synthetic-only-4f6ae963cb0b4911ac12d1d5ad27ef4e",
+    "schema_version": "historical-quality-policy-v1",
+    "minimum_samples": 5,
+    "horizon_sessions": 5,
+    "require_reference": true,
+    "minimum_mae_improvement": "0",
+    "minimum_direction_accuracy": "0"
+  },
+  "cohort_hash": "fe50cc74d0eb26609dc7a667c41d989c3c3c4ecc9e7a069a4b0d61fe578a6cb5",
+  "policy_hash": "72b3e1a284ef752890c9b0371c3ab00d7556e5f21f4d9620737a30459bc6e024",
+  "content_hash": "7d2427242c396960ffd2d486e347717895d251e0ad2e5061ea8736499db9ef3e",
+  "numeric_pass": true,
+  "qualification": "UNVERIFIED",
+  "schema_version": "historical-quality-assessment-v1",
+  "promotion_allowed": false,
+  "promotion_blockers": [
+    "HISTORICAL_EVIDENCE_UNQUALIFIED",
+    "HUMAN_APPROVAL_REQUIRED"
+  ],
+  "candidate_evaluation_id": "model-evaluation-experimental-a933e9bb0867486c94a93f27b97690f9f91697a6724ad542bdf78d38c9d87c46",
+  "reference_evaluation_id": "model-evaluation-experimental-3970551b037fb127d0690cc11948dfb82041794459caffbc47cf194d95805d4e"
+}

@@ -1,0 +1,49 @@
+{
+  "observed_at": "2026-10-28T09:32:56.248024+00:00",
+  "scope": "Local isolated synthetic fixture; no service failover or remote storage",
+  "postgres": {
+    "restored_database": "yta_restore_3880fbcfea3647d7be7bac3c96b1ef3d_test",
+    "tables_verified": 31,
+    "immutable_guards_verified": 29,
+    "identity_sequences_verified": 6,
+    "forecasts_reproduced": 1,
+    "settlements_reproduced": 0,
+    "evidence_items_verified": 1,
+    "elapsed_seconds": 0.382
+  },
+  "model_config_hashes_verified": 1,
+  "owned_evidence_read": true,
+  "parquet_manifest_and_file_hashes_match": true,
+  "parquet_rows": 2,
+  "parquet_partitions": 2,
+  "timings": {
+    "backup_seconds": 0.242,
+    "postgres_restore_and_validation_seconds": 0.382,
+    "restore_and_rebuild_seconds": 0.463
+  },
+  "service_rto_seconds": null,
+  "production_rpo_seconds": null,
+  "trained_model_artifacts": "NOT_IMPLEMENTED",
+  "archive": ".local/backups/yta_backup_fixture_a438537bf2754a9eae6cbaadfa943ed0_test-20261028T093255Z-84e452b6.dump",
+  "manifest": ".local/backups/yta_backup_fixture_a438537bf2754a9eae6cbaadfa943ed0_test-20261028T093255Z-84e452b6.json",
+  "parquet_root": ".local/recovery-drills/a438537bf2754a9eae6cbaadfa943ed0",
+  "qualification_status": "UNVERIFIED",
+  "files_sha256": {
+    "scripts/check_disaster_recovery.py": "021900914215b414207f9b0f1500a22e089be5d3eb27c96fd8ba2fed0bebefff",
+    "scripts/backup_local.py": "efe0079fe912f68b3cfc38ce3ae45c9c46ac114f1ec64578c6d84256338a8ea2",
+    "services/alpha-engine/src/yta_alpha/market_lake.py": "9891a8ac394c4f3b42b290a549f9f8c8185f83b9d847ef2886198e4bd27ee8d2",
+    "uv.lock": "ef1ffa87929ddeadd22411520c3d4ab928476cb76e9de88e9f79f8a0582ee26d"
+  },
+  "temporary_source_database_cleaned": true,
+  "existing_manifest_cli_restore": {
+    "restored_database": "yta_restore_b234d71da6a24abcbab574227b5df550_test",
+    "tables_verified": 31,
+    "immutable_guards_verified": 29,
+    "identity_sequences_verified": 6,
+    "forecasts_reproduced": 1,
+    "settlements_reproduced": 0,
+    "evidence_items_verified": 1,
+    "elapsed_seconds": 0.542
+  },
+  "local_runbook_links_verified": true
+}

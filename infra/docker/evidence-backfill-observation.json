@@ -1,0 +1,28 @@
+{
+  "scope": "One synthetic legacy snapshot in dedicated local PostgreSQL test database",
+  "observations": [
+    {
+      "content_hash": "32552726d1f243f0752c36dc7133bb6954a54d78623b6821c596672f1d5afe3f",
+      "data_mode": "REPLAY",
+      "status": "missing",
+      "applied": false
+    },
+    {
+      "content_hash": "32552726d1f243f0752c36dc7133bb6954a54d78623b6821c596672f1d5afe3f",
+      "data_mode": "REPLAY",
+      "status": "indexed",
+      "applied": true
+    },
+    {
+      "content_hash": "32552726d1f243f0752c36dc7133bb6954a54d78623b6821c596672f1d5afe3f",
+      "data_mode": "REPLAY",
+      "status": "already_indexed",
+      "applied": false
+    }
+  ],
+  "files_sha256": {
+    "services/alpha-engine/src/yta_alpha/evidence.py": "e36d40a20d647ac4e55f7aaae583b014c89e9548ca37574717ecf0e7e327e02b",
+    "services/alpha-engine/src/yta_alpha/backfill_evidence.py": "12e45d603b956daf9d4b6e7df43c74bccd0bd6f26c1cfbff000f4e6f2bca7378"
+  },
+  "qualification_status": "UNVERIFIED"
+}

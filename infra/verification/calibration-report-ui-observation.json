@@ -1,0 +1,37 @@
+{
+  "observed_at": "2026-10-29T09:42:08.802472+00:00",
+  "scope": "Fixed calibration report UI linked from price evaluation; independent-window and probability evidence",
+  "browser_tests": {
+    "passed": 48,
+    "seconds": 39.6,
+    "authentication": "Real local BFF login",
+    "calibration_responses": "Controlled registered synthetic REPLAY fixture"
+  },
+  "typescript_tests": {
+    "contracts": 32,
+    "bff": 107,
+    "postgres_required": true
+  },
+  "typecheck": "passed",
+  "build": "passed",
+  "contract_drift": "passed",
+  "ruff": "passed",
+  "docs": "passed",
+  "screenshots": [
+    ".local/calibration-ui/calibration-desktop.png",
+    ".local/calibration-ui/calibration-mobile.png"
+  ],
+  "screenshots_inspected": true,
+  "limitations": [
+    "No production probability qualification or model promotion",
+    "Actual container evidence recorded separately",
+    "No Python/DB changes; previous 696 Python tests and restore evidence not rerun"
+  ],
+  "files_sha256": {
+    "apps/web/components/model-calibration.tsx": "06422c682646f59b9aa632d00a897df49fa93a5de1d3e034d97c76a81ee3bc5a",
+    "apps/web/app/model-calibrations/[id]/page.tsx": "0aada1079486c9a9aba2cfdc80557afb846815333b6a2a90e2e1e2915d73c24f",
+    "apps/web/components/model-evaluations.tsx": "53718ca9027cf87b9af620cf124521d3c34416c86f687adfe4ffd2b6de4a1b85",
+    "apps/web/components/shell.tsx": "844b42735bf1b563a676ba16c30d9541ccbb1b553ece935829a54c80abb102d6",
+    "tests/e2e/models.spec.ts": "49b484f8cc5f13dad4289fab48b0dc6b528ee3fbf4343d9b8b630ff3e0bfd85d"
+  }
+}

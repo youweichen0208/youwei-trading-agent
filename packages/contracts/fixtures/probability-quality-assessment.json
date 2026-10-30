@@ -1,0 +1,68 @@
+{
+  "schema_version": "probability-quality-assessment-v1",
+  "calibration_id": "calibration-experimental-38b67eb1d4d8ad92accca5a01c07fdd2f6d64ad04e963c50cd528c47805f1765",
+  "model_id": "lightgbm-experimental-c1381f97376a0123818f24b75f6565d939891b2e75c5e3a42d820763640c9143",
+  "calibration_content_hash": "38b67eb1d4d8ad92accca5a01c07fdd2f6d64ad04e963c50cd528c47805f1765",
+  "report_hash": "611e8bef75e993a3fc67513af8e0532bfa23ec42608934a5065a070afc17d441",
+  "calibration_cohort_hash": "ec066c529ee41cdc3ad95d4ba5f320801a9229cb0d41e2d38acd690a01a6e43d",
+  "evaluation_cohort_hash": "07d185a18045b2594fac268198ca4709567c81a6960811cba7d09c22d95dd807",
+  "policy": {
+    "schema_version": "probability-quality-policy-v1",
+    "policy_version": "synthetic-probability-bf4fa76073a04c8cb5fb22710fd6374b",
+    "data_mode": "REPLAY",
+    "horizon_sessions": 5,
+    "minimum_calibration_samples": 1,
+    "minimum_evaluation_samples": 1,
+    "minimum_evaluation_up": 1,
+    "minimum_evaluation_non_up": 1,
+    "maximum_brier": "1",
+    "maximum_ece": "1"
+  },
+  "policy_hash": "cae8a80259b19331e90e83c842b09f706b3365476d10025564a7c4afa80bd53e",
+  "checks": [
+    {
+      "name": "minimum_calibration_samples",
+      "observed": 5,
+      "required": 1,
+      "passed": true
+    },
+    {
+      "name": "minimum_evaluation_samples",
+      "observed": 5,
+      "required": 1,
+      "passed": true
+    },
+    {
+      "name": "minimum_evaluation_up",
+      "observed": 3,
+      "required": 1,
+      "passed": true
+    },
+    {
+      "name": "minimum_evaluation_non_up",
+      "observed": 2,
+      "required": 1,
+      "passed": true
+    },
+    {
+      "name": "maximum_brier",
+      "observed": "0.093353422676",
+      "required": "1",
+      "passed": true
+    },
+    {
+      "name": "maximum_ece",
+      "observed": "0.222483312681",
+      "required": "1",
+      "passed": true
+    }
+  ],
+  "numeric_pass": true,
+  "qualification": "UNVERIFIED",
+  "promotion_allowed": false,
+  "promotion_blockers": [
+    "HISTORICAL_EVIDENCE_UNQUALIFIED",
+    "HUMAN_APPROVAL_REQUIRED"
+  ],
+  "content_hash": "877043597607b8dde29f03b1e10b9a13c9fa7d4ec37c4255efe05d1b5d427c89"
+}

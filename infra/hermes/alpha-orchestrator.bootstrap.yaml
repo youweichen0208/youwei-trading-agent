@@ -1,0 +1,14 @@
+# Locked-candidate bootstrap only: finance tools and provider are not configured.
+# Do not use this as evidence that the research Profile is production-ready.
+platform_toolsets:
+  api_server: [no_mcp]
+  cli: [no_mcp]
+mcp_servers: {}
+agent:
+  disabled_toolsets: [x_search]
+  max_turns: 12
+  gateway_timeout: 120
+memory:
+  memory_enabled: false
+  user_profile_enabled: false
+  nudge_interval: 0

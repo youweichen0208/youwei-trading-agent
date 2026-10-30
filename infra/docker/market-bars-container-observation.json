@@ -1,0 +1,25 @@
+{
+  "observed_at": "2026-10-28T02:53:36.324520+00:00",
+  "image": "sha256:4360578e89cef04311daefd9e58791db8d3f06adc7448706ce560ac7453efe4b",
+  "acquisition_container": "passed",
+  "provider_requests": 0,
+  "daily_records": 1,
+  "precision_and_source_verified": true,
+  "same_key_retry_verified": true,
+  "mode_isolation_verified": true,
+  "files_sha256": {
+    "scripts/check_acquisition_container.py": "805198878fceae29e3bff1b1f293751049b7c057d9e5cc6642006af4e2cbb4eb",
+    "infra/docker/alpha.Dockerfile": "887a00ea8e81d2411ebbe6d0eb44060e4993ec5ae59ef059fc5552d8e51f5f56",
+    "infra/migrations/013_market_bars.sql": "f1b0878e5941860e6f6616501befca715524bc7371c7104ca7c1d3c0033b76f2",
+    "services/alpha-engine/src/yta_alpha/acquisition_store.py": "b37122269d6acf382fc52a2804aed3e9a554daa9fce373b2a0054f76d99f0265",
+    "services/alpha-engine/src/yta_alpha/market_bars.py": "e70f6598b1f01168469d582d9ee2050380ddff27191b6713e31accde24274a6b",
+    "services/alpha-engine/src/yta_alpha/acquire.py": "c12b19c7d6f6af80bb1ccad6864938ba8d5dd0a2f3f0edcf07394e50389cc533"
+  },
+  "qualification_status": "UNVERIFIED",
+  "limits": [
+    "Synthetic HTTP with real dedicated PostgreSQL",
+    "No external provider requests",
+    "Alpha runtime image only; BFF/Web not rebuilt",
+    "Not a full deployed application-stack qualification"
+  ]
+}

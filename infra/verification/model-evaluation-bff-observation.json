@@ -1,0 +1,40 @@
+{
+  "observed_at": "2026-10-29T06:09:46.411599+00:00",
+  "scope": "Authenticated BFF fixed experimental evaluation; actual local HTTP and PostgreSQL, synthetic REPLAY",
+  "typescript_tests": {
+    "contracts": 24,
+    "bff": 84,
+    "total": 108,
+    "postgres_enabled": true
+  },
+  "typecheck": "passed",
+  "build": "passed",
+  "bff_openapi_validation": "passed",
+  "bff_contract_drift": "passed",
+  "alpha_contract_drift": "passed",
+  "ruff": "passed",
+  "actual_process_probe": {
+    "scope": "Actual local BFF -> Alpha -> PostgreSQL; synthetic REPLAY",
+    "anonymous": 401,
+    "authenticated": 200,
+    "alpha_response_equal": true,
+    "registered_report_equal": true,
+    "disjoint_second_page": true,
+    "items": 2,
+    "logout": 200
+  },
+  "images_rebuilt": false,
+  "files_sha256": {
+    "apps/bff/src/experimental-report.ts": "8e913705f425c94ea52c367633e7759e062d271c1c23c282d1dfe3a2dde3d3d8",
+    "apps/bff/src/alpha.ts": "2b568b4020b8a6940de0811f5e49e1e22fe57844b664f19e3dc73b084ec8735d",
+    "apps/bff/src/app.ts": "da27b20a5eca85421e0ac1b3fa30e47cd5ec82cfa87f9da8748b8875c04e8dd0",
+    "apps/bff/src/observability.ts": "c10d5947212e039b73388e8628afe0c1631ab7908fa6e72aacb7e0647e0e0fcf",
+    "packages/contracts/src/index.ts": "723986b78a04455a5338ed632b7b25f5df1d33dd0dbca6a07d616028cd1e3efc",
+    "packages/contracts/src/requests.ts": "385e8663d98b44eb69d74fcc720262c0f87271b6549999aa7983e814b3c0ac3c",
+    "packages/contracts/fixtures/experimental-price-report.json": "537efed2a214617cc25cfc14ae1d2174d380b436f70804f3ee46781064295d15",
+    "apps/bff/tests/experimental-report.test.ts": "3bd19a24226f413fee49cd484886eb754e25d3fa9a4d544ee76786d0fdf4be07",
+    "apps/bff/tests/bff.integration.test.ts": "b745095d02505c4980633a2068f846db5df4c91a3c8ea9fa3fff42745632a8c3",
+    "packages/contracts/tests/experimental-reports.test.ts": "f6f8dacd2e83cf55f0e345d8004a91343cdf73fe746436064ff33ddbc9e6ffb4",
+    "packages/contracts/bff.openapi.json": "bb34d84668706ae8b3e0411b8b39b2747656e24f69980dbdcbec67b63e1583e7"
+  }
+}

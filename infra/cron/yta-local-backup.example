@@ -1,0 +1,4 @@
+# Example only: replace the repository path and absolute uv path before installing.
+# Runs at 03:00 in the host's configured timezone. It does not prune old backups.
+# This targets the isolated local Compose stack, not a production/offsite backup service.
+0 3 * * * cd /absolute/path/to/youwei-trading-agent && /absolute/path/to/uv run python scripts/backup_local.py --source yta >> .local/backup-job.log 2>&1

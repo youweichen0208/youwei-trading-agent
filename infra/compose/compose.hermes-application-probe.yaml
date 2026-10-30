@@ -1,0 +1,50 @@
+# Overlay for real pi LLM + current source + authenticated BFF HTTP integration.
+# No public ports; this is REPLAY data, never LIVE qualification or deployment.
+services:
+  alpha:
+    environment:
+      PYTHONPATH: /source/alpha:/source/tools
+      YTA_DATABASE_URL: postgresql://yta_app:local-yta-app@postgres:5432/${YTA_PI_APPLICATION_DATABASE:?Set dedicated test database}
+    volumes:
+      - ../../services/alpha-engine/src:/source/alpha:ro
+      - ../../services/tools/src:/source/tools:ro
+    networks: [alpha, database]
+  finance-tools:
+    environment:
+      PYTHONPATH: /source/alpha:/source/tools
+      YTA_TOOLS_SCOPED_RECEIPTS: "true"
+    volumes:
+      - ../../services/alpha-engine/src:/source/alpha:ro
+      - ../../services/tools/src:/source/tools:ro
+  hermes:
+    environment:
+      API_SERVER_HOST: 0.0.0.0
+  application:
+    image: ${YTA_APPLICATION_IMAGE:?Set node image}
+    pull_policy: never
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    entrypoint: [node, /workspace/scripts/probe_hermes_application.mjs]
+    environment:
+      YTA_PI_APPLICATION_PROBE: "1"
+      YTA_ENV: test
+      YTA_DATA_MODE: REPLAY
+      YTA_DATABASE_URL: postgresql://yta_app:local-yta-app@postgres:5432/${YTA_PI_APPLICATION_DATABASE:?Set dedicated test database}
+      YTA_ALPHA_URL: http://alpha:8100
+      YTA_ALPHA_TOKEN: ${YTA_FINANCE_SERVICE_TOKEN}
+      YTA_HERMES_PROBE_TOKEN: ${YTA_HERMES_PROBE_TOKEN}
+      YTA_PI_MODEL: ${YTA_PI_MODEL}
+      YTA_RUN_TIMEOUT_MS: "300000"
+    volumes: ["../..:/workspace:ro"]
+    networks: [alpha, tools, database]
+    depends_on: [hermes, alpha]
+    mem_limit: 512m
+    pids_limit: 128
+networks:
+  database:
+    external: true
+    name: yta-dev_default
+volumes:
+  data:
+    name: ${YTA_PI_APPLICATION_VOLUME:?Set isolated data volume}

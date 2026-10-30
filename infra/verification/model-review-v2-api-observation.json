@@ -1,0 +1,41 @@
+{
+  "observed_at": "2026-10-29T11:03:41.940108+00:00",
+  "scope": "Private Alpha review POST supports strict v1 price or v2 combined submissions",
+  "targeted_tests": {
+    "passed": 4,
+    "deselected": 104,
+    "warnings": 4,
+    "seconds": 21.48,
+    "postgres_required": true,
+    "log": ".local/mixed-review-http-tests.log"
+  },
+  "checks": {
+    "ruff": "passed",
+    "format": "193 files passed",
+    "typecheck": "passed",
+    "shared_contract_tests": 35,
+    "alpha_contract_drift": "passed",
+    "bff_contract_drift": "passed",
+    "docs": "passed"
+  },
+  "coverage": [
+    "service-only authentication and trusted reviewer/key headers",
+    "reject injected authority fields and ambiguous mixed request bodies",
+    "exact retries and same-key content conflicts",
+    "stale predecessor and terminal rejection",
+    "default disabled, server mode isolation, native replay unavailable",
+    "v1 and v2 response contracts and fixed reads"
+  ],
+  "limitations": [
+    "Public BFF and UI still support v1 submissions/records only",
+    "No formal qualification, approval or champion promotion",
+    "No database transaction change; prior full 747-test and restore evidence retained, not rerun",
+    "Application images not rebuilt"
+  ],
+  "files_sha256": {
+    "services/alpha-engine/src/yta_alpha/api.py": "cfab4c3444b99d3af1d5ab8fb1348365331cf19086f1174969418ff03c64f43e",
+    "tests/integration/test_calibration_registry.py": "9d133ad018455b153b92102d8900936b452370c6ebb686809050caf7b80f6e43",
+    "packages/contracts/alpha.openapi.json": "d6c812f77b01ea3252b019bf5cfaccdfed63031d9c70b05461535b493b923f73",
+    "packages/contracts/bff.openapi.json": "5d03269bbe692e54ed6da1285e7499a2f89c8f8a940a6694c9d9e1c7038fdc98"
+  }
+}

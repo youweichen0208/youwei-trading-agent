@@ -1,0 +1,68 @@
+{
+  "id": "training-evidence-4c67063f021f6584559fd54328eb9213e361c91d1a5915330cc54803c341b762",
+  "content_hash": "4c67063f021f6584559fd54328eb9213e361c91d1a5915330cc54803c341b762",
+  "model_id": "lightgbm-experimental-8dd84999eca5e3e1a2987765872f5052442de8d139367b41950d193a560d3813",
+  "data_mode": "REPLAY",
+  "registration_content_hash": "8dd84999eca5e3e1a2987765872f5052442de8d139367b41950d193a560d3813",
+  "artifact_file_sha256": "d6551bdf89fbb49292724b06b2ae5ca42260cfcdd5cc39bb7ba7b5814702b68a",
+  "input_hash": "68663cfc4d127a9a823fe2486fc1c703f06e96a08afd0b112174bcc0156f9727",
+  "report": {
+    "schema_version": "training-replay-v1",
+    "status": "MISMATCH",
+    "qualification": "UNVERIFIED",
+    "promotion_allowed": false,
+    "verification": "full-retraining-exact-artifact-comparison",
+    "expected_data_mode": "REPLAY",
+    "replayed_data_mode": "REPLAY",
+    "input_hash": "68663cfc4d127a9a823fe2486fc1c703f06e96a08afd0b112174bcc0156f9727",
+    "expected_artifact_content_hash": "8580855671f67253b1acaec64423c672b48c4e367fa7a0f13a2fc1b5d5fe0dd2",
+    "replayed_artifact_content_hash": "3bdc9ee214a90481003a5f345c949311156c86c8de82d39e161edeaad5d0c487",
+    "expected_model_sha256": "d3f2039056d1e9dd5f7fbf9306b118e82cc130734b718bc86219c75f995a1da9",
+    "replayed_model_sha256": "397a72532aee40d2f283221762522f0e377174def87e8b7f33f3ab817a247caf",
+    "expected_source_hashes": {
+      "labels.py": "c75f92a7189621f2670ae5ca2b7ca820be8f7682706eb36ffb0217ea6689c6cd",
+      "models.py": "56c88a012bc70a93795d3395eb97ce2f9143b08b741f7001ddfd867840e6d50c",
+      "calendar.py": "0e3f7779af5f3d0ca6462a7f80225370c568db55b433b9bb1e57ecf0fd52fed3",
+      "forecast.py": "a77c28a6f4b3781d0cee94061110632bba54f89cc27fbe20f05fdfee1f86d9d0",
+      "training.py": "e91f19ffe90dc2eeebabfaa67719c3c6c091527f398818b1ade0f7349ea268b4",
+      "indicators.py": "d4779b2e4f044c667f0b034997e171a7dce4625b326a5df1fd8bf6268de3b085",
+      "walk_forward.py": "480103e525e66a54e5f6025a9b2ef390d8675384f67ca22ed6fa9689e44587c8",
+      "training_data.py": "59bf4c5f3f26c7ce27fa748dd4d18425f21f9eab823aab1570163b6b03160e27"
+    },
+    "replayed_source_hashes": {
+      "labels.py": "c75f92a7189621f2670ae5ca2b7ca820be8f7682706eb36ffb0217ea6689c6cd",
+      "models.py": "56c88a012bc70a93795d3395eb97ce2f9143b08b741f7001ddfd867840e6d50c",
+      "calendar.py": "0e3f7779af5f3d0ca6462a7f80225370c568db55b433b9bb1e57ecf0fd52fed3",
+      "forecast.py": "a77c28a6f4b3781d0cee94061110632bba54f89cc27fbe20f05fdfee1f86d9d0",
+      "training.py": "e91f19ffe90dc2eeebabfaa67719c3c6c091527f398818b1ade0f7349ea268b4",
+      "indicators.py": "d4779b2e4f044c667f0b034997e171a7dce4625b326a5df1fd8bf6268de3b085",
+      "walk_forward.py": "480103e525e66a54e5f6025a9b2ef390d8675384f67ca22ed6fa9689e44587c8",
+      "training_data.py": "59bf4c5f3f26c7ce27fa748dd4d18425f21f9eab823aab1570163b6b03160e27"
+    },
+    "matched_fields": [
+      "calendar_version",
+      "data_mode",
+      "dataset_hash",
+      "fold",
+      "horizon_sessions",
+      "library_version",
+      "probability_up",
+      "schema_version",
+      "source_hashes",
+      "split_config",
+      "status",
+      "symbol",
+      "training_cutoff",
+      "zero_return_mae"
+    ],
+    "mismatched_fields": [
+      "config",
+      "model_sha256",
+      "model_text",
+      "test_mae",
+      "test_predictions"
+    ],
+    "verifier_code_sha256": "07914abcd911fe7e5703ba3bacebe4f62190826d21d31f740e1bf4d4a3d23eff",
+    "content_hash": "609a635271bb81644c19e9653377ad8c02426678e9e75aa0c44a747f508f4eec"
+  }
+}

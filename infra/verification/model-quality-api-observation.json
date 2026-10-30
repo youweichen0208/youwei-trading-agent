@@ -1,0 +1,29 @@
+{
+  "observed_at": "2026-10-29T07:59:26.517354+00:00",
+  "scope": "Private registered historical quality API and strict transport; actual PostgreSQL synthetic REPLAY",
+  "python_tests": {
+    "passed": 672,
+    "skipped": 0,
+    "seconds": 61.92,
+    "warnings": 4,
+    "postgres_required": true
+  },
+  "shared_contract_tests": 28,
+  "openapi": "valid",
+  "contract_drift": "passed",
+  "ruff": "passed",
+  "format": "176 files passed",
+  "images_rebuilt": false,
+  "limitations": [
+    "No BFF or browser quality workflow",
+    "No policy activation or production thresholds",
+    "No approval or champion transition"
+  ],
+  "files_sha256": {
+    "services/alpha-engine/src/yta_alpha/model_quality_contracts.py": "f440da6cb2b4bbcb664e6cb3bdbd32d3bfc8705b8bf8850005b09ca90bfb4204",
+    "services/alpha-engine/src/yta_alpha/api.py": "43e474196426dd77e25a41c0997536873bf99839eddd5e038c44e4bd03e3933c",
+    "tests/integration/test_calibration_registry.py": "33455e5d48e2c215f143f857596743cdd69fa8bcc6afb79029a3e3ab0d78b457",
+    "packages/contracts/alpha.openapi.json": "7f7d729cc529fab3b7e09fcdae71c71ed85a3daab6b661b441697c688e6083a0",
+    "packages/contracts/bff.openapi.json": "af1b93645af16282ca5de605de7acc8bac737c8df6fd73c8db75fe3f1afa27f5"
+  }
+}

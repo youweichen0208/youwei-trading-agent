@@ -1,0 +1,31 @@
+{
+  "observed_at": "2026-10-29T01:18:23.288254+00:00",
+  "scope": "Local source-level BFF HTTP/real PostgreSQL tests and isolated browser fixtures; no running deployment changed",
+  "typescript_tests": 97,
+  "contracts_tests": 19,
+  "bff_tests": 78,
+  "browser_tests": 22,
+  "typecheck": "passed",
+  "build": "passed",
+  "bff_contract_drift": "passed",
+  "alpha_contract_drift": "passed",
+  "paused_business_routes": 6,
+  "read_auth_cancel_preserved": true,
+  "upstream_dispatch_and_research_persistence_blocked": true,
+  "client_policy_header_ignored": true,
+  "same_key_post_blocked_during_pause": true,
+  "browser_explicit_retry_preserves_original_keys": true,
+  "does_not_stop_existing_runs_or_jobs": true,
+  "container_images_rebuilt": false,
+  "files_sha256": {
+    "apps/bff/src/config.ts": "c691fd26c13d5de42bbf11846d451ee3eec757136dca070769ad93e9a037ea4c",
+    "apps/bff/src/app.ts": "f01086984a85bec3eec1f4fc94716b3a32d4255034ba684e7f3cccde939b8598",
+    "apps/bff/src/readiness.ts": "edd3be762bf3a0ba4d17f851984da90b58582f0c6eafa86778f7a1b69e5382e0",
+    "apps/bff/tests/security.test.ts": "0e5088f9d5aa22cddf0ee7a974b17c27e7f8abe6a05ccfceea8ecefe8e208735",
+    "apps/bff/tests/bff.integration.test.ts": "d618422566f9f805e3a3bad5053d53742ef971df5564e5c641b3587abdf52e5d",
+    "packages/contracts/scripts/build-bff-openapi.mjs": "d802ec687469dfd669e640d52eb0a700179087f44ace83a28d9337b778ec6eb2",
+    "packages/contracts/bff.openapi.json": "9ed715e16dd5e3652eab72873d769b86025dad874bf08c55800075704c6d7e66",
+    "tests/e2e/research.spec.ts": "2cafc7d52fc171096dd233bfb041a3df72741c4dc2166b91e025aa1d0ab657e9",
+    "infra/compose/compose.app-local.yaml": "517ff6b6ad5a39f1e993d1b8818952076adadb1c1132feb15de57a385f961804"
+  }
+}

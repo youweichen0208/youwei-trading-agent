@@ -1,0 +1,29 @@
+{
+  "dispatch_status": "PAUSED",
+  "results": [],
+  "queue_read": "passed",
+  "attempt_and_outcome_counts_unchanged": true,
+  "installed_jobs_matches_source": true,
+  "image_id": "sha256:8f5c656cdec46bf5b5702ba29300f793f55c3f8d69d59a5456792a69f975baca",
+  "observed_at": "2026-10-29T01:27:37.692391+00:00",
+  "python_tests": 463,
+  "python_summary": "463 passed, 4 warnings in 25.35s",
+  "scope": "Local dedicated test PostgreSQL, CLI SIGTERM and isolated REPLAY container; no deployed worker configuration changed",
+  "in_flight_settlement_commits_before_exit": true,
+  "next_prediction_left_unattempted": true,
+  "stop_after_lease_prevents_provider": true,
+  "paused_cli_sigterm_exit": 0,
+  "paused_heartbeat_reason": "dispatch_paused",
+  "ruff": "passed",
+  "format_files": 142,
+  "contracts": "passed",
+  "files_sha256": {
+    "services/alpha-engine/src/yta_alpha/jobs.py": "91cc427821088a0611321071dac0ccdee038d58e8fc8718438a16a6a36d31e3a",
+    "services/alpha-engine/src/yta_alpha/settings.py": "0217b35b04007c917c9a2260962d3fa90e1c187815a3597ee2d4d96d0c47ce1e",
+    "services/alpha-engine/src/yta_alpha/worker_health.py": "bb37982e8efac3d5ebd670eb8ee67682f2e81f2519338e04b649b7b93ac94e6a",
+    "services/alpha-engine/tests/test_jobs.py": "46c294ee60c0904acdb34b2b854e76a876c259fad2c8bc8c032dd765bcceddc5",
+    "services/alpha-engine/tests/test_worker_health.py": "8d38eca16fae1e9aa742ddc418d563e41e61f8604c5655a340c231cf2800fc3e",
+    "tests/integration/test_research_store.py": "27a3d6463ad9fc6ba791056154101eba1958321a6804a1c0cc3f25fc8c073a0f",
+    "infra/compose/compose.app-local.yaml": "a0b9a407da478072048fd0165a0d270f179af8e6cbcaae73250341294a812794"
+  }
+}

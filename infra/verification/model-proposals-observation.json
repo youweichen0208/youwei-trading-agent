@@ -1,0 +1,49 @@
+{
+  "observed_at": "2026-10-29T06:58:24.261520+00:00",
+  "scope": "Immutable model submissions only; no approval or champion authority",
+  "python_tests": {
+    "passed": 641,
+    "skipped": 0,
+    "warnings": 4,
+    "seconds": 48.99,
+    "fresh_postgres": true
+  },
+  "restore": {
+    "python_suite": "passed",
+    "log": ".local/clean-suite-542baf9fec914d0da9b9894ff3d98d2d.log",
+    "verification": {
+      "restored_database": "yta_restore_c5382e1308a349b3b9066edd820914cd_test",
+      "tables_verified": 34,
+      "immutable_guards_verified": 32,
+      "identity_sequences_verified": 6,
+      "forecasts_reproduced": 46,
+      "settlements_reproduced": 20,
+      "evidence_items_verified": 9,
+      "model_proposals_verified": 6,
+      "elapsed_seconds": 4.223
+    },
+    "acquisitions": {
+      "raw_tables_identical": true,
+      "market_bars_identical": true,
+      "valid_acquisitions_reconstructed": 40,
+      "invalid_acquisitions_still_rejected": 4,
+      "valid_projections_reconstructed": 39,
+      "missing_or_invalid_projections_still_rejected": 1,
+      "daily_records_reconstructed": 23,
+      "qualification_status": "UNVERIFIED"
+    },
+    "scope": "Fresh local Python test dataset; not remote CI or production"
+  },
+  "runtime_role_restored_proposals_replayed": 6,
+  "migration_container": "fresh/upgrade/repeat/evidence/roles passed 001\u2013017",
+  "ruff": "passed",
+  "format": "171 files passed",
+  "contract_drift": "passed",
+  "application_images_rebuilt": false,
+  "files_sha256": {
+    "infra/migrations/017_model_proposals.sql": "0ba32689b44e5f17a017523db45a09524abd82b5c7b20eb1ec206cb4232599bd",
+    "services/alpha-engine/src/yta_alpha/model_proposals.py": "92e26037f4cdf2e7d99a77df87cbb0c3beb17e2976d85d2cff89be4d617bbb6c",
+    "tests/integration/test_calibration_registry.py": "95c15b0b6e31690a77de9f5d11958daad82fa7b4d60417255ebecf6e5c0cf315",
+    "scripts/backup_local.py": "12000012d76810472fe744518f5068ad3c0fc9369d95caf5008e06f5fe360989"
+  }
+}

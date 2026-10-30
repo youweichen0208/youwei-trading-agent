@@ -1,0 +1,30 @@
+{
+  "observed_at": "2026-10-29T08:15:37.674395+00:00",
+  "scope": "Historical quality selection, explicit assessment and fixed detail UI; real login, controlled evidence responses",
+  "typescript_tests": 127,
+  "browser_tests": {
+    "passed": 42,
+    "seconds": 35.3
+  },
+  "typecheck": "passed",
+  "build": "passed",
+  "contract_drift": "passed",
+  "ruff": "passed",
+  "screenshots": ".local/quality-ui",
+  "images_rebuilt": false,
+  "limitations": [
+    "Actual container UI verification pending",
+    "No production policy activation, real provider qualification or human approval"
+  ],
+  "files_sha256": {
+    "apps/web/components/model-quality.tsx": "12ff456928a456cf33c27c67f807372717d05a3c447fccb743db0adf263a003f",
+    "apps/web/app/models/quality/[candidate]/[reference]/page.tsx": "a0ca903f4a748f3a18857911dcfa024d79431ee84ef2373b1a0156f10e55a0d8",
+    "apps/web/app/model-quality/[id]/page.tsx": "c7c76321819ebdf59979895f1a5a3f08e5e5cc4ca98d6abd3f98708bc184de29",
+    "apps/web/components/model-evaluations.tsx": "1d9cb2ca4a3a97883eadaf6141f2876fa40989ef5af96e99b186fa87e2e4eef2",
+    "apps/web/components/model-proposal.tsx": "c6c43001802adecd3629d9a26b454aacdaa234e58cdc08992c69d7e9c4ebdf9b",
+    "apps/web/components/shell.tsx": "dab7c367259cac95b767cf93df59e4340fb8963e4a6655d6994ba34a6dcc9961",
+    "apps/web/app/style.css": "6b52e46f90a64a22d5e931173e3c96cb9aa73f7b8640331dd9c8fb55f1750b8d",
+    "tests/e2e/models.spec.ts": "899811de2341ddfcc2a1059f7d14fc57585e6bfad0bb30a9a58aca80406277c2",
+    "packages/contracts/fixtures/quality-source-reports.json": "6981ab1f866f3b56fdd91391764b7cdd650800fc207ae756c4d48069d85f472e"
+  }
+}

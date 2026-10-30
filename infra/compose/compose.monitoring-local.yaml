@@ -1,0 +1,38 @@
+# Overlay: use with compose.app-local.yaml. No notification receivers configured.
+services:
+  blackbox:
+    image: prom/blackbox-exporter@sha256:ea1c7aa3ef3f307cd03e85f34abb604478ccb90b567fc690da0cd9776da76b13
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    command: [--config.file=/etc/blackbox/blackbox.yaml]
+    volumes: [../monitoring/blackbox.yaml:/etc/blackbox/blackbox.yaml:ro]
+    networks: [edge, monitoring]
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "3"}
+  prometheus:
+    image: prom/prometheus@sha256:fa3302279710be2f21a8301ec17a8b4f2301fd829bd113839b3b6b02b6f191a2
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yaml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+      - --storage.tsdb.retention.size=512MB
+    volumes:
+      - ../monitoring/prometheus.yaml:/etc/prometheus/prometheus.yaml:ro
+      - ../monitoring/yta-alerts.yaml:/etc/prometheus/yta-alerts.yaml:ro
+      - monitoring-data:/prometheus
+    ports: ["127.0.0.1:39090:9090"]
+    networks: [monitoring]
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "3"}
+networks:
+  monitoring: {}
+volumes:
+  monitoring-data: {}

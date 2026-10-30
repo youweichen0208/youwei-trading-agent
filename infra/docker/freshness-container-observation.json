@@ -1,0 +1,40 @@
+{
+  "observed_at": "2026-10-28T09:11:55.313672+00:00",
+  "scope": "Local test/REPLAY containers; synthetic LIVE cache unit tests do not qualify a provider or staging",
+  "services": {
+    "yta-web": {
+      "image_digest": "sha256:afcef4aefba4d817c1542eeacfb8597db876e9861f397551b051657f87213156",
+      "user": "node",
+      "read_only": true,
+      "health": "healthy"
+    },
+    "yta-bff": {
+      "image_digest": "sha256:d13dcf708ca9c107ba1e50f00ada5df626b453b8a5b8511f98bf3db1e9651dec",
+      "user": "node",
+      "read_only": true,
+      "health": "healthy"
+    },
+    "alpha-engine": {
+      "image_digest": "sha256:9d885d6a5751b7c12db32d856636cd9cdab1716b8be72d3a46a9e5f8619798ed",
+      "user": "10001:10001",
+      "read_only": true,
+      "health": "healthy"
+    }
+  },
+  "installed_cache_matches_source": true,
+  "full_python_tests": 436,
+  "cache_and_http_fault_tests": 22,
+  "files_sha256": {
+    "services/alpha-engine/src/yta_alpha/market_cache.py": "07a4608e9a37a9980f14f3f726b2c61803ef16f13f3f788385577d7c89d6705f",
+    "services/alpha-engine/tests/test_market_cache.py": "e1720343f64b1ebef6265ba3de9a9cf18a6d32ff0e76ce47fd00267355f00f56",
+    "services/alpha-engine/src/yta_alpha/api.py": "71e4aeab31f6498a7cec14eca717e622fe036cde11a6333611edb5f968a72aec",
+    "apps/web/components/market-freshness.tsx": "ba020d0fbb38c125e8a932ea672eaecd32394dd992159d6d109ac4620dd445b8",
+    "tests/e2e/research.spec.ts": "618f0c24060a6058cf3b78f200b49f613e7be156c44fc8413d2dc6c524d3cbb0",
+    "playwright.container.config.ts": "74a0dd270b48eafbf14365a909eeb0549b3e15a44b1a61d9a37f1b403948fcd7"
+  },
+  "browser_tests": 21,
+  "container_smoke": "passed",
+  "contract_drift_check": "passed",
+  "ruff": "passed",
+  "format_files": 136
+}

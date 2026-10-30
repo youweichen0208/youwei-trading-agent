@@ -1,0 +1,90 @@
+{
+  "scope": "Real browser -> Web -> BFF -> Alpha -> PostgreSQL; synthetic REPLAY",
+  "response_mocking": false,
+  "research_runner": false,
+  "images": {
+    "alpha-engine": {
+      "id": "sha256:80e4fa5379f5c11cd85ae7903a5ef9224de047e2a47dc6a9c562e3733fb5fc3c",
+      "user": "10001:10001",
+      "read_only": true
+    },
+    "yta-bff": {
+      "id": "sha256:2f739ffaf86d77f6b84f34c7c0ac6ae17e47f6988b1746be5edb29c4f8aafd34",
+      "user": "node",
+      "read_only": true
+    },
+    "yta-web": {
+      "id": "sha256:2649d178e57451a071dcf2ddb7a5be03dbea17fbfc996440960fba20e4befda9",
+      "user": "node",
+      "read_only": true
+    }
+  },
+  "browser": {
+    "authenticated": true,
+    "database_order_equal": true,
+    "first_page": 10,
+    "second_page": 10,
+    "filtered_horizon": 5,
+    "filtered_count": 10,
+    "full_identity_visible": true,
+    "decimal_string_visible": true,
+    "mobile_width": 390,
+    "document_overflow": false,
+    "page_errors": 0,
+    "same_origin_only": true
+  },
+  "report": {
+    "id": "model-evaluation-experimental-48e00b2f22059378b3a1c82b6bbaf2f8933a33a37f23dc66c3a0f31743794d5f",
+    "database_payload_equal": true,
+    "list_to_detail": true,
+    "sample_count": 5,
+    "decimal_string_visible": true,
+    "snapshot_hash_visible": true,
+    "mobile_width": 390,
+    "document_overflow": false,
+    "page_errors": 0
+  },
+  "comparison": {
+    "database_payloads_equal": true,
+    "explicit_request_order": true,
+    "different_models": 2,
+    "same_cohort": "0fdd9a7d06d8cad78d5090f26b2d77acaed9a02590b2f8932f8147bb1197a2b9",
+    "response_mocking": false,
+    "refresh_preserves_selection": true,
+    "removal_clears_result": true,
+    "mobile_width": 390,
+    "document_overflow": false,
+    "page_errors": 0
+  },
+  "proposal": {
+    "id": "917f922d-3474-4819-a964-646748b0ef23",
+    "authenticated_owner": true,
+    "response_mocking": false,
+    "explicit_submit": true,
+    "exact_retry_equal": true,
+    "detail_equal": true,
+    "database_payload_equal": true,
+    "facts": 1,
+    "audits": 1,
+    "returning_form_links_existing": true,
+    "mobile_width": 390,
+    "document_overflow": false,
+    "page_errors": 0,
+    "status": "SUBMITTED",
+    "qualification": "UNVERIFIED"
+  },
+  "observed_at": "2026-10-29T07:22:32.341Z",
+  "containers_cleaned": true,
+  "script_sha256": "ca2b735ab34783e4ce0c1f80737a567c0e3f95dc7beeaba3a499e258f60073a4",
+  "screenshots": [
+    ".local/model-catalog-browser/proposal-form-desktop.png",
+    ".local/model-catalog-browser/proposal-desktop.png",
+    ".local/model-catalog-browser/proposal-mobile.png"
+  ],
+  "limitations": [
+    "Synthetic REPLAY only, not model quality qualification",
+    "Local containers, not cloud staging",
+    "Submitted proposals only, no approval or champion selection",
+    "Exact POST retry verified; response-loss UI behavior covered separately by controlled browser suite"
+  ]
+}

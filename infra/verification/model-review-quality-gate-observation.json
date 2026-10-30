@@ -1,0 +1,95 @@
+{
+  "observed_at": "2026-10-29T11:16:42.313309+00:00",
+  "scope": "Authorized reviewer registration/read of combined quality facts across proposal owners",
+  "python_tests": {
+    "passed": 750,
+    "skipped": 0,
+    "warnings": 4,
+    "seconds": 183.24,
+    "postgres_required": true,
+    "log": ".local/clean-suite-190700a5c8c649588ab59b202681ce74.log"
+  },
+  "targeted_tests": {
+    "passed": 7,
+    "seconds": 18.35
+  },
+  "typescript_tests": {
+    "contracts": 36,
+    "bff": 119,
+    "postgres_enabled": true
+  },
+  "restore": {
+    "python_suite": "passed",
+    "log": ".local/clean-suite-190700a5c8c649588ab59b202681ce74.log",
+    "verification": {
+      "restored_database": "yta_restore_eb202a3ccd0f4b08928b9e78cdd7e95d_test",
+      "tables_verified": 40,
+      "immutable_guards_verified": 38,
+      "identity_sequences_verified": 6,
+      "forecasts_reproduced": 46,
+      "settlements_reproduced": 20,
+      "evidence_items_verified": 9,
+      "model_proposals_verified": 55,
+      "quality_policies_verified": 58,
+      "quality_assessments_verified": 54,
+      "model_reviews_verified": 24,
+      "model_quality_gates_verified": 19,
+      "probability_policies_verified": 44,
+      "probability_assessments_verified": 38,
+      "elapsed_seconds": 14.672
+    },
+    "acquisitions": {
+      "raw_tables_identical": true,
+      "market_bars_identical": true,
+      "valid_acquisitions_reconstructed": 39,
+      "invalid_acquisitions_still_rejected": 4,
+      "valid_projections_reconstructed": 38,
+      "missing_or_invalid_projections_still_rejected": 1,
+      "daily_records_reconstructed": 23,
+      "qualification_status": "UNVERIFIED"
+    },
+    "scope": "Fresh local Python test dataset; not remote CI or production"
+  },
+  "actual_runtime": {
+    "scope": "Actual cross-owner reviewer gate and v2/v1 review chain",
+    "different_owner_reviewer": true,
+    "mixed_history": true,
+    "closed_retry_equal": true,
+    "review_facts": 2,
+    "review_actor_audits": 2,
+    "authenticated": 200,
+    "anonymous": 401,
+    "ordinary_owner_gate_read": 404,
+    "exact_retry_equal": true,
+    "alpha_equal": true,
+    "database_equal": true,
+    "qualification": "UNVERIFIED",
+    "promotion_allowed": false,
+    "logout": 200,
+    "single_reviewer_registration_audit": true
+  },
+  "checks": {
+    "typecheck": "passed",
+    "build": "passed",
+    "ruff": "passed",
+    "format": "193 files passed",
+    "alpha_contract_drift": "passed",
+    "bff_contract_drift": "passed",
+    "docs": "passed"
+  },
+  "limitations": [
+    "Reviewer authorization is enforced by the BFF; private Alpha endpoints trust authenticated BFF service identity",
+    "No UI form changes; prior 52 browser tests not rerun",
+    "No formal qualification, actual model approval or champion promotion",
+    "Application containers not rebuilt",
+    "No real reviewer permissions configured; only synthetic test users"
+  ],
+  "files_sha256": {
+    "services/alpha-engine/src/yta_alpha/model_quality_gate_registry.py": "8a2952871cd09f235d9689fa1d9ec71525573598070e4427c4dd7b4fc7850e2b",
+    "services/alpha-engine/src/yta_alpha/api.py": "db78b6cd175be31319ae121944a53ba86f93b8cc1fd37fd8f4024553983ddfa8",
+    "apps/bff/src/app.ts": "0809862e0987b5e075a57356e6544ff548f46e119ed5bfdc936f27c5b4da66d5",
+    "apps/bff/src/alpha.ts": "cad541485b69ad42121d4ca0d84cc2897b2085948697f00e8ff35247d1325933",
+    "apps/bff/tests/bff.integration.test.ts": "5c56f2bbef15655c8c2525c359068239ca586c5558bb4f6070fcc582f048953f",
+    "tests/integration/test_calibration_registry.py": "78a7628e24fa0919da0b9678618e7ed00df54910d891fb42cea613319f5db5fa"
+  }
+}

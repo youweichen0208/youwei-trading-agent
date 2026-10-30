@@ -1,0 +1,62 @@
+{
+  "observed_at": "2026-10-29T08:39:16.022120+00:00",
+  "scope": "Immutable blocked/rejected review facts, expected-predecessor concurrency, real PostgreSQL and fresh restore",
+  "python_tests": {
+    "passed": 687,
+    "skipped": 0,
+    "seconds": 79.48,
+    "warnings": 4,
+    "postgres_required": true
+  },
+  "initial_targeted_result": {
+    "passed": 60,
+    "failed": 1,
+    "reason": "Proposal TRUNCATE test reached new FK before immutable trigger; changed test to CASCADE and verified full fresh suite"
+  },
+  "restore": {
+    "python_suite": "passed",
+    "log": ".local/clean-suite-344aca8ddea3432ca59dc50a3a8b90de.log",
+    "verification": {
+      "restored_database": "yta_restore_ca2e3f508172438e88b6c2ce1ba3e21a_test",
+      "tables_verified": 37,
+      "immutable_guards_verified": 35,
+      "identity_sequences_verified": 6,
+      "forecasts_reproduced": 46,
+      "settlements_reproduced": 20,
+      "evidence_items_verified": 9,
+      "model_proposals_verified": 23,
+      "quality_policies_verified": 26,
+      "quality_assessments_verified": 21,
+      "model_reviews_verified": 7,
+      "elapsed_seconds": 9.098
+    },
+    "acquisitions": {
+      "raw_tables_identical": true,
+      "market_bars_identical": true,
+      "valid_acquisitions_reconstructed": 39,
+      "invalid_acquisitions_still_rejected": 4,
+      "valid_projections_reconstructed": 38,
+      "missing_or_invalid_projections_still_rejected": 1,
+      "daily_records_reconstructed": 23,
+      "qualification_status": "UNVERIFIED"
+    },
+    "scope": "Fresh local Python test dataset; not remote CI or production"
+  },
+  "runtime_restored_review_chains_replayed": 7,
+  "migrator": "fresh/upgrade/evidence/repeatability/roles/cleanup passed",
+  "ruff": "passed",
+  "format": "180 files passed",
+  "alpha_contract_drift": "passed",
+  "application_images_rebuilt": false,
+  "limitations": [
+    "No public review endpoint",
+    "No approved state or champion transition",
+    "BFF reviewer authorization must precede future private submission"
+  ],
+  "files_sha256": {
+    "infra/migrations/019_model_reviews.sql": "f8470b0da651089b426b70d2efab8ba69151f8aaec7d77b08fb730b691c4d5b0",
+    "services/alpha-engine/src/yta_alpha/model_review_registry.py": "11fbe0bde35a3b68d96adeade5b68ab1b70e9eecb457deedcb1d87f5c9e9baf3",
+    "tests/integration/test_calibration_registry.py": "ba8d6c90f6009ea5af12ac32dab35e4a47dd090275886e80e0cfb566ff29e502",
+    "scripts/backup_local.py": "8def67c4677b14d56cb39be53d3079a426caacc2331c73c5f1281cc4f28f318b"
+  }
+}

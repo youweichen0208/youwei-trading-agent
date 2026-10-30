@@ -1,0 +1,155 @@
+{
+  "scope": "Real browser -> Web -> BFF -> Alpha -> PostgreSQL; synthetic REPLAY",
+  "response_mocking": false,
+  "research_runner": false,
+  "images": {
+    "alpha-engine": {
+      "id": "sha256:cd5eff08fb4ba9cc7412cbfdad38cb933b4fbefcd7f558275f3d23dc0714ff49",
+      "user": "10001:10001",
+      "read_only": true
+    },
+    "yta-bff": {
+      "id": "sha256:9c5909714a78fdf2b0d3aa1f99201419ae6a4dc1c4f9172958afaa9a75b00352",
+      "user": "node",
+      "read_only": true
+    },
+    "yta-web": {
+      "id": "sha256:775ca3380fcdfd658b9d64fd76f3eb0f7633777d3ff02c2d46716de1e2bd8eb8",
+      "user": "node",
+      "read_only": true
+    }
+  },
+  "browser": {
+    "authenticated": true,
+    "database_order_equal": true,
+    "first_page": 10,
+    "second_page": 10,
+    "filtered_horizon": 5,
+    "filtered_count": 10,
+    "full_identity_visible": true,
+    "decimal_string_visible": true,
+    "mobile_width": 390,
+    "document_overflow": false,
+    "page_errors": 0,
+    "same_origin_only": true
+  },
+  "report": {
+    "id": "model-evaluation-experimental-48e00b2f22059378b3a1c82b6bbaf2f8933a33a37f23dc66c3a0f31743794d5f",
+    "database_payload_equal": true,
+    "list_to_detail": true,
+    "sample_count": 5,
+    "decimal_string_visible": true,
+    "snapshot_hash_visible": true,
+    "mobile_width": 390,
+    "document_overflow": false,
+    "page_errors": 0
+  },
+  "comparison": {
+    "database_payloads_equal": true,
+    "explicit_request_order": true,
+    "different_models": 2,
+    "same_cohort": "0fdd9a7d06d8cad78d5090f26b2d77acaed9a02590b2f8932f8147bb1197a2b9",
+    "response_mocking": false,
+    "refresh_preserves_selection": true,
+    "removal_clears_result": true,
+    "mobile_width": 390,
+    "document_overflow": false,
+    "page_errors": 0
+  },
+  "proposal_history": {
+    "records": 11,
+    "page_sizes": [
+      10,
+      1
+    ],
+    "responses_equal_registered_records": true,
+    "session_storage_cleared": true,
+    "detail_navigation": true,
+    "mobile_width": 390,
+    "document_overflow": false
+  },
+  "quality": {
+    "policy_id": "historical-quality-policy-d3d5b3560002eebb19d9b2a6a83b8bf48b02a046c2a3d6e699ba064751cefceb",
+    "assessment_id": "historical-quality-assessment-72a283371619db6adf01f20ce0779144897b56b132a53b4e664643275ef78062",
+    "explicit_selection": true,
+    "policy_database_equal": true,
+    "assessment_database_equal": true,
+    "exact_retry_equal": true,
+    "fixed_detail_equal": true,
+    "detail_reload": true,
+    "facts": 1,
+    "audits": 1,
+    "promotion_allowed": false,
+    "qualification": "UNVERIFIED",
+    "mobile_width": 390,
+    "document_overflow": false
+  },
+  "proposal": {
+    "id": "08558580-baed-4d11-9b1f-1a755a349c84",
+    "authenticated_owner": true,
+    "response_mocking": false,
+    "explicit_submit": true,
+    "exact_retry_equal": true,
+    "detail_equal": true,
+    "database_payload_equal": true,
+    "facts": 1,
+    "audits": 1,
+    "returning_form_links_existing": true,
+    "mobile_width": 390,
+    "document_overflow": false,
+    "page_errors": 0,
+    "status": "SUBMITTED",
+    "qualification": "UNVERIFIED"
+  },
+  "review": {
+    "synthetic_reviewer_only": true,
+    "inbox": true,
+    "explicit_quality_selection": true,
+    "explicit_submit": true,
+    "exact_retry_equal": true,
+    "retry_after_closed_equal": true,
+    "fixed_detail_reload": true,
+    "database_payload_equal": true,
+    "authenticated_audit_actor": true,
+    "records": 2,
+    "audits": 2,
+    "dispositions": [
+      "BLOCKED",
+      "REJECTED"
+    ],
+    "promotion_allowed": false,
+    "predecessor_binding": true,
+    "rejected_ui_closed": true,
+    "full_history_equal": true,
+    "mobile_width": 390,
+    "document_overflow": false,
+    "page_errors": 0,
+    "response_mocking": false
+  },
+  "calibration": {
+    "id": "calibration-experimental-bac82356fe5779712e8bdb89f0632ed444e7f996f1cce3327f4502845284c33b",
+    "fixed_report_link": true,
+    "response_fixture_equal": true,
+    "database_report_equal": true,
+    "bins": 10,
+    "detail_reload": true,
+    "raw_brier_ece_visible": true,
+    "source_identity_visible": true,
+    "qualification": "UNVERIFIED",
+    "mobile_width": 390,
+    "document_overflow": false,
+    "page_errors": 0,
+    "response_mocking": false
+  },
+  "observed_at": "2026-10-29T09:42:57.189Z",
+  "containers_cleaned": true,
+  "script_sha256": "f50091fbe2ffa031a39f9d486af110bc15f99c455ba32d9a92179a69e7ebb8cb",
+  "limitations": [
+    "Synthetic REPLAY evidence only",
+    "Not formal probability qualification, model promotion or staging verification"
+  ],
+  "screenshots": [
+    ".local/model-catalog-browser/calibration-desktop.png",
+    ".local/model-catalog-browser/calibration-mobile.png"
+  ]
+}

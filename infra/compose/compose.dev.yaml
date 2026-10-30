@@ -1,0 +1,23 @@
+name: yta-dev
+services:
+  postgres:
+    image: postgres:17@sha256:b8faeff7712663c2773a190181e1246e37e364b887611c04658c28b44e2408fe
+    environment:
+      POSTGRES_USER: yta_owner
+      POSTGRES_PASSWORD: local-yta-owner
+      POSTGRES_DB: yta
+    ports:
+      - "127.0.0.1:54329:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "3"}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U yta_owner -d yta"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+volumes:
+  postgres-data:
+

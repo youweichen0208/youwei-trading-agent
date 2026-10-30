@@ -1,0 +1,57 @@
+{
+  "observed_at": "2026-10-29T12:26:50.071341+00:00",
+  "scope": "Strict registered backtest wire projection and private Alpha POST/GET; public BFF and UI remain pending",
+  "python_tests": {
+    "passed": 799,
+    "seconds": 208.42,
+    "warnings": 4,
+    "skipped": 0,
+    "postgres_required": true,
+    "log": ".local/backtest-api-full-python.log"
+  },
+  "targeted_tests": {
+    "passed": 3,
+    "seconds": 1.89,
+    "warnings": 4,
+    "log": ".local/backtest-api-tests.log",
+    "coverage": [
+      "service token only, anonymous/tool token rejection",
+      "default-off and missing storage 503",
+      "server-owned mode and body injection rejection",
+      "create/get/exact retry with one audit",
+      "native inference unavailable fails without fallback",
+      "rehashed cost, equity, source, overlap, count and null tampering rejected"
+    ]
+  },
+  "checks": {
+    "ruff": "passed",
+    "format": "202 files passed",
+    "alpha_contract_drift": "passed",
+    "bff_contract_drift": "passed",
+    "shared_contract_tests": 36,
+    "docs": "120 tasks: unique IDs, valid DAG, priority closure and milestone coverage passed"
+  },
+  "fixtures": {
+    "complete": "packages/contracts/fixtures/backtest-report.json",
+    "incomplete": "packages/contracts/fixtures/backtest-report-incomplete.json",
+    "validation": "Both strict Python projections validated; raw input snapshots excluded",
+    "qualification": "UNVERIFIED"
+  },
+  "limitations": [
+    "No public BFF backtest routes, catalog or page yet",
+    "Projection input hash is not enough to independently recompute full registration identity; Alpha replays full stored inputs before projection",
+    "Historical native inference replay does not establish provider/training qualification or historical deployment",
+    "No persistence behavior change; previous restore verification not rerun",
+    "Application containers and browser suite not rerun; no UI changes",
+    "Shared TS suite is regression evidence, not a backtest Zod contract implementation"
+  ],
+  "files_sha256": {
+    "services/alpha-engine/src/yta_alpha/backtest_contracts.py": "932338d5f1d0dab213a53f2b940af777978fffc2dcb2c5263c58e5a88cb17ab8",
+    "services/alpha-engine/src/yta_alpha/backtest_reports.py": "8750543a261f74cd0430c8f84cc34b0ce6d4b48b74d2684022e50fdd4f6e8541",
+    "services/alpha-engine/src/yta_alpha/api.py": "a04b7167685d3695921b4a3325e87d2809eeb08c5d5dabf37fdb6b7a334662e0",
+    "tests/integration/test_calibration_registry.py": "9fa1e41c290d78508e7afa9fcac36f4c9109535c614c1ebe30e36806eb37b754",
+    "packages/contracts/fixtures/backtest-report.json": "ee872cfcd4c08d77b73fa9336b66fd84e61b5b902fdcf36e3bb66cac17952844",
+    "packages/contracts/fixtures/backtest-report-incomplete.json": "fa6924555c0aed16c372a1a1ebac48283aa2121fd98bfe6ef4c7b96d31068474",
+    "packages/contracts/alpha.openapi.json": "f7109185bb9429aad961b44a5669db22d0c3334a6193d8fee66f0c492d001922"
+  }
+}

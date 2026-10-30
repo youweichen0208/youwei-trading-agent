@@ -1,0 +1,42 @@
+name: yta-finance-probe
+
+# Isolated synthetic REPLAY integration, without PostgreSQL or public ports.
+services:
+  alpha:
+    image: ${YTA_FINANCE_ALPHA_IMAGE:?Set a locally verified Alpha image ID}
+    pull_policy: never
+    read_only: true
+    user: "10001:10001"
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 128
+    mem_limit: 512m
+    environment:
+      YTA_ENV: test
+      YTA_DATA_MODE: REPLAY
+      YTA_ALPHA_TOKEN: ${YTA_FINANCE_SERVICE_TOKEN:?Set an isolated service token}
+      YTA_ALPHA_TOOLS_TOKEN: ${YTA_FINANCE_ALPHA_TOKEN:?Set a distinct Alpha tool token}
+    networks: [alpha]
+    tmpfs: ["/tmp:rw,nosuid,nodev,size=32m,mode=1777"]
+  finance-tools:
+    image: ${YTA_FINANCE_TOOLS_IMAGE:?Set a locally verified tools image ID}
+    pull_policy: never
+    read_only: true
+    user: "10001:10001"
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 128
+    mem_limit: 512m
+    environment:
+      YTA_TOOLS_ALPHA_URL: http://alpha:8100
+      YTA_TOOLS_ALPHA_TOKEN: ${YTA_FINANCE_ALPHA_TOKEN:?Set a distinct Alpha tool token}
+      YTA_TOOLS_MCP_TOKEN: ${YTA_FINANCE_MCP_TOKEN:?Set a distinct MCP token}
+      YTA_TOOLS_DATA_MODE: REPLAY
+    networks: [alpha, tools]
+    tmpfs: ["/tmp:rw,nosuid,nodev,size=32m,mode=1777"]
+
+networks:
+  alpha:
+    internal: true
+  tools:
+    internal: true

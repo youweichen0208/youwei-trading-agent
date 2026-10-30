@@ -1,0 +1,46 @@
+{
+  "scope": "Browser-originated real pi LLM research with synthetic REPLAY market, explicit confirmation, simulated settlement",
+  "run_id": "f35c4cda-4aa8-4602-944f-773bd5610391",
+  "authenticated": true,
+  "csrf": true,
+  "no_auto_freeze": true,
+  "explicit_confirmation": true,
+  "settlement": true,
+  "refresh": true,
+  "history_no_sse": true,
+  "mobile_no_overflow": true,
+  "page_errors": 0,
+  "same_origin_only": true,
+  "predictions": 1,
+  "outcomes": 1,
+  "real_model": true,
+  "live_market": false,
+  "logged_out": true,
+  "provider": "volc-glm",
+  "model": "deepseek-v4-pro",
+  "database": "yta_pi_app_5fe1da877d37_test",
+  "event_counts": {
+    "tool.started": 2,
+    "run.completed": 1,
+    "prediction.draft": 1,
+    "tool.completed": 2,
+    "message.delta": 689,
+    "message.completed": 1,
+    "run.started": 1,
+    "canvas.command": 1
+  },
+  "limitations": [
+    "No LIVE market qualification",
+    "Not staging",
+    "Explicit test driver injection; production default unchanged",
+    "Current BFF source build mounted in probe Node container"
+  ],
+  "source_sha256": {
+    "apps/bff/src/app.ts": "8573b5531f42bc4199d639cb128fbb66a49ece9970375e8b218cb1d14ab80c3c",
+    "apps/bff/src/hermes-driver.ts": "4336dcda1eb8807da9452d6210aadf4d2547ab7facf01df0b5138eeac705454f",
+    "apps/web/components/shell.tsx": "031444273f3e6b0cf231027d9a16018ff13ad7b889fb79a71c6363407742c7e3",
+    "scripts/start_hermes_browser_bff.mjs": "d5e5eca83c4820319865875d967238a176ec864afdc4cd3a4b90388f80d07cb3",
+    "scripts/check_hermes_live_browser.mjs": "245faa906204ac1127ff0a770d821743bafb972b84bd7068bab230d531613945",
+    "scripts/probe_mvp_container_browser.mjs": "e7b8106d268d9b8fe7242b3dfc9d6a789cef4f5f65309c2b346da5d7acc5b486"
+  }
+}

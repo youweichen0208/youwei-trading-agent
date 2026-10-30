@@ -1,0 +1,37 @@
+{
+  "observed_at": "2026-10-29T01:36:09.212054+00:00",
+  "scope": "Offline cost arithmetic and explicitly incomplete example; no provider or billing verification",
+  "unit_tests": 13,
+  "example_exit_code": 1,
+  "example_report": {
+    "schema_version": "yta-cost-budget-review-v1",
+    "billing_month": "2026-10",
+    "as_of": "2026-10-29T00:00:00+00:00",
+    "currency": "USD",
+    "status": "UNCONFIGURED",
+    "known_total": "0",
+    "monthly_limit": null,
+    "warning_fraction": "0.80",
+    "warning_threshold": null,
+    "complete": false,
+    "missing": [
+      "infrastructure.incurred",
+      "infrastructure.remaining_commitment",
+      "model.incurred",
+      "model.remaining_commitment",
+      "market_data.incurred",
+      "market_data.remaining_commitment",
+      "storage_and_backup.incurred",
+      "storage_and_backup.remaining_commitment"
+    ],
+    "automatic_enforcement": false,
+    "source_verification": "CALLER_SUPPLIED_NOT_VERIFIED"
+  },
+  "local_document_links": "passed",
+  "files_sha256": {
+    "scripts/check_cost_budget.py": "856e2e1811e940b1d32e2faf533bc1e5d3e94b6ab247990d29ef6a5728051a79",
+    "services/alpha-engine/tests/test_cost_budget.py": "b743bb0165ee22598deac7c6dae2774dcb589056e626da09453fe86b7273a5bf",
+    "infra/budget/monthly.example.json": "5529fa8dc82f827d7a633dc8fcc535efe8c1172279702b982fc76a3f304434b7",
+    "docs/threat-model-and-budget.md": "26d0755203b4385efe24d49cd8881cb8b48dcff2ca899bfa3391b600bf4db426"
+  }
+}

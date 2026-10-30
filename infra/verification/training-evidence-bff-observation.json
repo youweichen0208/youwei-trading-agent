@@ -1,0 +1,52 @@
+{
+  "observed_at": "2026-10-29T15:43:14.340607+00:00",
+  "scope": "Shared strict training-evidence response and authenticated BFF fixed read",
+  "tests": {
+    "ts_passed": 169,
+    "contracts": 41,
+    "bff": 128,
+    "postgres_runtime_role": "yta_app",
+    "log": ".local/training-evidence-bff-tests.log"
+  },
+  "checks": {
+    "typecheck": "passed",
+    "build": "passed",
+    "alpha_contract_drift": "passed",
+    "bff_contract_drift": "passed",
+    "ruff": "passed",
+    "docs": "120 task DAG passed"
+  },
+  "live": {
+    "authenticated": true,
+    "alpha_replayed": true,
+    "runtime_database_role": "yta_app",
+    "reports": [
+      "MATCHED",
+      "MISMATCH"
+    ],
+    "exact_fixture_and_direct_match": true,
+    "upstream_failure_no_fallback": true,
+    "logged_out": true
+  },
+  "protocol": "Canonical object key sorting uses Python Unicode code points, including supplementary-plane metadata keys; Python-generated vectors and existing hash regressions pass",
+  "limitations": [
+    "No training evidence catalog or UI yet",
+    "No evidence binding into approval; qualification remains UNVERIFIED",
+    "Alpha owns full retraining/private-input verification; public response is a projection",
+    "No Python or persistence changes; previous 824 Python and restore suites not repeated",
+    "No application container rebuild or browser suite"
+  ],
+  "files_sha256": {
+    "packages/contracts/src/training-evidence.ts": "ce244eee268eb7dd7abe6c6913459c85062ee76832af263efdcf594a9b855727",
+    "apps/bff/src/training-evidence.ts": "752c5882014325bd21044b4d1b41642b94af39cbbdc386cf5c829355c7e18503",
+    "apps/bff/src/experimental-report.ts": "031cd65c1c09b4101a2eee0dfc16f105827e59fd6715830662d1580d27b26be7",
+    "apps/bff/src/alpha.ts": "3503a0e7ee49f50caf487fd70f5164c0bf93912658911ab26016d2b20edc6238",
+    "apps/bff/src/app.ts": "119b85e474492ee9f9f206888080d9a527f2559dc7e69c7989d832b68cfbf990",
+    "apps/bff/src/observability.ts": "81bc18153ffd75f31fdc09131c31cb5059bbc3250fe493fc57cb5b248a8260e1",
+    "packages/contracts/tests/training-evidence.test.ts": "19a9f1fb357c800695b03967f2c3cd1afbfa81ea9fc460c651c4470a864d7b57",
+    "apps/bff/tests/training-evidence.test.ts": "7db86ec2f16327fcbf0b3c1f98ab9462301237cf660c62c0864e1fe51a77c40e",
+    "apps/bff/tests/bff.integration.test.ts": "493560c4824cd1bff4a35a9088d57f74b110dd04a74b576a28515a95fa4b58ee",
+    "packages/contracts/fixtures/python-hash-vectors.json": "25d58af78cb9ecc538d3c840f332f9476df4e7b2203d4872d0c5457e25c3eaaf",
+    "packages/contracts/bff.openapi.json": "3c360eba35958fbb81a3337657d4b2ecdaf494d33b7ed91e3a87f684d071f17d"
+  }
+}

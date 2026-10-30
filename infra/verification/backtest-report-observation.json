@@ -1,0 +1,55 @@
+{
+  "observed_at": "2026-10-29T11:46:27.860856+00:00",
+  "scope": "Internal fixed-observation, single-capital multi-signal report; explicit overlaps and incomplete equity",
+  "targeted_tests": {
+    "passed": 28,
+    "seconds": 0.18,
+    "log": ".local/backtest-report-tests.log"
+  },
+  "python_tests": {
+    "passed": 778,
+    "seconds": 205.65,
+    "warnings": 4,
+    "skipped": 0,
+    "postgres_required": true,
+    "log": ".local/backtest-report-full-python.log"
+  },
+  "examples": {
+    "complete_synthetic_replay": {
+      "content_hash": "fa4daf808429bcbb5ab1e2b00dd3387ad399c531bbad47ce362efa43cf4c365c",
+      "status": "COMPLETE",
+      "signal_count": 3,
+      "computed_count": 2,
+      "overlap_count": 1,
+      "evidence_unavailable_count": 0,
+      "strategy_net_return": "0.062500000000"
+    },
+    "incomplete_synthetic_replay": {
+      "content_hash": "aa9bf6f58e8a92ccf997cfb370dbb1bf49c06b7d85f1fd6ebe4a272abbf9b8aa",
+      "status": "INCOMPLETE",
+      "signal_count": 3,
+      "computed_count": 1,
+      "overlap_count": 1,
+      "evidence_unavailable_count": 1,
+      "strategy_net_return": null
+    }
+  },
+  "checks": {
+    "ruff": "passed",
+    "format": "198 files passed",
+    "alpha_contract_drift": "passed",
+    "docs": "passed"
+  },
+  "limitations": [
+    "Caller-supplied signals are not replayed against model registrations",
+    "Realized exit-point equity is not a marked-to-market daily curve",
+    "Fixed single-capital window policy is not a general portfolio allocator",
+    "Historical open proxies remain UNVERIFIED; event adjudication and survivorship controls incomplete",
+    "No persistence/API/UI changes; no new backup restore or TS/browser suite needed"
+  ],
+  "files_sha256": {
+    "services/alpha-engine/src/yta_alpha/backtest_report.py": "f8c455277069a9e44cc85aa9a5095d8ec770a46b8a17bf5e3b5299d4a9aa9702",
+    "services/alpha-engine/tests/test_backtest_report.py": "12d3aec09d68c4c67cce87a3e6b00794747307d764f1bd3ca1fd6e5c703c3804",
+    "docs/backtest-execution-protocol.md": "86377b713c9bca7680cf74bbb24be9d49f56d71d43d6b81efcfb9d38d30cf882"
+  }
+}

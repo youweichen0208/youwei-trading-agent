@@ -1,0 +1,93 @@
+{
+  "observed_at": "2026-10-29T13:10:24.241619+00:00",
+  "scope": "Offline original-evidence full retraining and exact artifact field comparison; no qualification authority",
+  "targeted_tests": {
+    "passed": 7,
+    "warnings": 4,
+    "seconds": 3.59,
+    "log": ".local/training-replay-tests.log"
+  },
+  "cli_examples": [
+    {
+      "horizon": 1,
+      "status": "MATCHED",
+      "artifact_file_sha256": "53abfa8cff96232c6e9eec51105ec708df39dab6010d4d24771be10c4a273bdd",
+      "report_file": ".local/training-replay/h1-c13236ecf0067517356e1c250474e658330aef2b37b9cb0e8665febc0c6f89a3.json",
+      "report_content_hash": "c13236ecf0067517356e1c250474e658330aef2b37b9cb0e8665febc0c6f89a3",
+      "matched_fields": 19,
+      "qualification": "UNVERIFIED"
+    },
+    {
+      "horizon": 3,
+      "status": "MATCHED",
+      "artifact_file_sha256": "a9990f4e4f879c24e0959c3dc9eabb023f941e57e0e2e1cea9ad375511579917",
+      "report_file": ".local/training-replay/h3-a3b23dcd4ca9a5fac1a3cda8ae2f552932163eb753e378af58ae9a548c6f60b4.json",
+      "report_content_hash": "a3b23dcd4ca9a5fac1a3cda8ae2f552932163eb753e378af58ae9a548c6f60b4",
+      "matched_fields": 19,
+      "qualification": "UNVERIFIED"
+    },
+    {
+      "horizon": 5,
+      "status": "MATCHED",
+      "artifact_file_sha256": "46592c835789b2c5ca4bcba6b2d4d50edb214e8a86b505b36670a53581eaae36",
+      "report_file": ".local/training-replay/h5-375511324f8d60623e4df830d16e0a6b4d9e522e331853f034a8e7da9ebadc5b.json",
+      "report_content_hash": "375511324f8d60623e4df830d16e0a6b4d9e522e331853f034a8e7da9ebadc5b",
+      "matched_fields": 19,
+      "qualification": "UNVERIFIED"
+    },
+    {
+      "horizon": 10,
+      "status": "MATCHED",
+      "artifact_file_sha256": "31562af7c399c0ca3605185ea2a809e900782e0a004a79bca52c313a8e14b3a0",
+      "report_file": ".local/training-replay/h10-f2e77f49e50fef45f578691c20336c4eeead00bdc62cf8915beb127c122e0be0.json",
+      "report_content_hash": "f2e77f49e50fef45f578691c20336c4eeead00bdc62cf8915beb127c122e0be0",
+      "matched_fields": 19,
+      "qualification": "UNVERIFIED"
+    },
+    {
+      "horizon": 20,
+      "status": "MATCHED",
+      "artifact_file_sha256": "825c7fe45851d3a05fb0fa1d6170a77dc3dced5e62d87f2acd9bb49badeabae2",
+      "report_file": ".local/training-replay/h20-cdc5dbea8178cfec56543adad05481e264d9f86760238e70d9331503ba377467.json",
+      "report_content_hash": "cdc5dbea8178cfec56543adad05481e264d9f86760238e70d9331503ba377467",
+      "matched_fields": 19,
+      "qualification": "UNVERIFIED"
+    }
+  ],
+  "checks": {
+    "ruff": "passed",
+    "format": "205 files passed",
+    "alpha_contract_drift": "passed",
+    "docs": "120 task DAG passed"
+  },
+  "behavior": {
+    "matched_exit": 0,
+    "mismatch_exit": 2,
+    "failure_exit": 1,
+    "atomic_no_overwrite": true,
+    "file_mode": "0600",
+    "raw_training_data_in_report": false,
+    "qualification": "UNVERIFIED",
+    "promotion_allowed": false
+  },
+  "limitations": [
+    "Supplied training inputs must be retained separately; not persisted to a new database fact table",
+    "Exact retraining does not prove provider licensing, point-in-time qualification or historical deployment",
+    "Existing model proposals/reviews do not consume these files as approval evidence",
+    "Synthetic REPLAY examples, not real provider performance",
+    "No HTTP/TS/UI/persistence change; frontend, restore and application containers not rerun"
+  ],
+  "files_sha256": {
+    "services/alpha-engine/src/yta_alpha/training_replay.py": "07914abcd911fe7e5703ba3bacebe4f62190826d21d31f740e1bf4d4a3d23eff",
+    "services/alpha-engine/src/yta_alpha/train_cli.py": "79f62dc9a0c166132da31670188aef1ca774f216425ed754ee75cc715fd99676",
+    "services/alpha-engine/tests/test_training_replay.py": "ed8547f7195780f587bb27526df39fcfda87bfcb1e20dc65e397b0dff75ecf09"
+  },
+  "python_tests": {
+    "passed": 809,
+    "seconds": 219.8,
+    "warnings": 4,
+    "skipped": 0,
+    "postgres_required": true,
+    "log": ".local/training-replay-full-python.log"
+  }
+}

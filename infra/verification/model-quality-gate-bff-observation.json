@@ -1,0 +1,52 @@
+{
+  "observed_at": "2026-10-29T10:42:40.342208+00:00",
+  "scope": "Authenticated owner-scoped BFF combined quality creation/read",
+  "typescript_tests": {
+    "contracts": 35,
+    "bff": 115,
+    "total": 150,
+    "postgres_enabled": true,
+    "log": ".local/quality-gate-bff-tests.log"
+  },
+  "typecheck": "passed",
+  "build": "passed",
+  "live_probe": {
+    "scope": "Actual BFF -> Alpha -> PostgreSQL combined gate on new synthetic owner proposal",
+    "authenticated": 200,
+    "anonymous": 401,
+    "foreign_read": 404,
+    "foreign_create": 404,
+    "exact_retry_equal": true,
+    "alpha_equal": true,
+    "database_equal": true,
+    "single_owner_audit": true,
+    "qualification": "UNVERIFIED",
+    "promotion_allowed": false,
+    "logout": 200
+  },
+  "checks": {
+    "ruff": "passed",
+    "openapi_validation": "Alpha and BFF passed",
+    "contract_drift": "Alpha and BFF passed",
+    "docs": "passed"
+  },
+  "limitations": [
+    "No combined review submission or UI integration yet",
+    "No production thresholds or verified data qualification",
+    "UNVERIFIED combined facts never authorize promotion",
+    "No Python/schema/transaction behavior changes; prior 739 Python tests and restore evidence not rerun",
+    "No application image rebuild or browser suite rerun"
+  ],
+  "files_sha256": {
+    "packages/contracts/src/quality-gate.ts": "827b654000dc7b2f2fdc5a09339310cd53ddb047c3de42129b50f1bb4e1a66ec",
+    "packages/contracts/src/requests.ts": "4a2899bf5c35033da28d62963d329e38c03c8555122b3f8dccadfb2b92a62065",
+    "packages/contracts/fixtures/model-quality-gate.json": "3440ccf4687343f7b424bc00939b0f44815a7a41f31200cad5af9943d93f8526",
+    "apps/bff/src/quality-gate.ts": "cbb467ab507f11cd491387deef3c487b99359dd948448798feeeb45107fda989",
+    "apps/bff/src/alpha.ts": "4654b530a0fd530d6f80372886bb5e820022f28ce767df740d49856770e08c05",
+    "apps/bff/src/app.ts": "26c3c2f5ce5098585d20f8c18c4d08d6adb827550e82e1ccd3c71d151280dc86",
+    "apps/bff/tests/quality-gate.test.ts": "3477a579d478767372ecbad6ca46e12f4ead22f32760d6e581a709c39979798e",
+    "apps/bff/tests/bff.integration.test.ts": "49eb6e93953ac7af53ff654540dabe3dbe47c3d55cb48ac4ed0f5c1611d46118",
+    "packages/contracts/tests/quality-gate.test.ts": "25a2f7d5d547367dca7221e33c0b61f9d2d73b1c9aa036f2d4ef8f6190925863",
+    "packages/contracts/bff.openapi.json": "5d03269bbe692e54ed6da1285e7499a2f89c8f8a940a6694c9d9e1c7038fdc98"
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "python_suite": "passed",
+  "verification": {
+    "restored_database": "yta_restore_60b2723f0d88406d91ccb4b15f1640cd_test",
+    "tables_verified": 31,
+    "immutable_guards_verified": 29,
+    "identity_sequences_verified": 6,
+    "forecasts_reproduced": 42,
+    "settlements_reproduced": 17,
+    "evidence_items_verified": 9,
+    "elapsed_seconds": 0.46
+  },
+  "acquisitions": {
+    "raw_tables_identical": true,
+    "market_bars_identical": true,
+    "valid_acquisitions_reconstructed": 28,
+    "invalid_acquisitions_still_rejected": 4,
+    "valid_projections_reconstructed": 27,
+    "missing_or_invalid_projections_still_rejected": 1,
+    "daily_records_reconstructed": 10,
+    "qualification_status": "UNVERIFIED"
+  },
+  "scope": "Fresh local Python test dataset; not remote CI or production",
+  "observed_at": "2026-10-28T09:08:24.198111+00:00",
+  "full_python_tests": 434,
+  "http_fault_tests": 10,
+  "external_provider_requests": 0,
+  "qualification_status": "UNVERIFIED",
+  "files_sha256": {
+    "services/alpha-engine/tests/test_provider_http_faults.py": "4d7766b7515e36d7079ddbc4d0c21dbf2b78350e61a9f2b05fece1946e31d7ee",
+    "services/alpha-engine/src/yta_alpha/massive.py": "e74e98f004080773544e4e53caa4deac4d4fb70ddf608f91a107a93ff4006d62",
+    "services/alpha-engine/src/yta_alpha/market_cache.py": "5d6b57ead2b1024ddbf6271ba181f81a2d9df80224de90c4241168332ad775f9"
+  }
+}

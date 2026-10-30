@@ -1,0 +1,27 @@
+{
+  "observed_at": "2026-10-28T02:47:55.035802+00:00",
+  "image_digest": "sha256:f1a964e4dbfb1214a69cf64572d99ea2c46c3fecf8c455ddd0a1723da0883618",
+  "architecture": "arm64",
+  "latest_migration": "013_market_bars.sql",
+  "fresh_install": true,
+  "upgrade_from": "012_symbols.sql",
+  "prior_audit_preserved": true,
+  "repeated_migration": true,
+  "runtime_role_rejected": true,
+  "disposable_databases_cleaned": true,
+  "postgres_python_suite_passed": 382,
+  "files_sha256": {
+    "infra/migrations/013_market_bars.sql": "f1b0878e5941860e6f6616501befca715524bc7371c7104ca7c1d3c0033b76f2",
+    "services/alpha-engine/src/yta_alpha/market_bars.py": "e70f6598b1f01168469d582d9ee2050380ddff27191b6713e31accde24274a6b",
+    "services/alpha-engine/src/yta_alpha/acquisition_store.py": "b37122269d6acf382fc52a2804aed3e9a554daa9fce373b2a0054f76d99f0265",
+    "services/alpha-engine/src/yta_alpha/acquire.py": "c12b19c7d6f6af80bb1ccad6864938ba8d5dd0a2f3f0edcf07394e50389cc533",
+    "tests/integration/test_acquisition_store.py": "f02fcd57afee27f081109786f0de07ae1d0a8d51e39e1005de9a628e459c1fe6",
+    "scripts/check_migration_container.py": "caf18cb1a7d9d313a3db17e0bb558a53b4b3421301edc9b453ccc0f388c80df7"
+  },
+  "qualification_status": "UNVERIFIED",
+  "limits": [
+    "Dedicated local test databases only",
+    "No application/tools image rebuild",
+    "No authorized supplier data or research snapshot qualification"
+  ]
+}

@@ -1,0 +1,40 @@
+# Sealed application services with standard BFF main; private real-pi REPLAY probe.
+# Overlay the pi and application probe files. Hermes bootstrap mounts remain test-only.
+services:
+  alpha:
+    volumes: !reset []
+    environment:
+      PYTHONPATH: ""
+  finance-tools:
+    volumes: !reset []
+    environment:
+      PYTHONPATH: ""
+  application:
+    entrypoint: [node, dist/main.js]
+    volumes: !reset []
+    environment:
+      YTA_RESEARCH_DRIVER: HERMES
+      YTA_HERMES_ORIGIN: http://hermes:8642
+      YTA_HERMES_TOKEN: ${YTA_HERMES_PROBE_TOKEN}
+      YTA_HERMES_MODEL: ${YTA_PI_MODEL}
+      YTA_BFF_HOST: 0.0.0.0
+      YTA_WEB_ORIGIN: http://localhost:3300
+    networks:
+      alpha: {}
+      tools: {}
+      database: {}
+      browser:
+        aliases: [yta-bff]
+  web:
+    image: ${YTA_WEB_IMAGE:?Set sealed Web image}
+    pull_policy: never
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    ports: ["127.0.0.1:3300:3000"]
+    networks: [browser]
+    depends_on: [application]
+    mem_limit: 512m
+    pids_limit: 128
+networks:
+  browser: {}

@@ -1,0 +1,37 @@
+{
+  "observed_at": "2026-10-29T02:30:07.312492+00:00",
+  "scope": "Actual CPU regression followed by reserved-window isotonic calibration and later evaluation, all explicit synthetic REPLAY; no reliability qualification",
+  "receipt": {
+    "status": "EXPERIMENTAL",
+    "report_sha256": "5e2b640df251a69096edc9a8e36c440a6d39c21956004d159de312c17af0424c",
+    "calibration_samples": 5,
+    "evaluation_samples": 5
+  },
+  "report": ".local/calibration-probe-5b82d0d55707489caddb57bfd973aa9b/report.json",
+  "artifact": ".local/calibration-probe-5b82d0d55707489caddb57bfd973aa9b/model.json",
+  "report_mode": "0600",
+  "overwrite_rejected": true,
+  "calibration_class_counts": {
+    "up": 3,
+    "not_up": 2
+  },
+  "evaluation_sample_count": 5,
+  "targeted_tests": 21,
+  "python_suite": {
+    "passed": 592,
+    "warnings": 4,
+    "skipped": 0,
+    "seconds": 28.9,
+    "database": "yta_test",
+    "require_postgres": true
+  },
+  "ruff": "passed",
+  "format_files": 160,
+  "alpha_contract_drift": "passed",
+  "images_rebuilt": false,
+  "files_sha256": {
+    "services/alpha-engine/src/yta_alpha/calibration.py": "5b3d1af37926ff6301465171ceeb9f4cbd137443f2656e7a9c25c32b70250128",
+    "services/alpha-engine/src/yta_alpha/calibrate_cli.py": "bf24a06eb3d2632a15dd7beec28aeaf502d5623c56dd1ec724e337c72e480914",
+    "services/alpha-engine/tests/test_calibration.py": "85c79f37cd370eb91aaa5805d63cefdf00ce91899df3bd9d11779017a9eaa06c"
+  }
+}

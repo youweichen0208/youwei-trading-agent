@@ -1,0 +1,5 @@
+{
+  "accepted": ["NVDA", "nvda", "NvDa", " NVDA ", "\tnvda\r\n"],
+  "unsupported": ["AAPL", "brk.b", "BRK-B"],
+  "invalid": ["", " ", "ＮＶＤＡ", "NⅤDA", "NV DA", "NVDA/..", "NVDA?x=1", "NVDA\u0000", "1NVDA", "NVDA..A", "\u000bnvda", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", null]
+}

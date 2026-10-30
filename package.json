@@ -1,0 +1,30 @@
+{
+  "name": "youwei-trading-agent",
+  "private": true,
+  "packageManager": "pnpm@9.15.4",
+  "engines": {
+    "node": ">=22 <27"
+  },
+  "scripts": {
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "build": "pnpm -r build",
+    "test:alpha": "uv run pytest",
+    "test:e2e": "playwright test",
+    "test:e2e:isolated": "node scripts/run_isolated_e2e.mjs",
+    "lint:alpha": "uv run ruff check .",
+    "docs:check": "python3 scripts/check_docs.py",
+    "contracts:requests:export": "pnpm --filter @yta/contracts requests:export",
+    "contracts:requests:check": "pnpm --filter @yta/contracts requests:check",
+    "contracts:bff:export": "pnpm --filter @yta/contracts bff:export",
+    "contracts:bff:check": "pnpm --filter @yta/contracts bff:check",
+    "contracts:report:export": "pnpm --filter @yta/contracts report:export",
+    "contracts:report:check": "pnpm --filter @yta/contracts report:check"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "@types/node": "^22.19.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

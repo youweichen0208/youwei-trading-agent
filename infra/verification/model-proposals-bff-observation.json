@@ -1,0 +1,49 @@
+{
+  "observed_at": "2026-10-29T07:10:54.431370+00:00",
+  "scope": "Authenticated BFF model proposals; synthetic REPLAY",
+  "typescript_tests": {
+    "contracts": 27,
+    "bff": 90,
+    "postgres_enabled": true
+  },
+  "typecheck": "passed",
+  "build": "passed",
+  "openapi": "valid",
+  "contract_drift": "passed",
+  "ruff": "passed",
+  "images_rebuilt": false,
+  "actual_process_probe": {
+    "scope": "Actual local BFF -> Alpha -> PostgreSQL; synthetic REPLAY",
+    "anonymous": 401,
+    "authenticated": 200,
+    "alpha_response_equal": true,
+    "registered_report_equal": true,
+    "proposal_create_get_retry_equal": true,
+    "proposal_alpha_equal": true,
+    "proposal_facts": 1,
+    "proposal_audits": 1,
+    "comparison_alpha_equal": true,
+    "comparison_registered_payload_equal": true,
+    "report_list_alpha_equal": true,
+    "report_list_next_page_disjoint": true,
+    "disjoint_second_page": true,
+    "items": 2,
+    "logout": 200
+  },
+  "files_sha256": {
+    "apps/bff/src/model-proposal.ts": "7a8756987a9db2c1ba9ed058abdddd4fdd0064baa83c0779f188535e4e4143a3",
+    "apps/bff/src/experimental-report.ts": "9a5abd59cd0583821b65404899171b6ece58145ba981746092266c6203373470",
+    "apps/bff/src/alpha.ts": "a9e29f0058cff05d076b36fb9723289bc5e35325a944a82ca35c21c816080e51",
+    "apps/bff/src/app.ts": "eaaf1958641f9a09ededd057efe58c4862c19faa6b31c1c7c03b1d8a969030b3",
+    "apps/bff/src/observability.ts": "eb0d08e8783ee8457f990a449b7908b39cf2e4e28dac67fcd8f34896ab9d5ae1",
+    "packages/contracts/src/index.ts": "89c8d3448674a83f4c4d70e18bc24fb49f5f0334f0461af13002441389324f7d",
+    "packages/contracts/src/requests.ts": "acc8ef072d7e215ee178da175bdc62b042a7b3e63480e6429d03bc99bd2cba7b",
+    "packages/contracts/bff.openapi.json": "726481c230aa7405a5ecfb2c15f9d273973c3f7fd609ebdd773e8ee7c0e00005",
+    "packages/contracts/scripts/build-bff-openapi.mjs": "f25a2410175128e3b5484584dc9ec18364e43803738bd446e4a1b57e92d6a182",
+    "packages/contracts/scripts/export-requests.mjs": "4a24925919094d16cd2546dbbe38e0cc8b3217c40ec949c49290f9a050c6f40a",
+    "packages/contracts/fixtures/model-proposal.json": "b770f800847e501b62de92a1bc2044e8a28d64475f806fa717397647e4420cc9",
+    "apps/bff/tests/model-proposal.test.ts": "bee3bea37f79cefef0566cfb8bcfbfb4a02ce9568ddf48b4fd38a04f753cac52",
+    "apps/bff/tests/bff.integration.test.ts": "bcf42ed93e26632083c84027ccc5047cebba22e3a0f137b1e4f8707d7e3a4b97",
+    "packages/contracts/tests/experimental-reports.test.ts": "782bc6df4c1b6ac6f16867d265ad7d2999c13cd08ccb456c2bbe2bc44ff5305b"
+  }
+}

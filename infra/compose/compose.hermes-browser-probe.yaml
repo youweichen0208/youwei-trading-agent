@@ -1,0 +1,11 @@
+# Local-only browser harness on top of pi application probe; not a deployment.
+services:
+  application:
+    entrypoint: [node, /workspace/scripts/start_hermes_browser_bff.mjs]
+    environment:
+      YTA_PI_BROWSER_PROBE: "1"
+      YTA_WEB_ORIGIN: http://localhost:3300
+    ports: ["127.0.0.1:3310:3100"]
+    networks: [alpha, tools, database, browser]
+networks:
+  browser: {}

@@ -1,0 +1,21 @@
+{
+  "items": [
+    {
+      "id": "lightgbm-experimental-f885dafa9664e00917252823e708df03f4b8c6e27939caa738d0f02ace2c622a",
+      "status": "EXPERIMENTAL",
+      "qualification": "UNVERIFIED",
+      "data_mode": "REPLAY",
+      "horizon_sessions": 5,
+      "registered_at": "2026-10-29T03:11:29.127020Z",
+      "training_cutoff": "2023-05-19T20:10:00Z",
+      "model_sha256": "d3f2039056d1e9dd5f7fbf9306b118e82cc130734b718bc86219c75f995a1da9",
+      "registration_sha256": "f885dafa9664e00917252823e708df03f4b8c6e27939caa738d0f02ace2c622a",
+      "training_samples": 40,
+      "reserved_window_samples": 5,
+      "reserved_window_mae": "0.000874773486",
+      "reserved_window_zero_return_mae": "0.004915176866",
+      "metric_scope": "RESERVED_WINDOW_NOT_QUALIFIED_FINAL_EVALUATION"
+    }
+  ],
+  "next_cursor": null
+}

@@ -1,0 +1,53 @@
+{
+  "observed_at": "2026-10-29T11:23:28.587405+00:00",
+  "scope": "Combined evidence selection and v2 review form with legacy exact-request recovery",
+  "tests": {
+    "typescript": {
+      "contracts": 36,
+      "bff": 119,
+      "postgres_enabled": true,
+      "log": ".local/combined-review-form-ts.log"
+    },
+    "browser": {
+      "passed": 54,
+      "seconds": 43.0,
+      "log": ".local/combined-review-form-e2e.log",
+      "scope": "Real login and controlled synthetic REPLAY evidence responses"
+    }
+  },
+  "checks": {
+    "typecheck": "passed",
+    "build": "passed",
+    "ruff": "passed",
+    "alpha_contract_drift": "passed",
+    "bff_contract_drift": "passed",
+    "docs": "passed"
+  },
+  "screenshots": {
+    "directory": ".local/combined-review-form/",
+    "mobile_inspected": true,
+    "no_page_horizontal_overflow": true
+  },
+  "coverage": [
+    "Explicit separate price/probability rules, independent radio groups, no default review submission",
+    "Fixed combined gate binds proposal/model/report/calibration/rules and both assessments",
+    "Gate unknown response retries same evidence pair; wrong proposal rejected",
+    "Reassessment clears prior gate even when reproduced content identity is unchanged",
+    "v2 review lost response keeps key/body/predecessor through refresh",
+    "Legacy pending v1 request retries without conversion or new evidence",
+    "Stale/closed review flow and browser storage failure remain covered"
+  ],
+  "limitations": [
+    "Updated actual container browser flow remains to be exercised; browser mocks do not establish container integration",
+    "No Python or database behavior changes; previous 750 Python tests and restore evidence not rerun",
+    "Application images not rebuilt",
+    "No formal qualification, actual approval, champion promotion or rollback"
+  ],
+  "files_sha256": {
+    "apps/web/components/combined-review-evidence.tsx": "ab1a19ea8ec40fef49219407fcc622db95b2bdab82ad192acb0051ea0e6ce02a",
+    "apps/web/components/model-review.tsx": "02898b0a1c463c17c2f2a6dc3054874df50f1c15e40f04a2e79a66cf1cf43765",
+    "apps/web/components/probability-quality.tsx": "39bead2055e0b7615a7818a0b042bcb8870c52f8b39772f4d1a7bd3eae4323ad",
+    "tests/e2e/models.spec.ts": "34a708c8fdd20098969b644a9185aede055ce02d47d2357230a7f263c1a647fe",
+    "packages/contracts/fixtures/review-probability-evidence.json": "7e81d12ea1396ff4464acc262b37b85b8bbbdd2db08c247477fa1fbb8450b4b7"
+  }
+}

@@ -1,0 +1,69 @@
+{
+  "observed_at": "2026-10-29T08:53:48.314954+00:00",
+  "scope": "Reviewer-only public review routes; actual local BFF/Alpha/PostgreSQL synthetic REPLAY integration",
+  "tests": {
+    "contracts": 31,
+    "bff": 102,
+    "postgres_required": true
+  },
+  "typecheck": "passed",
+  "build": "passed",
+  "contract_drift": "passed",
+  "ruff": "passed",
+  "docs": "passed",
+  "actual_probe": [
+    {
+      "review_create_retry_read_equal": true,
+      "review_alpha_equal": true,
+      "review_database_payload_equal": true,
+      "review_facts": 1,
+      "review_actor_audits": 1,
+      "disposition": "BLOCKED",
+      "promotion_allowed": false
+    },
+    {
+      "scope": "Actual local BFF -> Alpha -> PostgreSQL; synthetic REPLAY",
+      "anonymous": 401,
+      "authenticated": 200,
+      "alpha_response_equal": true,
+      "registered_report_equal": true,
+      "proposal_create_get_retry_equal": true,
+      "proposal_alpha_equal": true,
+      "proposal_facts": 1,
+      "proposal_audits": 1,
+      "quality_create_retry_read_equal": true,
+      "quality_policy_equal": true,
+      "quality_alpha_equal": true,
+      "quality_audits": 1,
+      "quality_catalog_database_order_equal": true,
+      "quality_catalog_alpha_equal": true,
+      "quality_catalog_pages": 2,
+      "comparison_alpha_equal": true,
+      "comparison_registered_payload_equal": true,
+      "report_list_alpha_equal": true,
+      "report_list_next_page_disjoint": true,
+      "disjoint_second_page": true,
+      "items": 2,
+      "logout": 200
+    }
+  ],
+  "images_rebuilt": false,
+  "limitations": [
+    "No review discovery or UI yet",
+    "No approved state, qualification or champion transition",
+    "No production reviewer configured; synthetic local test identity only",
+    "Python 689 and browser 42 prior passes were not rerun; no Python or UI behavior change"
+  ],
+  "files_sha256": {
+    "apps/bff/src/model-review.ts": "cc12ddfa22fb998315c483ab98f352e9e9a51c22a377feaf795fc7e43b8a761c",
+    "apps/bff/src/auth.ts": "5c850d1c8d98af22fda58b3a696f34686a0b89a75a92c000072cd1f3699cd6e8",
+    "apps/bff/src/app.ts": "80dc6eece4b5fc1eafa0707ab618d5648b8d6fe479bb51e9bca80654c5cd1485",
+    "apps/bff/src/alpha.ts": "cf50bc1d4f523fee88340af9e9bc670b04f5daf34077f433ac53792ac40304c5",
+    "packages/contracts/src/review.ts": "44257a0d2142fc36703f7109b5cebab493d825c7be0b0b279c2bb206e7060881",
+    "packages/contracts/src/requests.ts": "4097575b3ae9642ae478988c68da43da2170967fb4b7654037dc2c37ef71d9d7",
+    "apps/bff/tests/model-review.test.ts": "5707a6a3194bbd131d3ad114d8269efd13780dbe9a11d884c8c6da12ff226321",
+    "apps/bff/tests/bff.integration.test.ts": "1a9f0076471c9bb7962fc2954652a7d80d6c6ea883073ccb07cbdb47950763e0",
+    "packages/contracts/tests/review.test.ts": "225fc835018c8ba662041552a14f498d93d78686d46c2943cf79eac2cb81bc63",
+    "packages/contracts/bff.openapi.json": "ca9a973b89be801bf6a51442fe0d3d029108b6e50684080db4544648265ee64d"
+  }
+}

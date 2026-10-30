@@ -1,0 +1,24 @@
+{
+  "observed_at": "2026-10-29T02:57:42.294580+00:00",
+  "scope": "Non-replay registered model availability guard; synthetic data and real PostgreSQL metadata",
+  "regression_failed_before_fix": true,
+  "targeted_tests": 25,
+  "python_suite": {
+    "passed": 606,
+    "warnings": 4,
+    "skipped": 0,
+    "seconds": 31.13,
+    "require_postgres": true,
+    "database": "yta_test"
+  },
+  "ruff": "passed",
+  "format_files": 163,
+  "alpha_contract_drift": "passed",
+  "task_graph": "passed",
+  "images_rebuilt": false,
+  "files_sha256": {
+    "services/alpha-engine/src/yta_alpha/model_registry.py": "449908ccfbe78eac38f968609da33e9decf8ca59f09c2627bb9d0f52bf83c462",
+    "services/alpha-engine/src/yta_alpha/experimental_predictions.py": "1a9aa71221ab4e7763e37c4bc0d65b2b415608825fb02ba02153d835288edd4d",
+    "tests/integration/test_model_registry.py": "529f76f4ddd716988a0aa51956081a0f2bdc1e791d7c21441d06707915ced488"
+  }
+}

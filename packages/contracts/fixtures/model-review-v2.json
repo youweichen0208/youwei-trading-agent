@@ -1,0 +1,31 @@
+{
+  "id": "edc551ad-1678-416e-b8a1-b217e6be4660",
+  "created_at": "2026-10-29T11:03:01.647302+00:00",
+  "review": {
+    "schema_version": "model-review-record-v2",
+    "reviewer_id": "ae02d101-bfe1-4234-a26e-0d96246a27a1",
+    "request_id": "42d5dcea-77b5-47b2-b47e-fddcb5c0fa3a",
+    "data_mode": "REPLAY",
+    "proposal_id": "5fc949ed-28e9-4223-b2b3-c8a7d616820b",
+    "quality_gate_id": "model-quality-gate-6491ab9ed904e0a9cbc52085dcad492e5bb16bb9d2c389c41f75c44c67340887",
+    "action": "APPROVE",
+    "reason": "Synthetic combined evidence review",
+    "proposal_content_hash": "b56b34c5b6d00109fa4b3eb3f80a2a118d2140c1ee15532097d79b2931a34c38",
+    "quality_gate_content_hash": "6491ab9ed904e0a9cbc52085dcad492e5bb16bb9d2c389c41f75c44c67340887",
+    "price_assessment_id": "historical-quality-assessment-a8263b89488a57d02bdbf2a6d2e2449d01fbe031bfd62d8590196f338238f0b9",
+    "probability_assessment_id": "probability-quality-assessment-8122474cd6c7fded18a3f971082cbe0fcb56c4f9ac30d89309cc0aa80d284e2c",
+    "price_policy_hash": "fd6e0e243870bc7e366c9a56c26d5d35cc498c99c2413659cbfc7218f523f965",
+    "probability_policy_hash": "30117453e0654ef4981e2ec6c1741f4764933ca278189a3115f0197be58f549a",
+    "candidate_model_id": "lightgbm-experimental-b8d5faeb4272ff9259b277405bd0213a8d5aadfd29d454361d5fa45d49ac684f",
+    "disposition": "BLOCKED",
+    "blocking_reasons": [
+      "HISTORICAL_EVIDENCE_UNQUALIFIED"
+    ],
+    "failed_price_checks": [],
+    "failed_probability_checks": [],
+    "promotion_allowed": false,
+    "previous_review_id": null,
+    "revision": 1,
+    "content_hash": "92570c6feddb92a10a677efc4d2a5695e763c85e1bafcf8a504769c236621463"
+  }
+}

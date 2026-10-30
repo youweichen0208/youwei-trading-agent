@@ -1,0 +1,27 @@
+{
+  "observed_at": "2026-10-29T07:49:26.000436+00:00",
+  "scope": "Explicit historical candidate numeric screening after registry replay; no approval authority",
+  "python_tests": {
+    "passed": 660,
+    "skipped": 0,
+    "seconds": 54.0,
+    "warnings": 4,
+    "postgres_required": true
+  },
+  "ruff": "passed",
+  "format": "174 files passed",
+  "alpha_contract_drift": "passed",
+  "images_rebuilt": false,
+  "limitations": [
+    "No production thresholds selected",
+    "No persisted policy or assessment",
+    "No API, UI or approval/champion transition",
+    "Historical numeric pass never grants qualification"
+  ],
+  "files_sha256": {
+    "services/alpha-engine/src/yta_alpha/model_quality.py": "f6567c79dc73a3b627bb3489a70e998f4fa0efa7a56e9895f2eb36198b1d7efe",
+    "services/alpha-engine/src/yta_alpha/model_evaluation_registry.py": "00dcd183cc7755d82bb82e540170f4bc001fdd3b2acda1dab16967488287d489",
+    "services/alpha-engine/tests/test_model_quality.py": "dbf7d834898aac8ddaff363db904c1877618ddafcf269a006304dd09435070ee",
+    "tests/integration/test_calibration_registry.py": "4bdf2342f5f64b0e282a3293c5008ad38810b797de1aff19da1be7ffb29778cc"
+  }
+}

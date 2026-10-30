@@ -1,0 +1,91 @@
+{
+  "observed_at": "2026-10-29T09:08:09.414914+00:00",
+  "scope": "Separate reviewer-authorized proposal discovery and cross-owner detail; ordinary owner-scoped routes unchanged",
+  "python_tests": {
+    "passed": 693,
+    "skipped": 0,
+    "warnings": 4,
+    "seconds": 100.29,
+    "postgres_required": true
+  },
+  "typescript_tests": {
+    "contracts": 31,
+    "bff": 104,
+    "postgres_required": true
+  },
+  "typecheck": "passed",
+  "build": "passed",
+  "openapi": "valid",
+  "contract_drift": "passed",
+  "ruff": "passed",
+  "format": "181 files passed",
+  "docs": "passed",
+  "actual_probe": [
+    {
+      "private_review_history_exact": true
+    },
+    {
+      "bff_history_actual_pages": 2,
+      "bff_history_exact_predecessor_chain": true,
+      "terminal_disposition": "REJECTED"
+    },
+    {
+      "reviewer_inbox_database_order_equal": true,
+      "reviewer_cross_owner_detail_alpha_equal": true,
+      "ordinary_cross_owner_detail": 404
+    },
+    {
+      "review_create_retry_read_equal": true,
+      "review_alpha_equal": true,
+      "review_database_payload_equal": true,
+      "review_facts": 1,
+      "review_actor_audits": 1,
+      "disposition": "BLOCKED",
+      "promotion_allowed": false
+    },
+    {
+      "scope": "Actual local BFF -> Alpha -> PostgreSQL; synthetic REPLAY",
+      "anonymous": 401,
+      "authenticated": 200,
+      "alpha_response_equal": true,
+      "registered_report_equal": true,
+      "proposal_create_get_retry_equal": true,
+      "proposal_alpha_equal": true,
+      "proposal_facts": 1,
+      "proposal_audits": 1,
+      "quality_create_retry_read_equal": true,
+      "quality_policy_equal": true,
+      "quality_alpha_equal": true,
+      "quality_audits": 1,
+      "quality_catalog_database_order_equal": true,
+      "quality_catalog_alpha_equal": true,
+      "quality_catalog_pages": 2,
+      "comparison_alpha_equal": true,
+      "comparison_registered_payload_equal": true,
+      "report_list_alpha_equal": true,
+      "report_list_next_page_disjoint": true,
+      "disjoint_second_page": true,
+      "items": 2,
+      "logout": 200
+    }
+  ],
+  "images_rebuilt": false,
+  "limitations": [
+    "All submitted proposals, not a pending-only queue; read history for review state",
+    "No reviewer UI yet",
+    "No real reviewer permissions configured",
+    "No production model qualification or champion transition"
+  ],
+  "files_sha256": {
+    "services/alpha-engine/src/yta_alpha/model_proposal_catalog.py": "8cdee9d19b45f0e52d94613b990d52a033933fdd1ed4626e65431de77dbe2cd6",
+    "services/alpha-engine/src/yta_alpha/api.py": "0ea8c3c4e22113359c173db0462bd8020146b4e61ca32fc22026a33d8e776605",
+    "apps/bff/src/model-proposal.ts": "4a77cb03e266d758825a12b8b44725c8e25d16f21ca444252686c08cdb3619ab",
+    "apps/bff/src/alpha.ts": "96856b9d48763123cbe144cf4562e42374ca050ddb75ddbd6baf0fa271187a7f",
+    "apps/bff/src/app.ts": "1809f8cbe0d4b4b3be8e684ed3bb06770155459df75ade0dcdbfe70a03f7375a",
+    "tests/integration/test_calibration_registry.py": "66608c8530958dfbb83ed2ec5ebd2d0eff069e85f8b72f082ce2eaafff0fcb3f",
+    "apps/bff/tests/model-proposal.test.ts": "38617e28399473327fe308196062da7af6629f3e98d4cc4b6e212467abaa59c5",
+    "apps/bff/tests/bff.integration.test.ts": "aeb3bccc00e5b721779a167695be7f1399b234d0aa01e02b360cd8af6df68f00",
+    "packages/contracts/alpha.openapi.json": "8c986b5bab6f889fd38f53ec27af41a5232b06645e636e5cf84d54f734a5d034",
+    "packages/contracts/bff.openapi.json": "d3f6039b259c557064e7ba689fc0ac423571269933bd049e50d202d9817409d6"
+  }
+}

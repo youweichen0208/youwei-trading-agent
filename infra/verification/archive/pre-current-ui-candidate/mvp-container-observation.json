@@ -1,0 +1,45 @@
+{
+  "images": {
+    "alpha-engine": {
+      "image": "sha256:80ee6d4cd54224274939a38de603ae6794d16f0dddf41b9b3f728a7da5bed933",
+      "no_source_mounts": true,
+      "read_only_root": true,
+      "health": "healthy"
+    },
+    "yta-bff": {
+      "image": "sha256:e0e4abc3d098c5fdf534c99523dac8dd443df259133f3d0d554537050f93b795",
+      "no_source_mounts": true,
+      "read_only_root": true,
+      "health": "healthy"
+    },
+    "yta-web": {
+      "image": "sha256:b296b8aaf0e47fa083522e7fb6d9436fa551cbf494d242316719aab4caed73fe",
+      "no_source_mounts": true,
+      "read_only_root": true,
+      "health": "healthy"
+    }
+  },
+  "browser": {
+    "scope": "sealed local candidate synthetic REPLAY browser flow",
+    "run_id": "b9c38b3c-2c2a-4bf2-81f8-2c06966505a1",
+    "authenticated": true,
+    "csrf": true,
+    "no_auto_freeze": true,
+    "explicit_confirmation": true,
+    "settlement": true,
+    "refresh": true,
+    "history_no_sse": true,
+    "mobile_no_overflow": true,
+    "page_errors": 0,
+    "same_origin_only": true,
+    "predictions": 1,
+    "outcomes": 1,
+    "real_model": false,
+    "live_market": false,
+    "logged_out": true
+  },
+  "database": "yta_candidate_61a6b5848f316d371fb60614_test",
+  "qualification": "LOCAL_REPLAY_ONLY",
+  "migration_count": 27,
+  "initial_script_error": "relative API URL; resumed same original research after correction"
+}

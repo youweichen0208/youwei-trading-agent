@@ -1,0 +1,79 @@
+# Local container verification only. Start compose.dev.yaml and bootstrap yta_test first.
+# Sample credentials are confined to the existing dedicated local test database.
+name: yta-app-local
+x-alpha-env: &alpha-env
+  YTA_ENV: test
+  YTA_DATA_MODE: REPLAY
+  YTA_DATABASE_URL: postgresql://yta_app:local-yta-app@postgres:5432/yta_test
+  YTA_ALPHA_TOKEN: container-smoke-token-not-a-live-secret
+x-hardening: &hardening
+  init: true
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  tmpfs: [/tmp]
+  logging:
+    driver: json-file
+    options: {max-size: 10m, max-file: "3"}
+services:
+  alpha-engine:
+    <<: *hardening
+    image: yta-alpha:local
+    build: {context: ../.., dockerfile: infra/docker/alpha.Dockerfile, target: runtime}
+    environment: *alpha-env
+    networks: [backend]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8100/health', timeout=3)"]
+      interval: 5s
+      timeout: 4s
+      retries: 12
+  yta-bff:
+    <<: *hardening
+    image: yta-bff:local
+    build: {context: ../.., dockerfile: infra/docker/node.Dockerfile, target: bff}
+    environment:
+      <<: *alpha-env
+      YTA_BFF_HOST: 0.0.0.0
+      YTA_ALPHA_URL: http://alpha-engine:8100
+      YTA_WEB_ORIGIN: http://localhost:3300
+      YTA_WRITE_ADMISSION: ${YTA_WRITE_ADMISSION:-OPEN}
+      YTA_RESEARCH_RUNS_PER_24H: ${YTA_RESEARCH_RUNS_PER_24H:-50}
+    networks: [edge, backend]
+    depends_on:
+      alpha-engine: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3100/api/yta/v1/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 4s
+      retries: 12
+  yta-web:
+    <<: *hardening
+    image: yta-web:local
+    build: {context: ../.., dockerfile: infra/docker/node.Dockerfile, target: web}
+    networks: [edge]
+    ports: ["127.0.0.1:3300:3000"]
+    depends_on:
+      yta-bff: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/api/yta/v1/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 4s
+      retries: 12
+  jobs:
+    <<: *hardening
+    profiles: [worker]
+    image: yta-alpha:local
+    environment:
+      <<: *alpha-env
+      YTA_JOBS_DISPATCH: ${YTA_JOBS_DISPATCH:-OPEN}
+    networks: [backend]
+    entrypoint: [python, -m, yta_alpha.jobs]
+    command: [--watch, --interval, "60", --replay-at, "2024-12-03T00:00:00Z", --heartbeat-file, /tmp/worker.json]
+    healthcheck:
+      test: [CMD, python, -m, yta_alpha.worker_health, --file, /tmp/worker.json, --expect-mode, REPLAY, --max-age, "180"]
+      interval: 30s
+      timeout: 4s
+      retries: 3
+networks:
+  edge: {}
+  backend: {external: true, name: yta-dev_default}

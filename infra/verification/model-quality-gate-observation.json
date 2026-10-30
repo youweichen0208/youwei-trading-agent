@@ -1,0 +1,34 @@
+{
+  "observed_at": "2026-10-29T10:28:05.064449+00:00",
+  "scope": "Read-only combined price/probability preflight bound to fixed owner-scoped proposal evidence",
+  "python_tests": {
+    "passed": 730,
+    "skipped": 0,
+    "warnings": 4,
+    "seconds": 118.66,
+    "postgres_required": true,
+    "log": ".local/quality-gate-full.log"
+  },
+  "targeted_tests": {
+    "passed": 4,
+    "initial_failures": 2,
+    "fix": "Preserve original price metric aliases while verifying report hash"
+  },
+  "checks": {
+    "ruff": "passed",
+    "format": "190 files passed",
+    "alpha_contract_drift": "passed",
+    "docs": "passed"
+  },
+  "limitations": [
+    "Internal read-only service; no combined fact persistence or HTTP/review/UI integration",
+    "No production threshold selection or verified data qualification",
+    "Numeric success remains UNVERIFIED and cannot authorize promotion",
+    "No TS/Web/database write changes; prior suites and restore evidence not rerun",
+    "Application images not rebuilt"
+  ],
+  "files_sha256": {
+    "services/alpha-engine/src/yta_alpha/model_quality_gate.py": "c140f6a5b149f2ef21abf0724601175b6bb266d8d7f766016e217f37ceb79097",
+    "tests/integration/test_calibration_registry.py": "fc0463d04e5ce648a7ad6187a8e217cedcc980cb279670d8b9fce6011e60116b"
+  }
+}
