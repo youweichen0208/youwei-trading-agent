@@ -1529,3 +1529,22 @@ Node 使用当前工作区只读挂载，不能把该探针当作密封发布制
 探针使用全新空库，并在启动研究队列前检查没有历史 run；不得改用共享测试库。
 成功或失败后按保存的 Compose 命令清理容器，保留原数据库和私密卷用于核对。
 模型密钥只传入隔离 Hermes 私密卷，不放入聊天、公开证据或 Compose env。
+
+### 本机个人 Massive LIVE 环境
+
+本地 LIVE 入口为 `http://localhost:3301`；保留的合成回放入口为 `http://localhost:3300`。登录信息保存在权限 0600 的 `.local/massive-access.json`。LIVE 使用独立数据库与 Docker 网络，Alpha/Jobs 只读已核验快照；Massive key 只供主机采集脚本使用，pi 模型凭证只进入 Hermes 私有卷。此入口不是云端发布验收。
+
+已完成初始化后：
+
+```sh
+# 检查/补采最新已收盘交易日；不触发模型请求
+uv run python scripts/refresh_massive_local.py
+# 单进程后台模式：每 30 分钟检查一次，采集请求间隔至少 15 秒
+uv run python scripts/refresh_massive_local.py --watch
+# 浏览器验证登录、真实行情/指标与移动布局；不创建预测
+node scripts/check_massive_local_browser.mjs
+```
+
+采集进程锁阻止重复 watcher。当前后台进程 PID/日志为 `.local/massive-collector.pid`、`.local/massive-collector.log`；终端启动的 watcher 不会在电脑重启后自动恢复。合盖/休眠会暂停本地任务；醒来后重新检查数据，不补造价格。原始数据、日汇总证据和核验快照追加保存；现有有界 Nasdaq 日历资格截止 2026-12-31，超出范围需重新核验。旧日汇总与修订后的日线不一致时，保留旧缓存版本并重新核对。
+
+首次研究应在收盘日线就绪后、下一交易日开盘前执行。模型只能形成草稿；需要你在页面确认冻结。实际五交易日结算依赖到期的真实行情，不能用模拟时间完成 LIVE。价格/成交量使用精确 Decimal，缺失数据不会用回放填充。

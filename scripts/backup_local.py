@@ -366,7 +366,7 @@ def verify_domain(connection):
 
 def backup(source, directory, container=None):
     if source not in ("yta", "yta_test") and not re.fullmatch(
-        r"yta_backup_fixture_[a-f0-9]{32}_test", source
+        r"(?:yta_backup_fixture_[a-f0-9]{32}|yta_massive_[a-f0-9]{12})_test", source
     ):
         raise ValueError("Only isolated local yta/yta_test databases may be backed up")
     directory.mkdir(parents=True, exist_ok=True, mode=0o700)

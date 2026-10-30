@@ -1,6 +1,10 @@
 # Personal local LIVE environment; separate from the retained REPLAY environment.
 services:
   alpha:
+    networks:
+      alpha:
+        aliases: [massive-alpha]
+      database: {}
     environment:
       YTA_DATA_MODE: LIVE_RESEARCH
       YTA_MARKET_PROVIDER: MASSIVE
@@ -8,10 +12,12 @@ services:
   finance-tools:
     environment:
       YTA_TOOLS_DATA_MODE: LIVE_RESEARCH
+      YTA_TOOLS_ALPHA_URL: http://massive-alpha:8100
   application:
     environment:
       YTA_DATA_MODE: LIVE_RESEARCH
       YTA_WEB_ORIGIN: http://localhost:3301
+      YTA_ALPHA_URL: http://massive-alpha:8100
   web:
     ports: !override ["127.0.0.1:3301:3000"]
   jobs:
@@ -23,3 +29,8 @@ services:
       YTA_GIT_SHA: ${YTA_LOCAL_GIT_SHA:?Set committed source revision}
       YTA_DATABASE_URL: postgresql://yta_app:local-yta-app@postgres:5432/${YTA_PI_APPLICATION_DATABASE}
     networks: [database]
+
+networks:
+  database:
+    external: true
+    name: ${YTA_LOCAL_DATABASE_NETWORK:?Set isolated local database network}

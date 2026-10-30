@@ -23,6 +23,7 @@ ORIGIN = "https://api.massive.com"
 MAX_PAGE_BYTES = 2 * 1024 * 1024
 MAX_PAGES = 10
 ACQUISITION_TIMEOUT = 60
+REQUEST_INTERVAL = 15.1
 
 
 def decode_payload(body: bytes) -> dict:
@@ -189,7 +190,7 @@ class MassiveCandidate:
         try:
             async with (
                 asyncio.timeout(
-                    ACQUISITION_TIMEOUT + (MAX_PAGES * 2 * 15.1 if self._transport is None else 0)
+                    ACQUISITION_TIMEOUT + (MAX_PAGES * 2 * REQUEST_INTERVAL if self._transport is None else 0)
                 ),
                 httpx.AsyncClient(
                     transport=self._transport,
@@ -243,7 +244,7 @@ class MassiveCandidate:
             # Personal free-tier collector: at most four starts per minute.
             # Mock/custom transports own their scheduling in protocol tests.
             if self._transport is None:
-                await asyncio.sleep(15.1)
+                await asyncio.sleep(REQUEST_INTERVAL)
             async with client.stream("GET", ORIGIN + path, params=query) as response:
                 if response.status_code != 200:
                     code = {

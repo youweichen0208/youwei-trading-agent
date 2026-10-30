@@ -53,6 +53,7 @@ def endpoint(monkeypatch):
     thread.start()
     origin = f"http://127.0.0.1:{server.server_port}"
     monkeypatch.setattr(module, "ORIGIN", origin)
+    monkeypatch.setattr(module, "REQUEST_INTERVAL", 0)
     try:
         yield state, release, origin, module
     finally:
@@ -178,3 +179,25 @@ def test_snapshot_cache_socket_429_preserves_only_stale_metadata(endpoint, snaps
     ticks[0] = 2
     assert cache.read().status == "FRESH"
     assert len(state["calls"]) == 3
+
+
+def test_personal_collector_waits_before_every_real_transport_request(endpoint, monkeypatch):
+    state, _, _, module = endpoint
+    waits = []
+    original_sleep = asyncio.sleep
+
+    async def simulated_sleep(delay):
+        if delay == 15.1:
+            waits.append(delay)
+            await original_sleep(0)
+        else:
+            await original_sleep(delay)
+
+    monkeypatch.setattr(module, "REQUEST_INTERVAL", 15.1)
+    monkeypatch.setattr(module.asyncio, "sleep", simulated_sleep)
+    state["respond"] = lambda request: request.reply(
+        200, b'{"status":"OK","results":[]}' if request.path.startswith("/stocks/") else BARS
+    )
+    acquire(module)
+    assert waits == [15.1, 15.1]
+    assert len(state["calls"]) == 2

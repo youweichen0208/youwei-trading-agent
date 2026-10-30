@@ -46,9 +46,15 @@ def main():
     ) as client:
         for day in days:
             path = root / f"{day}.json"
+            if path.exists():
+                cached = decode_payload(path.read_bytes())
+                if cached.get("close") != bars[day]["c"]:
+                    # Retain the old raw version; a revision requires a new provider check.
+                    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+                    path.rename(root / f"{day}-{digest}.revision.json")
             if not path.exists():
                 # Also wait before the first request to separate preceding operator probes.
-                time.sleep(15)
+                time.sleep(15.1)
                 with client.stream(
                     "GET", f"/v1/open-close/NVDA/{day}", params={"adjusted": "false"}
                 ) as response:

@@ -62,6 +62,7 @@ def main():
         YTA_PI_APPLICATION_DATABASE=database,
     )
     if args.massive:
+        env["YTA_LOCAL_DATABASE_NETWORK"] = name + "-database"
         env["YTA_LOCAL_GIT_SHA"] = subprocess.check_output(
             ["git", "rev-parse", "HEAD"], text=True
         ).strip()
@@ -149,6 +150,31 @@ def main():
         check=True,
         capture_output=True,
     )
+    if args.massive:
+        network = env["YTA_LOCAL_DATABASE_NETWORK"]
+        postgres = subprocess.check_output(
+            [
+                "docker",
+                "ps",
+                "--filter",
+                "label=com.docker.compose.project=yta-dev",
+                "--filter",
+                "label=com.docker.compose.service=postgres",
+                "--format",
+                "{{.ID}}",
+            ],
+            text=True,
+        ).split()
+        if len(postgres) != 1:
+            raise RuntimeError("Expected one local PostgreSQL container")
+        subprocess.run(
+            ["docker", "network", "create", "--internal", network], check=True, capture_output=True
+        )
+        subprocess.run(
+            ["docker", "network", "connect", "--alias", "postgres", network, postgres[0]],
+            check=True,
+            capture_output=True,
+        )
     subprocess.run(compose + ["up", "-d"], check=True, capture_output=True)
     print(
         json.dumps(
