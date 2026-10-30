@@ -9,7 +9,9 @@
 - 迁移 028 追加 market_qualifications 和审计；原始 acquisition 永远 UNVERIFIED。发布校验完整原始分页、21 日摘要、Nasdaq 有界日历（2024-10-31 至 2026-12-31）及 5 日目标范围；读取时重新构建并比较证据/快照，避免只信任通过标记。超出日历范围拒绝，不能外推其他证券。
 - 实际数据含小数成交量。MarketBar 新增精确 Decimal/string 支持；旧整数快照保留原序列化以保持哈希可重现。依据 [Massive 官方说明](https://massive.com/knowledge-base/article/why-does-volume-return-as-a-decimal-value-from-the-aggregates-endpoint)，不舍入或截断。
 - Alpha API 和 Jobs 共享只读合格快照；配置 MASSIVE 仅允许 local development/test + LIVE_RESEARCH + DB。供应商访问仅由独立采集脚本执行，免费额度每次请求前等待 15 秒以上；模型、浏览器请求不触发行情下载。到期无目标行情继续 WAITING_DATA。
-- 首轮真实 PostgreSQL 全量 849 项通过；备份恢复核对 50 张表、48 组不可变保护和 6 个序列。成交量兼容扩展后的最终回归与本地 LIVE 浏览器验收正在进行。
+- 最终真实 PostgreSQL 全量 855 项通过（另新增限速测试单独通过）；备份恢复核对 50 张表、48 组不可变保护和 6 个序列。TS 205 项（43 契约 + 162 BFF，含实际 PG）通过；typecheck/build、Ruff、契约和文档检查通过。
+- 浏览器 LIVE 登录、500 根实际日线、指标、桌面/手机布局通过，页面错误 0、浏览器请求仅 localhost:3301。两个环境共用数据库网络导致 Alpha DNS 名冲突，已通过独立 LIVE 网络和明确别名修复。
+- 实际行情库备份恢复后重建快照 hash 一致；后台采集器和 Jobs 已运行。真实模型配置已读取 pi agent，但当前冻结窗口关闭，尚未向模型提交 LIVE 研究。证据：`infra/verification/massive-local-observation.json`。
 - 当前未声称真实预测闭环完成：需有效冻结窗口内用户确认，并等待真实第 5 个交易日。2026-10-30 盘中不能用 10-29 基准绕过到期草稿限制。
 
 

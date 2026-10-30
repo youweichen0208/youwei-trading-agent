@@ -190,7 +190,8 @@ class MassiveCandidate:
         try:
             async with (
                 asyncio.timeout(
-                    ACQUISITION_TIMEOUT + (MAX_PAGES * 2 * REQUEST_INTERVAL if self._transport is None else 0)
+                    ACQUISITION_TIMEOUT
+                    + (MAX_PAGES * 2 * REQUEST_INTERVAL if self._transport is None else 0)
                 ),
                 httpx.AsyncClient(
                     transport=self._transport,
