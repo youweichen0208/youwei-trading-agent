@@ -87,6 +87,7 @@ from yta_alpha.probability_quality_contracts import (
     ProbabilityPolicyResponse,
 )
 from yta_alpha.probability_quality_registry import ProbabilityQualityRegistry
+from yta_alpha.qualified_market import QualifiedMarket
 from yta_alpha.readiness import readiness
 from yta_alpha.research_tools import ResearchTools, ToolContextRequest, ToolObservationRequest
 from yta_alpha.settings import Settings
@@ -127,9 +128,17 @@ def create_app(
             raise DomainError("STORAGE_UNAVAILABLE", "Database is not configured", status=503)
         return ResearchStore(settings.database_url.get_secret_value(), calendar, settings.git_sha)
 
+    qualified_market = (
+        QualifiedMarket(settings.database_url.get_secret_value(), calendar, settings.data_mode)
+        if settings.market_provider == "MASSIVE" and settings.database_url
+        else None
+    )
+
     def load_market_snapshot() -> MarketSnapshot:
         if settings.data_mode == DataMode.REPLAY and settings.env in ("development", "test"):
             return replay_snapshot(calendar, count=500)
+        if qualified_market is not None:
+            return qualified_market.latest(clock())
         raise DomainError(
             "DATA_UNAVAILABLE", "No verified real market provider configured", status=503
         )
@@ -137,7 +146,11 @@ def create_app(
     market_cache = MarketCache(
         load_market_snapshot,
         settings.data_mode,
-        "synthetic-fixture" if settings.data_mode == DataMode.REPLAY else "unconfigured",
+        "synthetic-fixture"
+        if settings.data_mode == DataMode.REPLAY
+        else "massive"
+        if qualified_market is not None
+        else "unconfigured",
         calendar,
         clock,
     )

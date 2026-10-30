@@ -22,9 +22,16 @@ def main():
     parser.add_argument(
         "--configured", action="store_true", help="Use sealed BFF main and Web images"
     )
+    parser.add_argument(
+        "--massive", action="store_true", help="Personal local LIVE stack on port 3301"
+    )
     args = parser.parse_args()
+    if args.massive:
+        args.configured = True
     state = ROOT / (
-        ".local/hermes-configured-state.json"
+        ".local/massive-application-state.json"
+        if args.massive
+        else ".local/hermes-configured-state.json"
         if args.configured
         else ".local/hermes-browser-state.json"
         if args.browser
@@ -36,6 +43,8 @@ def main():
     name = "yta-pi-app-" + secrets.token_hex(6)
     volume = name + "-data"
     database = "yta_pi_app_" + secrets.token_hex(6) + "_test"
+    if args.massive:
+        database = json.loads((ROOT / ".local/massive-live-state.json").read_text())["database"]
     env_path = ROOT / ".local" / (name + ".env")
     env = {
         key: secrets.token_hex(32)
@@ -52,12 +61,18 @@ def main():
         YTA_PI_APPLICATION_VOLUME=volume,
         YTA_PI_APPLICATION_DATABASE=database,
     )
+    if args.massive:
+        env["YTA_LOCAL_GIT_SHA"] = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], text=True
+        ).strip()
     for key, tag in [
         ("YTA_FINANCE_ALPHA_IMAGE", "yta-alpha:mvp"),
         ("YTA_FINANCE_TOOLS_IMAGE", "yta-finance-tools:mvp"),
         ("YTA_APPLICATION_IMAGE", "yta-bff:mvp" if args.configured else "yta-bff:local"),
         ("YTA_WEB_IMAGE", "yta-web:mvp"),
     ]:
+        if args.massive:
+            tag = tag.replace(":mvp", ":massive")
         env[key] = subprocess.check_output(
             ["docker", "image", "inspect", tag, "--format", "{{.Id}}"], text=True
         ).strip()
@@ -82,6 +97,8 @@ def main():
         compose += ["-f", str(ROOT / "infra/compose/compose.hermes-configured-probe.yaml")]
     elif args.browser:
         compose += ["-f", str(ROOT / "infra/compose/compose.hermes-browser-probe.yaml")]
+    if args.massive:
+        compose += ["-f", str(ROOT / "infra/compose/compose.massive-local.yaml")]
     with os.fdopen(os.open(state, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w") as f:
         json.dump(
             {
@@ -95,8 +112,9 @@ def main():
             f,
         )
     admin_url = "postgresql://yta_owner:local-yta-owner@127.0.0.1:54329/"
-    with psycopg.connect(admin_url + "yta_test", autocommit=True) as c:
-        c.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(database)))
+    if not args.massive:
+        with psycopg.connect(admin_url + "yta_test", autocommit=True) as c:
+            c.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(database)))
     migrate(admin_url + database, ROOT / "infra/migrations")
     with psycopg.connect(admin_url + database) as c:
         c.execute("GRANT USAGE ON SCHEMA yta TO yta_app")

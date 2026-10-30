@@ -27,7 +27,7 @@ export const marketEvidenceSchema = z.strictObject({
     actions_verified_through: sessionDateSchema,
     bars: z.array(z.strictObject({
       session: sessionDateSchema, open: decimalSchema, high: decimalSchema,
-      low: decimalSchema, close: decimalSchema, volume: z.number().int().nonnegative(),
+      low: decimalSchema, close: decimalSchema, volume: z.union([z.number().int().nonnegative(), z.string().regex(/^\d+(?:\.\d+)?$/)]),
       available_at: instantSchema, retrieved_at: instantSchema, revision: z.string().min(1).max(100),
     })).min(1).max(10000),
     splits: z.array(z.strictObject({effective_session: sessionDateSchema,

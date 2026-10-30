@@ -45,12 +45,12 @@ class MarketBar(Contract):
     high: Price
     low: Price
     close: Price
-    volume: Annotated[StrictInt, Field(ge=0)]
+    volume: Annotated[StrictInt, Field(ge=0)] | Annotated[Decimal, Field(ge=0, allow_inf_nan=False)]
     available_at: AwareDatetime
     retrieved_at: AwareDatetime
     revision: Annotated[str, Field(min_length=1, max_length=100)]
 
-    @field_validator("open", "high", "low", "close", mode="before")
+    @field_validator("open", "high", "low", "close", "volume", mode="before")
     @classmethod
     def decimal_transport(cls, value: object) -> object:
         # Binary JSON floats cannot represent provider decimal precision faithfully.

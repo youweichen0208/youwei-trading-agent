@@ -1,5 +1,18 @@
 # 实施状态与验收证据
 
+## 2026-10-30 本地个人 Massive MVP（进行中）
+
+用户已明确：个人使用、本机作为测试环境、暂不建立远端仓库。本轮以独立本地 LIVE_RESEARCH 环境验收；远端 CI、云 staging 另列后续范围，不再作为本地试用的前置阻塞。完整架构发布 DoD 不据此自动完成。
+
+- 已初始化本地 Git；基线 b3e8a7e。API key 仅存在被忽略的 0600 私有配置，不进入 Git、BFF 或浏览器。
+- 实际账户成功采集 2024-10-31 至 2026-10-29 的 NVDA RAW 日线 500 根、完整拆股响应一页；最近 21 日逐日与 Daily Ticker Summary 比较全部相等。采集 hash：744b6c7aff5c6de6cb37cae455c356c6668c5a697723a06d80231f00ac966ed3。无缺失 session/提前最终日线，采集时间作为 available_at。
+- 迁移 028 追加 market_qualifications 和审计；原始 acquisition 永远 UNVERIFIED。发布校验完整原始分页、21 日摘要、Nasdaq 有界日历（2024-10-31 至 2026-12-31）及 5 日目标范围；读取时重新构建并比较证据/快照，避免只信任通过标记。超出日历范围拒绝，不能外推其他证券。
+- 实际数据含小数成交量。MarketBar 新增精确 Decimal/string 支持；旧整数快照保留原序列化以保持哈希可重现。依据 [Massive 官方说明](https://massive.com/knowledge-base/article/why-does-volume-return-as-a-decimal-value-from-the-aggregates-endpoint)，不舍入或截断。
+- Alpha API 和 Jobs 共享只读合格快照；配置 MASSIVE 仅允许 local development/test + LIVE_RESEARCH + DB。供应商访问仅由独立采集脚本执行，免费额度每次请求前等待 15 秒以上；模型、浏览器请求不触发行情下载。到期无目标行情继续 WAITING_DATA。
+- 首轮真实 PostgreSQL 全量 849 项通过；备份恢复核对 50 张表、48 组不可变保护和 6 个序列。成交量兼容扩展后的最终回归与本地 LIVE 浏览器验收正在进行。
+- 当前未声称真实预测闭环完成：需有效冻结窗口内用户确认，并等待真实第 5 个交易日。2026-10-30 盘中不能用 10-29 基准绕过到期草稿限制。
+
+
 更新：2026-10-30。用户重新设置 goal 为“请最快完成mvp落地”，当前状态为 blocked（恢复后连续三轮仍缺少外部接入信息）；Beta/v1 扩展暂停。上一 goal 因真实行情、staging 和仓库接入信息缺失标为 blocked，这些条件仍未补齐。新一轮已恢复本机可访问服务并完成登录/历史验证，未将本机 REPLAY 可用等同整个 MVP 完成。最新结论见本节，后面的初始记录与增量按时间保留。
 
 ## 当前验收摘要

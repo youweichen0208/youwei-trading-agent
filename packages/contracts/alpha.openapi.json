@@ -6361,8 +6361,19 @@
             "title": "Close"
           },
           "volume": {
-            "type": "integer",
-            "minimum": 0.0,
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "string"
+              }
+            ],
             "title": "Volume"
           },
           "available_at": {
@@ -6421,8 +6432,15 @@
             "title": "Close"
           },
           "volume": {
-            "type": "integer",
-            "minimum": 0.0,
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "string"
+              }
+            ],
             "title": "Volume"
           },
           "available_at": {

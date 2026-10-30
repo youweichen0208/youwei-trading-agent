@@ -188,7 +188,9 @@ class MassiveCandidate:
             raise ValueError("Invalid acquisition date range")
         try:
             async with (
-                asyncio.timeout(ACQUISITION_TIMEOUT),
+                asyncio.timeout(
+                    ACQUISITION_TIMEOUT + (MAX_PAGES * 2 * 15.1 if self._transport is None else 0)
+                ),
                 httpx.AsyncClient(
                     transport=self._transport,
                     timeout=5,
@@ -238,6 +240,10 @@ class MassiveCandidate:
             if identity in seen or len(pages) >= MAX_PAGES:
                 raise ValueError("Pagination cycle or limit exceeded")
             seen.add(identity)
+            # Personal free-tier collector: at most four starts per minute.
+            # Mock/custom transports own their scheduling in protocol tests.
+            if self._transport is None:
+                await asyncio.sleep(15.1)
             async with client.stream("GET", ORIGIN + path, params=query) as response:
                 if response.status_code != 200:
                     code = {

@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     env: Literal["development", "test", "staging", "production"] = "development"
     data_mode: DataMode = DataMode.REPLAY
     experimental_models: Literal["DISABLED", "ENABLED"] = "DISABLED"
+    market_provider: Literal["DISABLED", "MASSIVE"] = "DISABLED"
     jobs_dispatch: Literal["OPEN", "PAUSED"] = "OPEN"
     alpha_token: SecretStr = Field(min_length=32)
     alpha_tools_token: SecretStr | None = Field(default=None, min_length=32)
@@ -23,6 +24,12 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def production_requirements(self) -> "Settings":
+        if self.market_provider == "MASSIVE" and (
+            self.database_url is None
+            or self.data_mode != DataMode.LIVE_RESEARCH
+            or self.env not in ("development", "test")
+        ):
+            raise ValueError("Massive currently requires a local LIVE_RESEARCH database")
         if self.otlp_traces_url is not None:
             url = urlsplit(self.otlp_traces_url)
             if (

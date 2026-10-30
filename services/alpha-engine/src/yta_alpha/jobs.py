@@ -23,6 +23,7 @@ from yta_alpha.calendar import TradingCalendar
 from yta_alpha.errors import DomainError
 from yta_alpha.fixtures import REPLAY_BASE_SESSION, replay_observation
 from yta_alpha.models import DataMode, Forecast, MarketSnapshot
+from yta_alpha.qualified_market import QualifiedMarket
 from yta_alpha.resolution import UnscorableEvidence, record_unscorable
 from yta_alpha.settings import Settings
 from yta_alpha.store import ResearchStore
@@ -341,7 +342,11 @@ def main():
     else:
         if args.replay_at:
             parser.error("Real mode cannot override the clock")
-        provider = UnavailableProvider()
+        provider = (
+            QualifiedMarket(settings.database_url.get_secret_value(), calendar, settings.data_mode)
+            if settings.market_provider == "MASSIVE"
+            else UnavailableProvider()
+        )
     store = ResearchStore(settings.database_url.get_secret_value(), calendar, settings.git_sha)
     stop = Event()
     worker = SettlementWorker(
