@@ -1,5 +1,14 @@
 # 实施状态与验收证据
 
+## 2026-10-31 Code review 修复
+
+- 日汇总采集在每个响应完整读取后记录独立 `retrieved_at`，与响应 SHA-256 一起写入 0600 `.metadata.json`；缓存恢复复核哈希和时间，发布使用逐项时间。缺少元数据的旧响应不能用新的 `observed_at` 补齐，必须重新采集。
+- 小数成交量的 OpenAPI 分支改为带格式约束的字符串，移除 fractional JSON number；Python 运行时继续拒绝 float，旧整数成交量序列化保持不变。
+- `QualifiedMarket` 政策升级为 `massive-nvda-raw-personal-v2`。发布和读取均要求 `massive-local-approval-v1` 证据：账户权限/用途许可证据哈希、两类覆盖日期和追加式修订政策；覆盖不足、政策不支持及缺少 approval 的旧资格记录返回 `DATA_UNAVAILABLE`。私有资格文件必须为 0600，后台刷新在供应商请求前检查。文件登记不等于外部授权验收通过。
+- Massive 本地脚本共享配置加载；Hermes 应用探针集中四种模式的 state、镜像、Compose、数据库和网络配置。新增逐项时间、资格文件、四种探针配置及真实 PostgreSQL 资格正反例。
+- 本轮全量验证：真实 PostgreSQL 下 `uv run pytest -q --require-postgres` 870 项通过；`pnpm test` 205 项通过（43 契约 + 162 BFF，含实际 PG）；`pnpm typecheck`、`pnpm build`、Ruff 检查/格式、文档依赖和生成契约漂移检查通过。资格集成用例连续重跑两次均通过。
+- 本轮未创建真实资格文件、未请求真实供应商或模型，也未改写历史 LIVE 观察。真实模型研究、有效冻结窗口内用户确认和实际五交易日结算仍未验收；旧证据不能证明本轮代码已部署或通过完整 LIVE 闭环。
+
 ## 2026-10-30 本地个人 Massive MVP（进行中）
 
 用户已明确：个人使用、本机作为测试环境、暂不建立远端仓库。本轮以独立本地 LIVE_RESEARCH 环境验收；远端 CI、云 staging 另列后续范围，不再作为本地试用的前置阻塞。完整架构发布 DoD 不据此自动完成。

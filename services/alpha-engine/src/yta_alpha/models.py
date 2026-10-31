@@ -11,6 +11,7 @@ from pydantic import (
     Field,
     StrictBool,
     StrictInt,
+    WithJsonSchema,
     field_validator,
     model_validator,
 )
@@ -45,7 +46,14 @@ class MarketBar(Contract):
     high: Price
     low: Price
     close: Price
-    volume: Annotated[StrictInt, Field(ge=0)] | Annotated[Decimal, Field(ge=0, allow_inf_nan=False)]
+    volume: (
+        Annotated[StrictInt, Field(ge=0)]
+        | Annotated[
+            Decimal,
+            Field(ge=0, allow_inf_nan=False),
+            WithJsonSchema({"type": "string", "pattern": r"^\d+(?:\.\d+)?$"}),
+        ]
+    )
     available_at: AwareDatetime
     retrieved_at: AwareDatetime
     revision: Annotated[str, Field(min_length=1, max_length=100)]

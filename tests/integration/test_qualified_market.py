@@ -17,11 +17,19 @@ from yta_alpha.forecast import forecast
 from yta_alpha.massive import MassiveCandidate, RawPage
 from yta_alpha.migrate import migrate
 from yta_alpha.models import DataMode
-from yta_alpha.qualified_market import QualifiedMarket
+from yta_alpha.qualified_market import QualificationApproval, QualifiedMarket
 
 pytestmark = pytest.mark.postgres
 START, END = date(2026, 10, 1), date(2026, 10, 29)
 NOW = datetime(2026, 10, 29, 22, tzinfo=UTC)
+APPROVAL = QualificationApproval(
+    account_evidence_hash="a" * 64,
+    usage_permission_hash="b" * 64,
+    entitlement_start=START,
+    entitlement_end=END,
+    actions_start=START,
+    actions_end=END,
+)
 
 
 @pytest.fixture(scope="module")
@@ -84,7 +92,7 @@ def test_concurrent_publication_reproducible_and_raw_remains_unverified(market):
     owner, runtime, digest, summaries, calendar = market
     source = QualifiedMarket(runtime, calendar, DataMode.LIVE_RESEARCH)
     with ThreadPoolExecutor(max_workers=4) as executor:
-        ids = list(executor.map(lambda _: source.publish(digest, summaries), range(8)))
+        ids = list(executor.map(lambda _: source.publish(digest, summaries, APPROVAL), range(8)))
     assert len(set(ids)) == 1
     snapshot = source.latest(NOW)
     assert snapshot.provider == "massive" and len(snapshot.bars) == 21
@@ -127,7 +135,64 @@ def test_rejects_invalid_verification(market, failure):
     else:
         bad[0] = replace(bad[0], retrieved_at=NOW - timedelta(days=60))
     with pytest.raises(ValueError):
-        QualifiedMarket(runtime, calendar, DataMode.LIVE_RESEARCH).publish(digest, tuple(bad))
+        QualifiedMarket(runtime, calendar, DataMode.LIVE_RESEARCH).publish(
+            digest, tuple(bad), APPROVAL
+        )
+
+
+@pytest.mark.parametrize("field", ["entitlement_start", "actions_start"])
+def test_rejects_approval_outside_acquisition_window(market, field):
+    _, runtime, digest, summaries, calendar = market
+    approval = APPROVAL.model_copy(update={field: START + timedelta(days=1)})
+    with pytest.raises(ValueError, match="does not cover"):
+        QualifiedMarket(runtime, calendar, DataMode.LIVE_RESEARCH).publish(
+            digest, summaries, approval
+        )
+
+
+def test_rejects_unsupported_revision_policy(market):
+    _, runtime, digest, summaries, calendar = market
+    approval = APPROVAL.model_copy(update={"revision_policy": "overwrite-existing"})
+    with pytest.raises(ValueError, match="revision policy"):
+        QualifiedMarket(runtime, calendar, DataMode.LIVE_RESEARCH).publish(
+            digest, summaries, approval
+        )
+
+
+def test_legacy_qualification_without_approval_is_unavailable(market):
+    from psycopg.types.json import Jsonb
+    from yta_alpha.errors import DomainError
+    from yta_alpha.forecast import content_hash
+
+    _, runtime, digest, summaries, calendar = market
+    source = QualifiedMarket(runtime, calendar, DataMode.LIVE_RESEARCH)
+    source.publish(digest, summaries, APPROVAL)
+    later = NOW + timedelta(seconds=1)
+    with psycopg.connect(runtime) as connection:
+        evidence, payload = connection.execute(
+            "SELECT evidence,snapshot FROM yta.market_qualifications "
+            "WHERE acquisition_hash=%s AND evidence ? 'approval'",
+            (digest,),
+        ).fetchone()
+        legacy = dict(evidence)
+        legacy.pop("approval")
+        identity = content_hash({"snapshot": payload, "evidence": legacy})
+        connection.execute(
+            "INSERT INTO yta.market_qualifications "
+            "(hash,acquisition_hash,data_mode,as_of,evidence,snapshot) "
+            "VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",
+            (
+                identity,
+                digest,
+                DataMode.LIVE_RESEARCH.value,
+                later,
+                Jsonb(legacy),
+                Jsonb(payload),
+            ),
+        )
+
+    with pytest.raises(DomainError, match="approval is missing or invalid"):
+        source.latest(later)
 
 
 def test_cohort_and_future_isolation(market):

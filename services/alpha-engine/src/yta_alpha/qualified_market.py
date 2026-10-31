@@ -1,13 +1,16 @@
 """Append-only, evidence-derived Massive snapshots shared by research and Jobs.
 
 This reader never calls the network. Publication requires retained daily-summary
-responses, complete acquisition pagination, and a bounded Nasdaq calendar check.
+responses, complete acquisition pagination, a bounded Nasdaq calendar check, and
+explicit evidence of account, usage and corporate-action qualification.
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal, localcontext
+from typing import Literal
 
 from psycopg.types.json import Jsonb
+from pydantic import ValidationError
 
 from yta_alpha.acquisition_quality import assess
 from yta_alpha.acquisition_store import AcquisitionStore, StoredAcquisition, acquisition_connection
@@ -15,10 +18,34 @@ from yta_alpha.calendar import TradingCalendar
 from yta_alpha.errors import DomainError
 from yta_alpha.forecast import content_hash, validate_snapshot
 from yta_alpha.massive import RawPage, aggregate_day
-from yta_alpha.models import DataMode, Forecast, MarketBar, MarketSnapshot, Split
+from yta_alpha.models import SHA256, Contract, DataMode, Forecast, MarketBar, MarketSnapshot, Split
 from yta_alpha.nasdaq_qualification import verify
 
-POLICY = "massive-nvda-raw-personal-v1"
+POLICY = "massive-nvda-raw-personal-v2"
+REVISION_POLICY = "append-only-reacquisition-v1"
+
+
+class QualificationApproval(Contract):
+    version: Literal["massive-local-approval-v1"] = "massive-local-approval-v1"
+    account_evidence_hash: SHA256
+    usage_permission_hash: SHA256
+    entitlement_start: date
+    entitlement_end: date
+    actions_start: date
+    actions_end: date
+    revision_policy: Literal[REVISION_POLICY] = REVISION_POLICY
+
+
+def validate_approval(approval: QualificationApproval, stored: StoredAcquisition):
+    if (
+        approval.entitlement_start > stored.start
+        or approval.entitlement_end < stored.end
+        or approval.actions_start > stored.start
+        or approval.actions_end < stored.end
+    ):
+        raise ValueError("Qualification approval does not cover the acquisition window")
+    if approval.revision_policy != REVISION_POLICY:
+        raise ValueError("Unsupported market revision policy")
 
 
 def qualify(
@@ -26,8 +53,10 @@ def qualify(
     digest: str,
     summaries: tuple[RawPage, ...],
     calendar: TradingCalendar,
+    approval: QualificationApproval,
 ) -> tuple[MarketSnapshot, dict]:
     acquisition = stored.acquisition
+    validate_approval(approval, stored)
     quality = assess(stored, calendar)
     if quality["status"] != "CHECKS_PASSED" or quality["not_yet_due_sessions"]:
         raise ValueError("Acquisition has gaps or incomplete sessions")
@@ -100,6 +129,7 @@ def qualify(
         )
     evidence = {
         "policy": POLICY,
+        "approval": approval.model_dump(mode="json"),
         "calendar_policy": calendar_policy,
         "calendar_version": calendar.version,
         "quality": quality,
@@ -130,9 +160,14 @@ class QualifiedMarket:
     def __init__(self, database_url: str, calendar: TradingCalendar, mode: DataMode):
         self.url, self.calendar, self.mode = database_url, calendar, mode
 
-    def publish(self, digest: str, summaries: tuple[RawPage, ...]) -> str:
+    def publish(
+        self,
+        digest: str,
+        summaries: tuple[RawPage, ...],
+        approval: QualificationApproval,
+    ) -> str:
         raw = AcquisitionStore(self.url).load(digest, data_mode=self.mode)
-        snapshot, evidence = qualify(raw, digest, summaries, self.calendar)
+        snapshot, evidence = qualify(raw, digest, summaries, self.calendar, approval)
         payload = snapshot.model_dump(mode="json")
         identity = content_hash({"snapshot": payload, "evidence": evidence})
         with acquisition_connection(self.url) as connection:
@@ -179,7 +214,16 @@ class QualifiedMarket:
             for p in evidence["daily_summaries"]
         )
         raw = AcquisitionStore(self.url).load(digest, data_mode=self.mode)
-        snapshot, checked = qualify(raw, digest, summaries, self.calendar)
+        try:
+            approval = QualificationApproval.model_validate(evidence.get("approval"))
+            validate_approval(approval, raw)
+        except (ValidationError, ValueError):
+            raise DomainError(
+                "DATA_UNAVAILABLE",
+                "Massive qualification approval is missing or invalid",
+                status=503,
+            ) from None
+        snapshot, checked = qualify(raw, digest, summaries, self.calendar, approval)
         if (
             checked != evidence
             or snapshot.model_dump(mode="json") != payload

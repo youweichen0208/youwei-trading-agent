@@ -385,9 +385,9 @@ docker compose --env-file .local/hermes-secret-probe.env -f infra/compose/compos
 
 ## 行情供应商候选
 
-官方接口、价格/许可边界与未完成资格项见 [供应商研究](docs/market-provider-research.md)。当前尚未选择供应商或配置真实账户。`yta_alpha.massive.MassiveCandidate` 是默认不接入服务的采集候选：固定官方 HTTPS origin、NVDA 未复权日线及当前拆股端点，保留每页原始 bytes、请求范围、SHA-256 和实际采集时间；JSON 小数直接解码为 Decimal，拒绝重复键及非有限值。
+官方接口、价格/许可边界与未完成资格项见 [供应商研究](docs/market-provider-research.md)，实际账户和接入状态以实施状态为准。`yta_alpha.massive.MassiveCandidate` 是默认不接入服务的采集候选：固定官方 HTTPS origin、NVDA 未复权日线及当前拆股端点，保留每页原始 bytes、请求范围、SHA-256 和实际采集时间；JSON 小数直接解码为 Decimal，拒绝重复键及非有限值。
 
-候选采集器限制每页 2 MiB、每个端点最多 10 页、整体 60 秒、单次网络等待 5 秒；不跟随重定向，分页不得换 host/path 或修改原查询范围。401/403/429/网络错误明确失败，不自动重试、补价格缺口或回退 fixtures。采集结果始终为 UNVERIFIED，不归一为 MarketSnapshot。`AcquisitionStore.save` 可将结果及明确的 data_mode 写入迁移 009 的独立原始证据表；同一证据重试去重，新采集时间或原始响应变化追加新记录，并原子记录审计。运行角色仅需 SELECT/INSERT；部署时按既有流程使用独立 owner 迁移并授予新增表权限。当前仅在专用测试库验证，尚未挂接 API/Worker 定时采集。公司行动覆盖、收盘价口径、实际账户两年权限、许可及版本证据完成前，API/Worker 的 LIVE_RESEARCH 仍保持不可用。
+候选采集器限制每页 2 MiB、每个端点最多 10 页、整体 60 秒、单次网络等待 5 秒；不跟随重定向，分页不得换 host/path 或修改原查询范围。401/403/429/网络错误明确失败，不自动重试、补价格缺口或回退 fixtures。原始采集结果始终为 UNVERIFIED，不归一为 MarketSnapshot。`AcquisitionStore.save` 可将结果及明确的 data_mode 写入迁移 009 的独立原始证据表；同一证据重试去重，新采集时间或原始响应变化追加新记录，并原子记录审计。运行角色仅需 SELECT/INSERT；部署时按既有流程使用独立 owner 迁移并授予新增表权限。API/Worker 只读取另行发布的合格快照；公司行动覆盖、收盘价口径、实际账户两年权限、许可及版本证据未完成核验并登记前，LIVE_RESEARCH 保持不可用。本机个人环境的资格文件要求见末节，完整供应商 DoD 不因本地文件存在而自动完成。
 
 候选行情日线存储：迁移 `013_market_bars.sql` 增加不可变 OHLCV，`AcquisitionStore.save` 与原始证据原子提交。`daily_bars(hash, data_mode=...)` 复核原文后返回 Decimal 字符串、来源页/行号、纽约日期及采集时间；`published_at=null`、`available_at=retrieved_at`，始终 RAW/UNVERIFIED，不填缺口或选择“最新合格价格”。旧采集缺少投影时读取明确失败，可使用已验证的原始 Acquisition 按原键 save 补齐，无需重新请求供应商；没有自动批量回填。部署采集器前须应用 013 并授予 market_bars 的 SELECT/INSERT，预检会检查权限。当前仅本地 yta_test 已升级；Alpha/BFF/Web 镜像已重建并通过本地 REPLAY 全栈容器检查，实际供应商和 staging 验收仍未完成。
 
@@ -1533,6 +1533,10 @@ Node 使用当前工作区只读挂载，不能把该探针当作密封发布制
 ### 本机个人 Massive LIVE 环境
 
 本地 LIVE 入口为 `http://localhost:3301`；保留的合成回放入口为 `http://localhost:3300`。登录信息保存在权限 0600 的 `.local/massive-access.json`。LIVE 使用独立数据库与 Docker 网络，Alpha/Jobs 只读已核验快照；Massive key 只供主机采集脚本使用，pi 模型凭证只进入 Hermes 私有卷。此入口不是云端发布验收。
+
+发布合格快照前，必须根据真实账户权限、个人用途许可和公司行动覆盖证据准备权限为 0600 的 `.local/massive-qualification.json`。字段包括 `version=massive-local-approval-v1`、`account_evidence_hash`、`usage_permission_hash`、`entitlement_start/end`、`actions_start/end` 和 `revision_policy=append-only-reacquisition-v1`；两类起止日期都必须覆盖采集范围。该文件只登记证据哈希和核验范围，不能把文件存在本身当作外部授权或 TASK-039/042 验收通过。缺失、无效、覆盖不足及没有资格证据的旧快照均返回 `DATA_UNAVAILABLE`，后台刷新会在发起供应商请求前先检查此文件。
+
+每个日汇总原始 `.json` 必须有对应 `.metadata.json`，保存响应 SHA-256 和该响应实际完成读取的带时区 `retrieved_at`。报告的 `observed_at` 不再作为各响应的采集时间；缓存缺少元数据、哈希不符或时间无时区会明确失败，须重新采集，不能用文件时间或本次检查时间补造。小数成交量在 OpenAPI 和跨服务传输中使用字符串，旧整数成交量保持兼容。
 
 已完成初始化后：
 

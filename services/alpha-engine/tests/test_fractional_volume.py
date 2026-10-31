@@ -28,6 +28,12 @@ def test_fractional_volume_roundtrips_without_binary_float_or_truncation():
     assert bar(100).model_dump(mode="json")["volume"] == 100
 
 
+def test_fractional_volume_schema_uses_decimal_strings():
+    branches = MarketBar.model_json_schema()["properties"]["volume"]["anyOf"]
+    assert any(branch.get("type") == "string" for branch in branches)
+    assert all(branch.get("type") != "number" for branch in branches)
+
+
 @pytest.mark.parametrize("invalid", [True, 0.25, "-0.1", "NaN", "Infinity"])
 def test_volume_rejects_ambiguous_or_invalid_numbers(invalid):
     with pytest.raises(ValidationError):

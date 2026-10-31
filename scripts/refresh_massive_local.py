@@ -14,23 +14,22 @@ import subprocess
 import sys
 import time
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 
+from massive_local_common import ROOT, database_url, provider_token
+from publish_massive_local import load_approval
 from pydantic import SecretStr
 from yta_alpha.acquire import AcquisitionSettings, collect
 from yta_alpha.calendar import TradingCalendar
 from yta_alpha.models import DataMode
 from yta_alpha.qualified_market import QualifiedMarket
 
-ROOT = Path(__file__).resolve().parents[1]
-
 
 def refresh():
+    load_approval(ROOT / ".local/massive-qualification.json")
     calendar = TradingCalendar()
     now = datetime.now(UTC)
     end = calendar.latest_closed(now)
-    state = json.loads((ROOT / ".local/massive-live-state.json").read_text())
-    url = "postgresql://yta_app:local-yta-app@127.0.0.1:54329/" + state["database"]
+    url = database_url()
     source = QualifiedMarket(url, calendar, DataMode.LIVE_RESEARCH)
     try:
         previous = source.latest(now)
@@ -39,7 +38,7 @@ def refresh():
     if previous is not None and previous.bars[-1].session == end:
         print(json.dumps({"status": "CURRENT", "session": str(end)}), flush=True)
         return
-    token = (ROOT / ".local/massive.env").read_text().strip().split("=", 1)[1]
+    token = provider_token()
     receipt = asyncio.run(
         collect(
             AcquisitionSettings(massive_token=SecretStr(token), database_url=SecretStr(url)),
