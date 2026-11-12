@@ -1,0 +1,19 @@
+[Unit]
+Description=Hermes Alpha Lab Feishu
+After=network-online.target
+Wants=network-online.target
+[Service]
+User=alpha-feishu
+Group=alpha-feishu
+WorkingDirectory=/opt/hermes-alpha-lab/feishu-current
+EnvironmentFile=/opt/hermes-alpha-lab/private/feishu.env
+ExecStart=/opt/hermes-alpha-lab/runtime/node-v26.0.0-linux-x64/bin/node --import tsx apps/feishu/main.ts
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+UMask=0077
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,28 @@
+name: hermes-alpha-lab-production
+services:
+  postgres:
+    image: ${ALPHA_POSTGRES_IMAGE:?verified image digest required}
+    container_name: alpha-lab-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: alpha_deploy
+      POSTGRES_PASSWORD: ${ALPHA_DATABASE_PASSWORD:?private password required}
+      POSTGRES_DB: alpha_production
+    ports:
+      - "127.0.0.1:55439:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U alpha_deploy -d alpha_production"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    mem_limit: 1g
+    cpus: 1
+    pids_limit: 256
+    security_opt: ["no-new-privileges:true"]
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+volumes:
+  postgres_data:

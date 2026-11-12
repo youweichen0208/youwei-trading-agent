@@ -1,54 +1,19 @@
 [project]
-name = "yta-alpha-engine"
+name = "hermes-alpha-lab"
 version = "0.1.0"
-description = "Deterministic research calculations for Youwei Trading Agent"
-requires-python = ">=3.12,<3.13"
-dependencies = [
-  "fastapi>=0.115,<1",
-  "uvicorn>=0.34,<1",
-  "pydantic-settings>=2.8,<3",
-  "psycopg[binary]>=3.2,<4",
-  "exchange-calendars>=4.11,<5",
-  "httpx>=0.28,<1",
-  "opentelemetry-sdk==1.45.1",
-  "opentelemetry-exporter-otlp-proto-http==1.45.1",
-  "duckdb==1.5.6",
-]
-
-[project.optional-dependencies]
-tools = [
-    "mcp==2.3.0",
-]
-training = [
-    "lightgbm==4.6.0",
-]
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-[tool.hatch.build.targets.wheel]
-packages = ["services/alpha-engine/src/yta_alpha", "services/tools/src/yta_tools"]
+requires-python = ">=3.12,<3.14"
+dependencies = ["exchange-calendars>=4.13,<5"]
 
 [dependency-groups]
-dev = [
-    "pytest>=8.3,<9",
-    "ruff>=0.11,<1",
-    "hypothesis>=6.130,<7",
-    "openapi-spec-validator==0.7.2",
-    "mcp==2.3.0",
-    "lightgbm==4.6.0",
-]
+dev = ["pytest>=8,<10", "ruff>=0.14,<1"]
 
 [tool.pytest.ini_options]
-testpaths = ["services/alpha-engine/tests", "services/tools/tests", "tests/integration"]
-markers = ["postgres: requires YTA_TEST_DATABASE_URL pointing to an isolated test database"]
+pythonpath = ["services/quant", "services/hermes"]
+testpaths = ["tests"]
 
 [tool.ruff]
-target-version = "py312"
 line-length = 100
-extend-exclude = [".local"]
+extend-exclude = [".local", "node_modules"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B"]
-
+select = ["E", "F", "I", "B"]

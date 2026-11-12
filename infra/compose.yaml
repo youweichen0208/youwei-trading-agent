@@ -1,0 +1,19 @@
+name: hermes-alpha-lab
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: alpha
+      POSTGRES_PASSWORD: local-development-only
+      POSTGRES_DB: alpha_test
+    ports:
+      - "127.0.0.1:55439:5432"
+    volumes:
+      - alpha_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U alpha -d alpha_test"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+volumes:
+  alpha_pg:

@@ -1,0 +1,46 @@
+{
+  "release": "v0.23.1",
+  "commit": "3b421578588243f920886e6fe79a6faa87ea026e",
+  "baseImage": "nousresearch/hermes-agent@sha256:276d44685c65c0cb2a25f190b63c65c8906f9dc76486fb1c05ae71b5826bda08",
+  "files": {
+    "gateway/platforms/api_server_runs.py": "565f0570cd1ff771590534586bdb6841cd86530c8e0728ce6e036597cc2a50a6",
+    "gateway/session_api_turn.py": "5a7fc234c8b6f37f75388549f6680fc8c638dae2b5342b2321dbfb48cc9f0622",
+    "agent/tool_executor.py": "201ef6dafb7ea1a78080aa55eb8e101d4f6713430716222d9901acf4ca1f26b7",
+    "agent/anthropic_adapter.py": "d40c5260063e222cc85424c70d77883d80d67b60bcc5fe9b136b3c2bbf1bc164"
+  },
+  "runtimeFiles": {
+    "pyproject.toml": "ee825ad304ad685625c8878cd34b7923ec64579cdc08e646b84b76ba3d4c1cfc",
+    "uv.lock": "d0ae8bfd20db7a8ca0e75418df718315c58088b120366227cc62ee8fe25d4274",
+    "gateway/session_ingress.py": "a7d7b2b575a85248da4a9a465779b6069293fd88aeaec3a2ceccd9a016013993",
+    "gateway/run.py": "680c3c2cea322293f10ed52dd5a98546128a971623bad2d03c0e53052c649fb2",
+    "gateway/session_runtime_workers.py": "1a77ffe9685daab40b0a04a1d48b1cee664c079bec90bfca4ea446bb29bb4267",
+    "tools/thread_context.py": "4e1d7118141ed5ea0f4de6989ef346750941ba7b7b273a22ef0c1bb50a720e0e",
+    "tools/registry.py": "f73137030e95b47b92702f935d95f2cd01740b61161d7d940d6c83f02401294d",
+    "hermes_cli/plugins.py": "fae87bc56c6ca7470e838577272353d0e4d5a6876f6c7f0bc9bdae3f48af7afe",
+    "hermes_cli/config_defaults.py": "24ac09830344046445f98f78e0b71afed77844f4caf2a93a4045c9d7ffb241bd",
+    "gateway/platforms/api_server_authority_runs.py": "b15349a31c28dbab671825844af94dda702bb8304984c557f734f95f574e0ae9",
+    "gateway/session_authority.py": "ec45262a22582fe3a94f99f9b7d73f94a251c52e792dbf9992710baa419fe2c3",
+    "hermes_state_runtime.py": "6bbcc688799d3ea784545b5227d20e07f8b5ce8f26fcf545825bc8a60462ee3f",
+    "hermes_cli/env_loader.py": "b4ba716b5e9d73ccbbc16f507b366ffad0c02bbf12d164568ca32461bf858e11",
+    "docker/entrypoint-dispatch.sh": "bc031715ad526819d85c99ec35d05d1e46ddbed257470f4653ab2d90be95e807",
+    "docker/main-wrapper.sh": "9aa0d6e3d3d08ed14b9a7a48fe7cca0535ec614472cc3fc752eb4772e2beb745",
+    "docker/stage2-hook.sh": "704549f76c87dc8d78841c1ad918ad4267f3e12f7f794f84fc765ea485df5a5c",
+    "hermes_cli/main.py": "321236ee6372d077b028d5618e62e3aeb8a69119dcd206428d2025252e1c4df4",
+    "hermes_cli/gateway.py": "c1841e900442ba928703c82fb3ce27b76de37c6ae6284abc647bfc35ee1fe352",
+    "hermes_cli/container_boot.py": "112d859e8a61f4af851adc3829319e1e621df30040de31b3487c083d97a8de71",
+    "docker/cont-init.d/02-reconcile-profiles": "bcc138685ff25cf8ad33d206c9b67e78cd0c7f2de8ebacc7e344c2072c624afa",
+    "hermes_cli/runtime_provider.py": "7a742d2c3cd759ebfb5a3321b48bec80d1faa2d15c6fd09e595e0ed1a6fc9376",
+    "hermes_cli/runtime_provider_custom.py": "e1641393a1fc983f4c85c84c63ee0b11b9902199dbd57368d0038652e43b94fd",
+    "agent/anthropic_endpoints.py": "d4b4e4c0f85b1c526b86df1e4fd85bb2a2e39ee728c2f8c2cd60de4bcfca848f",
+    "agent/anthropic_credentials.py": "caedbc2e4f832c7147db540d8a1395b96dca7e201cbfec2cb30f8d335de0ee1e",
+    "agent/anthropic_message_convert.py": "141c5aae18d9d20647910b24cf0a19e2e3c767b03e9d355ab9c6b6cbd011dd4e",
+    "tools/schema_sanitizer.py": "52f7d7e4fa3fc74cc66c723dbf52ebf018623a1393aa67ba5edd1c7a112efe4a"
+  },
+  "auditFiles": {
+    "gateway/platforms/api_server_run_idempotency.py": "bae9319e4147d5e1a0dd3dfafc06066948f354fbb35e949e0d81e45bfac6e256",
+    "hermes_cli/sqlite_util.py": "1ffde9d5e896dee3282514c81676d00d7535c833fc6d5ef9c43a42ae3778de79",
+    "hermes_cli/sqlite_runtime.py": "b540a3f8e2de642188dd2a9ee91612b52b7fd39580fedf47e8f82dffc66c6877",
+    "hermes_state_wal.py": "5fb152d748a373995093e253b10af3ab662f7331202ebd99d2897340d14b0e61",
+    "hermes_state_errors.py": "05039e5c88ea1ce41792832743578b6facc582b89bebf2d68f3673d89515b47c"
+  }
+}
