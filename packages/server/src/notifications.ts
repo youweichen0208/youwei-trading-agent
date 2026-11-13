@@ -126,6 +126,8 @@ export async function deliverNextFeishu(
       `SELECT o.*,i.message_id AS reply_message_id FROM feishu_outbox o LEFT JOIN feishu_inbox i ON i.key=o.inbox_key
      LEFT JOIN notifications n ON n.id=o.notification_id LEFT JOIN research_settings s ON s.owner_id=n.owner_id
      WHERE NOT o.sent AND NOT o.uncertain AND o.next_attempt<=$2
+       AND (o.phase NOT IN ('progress_queued','progress_running','progress_stopping') OR
+         (NOT i.finished AND EXISTS(SELECT 1 FROM tasks live WHERE live.id=i.task_id AND 'progress_'||live.status=o.phase)))
        AND (o.delivery_mode='reply' OR (o.app_id=$1 AND coalesce((s.payload->>'feishuNotifications')::boolean,true)))
      ORDER BY coalesce(i.created_at,o.created_at),CASE o.phase WHEN 'accepted' THEN 0 WHEN 'final' THEN 1 ELSE 2 END,o.part LIMIT 1`,
       [appId, now],

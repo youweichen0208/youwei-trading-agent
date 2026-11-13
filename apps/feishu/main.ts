@@ -1,4 +1,11 @@
 import {
+  priceReply,
+  lookupTarget,
+} from "../../packages/server/src/feishu-price.js";
+import { AlpacaProvider } from "../../packages/market/src/alpaca.js";
+import { feishuProgress } from "../../packages/server/src/feishu-progress.js";
+import { acceptQuickReply } from "../../packages/server/src/feishu-quick-reply.js";
+import {
   NotificationStore,
   deliverNextFeishu,
 } from "../../packages/server/src/notifications.js";
@@ -31,6 +38,16 @@ const groups = new Set(
   (process.env.FEISHU_GROUP_CHAT_IDS ?? "").split(",").filter(Boolean),
 );
 const origin = required("APP_ORIGIN");
+const priceProvider =
+  process.env.ALPACA_DATA_KEY &&
+  process.env.ALPACA_DATA_SECRET &&
+  ["iex", "sip"].includes(process.env.ALPACA_DATA_FEED ?? "")
+    ? new AlpacaProvider(
+        process.env.ALPACA_DATA_KEY,
+        process.env.ALPACA_DATA_SECRET,
+        process.env.ALPACA_DATA_FEED as "iex" | "sip",
+      )
+    : undefined;
 // SDK errors can include request headers and credentials. Never log raw objects.
 const sdkLogger = {
   error: () => console.error("feishu_sdk_error"),
@@ -201,6 +218,13 @@ await ws.start({
         chat = hash(
           `${appId}:${data.tenant_key ?? s.tenant_key}:${m.chat_id}:${actualSender}${m.chat_type === "group" && groupResearch ? `:${contextId}` : ""}`,
         );
+      const previousLookup = (
+        await pool!.query(
+          "SELECT lookup_context FROM feishu_chats WHERE key=$1 AND owner_id=$2",
+          [chat, messageOwner],
+        )
+      ).rows[0]?.lookup_context;
+      const quote = await priceReply(input, priceProvider, previousLookup);
       await transaction(pool!, async (c) => {
         await c.query("SET LOCAL statement_timeout='2000ms'");
         await c.query(
@@ -211,6 +235,30 @@ await ws.start({
           "INSERT INTO feishu_inbox(key,chat_key,message_id,chat_id,input) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING",
           [key, chat, m.message_id, m.chat_id, input],
         );
+        if (quote !== null) {
+          const updated = await c.query(
+            "UPDATE feishu_inbox SET processed=true,finished=true WHERE key=$1 AND NOT processed AND task_id IS NULL RETURNING key",
+            [key],
+          );
+          if (updated.rowCount) {
+            const target = lookupTarget(input);
+            if (target)
+              await c.query(
+                "UPDATE feishu_chats SET lookup_context=$2 WHERE key=$1",
+                [
+                  chat,
+                  JSON.stringify({ target, at: new Date().toISOString() }),
+                ],
+              );
+            await enqueue(c, key, "accepted", quote);
+          }
+          return;
+        }
+        await c.query(
+          "UPDATE feishu_chats SET lookup_context=NULL WHERE key=$1",
+          [chat],
+        );
+        if (await acceptQuickReply(c, key, input, enqueue)) return;
         const preparation = (
           await c.query(
             "SELECT status,(SELECT count(*) FROM profile_instances p WHERE p.context_id=$1 AND p.lifecycle_managed AND p.deployment_hash IS NOT NULL)=3 AS registered FROM profile_preparation_jobs WHERE owner_id=$1",
@@ -295,7 +343,7 @@ if (pool) {
             : undefined;
           if (row.input === "/help")
             reply =
-              "发送文字开始研究。/new 新会话 · /status 当前任务 · /stop 停止任务";
+              "发送“查看 AAPL 研究”读取已有结果，发送“分析 AAPL”启动研究。/new 新会话 · /status 当前任务 · /stop 停止任务";
           else if (row.input === "/new") {
             await c.query(
               "UPDATE feishu_chats SET thread_id=NULL WHERE key=$1",
@@ -361,7 +409,7 @@ if (pool) {
           );
         }
         const results = await c.query(
-          "SELECT i.key,t.status,t.output,t.id,t.owner_id,ch.title FROM feishu_inbox i JOIN tasks t ON t.id=i.task_id JOIN threads ch ON ch.id=t.thread_id WHERE NOT i.finished AND i.processed",
+          "SELECT i.key,t.status,t.output,t.id,t.owner_id,t.created_at,ch.title FROM feishu_inbox i JOIN tasks t ON t.id=i.task_id JOIN threads ch ON ch.id=t.thread_id WHERE NOT i.finished AND i.processed",
         );
         for (const t of results.rows) {
           if (terminal(t.status)) {
@@ -396,6 +444,11 @@ if (pool) {
               "unknown",
               "研究状态待核对，系统不会自动重跑。请在工作台查看。",
             );
+          else {
+            const progress = feishuProgress(t.status, t.created_at);
+            if (progress)
+              await enqueue(c, t.key, progress.phase, progress.text);
+          }
         }
       });
       await new NotificationStore(pool).prepareFeishu(appId, origin);

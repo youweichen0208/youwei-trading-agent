@@ -237,3 +237,7 @@ Profile 发生不确定启停时，可用 `pnpm hermes:reconcile inspect VERIFIE
 
 
 已知原生 unknown run 可由受信任宿主机使用 `pnpm hermes:reconcile interrupt-run VERIFIED_REGISTRY PREPARED_DIRECTORY PROFILE_ID TASK_ID` 核对。该命令会在确认无未核清工具/子任务后停止并重启原容器，按原 admission/generation 结束未知回合，分阶段保存与审计；不会创建新 run 或直接改写任务结果。条件、失败后继续方式与当前验收边界见 [运行核对说明](services/hermes/README.md#interrupt-a-known-unknown-run)。
+
+2026-11-13 后台修复：Worker/Tools 使用 `/opt/hermes-alpha-lab/releases/20261113-research-repair`；Web 构建保持上文版本。后台阶段预算为采集/分析/复盘/试验 300 秒、发布 600 秒；后台日线请求限制到交易日历确认的已完成日期。迁移 032 暂停既有飞书绑定账号的候选研究。部署记录与验收边界见 `docs/implementation-status.md`。
+
+当前完成情况、生产版本差异与剩余事项见 [生产状态与待办](docs/production-follow-up.md)（2026-11-13 更新）。飞书当前发布为 `20261113-feishu-symbols`；自适应证据分页仍属未通过真实验收的候选，未运行在生产 Worker/Tools。

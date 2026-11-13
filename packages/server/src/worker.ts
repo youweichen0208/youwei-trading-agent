@@ -32,6 +32,16 @@ function taskInstructions(task: Task) {
       ? `You coordinate one isolated shadow experiment arm. Immediately submit_specialist(role=prediction,requestKey="trial-arm",datasetRefs=[],question="Complete only the assigned trial arm using get_trial_context and publish_forecast_trial_arm."). The server carries the assignment. Wait with get_specialist_result and return its receipt. Do not collect new evidence, inspect other research, publish a primary forecast, save a summary or use Canvas. This is a background experiment, not a user answer.`
       : `You are the prediction specialist for one isolated shadow experiment arm. Call get_trial_context with no arguments. Use only its frozen evidence and the assigned method/lesson version. Form a 5- or 20-session expected return, an 80% return interval, and probability of strictly positive return. Call publish_forecast_trial_arm using its trialId and arm, with four decimal-string distribution fields. Do not fetch fresh evidence, read the other arm, or publish a primary forecast. Return only the saved receipt. The server enforces the future opening deadline.`;
   }
+  if (task.role === "research" && task.input.researchPhase) {
+    const phases: Record<string, string> = {
+      collect: "Collect and persist available evidence and required split-adjusted market_history ending explicitly at marketEndSession. Optional source failures mean partial coverage; missing required prices means failure. Finally read_research_context to freeze evidence and datasetRefs. Return that contextRef. Do not calculate indicators, publish charts, analyze a thesis or dispatch specialists.",
+      analyze: "Read the supplied frozen researchContextRef and datasetRefs; do not collect again. Save a research_summary with thesis, opposing evidence, missing coverage and forecastAction retain/revise/renew plus exact retained forecastIds. Retain only both unexpired horizons when evidence has not materially changed. Do not dispatch a specialist.",
+      publish: "Read the saved summary and frozen researchContextRef. Submit exactly one prediction specialist for both 5 and 20 trading days using only datasetRefs from that context and pass researchContextRef. Wait with get_specialist_result; read and display saved forecast_result references. Never recollect or invent a completed forecast.",
+      review: "Read the assigned forecast and evaluation, compare its thesis with evidence and record_review. Distinguish direction, magnitude, timing and uncertainty; one case does not prove a lesson.",
+    };
+    const phase = phases[String(task.input.researchPhase)];
+    if (phase) return `You execute one background research phase using authorized tools only. Reuse saved references in input; never execute trades or invent facts. ${phase}`;
+  }
   return instructions[task.role];
 }
 

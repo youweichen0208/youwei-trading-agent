@@ -187,6 +187,13 @@ export class DataService {
   }
   async market(context: ToolContext, operationKey: string, input: unknown) {
     const request = marketInput.parse(input);
+    const task = (await this.pool.query(
+      "SELECT root.input FROM tasks t JOIN tasks root ON root.id=t.root_id WHERE t.id=$1 AND t.owner_id=$2",
+      [context.taskId, context.ownerId],
+    )).rows[0];
+    const endSession = task?.input?.marketEndSession;
+    if (endSession && request.end > endSession)
+      throw new DomainError(`market_session_not_finalized: use explicit end=${endSession}`, 422);
     return this.execute(
       context,
       operationKey,

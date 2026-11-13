@@ -139,3 +139,33 @@ test("UTF-8 notification parts preserve complete characters and fit transport bu
     parts.every((text) => Buffer.byteLength(JSON.stringify({ text })) <= 12000),
   );
 });
+
+test("finished research never delivers stale queued or running receipts", async () => {
+  const chat = randomUUID(),
+    key = randomUUID();
+  await pool.query("INSERT INTO feishu_chats(key,owner_id) VALUES($1,$2)", [
+    chat,
+    owner,
+  ]);
+  await pool.query(
+    "INSERT INTO feishu_inbox(key,chat_key,message_id,chat_id,input,processed,finished) VALUES($1,$2,$1,$2,'fixture',true,true)",
+    [key, chat],
+  );
+  for (const phase of [
+    "progress_queued",
+    "progress_running",
+    "progress_stopping",
+  ])
+    await pool.query(
+      "INSERT INTO feishu_outbox(id,inbox_key,phase,part,text,next_attempt) VALUES($1,$2,$3,0,'stale',now()-interval '1 day')",
+      [randomUUID(), key, phase],
+    );
+  const sent: unknown[] = [];
+  const send = async (args: unknown) => {
+    sent.push(args);
+    return { code: 0, data: { message_id: "fixture" } };
+  };
+  const client = { im: { message: { create: send, reply: send } } };
+  for (let i = 0; i < 3; i++) await deliverNextFeishu(pool, client, app);
+  assert.equal(sent.length, 0);
+});

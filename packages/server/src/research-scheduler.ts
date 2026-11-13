@@ -418,7 +418,7 @@ export class ResearchScheduler {
       );
       await c.query(
         `UPDATE research_jobs j SET status='failed',error_code='coverage_expired',updated_at=$3 WHERE j.owner_id=$1
-        AND j.status IN ('deferred','pending') AND j.stage='collect' AND j.active_task_id IS NULL
+        AND j.tier<>'candidate' AND j.status IN ('deferred','pending') AND j.stage='collect' AND j.active_task_id IS NULL
         AND EXISTS(SELECT 1 FROM research_coverage v WHERE v.owner_id=j.owner_id AND v.symbol=j.symbol AND (v.paused OR v.expires_session<=$2))`,
         [owner, session, now],
       );
@@ -440,12 +440,13 @@ export class ResearchScheduler {
       );
       const waiting = (
         await c.query(
-          `SELECT j.* FROM research_jobs j LEFT JOIN research_coverage v ON v.owner_id=j.owner_id AND v.symbol=j.symbol
+          `SELECT j.*,v.paused FROM research_jobs j LEFT JOIN research_coverage v ON v.owner_id=j.owner_id AND v.symbol=j.symbol
         WHERE j.owner_id=$1 AND j.status='deferred' ORDER BY j.priority DESC,v.last_analyzed_at ASC NULLS FIRST,j.created_at,j.id FOR UPDATE OF j`,
           [owner],
         )
       ).rows;
       for (const job of waiting) {
+        if (job.tier === "candidate" && (settings.dailyCandidateLimit === 0 || job.paused)) continue;
         if (admitted.size >= limit && !admitted.has(job.symbol)) continue;
         await c.query(
           "UPDATE research_jobs SET status='pending',session=$2,updated_at=$3 WHERE id=$1",
@@ -780,7 +781,7 @@ export class ResearchScheduler {
       );
     }
   }
-  /** A phase ends only after its real task and children end; 120s is not a preemption guarantee. */
+  /** A phase ends only after its real task and children end; the budget is not a preemption guarantee. */
   async advanceJobs(now = new Date()) {
     const rows = (
       await this.pool.query(
@@ -1027,6 +1028,15 @@ export class ResearchScheduler {
           );
           return;
         }
+        if (current.tier === "candidate" && (
+          setting?.dailyCandidateLimit === 0 || (await c.query(
+            "SELECT 1 FROM research_coverage WHERE owner_id=$1 AND symbol=$2 AND paused",
+            [job.owner_id, job.symbol],
+          )).rowCount
+        )) return;
+        const schedule = await this.calendar.run({ operation: "research_schedule", asOf: now.toISOString() });
+        current.checkpoint.marketEndSession = schedule.latestCompletedSession;
+        await c.query("UPDATE research_jobs SET checkpoint=$2 WHERE id=$1", [job.id, JSON.stringify(current.checkpoint)]);
         const tasks = new TaskStore(this.pool, c);
         const task = await tasks.submitSystem(
           job.owner_id,
@@ -1043,7 +1053,7 @@ export class ResearchScheduler {
             threadId: current.thread_id ?? undefined,
             priority: job.priority,
             researchJobId: job.id,
-            budgetSeconds: 120,
+            budgetSeconds: current.stage === "publish" ? 600 : 300,
           },
         );
         await c.query(
@@ -1054,33 +1064,40 @@ export class ResearchScheduler {
     }
   }
   private async digest(owner: string, session: string, now: Date) {
-    const rows = (
-      await this.pool.query(
-        `SELECT symbol,tier,status,stage,error_code FROM research_jobs WHERE owner_id=$1 AND (created_at>=$2::timestamptz-interval '24 hours' OR status='deferred') ORDER BY priority DESC,created_at DESC LIMIT 40`,
-        [owner, now],
-      )
-    ).rows;
-    const changes = (
-      await this.pool.query(
-        "SELECT count(*)::int AS n FROM notifications WHERE owner_id=$1 AND kind='forecast_changed' AND created_at>=$2::timestamptz-interval '24 hours'",
-        [owner, now],
-      )
-    ).rows[0].n;
-    const text = rows.length
-      ? rows
-          .map(
-            (row: any) =>
-              `${row.symbol} · ${row.tier} · ${row.status === "completed" ? "研究完成" : row.status === "deferred" ? "积压待研究（顺延至后续交易日）" : row.status === "failed" ? `未完成（${row.error_code}）` : `${row.stage} / ${row.status}`}`,
-          )
-          .join("\n")
-      : "过去24小时没有新的研究任务。";
+    const rows = (await this.pool.query(
+      `SELECT DISTINCT ON (symbol) symbol,tier,status,stage,error_code FROM research_jobs
+       WHERE owner_id=$1 AND session=$2 ORDER BY symbol,updated_at DESC,created_at DESC,id DESC`,
+      [owner, session],
+    )).rows;
+    const backlog = (await this.pool.query(
+      "SELECT count(*)::int AS n FROM research_jobs WHERE owner_id=$1 AND status IN ('pending','deferred','blocked') AND session<$2",
+      [owner, session],
+    )).rows[0].n;
+    const counts = (await this.pool.query(
+      `SELECT count(DISTINCT f.id)::int AS added,
+       count(DISTINCT f.id) FILTER (WHERE f.supersedes_id IS NOT NULL)::int AS changes
+       FROM forecasts f JOIN tasks t ON t.id=f.task_id
+       JOIN tasks root ON root.id=t.root_id
+       JOIN research_jobs j ON j.id=root.research_job_id
+       WHERE f.owner_id=$1 AND j.session=$2`, [owner, session],
+    )).rows[0];
+    const reasons: Record<string,string> = {
+      deadline_exceeded: "阶段超时", budget_exceeded: "阶段超时",
+      forecast_output_missing: "未保存完整的 5/20 交易日预测",
+      market_session_not_finalized: "所请求日线尚未完成",
+      task_unknown: "执行状态待核实", coverage_expired: "覆盖已到期",
+    };
+    let failures = 0;
+    const detail = rows.filter((row: any) => row.status !== "failed" || ++failures <= 5)
+      .map((row: any) => `${row.symbol} · ${row.status === "completed" ? "研究完成" : row.status === "failed" ? `未完成（${reasons[row.error_code] ?? "阶段执行失败，请查看任务详情"}）` : "待完成"}`).join("\n");
+    const text = `研究股票：${rows.length} · 完成：${rows.filter((r: any) => r.status === "completed").length} · 新增预测：${counts.added} · 失败：${rows.filter((r: any) => r.status === "failed").length} · 历史积压：${backlog}\n判断变化：${counts.changes} 条\n\n${detail || "当日没有研究任务。"}${failures > 5 ? "\n更多失败详情请查看工作台。" : ""}`;
     await this.notifications.enqueue(
       owner,
       "daily_digest",
       `digest:${session}`,
       {
         title: `${session} 研究日报`,
-        text: `判断变化：${changes} 条\n\n${text}`,
+        text,
       },
     );
   }

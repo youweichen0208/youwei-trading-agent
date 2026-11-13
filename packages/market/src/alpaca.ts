@@ -70,6 +70,41 @@ export class AlpacaProvider implements MarketProvider {
     readonly feed: "iex" | "sip",
     private transport: typeof fetch = fetch,
   ) {}
+  async latestTrade(symbol: string, signal: AbortSignal) {
+    if (!/^[A-Z][A-Z0-9.-]{0,9}$/.test(symbol))
+      throw new DomainError("invalid_symbol", 422);
+    const url = new URL(
+      `https://data.alpaca.markets/v2/stocks/${encodeURIComponent(symbol)}/trades/latest`,
+    );
+    url.searchParams.set("feed", this.feed);
+    const result = z
+      .object({
+        symbol: z.literal(symbol),
+        trade: z.object({
+          p: z.string().regex(/^\d+(?:\.\d+)?$/),
+          t: z.iso.datetime({ offset: true }),
+        }),
+      })
+      .parse(
+        await body(
+          await this.transport(url, {
+            signal: AbortSignal.any([signal, AbortSignal.timeout(6000)]),
+            redirect: "error",
+            headers: {
+              "APCA-API-KEY-ID": this.key,
+              "APCA-API-SECRET-KEY": this.secret,
+            },
+          }),
+        ),
+      );
+    return {
+      symbol,
+      price: result.trade.p,
+      time: result.trade.t,
+      source: this.source,
+      feed: this.feed,
+    };
+  }
   async bars(query: MarketQuery, signal: AbortSignal) {
     const rows: unknown[] = [];
     const tokens = new Set<string>();

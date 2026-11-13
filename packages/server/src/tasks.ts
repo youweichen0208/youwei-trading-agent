@@ -243,7 +243,7 @@ export class TaskStore {
           system.priority >= 1000 ||
           !Number.isInteger(system.budgetSeconds) ||
           system.budgetSeconds < 10 ||
-          system.budgetSeconds > 120)
+          system.budgetSeconds > 600)
       )
         throw new DomainError("invalid_background_budget", 400);
       const hash = digest({ threadId, input, ...(system ? { system } : {}) });

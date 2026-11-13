@@ -1014,3 +1014,69 @@ Worker/Web/Tools 使用已有 Alpaca 数据源配置。
 当前接入 Alpaca 行情与新闻；SEC_USER_AGENT、BRAVE_SEARCH_API_KEY、X_BEARER_TOKEN、
 FRED_API_KEY 尚未配置，相关来源明确显示缺失。真实 5/20 交易日到期后的结算和经验效果
 仍需随运行积累，不能将上线健康检查当作预测准确率验证。
+
+## 后台研究修复部署（2026-11-13）
+
+Worker、Tools 已切换到 `/opt/hermes-alpha-lab/releases/20261113-research-repair`，通过 `zz-research-repair.conf` 设置工作目录和 Quant 路径；Web 和入口静态构建保持原版。本次仅复制 tasks、worker、data-service、research-scheduler 四个服务端文件和迁移 032，其余文件来自既有生产发布。
+
+生产迁移 032 已应用：1 个已绑定飞书账号每日候选预算为 0，20 条候选覆盖暂停。63 条历史失败研究保留，未重跑。数据库 dump 和原 Worker/Tools drop-in 备份位于 `/opt/hermes-alpha-lab/private/research-repair-20261113/`。回退代码可移除两服务的 `zz-research-repair.conf` 后 daemon-reload 并重启；候选暂停应保留，禁止直接恢复 dump 覆盖新增数据。
+
+本地类型检查、构建及 14 项 PostgreSQL 调度测试通过，服务器类型检查通过。切换后两服务启动成功，公网返回 200。真实 AAPL 后台采集、分析和 5/20 日预测完整验收尚未完成，不能把本次部署健康检查视为预测闭环通过。
+
+## 后台真实 AAPL 端到端验收（2026-11-13）
+
+在已部署的 `20261113-research-repair` 目录运行新增 `tests/hermes/live_background_integration.py` / `tests/support/hermes-background-live.ts`，调用 ResearchScheduler.enqueueJob 与 advanceJobs，真实 Worker、Hermes 模型和 Alpaca 行情完成 collect → analyze → publish。独立 alpha_acceptance_test 随机 schema、账号和容器，不使用生产账号持仓，不绑定飞书（绑定及 outbox 均为 0）。测试通过，耗时 616.06 秒。
+
+三阶段及 prediction 子任务均 completed，预算依次 300/300/600 秒；子任务 deadline 与发布父任务一致。AAPL 行情截止 2026-11-12，两条预测引用同一冻结上下文，包含 50 条证据及 1 个行情数据集，保存 2 个预测卡片记录：
+- 5 日：219b2dae-f289-4808-90fa-d87bb6fe95bc
+- 20 日：dd47a917-c666-44d5-bcb6-a053f7bd51ae
+
+证据保留在服务器 private/background-acceptance-20261113/run1 和本地 .local/background-acceptance-20261113/research-result.json。测试容器全部退出，生产 Worker/Tools 仍 active。本次验证了后台执行与持久化，不包含公网测试账号登录后的浏览器渲染，也不证明未来预测准确率。部分可选来源仍未配置；模型存在重复读取上下文，未导致本次失败。
+
+## 自适应证据分页部署与验收回退（2026-11-13）
+
+优化版本 `20261113-research-pagination` 部署到 Worker/Tools，通过服务器类型检查与两项分页回归。随后在该目录运行独立账号、独立测试库及真实模型/Alpaca AAPL 后台验收，未接入飞书。
+
+本轮未通过：总计 731.98 秒，研究执行 641.993 秒。采集、分析完成；上下文调用从上轮 20 次降至 8 次（本轮 51 条证据，上轮 50 条，模型路径不同，非严格同输入基准）。publish_forecast 五次返回 400，预测记录为 0，发布任务以 required_tool_failed 结束。模型关于“网关不稳定”的解释没有得到独立证据支持；尚不能确定参数错误根因或与分页的因果关系。调用减少不等于总耗时改善。
+
+生产无活动任务后，移除 zzz-research-pagination.conf（保存到 private/pagination-acceptance-20261113）并重启 Worker/Tools，恢复到 20261113-research-repair。未变更数据库或网页构建。测试容器已退出，原始结果保存在服务器 private/pagination-acceptance-20261113/run1 和本地 .local/pagination-acceptance-20261113/research-result.json。优化版本尚未通过上线验收，不保留为生产版本。
+
+## 飞书响应分流与等待反馈（2026-11-13）
+
+生产记录确认 hello 曾排队 690 秒、运行环境启动约 33 秒、最终 765 秒回复；“你是谁”两次约 56/59 秒。固定问候与身份介绍不应占用研究任务。
+
+已部署 Feishu 到 `20261113-feishu-fast-replies-r2`：问候直接生成 outbox；“查看 AAPL 研究/最新预测”和 /research AAPL 按账号与 execution context 读取已有摘要/预测，并显示时间与过期提示，无结果不自动启动模型。支持摘要 text 及 lineage 关联股票。仍需研究的请求保持异步；30 秒后按 queued/running/stopping 状态生成去重进度通知。未强制抢占后台执行，不承诺任意对话秒回。
+
+6 项本地回归及本地/服务器类型检查通过。生产角色 alpha_live_feishu 在事务回滚测试中，hello/身份介绍约 3–4ms、已有结果查询约 13ms，未新增任务或投递外部消息；只证明服务端处理路径，不能当作飞书客户端端到端延迟。已补充 forecasts/research_contexts SELECT 授权并同步授权脚本；查询强制按 owner/context 隔离。回退可将 zzz-fast-replies.conf 工作目录恢复到前一发布再重启 Feishu，不需要数据回滚。
+
+后续补验：r3 已部署，投递时重新检查 queued/running/stopping 状态，已结束或已转阶段的进度消息不再发送。对应回归先复现旧提示误发 3 条，再修复为 0 条，10 项相关测试通过。已有结果测试追加了真实表结构中的 5/20 日预测、收益/概率显示、过期标记及群聊不可读取个人预测的断言，均通过。
+
+截至本次检查，上线后 feishu_inbox 新消息数为 0。已请求用户从私聊和群 @ 发起真实查询，用于核对从接收到投递的时间；此项尚无实测证据，不能把服务端毫秒级测试表述为用户侧秒回。
+
+## 自然语言查股价直连行情（2026-11-13）
+
+用户真实截图对应请求“可以帮我查询一下英伟达的股票吗”：03:20:23 UTC 接收，1 秒确认、36 秒提交模型、190 秒最终回复。固定快捷语法没有覆盖该自然语言，原流程错误地启动了完整研究。此前“你好”已记录为不足 1 秒回复。
+
+现将简单价格查询在入库研究前分流，识别明确股票代码与常用中文公司名；显式分析、历史、预测、多股票混合等不降级为单股报价。直接调用既有 Alpaca latest trade 接口，6 秒超时；注明成交时间、USD、IEX/SIP 来源及非实时买卖报价，失败不使用旧值替代、不转为研究。官方接口依据 https://docs.alpaca.markets/us/reference/stocklatesttradesingle-1 。查询在数据库事务外完成。
+
+生产服务器真实请求耗时 875ms（不含飞书投递），返回 NVDA 167.1 USD，成交时间 2026-11-12T21:58:26.191520776Z，Alpaca IEX。12 项相关回归及服务器类型检查通过。Feishu 已切换到 20261113-feishu-quotes 并加载既有只读行情凭据环境文件；未发测试飞书消息。下一次真实用户查询仍需核对飞书接收至投递时延。
+
+## 公司名称误作代码修复（2026-11-13）
+
+真实消息“可以帮我查询一下spacex”于 03:34:43 UTC 收到，0.99 秒发出失败回复，未创建研究任务。延迟已改善，但未解析公司名称便把 SPACEX 当股票代码，且错误统一提示稍后重试。现补充常见英文公司别名；未映射的长字母名称先澄清公司资料/股票代码，不对其上市状态作推断；行情 HTTP 404 单独说明代码或覆盖不可用，不要求盲目重试。四项单测在修复前复现两个失败，修复后本地/服务器通过，类型检查通过。Feishu 发布更新为 20261113-feishu-quotes-r2。此改动尚非通用公司实体解析服务。
+
+## 快捷查询澄清上下文（2026-11-13）
+
+用户反馈 SpaceX 澄清后回复“股票行情”，旧流程将该短句送入历史模型会话，返回无关 AAPL/NVDA。现迁移 033 在 feishu_chats 增加 lookup_context；按既有发送者/聊天键保存 target/at，10 分钟过期，其他非行情输入（含 /new）清除。价格类短句在无上下文时要求明确对象，有上下文时只延续该对象，未确认代码时不会生成其他股票的研究任务。
+
+发布为 20261113-feishu-context，服务器类型检查、五项报价路由测试通过；生产 Feishu 角色能读写新列（回滚事务验证），服务重新连接成功。尚未自动解决未知公司对应上市标的的通用实体识别；不得据此宣称 SpaceX 上市或未上市。该次生产修复不补发用户消息。
+
+## SpaceX 官方代码核实与真实行情闭环（2026-11-13）
+
+此前仅用长度启发式拒绝 SPACEX，反复让用户提供代码，没有解决用户查询目标。此次核实官方 https://ir.spacex.com/faqs-and-contact/ 及 Nasdaq 官方公告：代码为 SPCX，2026-06-12 开始交易。添加带核实日期/来源的 SpaceX → SPCX 映射；旧澄清上下文 SPACEX 也重新解析后查询 SPCX，显示 SpaceX（SPCX）。未知名称的澄清测试改用 unknownco，不能继续把已核实名称的“无法查询”作为通过标准。
+
+在生产服务器候选目录以真实凭据测试用户原句及“股票行情”追问，分别 937ms/720ms，均返回 140.17 USD、成交时间 2026-11-12T21:29:49.677280387Z、Alpaca IEX。不把该成交价称为实时全市场报价。服务器类型检查和五项回归通过，Feishu 切换到 20261113-feishu-symbols；未发送测试消息。此次解决了 SpaceX 的实际查询，尚不代表通用公司名称解析已完成。
+
+## GitHub 同步验证（2026-11-13）
+
+从远程 develop 的 12b30c5 基线建立独立检出，与当前工作目录同步 25 个变更文件；排除 .local、环境凭据、依赖、缓存、浏览器截图及临时验收产物。类型检查、Next 构建与全部 192 项服务端测试通过。修正后台验收脚本卡片联表为 source_task_id（匹配实际 schema），本次未重新跑真实模型验收。当前完成/剩余事项已集中更新 production-follow-up.md；历史失败与回退结论保留。GitHub 代码快照包含未通过真实验收的自适应分页候选，不等于生产统一发布版本。

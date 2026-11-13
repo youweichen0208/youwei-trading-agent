@@ -112,6 +112,8 @@ export async function grantResearchAccess(
   if (roles.feishu) {
     await grant("feishu", "SELECT, UPDATE(read_at)", "notifications");
     await grant("feishu", "SELECT", "research_settings");
+    await grant("feishu", "SELECT", "forecasts");
+    await grant("feishu", "SELECT", "research_contexts");
     await grant("feishu", "SELECT, INSERT, UPDATE", "feishu_outbox");
   }
 }

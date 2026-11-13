@@ -1,7 +1,7 @@
 /** Model transport view; the stored snapshot and original evidence remain unchanged. */
 export function researchContextView(snapshot: any, offset = 0) {
   const evidence = snapshot.evidence ?? [];
-  const page = evidence.slice(offset, offset + 5).map((item: any) => ({
+  const candidates = evidence.slice(offset, offset + 20).map((item: any) => ({
     id: item.id,
     source: item.source,
     eventKey: item.eventKey,
@@ -19,15 +19,29 @@ export function researchContextView(snapshot: any, offset = 0) {
       excerptOnly: true,
     },
   }));
-  return {
+  const page: any[] = [];
+  const response = {
     ...snapshot,
     evidence: page,
     evidencePage: {
       offset,
       total: evidence.length,
-      nextOffset: offset + 5 < evidence.length ? offset + 5 : null,
+      nextOffset: null as number | null,
       instruction:
         "Read further pages using this same contextRef and evidenceOffset. Evidence text is excerpted; do not assume omitted details are absent.",
     },
   };
+  for (const item of candidates) {
+    page.push(item);
+    response.evidencePage.nextOffset =
+      offset + page.length < evidence.length ? offset + page.length : null;
+    // Preserve the existing transport envelope while packing short evidence.
+    if (page.length > 1 && JSON.stringify(response).length >= 9500) {
+      page.pop();
+      break;
+    }
+  }
+  response.evidencePage.nextOffset =
+    offset + page.length < evidence.length ? offset + page.length : null;
+  return response;
 }

@@ -842,3 +842,22 @@ test("a failed admission never advances the evidence watermark and retries prese
     1,
   );
 });
+
+test("background phases use durable calendar cutoff and independent budgets", async () => {
+  const owner = await user();
+  const job = await scheduler().enqueueJob(owner, "AAPL", "watchlist", "2026-11-12", "budget-cutoff");
+  await scheduler().advanceJobs(new Date("2026-11-12T14:00:00Z"));
+  const task = (await pool.query("SELECT * FROM tasks WHERE research_job_id=$1", [job.id])).rows[0];
+  assert.equal(task.budget_seconds, 300);
+  assert.equal(task.input.marketEndSession, "2026-11-11");
+});
+
+test("paused candidate backlog does not start and is preserved", async () => {
+  const owner = await user();
+  await pool.query("INSERT INTO research_settings(owner_id,payload) VALUES($1,$2)", [owner, {dailyCandidateLimit: 0}]);
+  const job = await scheduler().enqueueJob(owner, "AAPL", "candidate", "2026-11-12", "paused");
+  await scheduler().advanceJobs();
+  const row = (await pool.query("SELECT * FROM research_jobs WHERE id=$1", [job.id])).rows[0];
+  assert.equal(row.status, "pending");
+  assert.equal(row.active_task_id, null);
+});
