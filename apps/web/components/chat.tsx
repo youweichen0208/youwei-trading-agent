@@ -1,4 +1,7 @@
 "use client";
+import { progressLabel, compactProgress, currentProgress, type ProgressItem } from "../lib/research-progress";
+import { ResearchStatus } from "./research-status";
+import { ComposerTools } from "./composer-tools";
 import {
   createContext,
   useContext,
@@ -130,6 +133,22 @@ export function Chat({
 }) {
   const [task, setTask] = useState<any>(thread.tasks?.[0] ?? null),
     [error, setError] = useState("");
+  const [activity,setActivity] = useState<{taskId:string;items:ProgressItem[]}>({taskId:task?.id??"",items:[]});
+  function recordProgress(event:any, taskId:string) {
+    if(event.event === "state.snapshot") {
+      setActivity({taskId,items:event.data.progress ?? []});
+    } else if(event.event === "assistant.delta") {
+      setActivity(previous=>previous.taskId===taskId && previous.items.at(-1)?.data.stage==="response.streaming" ? previous : ({taskId,items:[...(previous.taskId===taskId ? previous.items : []),{sequence:event.sequence,data:{stage:"response.streaming"}}].slice(-100)}));
+    } else if(event.event === "run.progress" || event.event === "run.unknown") {
+      setActivity(previous=>({taskId,items:[...(previous.taskId===taskId ? previous.items.filter(i=>i.sequence!==event.sequence) : []),{sequence:event.sequence,data:event.data}].sort((a,b)=>a.sequence-b.sequence).slice(-100)}));
+    }
+  }
+  useEffect(()=>{
+    if(!task?.id || !isTerminal(task.status)) return;
+    let cancelled=false;
+    api(`tasks/${task.id}`).then(snapshot=>{if(!cancelled)setActivity({taskId:task.id,items:snapshot.progress??[]});}).catch(()=>{});
+    return()=>{cancelled=true;};
+  },[task?.id,task?.status]);
   const active = useRef<any>(task),
     load = useCanvas((s) => s.load),
     sync = useCanvas((s) => s.sync);
@@ -190,12 +209,13 @@ export function Chat({
           setRequestPending(false);
           throw e;
         }
-        active.current = { id: submitted.taskId, status: submitted.status };
+        active.current = { id: submitted.taskId, status: submitted.status, input: { input } };
         setTask(active.current);
         onChange();
         let text = "";
         try {
           for await (const event of taskEvents(submitted.taskId, abortSignal)) {
+            recordProgress(event, submitted.taskId);
             if (event.event === "connection.reconnecting") {
               setError("连接正在恢复，任务继续在后台运行。");
             } else if (event.event === "connection.restored") {
@@ -278,6 +298,7 @@ export function Chat({
       let partial = "";
       try {
         for await (const ev of taskEvents(pending.id, controller.signal)) {
+          recordProgress(ev, pending.id);
           if (ev.event === "connection.reconnecting") {
             setError("连接正在恢复，任务继续在后台运行。");
           } else if (ev.event === "connection.restored") {
@@ -347,6 +368,9 @@ export function Chat({
     }
   }
   const busy = task && !isTerminal(task.status);
+  const progressItems = activity.taskId===task?.id ? compactProgress(activity.items) : [];
+  const currentAction = error ? "连接或执行出现异常，请查看提示" : currentProgress(progressItems,task?.status ?? "queued");
+
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       <ResultContext.Provider
@@ -368,11 +392,31 @@ export function Chat({
           </div>
           <ThreadPrimitive.Root className="thread">
             <ThreadPrimitive.Viewport className="messages">
+              <header className="research-document-heading">
+                <div className="document-meta"><span>{thread.source === "group" ? "飞书群研究 · 只读" : "研究记录"}</span><span>{task ? statusName[task.status] : "准备就绪"}</span></div>
+                <h1>{thread.title || "新的研究"}</h1>
+                <p>Hermes · {thread.source === "group" ? "飞书群研究" : "研究工作区"}</p>
+                {thread.source === "group" && <aside className="document-notice"><strong>这是一份群研究记录</strong><p>请回到原飞书群 @ 助手续聊。发送 /status 查看进度，或 /stop 停止任务。</p></aside>}
+                <h2>研究内容</h2>
+              </header>
               <ThreadPrimitive.Empty>
                 <WelcomeHeading />
               </ThreadPrimitive.Empty>
               <ThreadPrimitive.Messages components={{ Message }} />
             </ThreadPrimitive.Viewport>
+            {(busy || activity.taskId===task?.id && activity.items.length>0) && <div className="execution-strip">
+              <details className="research-progress" key={task?.id}>
+                <summary>
+                  {busy ? <ResearchStatus taskId={task.id} status={task.status} connectionError={!!error} currentAction={currentAction} /> : <span>查看执行记录 · {progressItems.length}</span>}
+                  <span className="progress-chevron" aria-hidden="true">⌄</span>
+                </summary>
+                <div className="progress-log">
+                  <p>执行记录 <span>新活动自动更新</span></p>
+                  {progressItems.length ? <ol>{[...progressItems].reverse().map(item=><li key={item.sequence}>{progressLabel(item)}</li>)}</ol> : <p>任务已提交，等待执行事件。</p>}
+                </div>
+              </details>
+              {busy && thread.source !== "group" && <button className="stop-execution" onClick={stop} disabled={task.status === "stopping"} aria-label="停止任务">停止</button>}
+            </div>}
             {error && (
               <p className="notice" role="alert">
                 {error}
@@ -389,21 +433,7 @@ export function Chat({
                 )}
               </p>
             )}
-            {busy && thread.source !== "group" && (
-              <div className="run-line" aria-live="polite">
-                <span className="pulse" />
-                {statusName[task.status]}
-                <button onClick={stop} disabled={task.status === "stopping"}>
-                  停止任务
-                </button>
-              </div>
-            )}
-            {thread.source === "group" ? (
-              <p role="status">
-                群研究为只读记录。请回到原飞书群 @ 助手续聊，或发送
-                /status、/stop。
-              </p>
-            ) : (
+            {thread.source === "group" ? null : (
               <ComposerPrimitive.Root className="composer">
                 <ComposerPrimitive.Input
                   placeholder="向 Hermes 提问…"
@@ -415,7 +445,7 @@ export function Chat({
                   }}
                   disabled={!!busy || requestPending}
                 />
-                <div className="composer-bottom">
+                <div className="composer-bottom"><ComposerTools disabled={!!busy || requestPending} onSelect={text => { const current = runtime.thread.composer.getState().text; runtime.thread.composer.setText(current ? `${current}\n${text}` : text); }} />
                   <small className="composer-hint">
                     Enter 发送 · Shift + Enter 换行
                   </small>

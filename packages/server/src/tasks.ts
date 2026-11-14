@@ -774,9 +774,14 @@ export class TaskStore {
           [id, owner],
         )
       ).rows.map((r) => r.body);
+      const progress = (await c.query(
+        "SELECT sequence,jsonb_build_object('stage',data->>'stage','tool',data->>'tool','status',data->>'status','role',data->>'role') AS data FROM task_events WHERE task_id=$1 AND owner_id=$2 AND event IN ('run.progress','run.unknown') ORDER BY sequence DESC LIMIT 100",
+        [id, owner],
+      )).rows.reverse();
       return {
         task,
         children,
+        progress,
         messages,
         workspace,
         artifacts,

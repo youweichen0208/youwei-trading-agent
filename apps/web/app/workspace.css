@@ -1,12 +1,12 @@
 /* Conversation-first workbench, based on hermes-research-workbench.kui (1).fig. */
 .app {
-  --ink: #24231f;
-  --navy: #2e5bff;
-  --blue: #2e5bff;
-  --paper: #f7f6f3;
+  --ink: #262626;
+  --navy: #00875a;
+  --blue: #00875a;
+  --paper: #ffffff;
   --white: #fff;
-  --line: #e7e3db;
-  --muted: #6c665c;
+  --line: #e8e8e8;
+  --muted: #676767;
   --positive: #067a59;
   --negative: #b22d43;
   color: var(--ink);
@@ -28,8 +28,8 @@
     color 0.15s;
 }
 .app button:hover {
-  background: #eeece6;
-  border-color: #d6d1c7;
+  background: #f0f1f1;
+  border-color: #d9dddd;
 }
 .app button:disabled {
   cursor: not-allowed;
@@ -45,8 +45,8 @@
   color: #fff;
 }
 .app button.primary:hover {
-  background: #234bdf;
-  border-color: #234bdf;
+  background: #006e49;
+  border-color: #006e49;
 }
 .app .topbar {
   flex-shrink: 0;
@@ -92,13 +92,13 @@
   place-items: center;
   padding: 0 4px;
   border-radius: 50%;
-  background: #efede7;
+  background: #f0f1f1;
   color: var(--muted);
   font-size: 10px;
 }
 .app .canvas-toggle[aria-expanded="true"] {
-  border-color: #c8d2ff;
-  background: #eef1ff;
+  border-color: #b8dfcd;
+  background: #eef8f2;
   color: var(--blue);
 }
 .app .canvas-toggle[aria-expanded="true"] > span {
@@ -113,7 +113,7 @@
   align-items: center;
   gap: 12px;
   font-size: 12px;
-  color: #625e55;
+  color: #626767;
 }
 .app .account > .account-avatar {
   width: 28px;
@@ -122,8 +122,8 @@
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: #e5e1d7;
-  color: #807a6f;
+  background: #eef1ef;
+  color: #626767;
 }
 .app .account button {
   font-size: 12px;
@@ -143,10 +143,10 @@
   min-height: 0;
   height: 100%;
   padding: 22px 18px 14px;
-  background: #f1f0eb;
+  background: #fafafa;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: #d6d1c7 transparent;
+  scrollbar-color: #d9dddd transparent;
 }
 .app .wordmark {
   display: flex;
@@ -215,7 +215,7 @@
   width: 36px;
   min-width: 36px;
   font-size: 20px;
-  color: #777166;
+  color: #626767;
   padding: 0;
   border-radius: 9px;
 }
@@ -368,7 +368,7 @@
   font-size: 11px;
   border-radius: 9px;
   background: #fff;
-  color: #625e55;
+  color: #626767;
 }
 .app .sidebar-bottom .caption {
   margin: 14px 0 0;
@@ -553,7 +553,7 @@
 }
 .app .research-result-card[aria-expanded="true"] {
   background: #f8f9ff;
-  border-color: #becbff;
+  border-color: #00875a;
 }
 .app .result-card-icon {
   width: 36px;
@@ -608,7 +608,7 @@
   box-shadow: 0 3px 15px #30291407;
 }
 .app .composer:focus-within {
-  border-color: #becbff;
+  border-color: #00875a;
 }
 .app .composer textarea {
   display: block;
@@ -650,7 +650,7 @@
 .app .agent-label i {
   width: 5px;
   height: 5px;
-  background: #c8c2b6;
+  background: #b6bfbb;
   border-radius: 50%;
 }
 .app .agent-label[data-state="ready"] i {
@@ -673,7 +673,7 @@
   line-height: 1;
 }
 .app .composer button:hover {
-  background: #234bdf;
+  background: #006e49;
 }
 .app .welcome-composer {
   margin: 28px auto 17px;
@@ -797,7 +797,7 @@
 .app .canvas-window-actions button {
   border: 0;
   background: transparent;
-  color: #777166;
+  color: #626767;
   width: 32px;
   height: 32px;
   display: grid;
@@ -845,7 +845,7 @@
   overflow-wrap: anywhere;
 }
 .app .artifact h3 {
-  color: #777166;
+  color: #626767;
   font-size: 12px;
   font-weight: 400;
   margin: 0 0 15px;
@@ -956,7 +956,7 @@
 }
 .app .chart-toolbar button[aria-pressed="true"] {
   color: var(--blue);
-  background: #eef1ff;
+  background: #eef8f2;
 }
 .app .chart-range {
   font-size: 10px;
@@ -1128,7 +1128,7 @@
   position: fixed;
   inset: 0;
   z-index: 50;
-  background: #24231f55;
+  background: #26262655;
   display: grid;
   place-items: center;
   padding: 20px;
@@ -1144,7 +1144,7 @@
   border: 1px solid var(--line);
   border-radius: 16px;
   padding: 28px;
-  box-shadow: 0 20px 80px #24231f26;
+  box-shadow: 0 20px 80px #26262626;
 }
 .app .modal h2 {
   font-size: 20px;

@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, message, statusName } from "../lib/client";
@@ -211,7 +212,7 @@ function EvaluationView({ evaluation }: { evaluation: any }) {
   );
 }
 
-export function ResearchHub() {
+export function ResearchHub({ embedded = false }: { embedded?: boolean }) {
   const [tab, setTab] = useState<Tab>("研究池");
   const [data, setData] = useState<Hub | null>(null);
   const [error, setError] = useState("");
@@ -326,13 +327,13 @@ export function ResearchHub() {
     setDetailLoading(false);
   };
   return (
-    <div className="app research-app">
-      <header className="research-topbar">
-        <a className="research-brand" href="/">
+    <div className={embedded ? "research-embedded" : "app research-app"}>
+      {!embedded && <header className="research-topbar">
+        <Link className="research-brand" href="/">
           <HermesMark /> Hermes <span>ALPHA LAB</span>
-        </a>
-        <a href="/">返回研究对话 ↗</a>
-      </header>
+        </Link>
+        <Link href="/">返回研究对话 ↗</Link>
+      </header>}
       <main className="research-hub">
         <div className="research-heading">
           <div>
@@ -352,7 +353,7 @@ export function ResearchHub() {
           <div className="research-alert" role="alert">
             {error}{" "}
             {unauthorized ? (
-              <a href="/">返回登录</a>
+              <Link href="/">返回登录</Link>
             ) : (
               <button type="button" onClick={() => void refresh(true)}>
                 重试加载
@@ -654,7 +655,7 @@ export function ResearchHub() {
                     <p>
                       在研究对话中询问一只股票未来一周或一个月的走势。记录发布后，系统会按到期日验证。
                     </p>
-                    <a href="/">开始研究 ↗</a>
+                    <Link href="/">开始研究 ↗</Link>
                   </div>
                 )}
               </>

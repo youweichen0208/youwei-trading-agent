@@ -146,16 +146,16 @@ function Preview() {
             className="entry-chart"
             viewBox="0 0 640 270"
             role="img"
-            aria-label="示意折线图：青绿色历史走势与虚线预测区间，不代表实际行情"
+            aria-label="示意折线图：绿色历史走势与虚线预测区间，不代表实际行情"
           >
             <defs>
               <linearGradient id="entry-chart-fill" x1="0" y1="0" x2="0" y2="1">
-                <stop stopColor="#00d6c4" stopOpacity=".15" />
-                <stop offset="1" stopColor="#00d6c4" stopOpacity="0" />
+                <stop stopColor="#00875a" stopOpacity=".15" />
+                <stop offset="1" stopColor="#00875a" stopOpacity="0" />
               </linearGradient>
             </defs>
             {[35, 80, 125, 170, 215].map((y) => (
-              <line key={y} x1="12" x2="628" y1={y} y2={y} stroke="#202424" />
+              <line key={y} x1="12" x2="628" y1={y} y2={y} stroke="#e5e8e6" />
             ))}
             <path
               d="M14 220 45 197 76 211 107 169 138 153 169 171 200 137 231 159 262 115 293 94 324 119 355 72 386 93 417 61 448 53 448 245 14 245Z"
@@ -164,14 +164,14 @@ function Preview() {
             <path
               d="m14 220 31-23 31 14 31-42 31-16 31 18 31-34 31 22 31-44 31-21 31 25 31-47 31 21 31-32 31-8"
               fill="none"
-              stroke="#00d6c4"
+              stroke="#00875a"
               strokeWidth="2.5"
               strokeLinejoin="round"
             />
             <path
               d="m448 53 31-11 31-16 31 10 31-5 42-22"
               fill="none"
-              stroke="#bbbfc0"
+              stroke="#77847c"
               strokeWidth="2"
               strokeDasharray="5 5"
             />
@@ -187,7 +187,7 @@ function Preview() {
               [417, 61],
               [448, 53],
             ].map(([x, y]) => (
-              <circle key={x} cx={x} cy={y} r="3" fill="#27ead9" />
+              <circle key={x} cx={x} cy={y} r="3" fill="#00875a" />
             ))}
             <text x="12" y="265">
               历史走势
@@ -302,14 +302,14 @@ export function LoginLanding({
             <span aria-hidden="true">→</span>
           </a>
           <h1>
-            研究，洞察，进化<span>。</span>
+            让每一次研究，都有据可循
           </h1>
           <p>
-            为美股研究打造的 Agent 工作台。
+            你的美股研究空间。
             <br className="entry-mobile-break" />
             连接行情、预测与模拟组合，
             <br className="entry-desktop-break" />
-            让每一个判断，都有据可循。
+            把问题、证据与判断，整理在一起。
           </p>
           <div className="entry-hero-actions">
             <button

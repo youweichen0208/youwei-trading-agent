@@ -1,4 +1,7 @@
 "use client";
+import { ComposerTools } from "./composer-tools";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import {
   useCallback,
   useEffect,
@@ -12,20 +15,20 @@ import {
   HermesMark,
   WelcomeHeading,
   researchSuggestions,
-} from "../components/research-welcome";
-import { FeishuLogin } from "../components/feishu-login";
-import { LoginLanding } from "../components/login-landing";
+} from "./research-welcome";
+import { FeishuLogin } from "./feishu-login";
+import { LoginLanding } from "./login-landing";
 import { api, message, statusName } from "../lib/client";
 import { useCanvas } from "../lib/canvas";
 import { useAccountCollection } from "../lib/use-account-collection";
 import { useResponseScope } from "../lib/use-response-scope";
 
-const Chat = dynamic(() => import("../components/chat").then((m) => m.Chat), {
+const Chat = dynamic(() => import("./chat").then((m) => m.Chat), {
   ssr: false,
   loading: () => <p role="status">正在加载研究对话…</p>,
 });
 const Canvas = dynamic(
-  () => import("../components/canvas").then((m) => m.Canvas),
+  () => import("./canvas").then((m) => m.Canvas),
   {
     ssr: false,
     loading: () => <p role="status">正在加载研究画布…</p>,
@@ -71,12 +74,40 @@ function CollectionFeedback({
   );
 }
 
-export default function Page() {
+const StockDetail = dynamic(() => import("./stock-detail").then(m => m.StockDetail));
+const ResearchHub = dynamic(() => import("./research-hub").then(m => m.ResearchHub), { loading: () => <p role="status">正在加载研究中心…</p> });
+export default function Workspace() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const hubOpen = pathname === "/lab";
+  const stockSymbol = pathname.startsWith("/stocks/") ? decodeURIComponent(pathname.split("/")[2] ?? "").toUpperCase() : null;
+  const [hubVisited, setHubVisited] = useState(hubOpen);
+  useEffect(() => { if (hubOpen) setHubVisited(true); }, [hubOpen]);
   const accountScope = useResponseScope();
   const researchScope = useResponseScope();
   const recordsScope = useResponseScope();
   const editorScope = useResponseScope();
   const [menuOpen, setMenuOpen] = useState(false);
+  useEffect(() => {
+    if (hubOpen || stockSymbol) { setCanvasOpen(true); setMenuOpen(false); }
+  }, [pathname]);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const panel = document.querySelector<HTMLElement>(".sidebar.expanded");
+    const elements = () => Array.from(panel?.querySelectorAll<HTMLElement>('button:not([disabled]),a,input,summary,select') ?? []).filter(el => el.getClientRects().length);
+    elements()[0]?.focus();
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuOpen(false);
+      if (e.key === "Tab") {
+        const items = elements(), first = items[0], last = items.at(-1);
+        if (e.shiftKey && document.activeElement === first) {e.preventDefault();last?.focus();}
+        else if (!e.shiftKey && document.activeElement === last) {e.preventDefault();first?.focus();}
+      }
+    };
+    document.addEventListener("keydown",handler);
+    return () => {document.removeEventListener("keydown",handler);previous?.focus();};
+  }, [menuOpen]);
   const [draft, setDraft] = useState("");
   const [canvasOpen, setCanvasOpen] = useState(false);
   const [canvasExpanded, setCanvasExpanded] = useState(false);
@@ -96,7 +127,7 @@ export default function Page() {
     setCanvasOpen(true);
   }, []);
   const closeCanvas = useCallback(() => {
-    setCanvasOpen(false);
+    setCanvasOpen(true);
     setCanvasExpanded(false);
     requestAnimationFrame(() => {
       const target = canvasTrigger.current;
@@ -220,7 +251,8 @@ export default function Page() {
         if (!isAccountCurrent() || !isLatest()) return false;
         useCanvas.getState().load(thread.workspace);
         setSelected(thread);
-        setCanvasOpen(false);
+        router.push("/");
+        setCanvasOpen(true);
         setCanvasExpanded(false);
         setMenuOpen(false);
         setError("");
@@ -286,6 +318,7 @@ export default function Page() {
     }
   }
   function newThread(symbol?: string) {
+    router.push("/");
     if (starting.current) return;
     researchScope.invalidate();
     setSelected(null);
@@ -294,16 +327,18 @@ export default function Page() {
     );
     startRequest.current = null;
     useCanvas.getState().load(null);
-    setCanvasOpen(false);
+    setCanvasOpen(true);
     setCanvasExpanded(false);
     setMenuOpen(false);
     setError("");
     requestAnimationFrame(() => draftInput.current?.focus());
   }
+  const [submission, setSubmission] = useState<{input:string;stage:string}|null>(null);
   async function startResearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (starting.current || !draft.trim()) return;
     starting.current = true;
+    setSubmission({input:startRequest.current?.input ?? draft.trim(),stage:"正在提交研究"});
     setBusy(true);
     setError("");
     try {
@@ -322,6 +357,7 @@ export default function Page() {
       if (!isAccountCurrent()) return;
       // Keep the request key until both admission and opening succeed. A retry
       // after a lost response resumes the same task instead of submitting twice.
+      setSubmission({input:body.input,stage:"任务已提交，正在打开对话"});
       const opened = await open(body.threadId);
       if (!isAccountCurrent()) return;
       if (!opened) throw new Error("connection_failed");
@@ -333,6 +369,7 @@ export default function Page() {
     } finally {
       if (isAccountCurrent()) {
         starting.current = false;
+        setSubmission(null);
         setBusy(false);
       }
     }
@@ -351,7 +388,7 @@ export default function Page() {
       setDraft("");
       drafts.current = new Map();
       startRequest.current = null;
-      setCanvasOpen(false);
+      setCanvasOpen(true);
       setCanvasExpanded(false);
       setShowHoldings(false);
       setHoldingsSaved("");
@@ -404,11 +441,18 @@ export default function Page() {
   }
   if (loading)
     return (
-      <main className="entry-loading" role="status">
-        <span className="entry-loading-mark" aria-hidden="true">
-          ▲
-        </span>
-        正在打开研究工作台…
+      <main className="entry-loading" aria-busy="true">
+        <div className="entry-loading-content">
+          <div className="entry-loading-emblem" aria-hidden="true"><HermesMark /></div>
+          <p className="entry-loading-brand">Hermes<span>RESEARCH WORKSPACE</span></p>
+          <div className="entry-loading-divider" aria-hidden="true" />
+          <h1>让每一个判断，有据可循。</h1>
+          <div className="entry-loading-status" role="status">
+            <span className="entry-loading-orbit" aria-hidden="true" />
+            正在打开研究工作台
+          </div>
+        </div>
+        <p className="entry-loading-footer">行情 · 洞察 · 研究</p>
       </main>
     );
   if (!user)
@@ -425,15 +469,15 @@ export default function Page() {
       />
     );
   return (
-    <div className="app">
+    <div className={`app split-app${canvasExpanded ? " workspace-expanded" : ""}${canvasOpen ? " mobile-results" : ""}`}>
       <header className="topbar">
-        <span className="product-label">美股研究工作台</span>
-        <span className="workspace-mode">RESEARCH / WORKSPACE</span>
+        <button aria-label="打开导航" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>☰</button><span className="product-label">Hermes Agent</span><button onClick={() => newThread()}>＋ 新研究</button>
+        <span className="workspace-mode">{stockSymbol ?? (hubOpen ? "研究中心" : "Agent Chat")}</span>
         <button
           className="canvas-toggle"
           aria-expanded={canvasOpen}
           aria-controls="research-canvas"
-          onClick={canvasOpen ? closeCanvas : showCanvas}
+          onClick={() => { router.push("/"); setCanvasOpen(v => !v); }}
         >
           <svg viewBox="0 0 20 20" aria-hidden="true">
             <rect
@@ -448,7 +492,7 @@ export default function Page() {
             />
             <path d="M10 4v12" stroke="currentColor" strokeWidth="1.5" />
           </svg>
-          画布 <span>{artifacts.length}</span>
+          研究产物 <span>{artifacts.length}</span>
         </button>
         <div className="account">
           <span className="account-avatar" aria-hidden="true">
@@ -481,10 +525,10 @@ export default function Page() {
           </button>
         </div>
       )}
-      <div className="workspace">
+      <div className="workspace">{menuOpen && <button className="nav-scrim" aria-label="关闭导航" onClick={() => setMenuOpen(false)} />}
         <aside className={menuOpen ? "sidebar expanded" : "sidebar"}>
           <div className="wordmark">
-            <HermesMark /> Hermes <span>ALPHA LAB</span>
+            <HermesMark /> Hermes <span>研究工作台</span>
           </div>
 
           <button
@@ -501,16 +545,9 @@ export default function Page() {
           >
             ＋ 新建研究
           </button>
-          <div className="watch-section">
-            <a href="/lab" className="research-hub-link">
-              研究池 · 预测记录 · 经验试验 ↗
-            </a>
-            <div className="sidebar-label">
-              自选股{" "}
-              <span className="watch-count">
-                {watchlistLoad.status === "ready" ? watchlist.length : "—"}
-              </span>
-            </div>
+          <Link href="/" className="workspace-library-link" aria-current={!hubOpen && !stockSymbol ? "page" : undefined}>Agent Chat</Link>
+          <Link href="/lab" className="workspace-library-link" aria-current={hubOpen ? "page" : undefined}><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4h5l2 2h7v10H3Z" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>研究中心<span>↗</span></Link>
+          <details className="watch-section"><summary>自选股 <span className="watch-count">{watchlist.length}</span></summary>
             <form
               className="watch-add"
               onSubmit={async (e) => {
@@ -525,7 +562,10 @@ export default function Page() {
                   });
                   if (!isAccountCurrent()) return;
                   setWatchlist(updated);
+                  const added = String(new FormData(form).get("symbol")).trim().toUpperCase();
                   form.reset();
+                  router.push(`/stocks/${encodeURIComponent(added)}`);
+                  setMenuOpen(false);
                 } catch (err) {
                   if (!isAccountCurrent()) return;
                   setError(
@@ -536,7 +576,7 @@ export default function Page() {
             >
               <input
                 name="symbol"
-                placeholder="添加股票代码"
+                placeholder="股票代码，如 AAPL"
                 aria-label="自选股票代码"
                 required
               />
@@ -552,20 +592,21 @@ export default function Page() {
               {watchlist.map((w) => (
                 <button
                   key={w.symbol}
+                  aria-current={stockSymbol === w.symbol ? "page" : undefined}
                   disabled={busy}
-                  onClick={() => void newThread(w.symbol)}
-                  aria-label={`研究 ${w.symbol}`}
+                  onClick={() => { router.push(`/stocks/${encodeURIComponent(w.symbol)}`); setMenuOpen(false); }}
+                  aria-label={`查看 ${w.symbol} 行情与新闻`}
                 >
                   <strong>{w.symbol}</strong>
-                  <span>研究 ↗</span>
+                  <span>走势 · 新闻 →</span>
                 </button>
               ))}
               {watchlistLoad.status === "ready" && !watchlist.length && (
                 <p className="watch-empty">添加关注的股票，随时开始研究。</p>
               )}
             </div>
-          </div>
-          <div className="sidebar-label">研究记录</div>
+          </details>
+          <div className="sidebar-label">最近研究 <span>{threads.length}</span></div>
           <nav aria-label="研究记录">
             {threads.map((t) => (
               <button
@@ -595,6 +636,7 @@ export default function Page() {
             ))}
             {!threads.length && <p className="sidebar-empty">尚无研究记录</p>}
           </nav>
+          <details className="sidebar-utilities"><summary>持仓与运行状态</summary>
           <div className="profile-strip" aria-label="Agent 状态">
             <div className="sidebar-label">AGENT 状态</div>
             {["research", "prediction", "portfolio"].map((role, i) => (
@@ -664,19 +706,26 @@ export default function Page() {
               不执行真实交易
             </p>
           </div>
+          </details>
         </aside>
         <main
           className={`desk${canvasOpen ? " canvas-visible" : ""}${canvasExpanded ? " canvas-expanded" : ""}`}
         >
           <div className="conversation-column">
-            {selected ? (
+            {submission ? (
+              <section className="submission-view" aria-label="提交研究">
+                <div className="submission-message">{submission.input}</div>
+                <div className="submission-status" role="status"><span className="entry-loading-orbit" aria-hidden="true" />{submission.stage}</div>
+                <p>请求确认后会自动开始研究，请勿重复发送。</p>
+              </section>
+            ) : selected ? (
               <Chat
                 key={selected.id}
                 thread={selected}
                 drafts={drafts.current}
                 portfolioRef={portfolioRef || undefined}
                 onChange={refresh}
-                onOpenCanvas={showCanvas}
+                onOpenCanvas={() => { router.push("/"); showCanvas(); }}
                 canvasOpen={canvasOpen}
                 profileState={
                   profiles.find((p) => p.role === "research")?.state
@@ -710,7 +759,7 @@ export default function Page() {
                       }
                     }}
                   />
-                  <div className="composer-bottom">
+                  <div className="composer-bottom"><ComposerTools disabled={busy || !!startRequest.current} onSelect={text => setDraft(previous => previous ? `${previous}\n${text}` : text)} />
                     <small className="composer-hint">
                       Enter 发送 · Shift + Enter 换行
                     </small>
@@ -780,16 +829,18 @@ export default function Page() {
               </details>
             )}
           </div>
-          {canvasOpen && (
+          {!hubOpen && !stockSymbol && (
             <aside id="research-canvas" className="canvas-drawer">
               <Canvas
                 onStart={() => newThread()}
-                onClose={closeCanvas}
+                onClose={() => setCanvasOpen(false)}
                 expanded={canvasExpanded}
                 onToggleExpanded={() => setCanvasExpanded((v) => !v)}
               />
             </aside>
           )}
+        {user && stockSymbol && <section className="workspace-hub" aria-label="股票详情"><StockDetail key={user.id+stockSymbol} symbol={stockSymbol} onAnalyze={(symbol) => { newThread(); setDraft(`请分析 ${symbol} 近期走势与相关新闻，展示价格趋势图，说明新闻对公司的潜在影响，标明数据日期与来源。`); }} /></section>}
+        {user && (hubVisited || hubOpen) && <section className="workspace-hub" hidden={!hubOpen} aria-label="研究中心"><ResearchHub key={user.id} embedded /></section>}
         </main>
       </div>
       {showHoldings && (

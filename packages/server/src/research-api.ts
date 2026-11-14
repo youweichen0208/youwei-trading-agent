@@ -1,3 +1,5 @@
+import { translatedNews } from "./news-translation.js";
+import { stockOverview } from "./stock-overview.js";
 import type { Pool } from "pg";
 import { z } from "zod";
 import { symbol, uuid } from "./business.js";
@@ -185,6 +187,9 @@ export class ResearchAPI {
       if (method === "PUT")
         return this.research.settings(owner, await readBody());
     }
+    if (path.length === 3 && path[0] === "stocks" && path[2] === "news-zh" && method === "GET") return translatedNews(path[1]!);
+    if (path.length === 3 && path[0] === "stocks" && path[2] === "overview" && method === "GET")
+      return stockOverview(path[1]!);
     if (path.length === 2 && path[0] === "stocks" && method === "GET")
       return this.stock(owner, path[1]!);
     if (path.length === 2 && path[0] === "forecasts" && method === "GET")
