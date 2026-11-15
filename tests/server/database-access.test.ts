@@ -1159,3 +1159,20 @@ test("restricted worker scheduler persists scans, checkpoints, deferred work and
     ),
   );
 });
+
+test("web role can soft-delete its own threads", async () => {
+  const auth = new AuthStore(pools.web);
+  const user = await auth.register(
+    `${randomUUID()}@access.test`,
+    "test-password-long",
+  );
+  const tasks = new TaskStore(pools.web);
+  const thread = await tasks.createThread(user.id);
+  const business = new BusinessStore(pools.web);
+  assert.deepEqual(await business.deleteThread(user.id, thread.id), {
+    id: thread.id,
+    deleted: true,
+  });
+  assert.deepEqual(await business.threads(user.id), []);
+  await assert.rejects(business.thread(user.id, thread.id), /not_found/);
+});

@@ -18,6 +18,8 @@ export interface ProfileDriver {
   start(profile: ManagedProfile, existingId?: string): Promise<void>;
   stop(profile: ManagedProfile, containerId: string): Promise<void>;
   healthy(profile: ManagedProfile): Promise<boolean>;
+  /** True only when neither the recorded container nor its managed name exists. */
+  absent?(profile: ManagedProfile, containerId: string): Promise<boolean>;
 }
 
 /** Runs only in the host supervisor; Web/Worker/Hermes need no Docker socket. */
@@ -311,6 +313,60 @@ export class ProfileSupervisor {
         audit,
         recoveries,
       };
+    });
+  }
+
+  /** Clear a Profile whose original container is confirmed absent, never a live/replaced one. */
+  async reconcileMissing(profile: ManagedProfile, expectedContainerId: string) {
+    if (!/^[a-f0-9]{64}$/.test(expectedContainerId))
+      throw new Error("invalid_container_identity");
+    const absent = this.driver.absent?.bind(this.driver);
+    if (!absent) throw new Error("missing_container_check_unsupported");
+    return withProfileControl(this.pool, profile.profileId, true, async (c) => {
+      const check = (
+        state: Awaited<ReturnType<ProfileSupervisor["reconciliationState"]>>,
+      ) => {
+        if (state.lifecycle_error === "run_reconciliation_pending")
+          throw new Error("run_reconciliation_pending");
+        if (state.container_id !== expectedContainerId)
+          throw new Error("container_identity_changed");
+        if (!["unknown", "stopping", "stopped"].includes(state.state))
+          throw new Error("profile_not_reconcilable");
+        if (state.submitted || state.tools || state.calls)
+          throw new Error("profile_execution_unresolved");
+      };
+      await profileTransaction(c, profile.ownerId, async () =>
+        check(await this.reconciliationState(c, profile)),
+      );
+      // No DB transaction/owner lock is held while waiting on Docker. The shared
+      // session lock excludes all supervisor starts/stops for this Profile.
+      if (!(await absent(profile, expectedContainerId)))
+        throw new Error("container_present");
+      return profileTransaction(c, profile.ownerId, async () => {
+        check(await this.reconciliationState(c, profile));
+        const updated = await c.query(
+          `WITH locked AS MATERIALIZED (SELECT lock_task_owner($2::uuid) AS found)
+           UPDATE profile_instances
+           SET state='stopped',lifecycle_error=NULL,container_id=NULL,container_started_at=NULL
+           FROM locked
+           WHERE locked.found AND id=$1 AND owner_id=$2
+           RETURNING id`,
+          [profile.profileId, profile.ownerId],
+        );
+        if (updated.rowCount !== 1) throw new Error("profile_owner_missing");
+        const audit = (
+          await c.query(
+            `SELECT sequence FROM profile_lifecycle_audit WHERE owner_id=$1 AND profile_id=$2 ORDER BY sequence DESC LIMIT 1`,
+            [profile.ownerId, profile.profileId],
+          )
+        ).rows[0];
+        return {
+          profileId: profile.profileId,
+          containerId: expectedContainerId,
+          state: "stopped" as const,
+          auditSequence: audit?.sequence ?? null,
+        };
+      });
     });
   }
 

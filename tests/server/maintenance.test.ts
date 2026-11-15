@@ -92,7 +92,12 @@ test("maintenance deletes bounded expired batches without changing durable resea
     attempts: 1000,
     capabilities: 0,
   });
-  assert.deepEqual(await tasks.snapshot(a.owner, a.task.id), snapshot);
+  const { progress: _beforeProgress, ...beforeDurable } = snapshot;
+  const { progress: _afterProgress, ...afterDurable } = await tasks.snapshot(
+    a.owner,
+    a.task.id,
+  );
+  assert.deepEqual(afterDurable, beforeDurable);
   assert.deepEqual(await tasks.audit(a.owner, a.task.id), audit);
   assert.deepEqual(await maintain(pool), {
     skipped: false,

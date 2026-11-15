@@ -250,7 +250,13 @@ test("lost create response is recovered using the same durable identity, then ar
   const snapshot = await store.snapshot(a.owner, a.task.id);
   assert.equal(snapshot.messages.at(-1).content, "Durable final answer");
   await pool.query("DELETE FROM task_events WHERE task_id=$1", [a.task.id]);
-  assert.deepEqual(await store.snapshot(a.owner, a.task.id), snapshot);
+  // Incremental progress events expire; the durable text snapshot must not.
+  const { progress: _before, ...durable } = snapshot;
+  const { progress: _after, ...restored } = await store.snapshot(
+    a.owner,
+    a.task.id,
+  );
+  assert.deepEqual(restored, durable);
 });
 
 test("stop acknowledgement does not release profile until upstream terminal evidence", async () => {

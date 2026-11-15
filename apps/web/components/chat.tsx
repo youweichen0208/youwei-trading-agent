@@ -1,7 +1,11 @@
 "use client";
-import { progressLabel, compactProgress, currentProgress, type ProgressItem } from "../lib/research-progress";
-import { ResearchStatus } from "./research-status";
+import {
+  compactProgress,
+  currentProgress,
   trimProgress,
+  type ProgressItem,
+} from "../lib/research-progress";
+import { ResearchTrace } from "./research-status";
 import { ComposerTools } from "./composer-tools";
 import {
   createContext,
@@ -29,12 +33,16 @@ import {
   taskEvents,
 } from "../lib/client";
 import { useCanvas } from "../lib/canvas";
+import { useSmoothText } from "../lib/smooth-text";
 import { WelcomeHeading } from "./research-welcome";
 const ResultContext = createContext({
   onOpen: () => {},
   open: false,
   busy: false,
 });
+// True while the current task can still extend the last assistant message,
+// including the reconnect path that restores text without an adapter run.
+const StreamingContext = createContext(false);
 
 function savedMessages(
   messages: any[],
@@ -102,12 +110,58 @@ function ResultCard() {
     </button>
   );
 }
+function StreamingCaret() {
+  return <span className="stream-caret" aria-hidden="true" />;
+}
+
+function AssistantText({ text }: { text?: string }) {
+  const last = useAuiState((state) => state.message.isLast);
+  const { text: value, typing } = useSmoothText(
+    text ?? "",
+    useContext(StreamingContext) && last,
+  );
+  const paragraphs = value
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+  const caret = typing ? <StreamingCaret /> : null;
+  if (paragraphs.length < 2)
+    return (
+      <p aria-busy={typing || undefined}>
+        {value}
+        {caret}
+      </p>
+    );
+  return (
+    <>
+      {paragraphs.map((paragraph, index) => (
+        <p
+          key={index}
+          data-step={String(index + 1).padStart(2, "0")}
+          aria-busy={(typing && index === paragraphs.length - 1) || undefined}
+        >
+          {paragraph}
+          {index === paragraphs.length - 1 ? caret : null}
+        </p>
+      ))}
+    </>
+  );
+}
+
+function PlainText({ text }: { text?: string }) {
+  return <p>{text ?? ""}</p>;
+}
+
 function Message() {
   const role = useAuiState((state) => state.message.role);
   return (
     <MessagePrimitive.Root className="chat-message" data-role={role}>
       <div className="message-body">
-        <MessagePrimitive.Parts />
+        <MessagePrimitive.Parts
+          components={{
+            Text: role === "assistant" ? AssistantText : PlainText,
+          }}
+        />
       </div>
       {role === "assistant" && <ResultCard />}
     </MessagePrimitive.Root>
@@ -134,22 +188,77 @@ export function Chat({
 }) {
   const [task, setTask] = useState<any>(thread.tasks?.[0] ?? null),
     [error, setError] = useState("");
-  const [activity,setActivity] = useState<{taskId:string;items:ProgressItem[]}>({taskId:task?.id??"",items:[]});
-  function recordProgress(event:any, taskId:string) {
-    if(event.event === "state.snapshot") {
-      setActivity({taskId,items:event.data.progress ?? []});
-    } else if(event.event === "assistant.delta") {
-      setActivity(previous=>previous.taskId===taskId && previous.items.at(-1)?.data.stage==="response.streaming" ? previous : ({taskId,items:[...(previous.taskId===taskId ? previous.items : []),{sequence:event.sequence,data:{stage:"response.streaming"}}].slice(-100)}));
-    } else if(event.event === "run.progress" || event.event === "run.unknown") {
-      setActivity(previous=>({taskId,items:[...(previous.taskId===taskId ? previous.items.filter(i=>i.sequence!==event.sequence) : []),{sequence:event.sequence,data:event.data}].sort((a,b)=>a.sequence-b.sequence).slice(-100)}));
+  const [activity, setActivity] = useState<{
+    taskId: string;
+    items: ProgressItem[];
+  }>({ taskId: task?.id ?? "", items: [] });
+  // Visible assistant text since the last tool call, shown as the model's
+  // spoken reasoning for that step. Private chain-of-thought is never exposed
+  // by the upstream run stream.
+  const narration = useRef("");
+  const narrationTask = useRef("");
+  function recordProgress(event: any, taskId: string) {
+    if (narrationTask.current !== taskId) {
+      narrationTask.current = taskId;
+      narration.current = "";
+    }
+    if (event.event === "state.snapshot") {
+      narration.current = "";
+      setActivity({ taskId, items: trimProgress(event.data.progress ?? []) });
+    } else if (event.event === "assistant.delta") {
+      if (typeof event.data?.text === "string")
+        narration.current = (narration.current + event.data.text).slice(-4000);
+      setActivity((previous) =>
+        previous.taskId === taskId &&
+        previous.items.at(-1)?.data.stage === "response.streaming"
+          ? previous
+          : {
+              taskId,
+              items: trimProgress([
+                ...(previous.taskId === taskId ? previous.items : []),
+                {
+                  sequence: event.sequence,
+                  data: { stage: "response.streaming" },
+                },
+              ]),
+            },
+      );
+    } else if (
+      event.event === "run.progress" ||
+      event.event === "run.unknown"
+    ) {
+      const data = { ...event.data };
+      if (data.stage === "tool.started") {
+        const text = narration.current.trim();
+        narration.current = "";
+        if (text) data.narration = text.slice(-800);
+      }
+      setActivity((previous) => ({
+        taskId,
+        items: trimProgress(
+          [
+            ...(previous.taskId === taskId
+              ? previous.items.filter((i) => i.sequence !== event.sequence)
+              : []),
+            { sequence: event.sequence, data },
+          ].sort((a, b) => a.sequence - b.sequence),
+        ),
+      }));
     }
   }
-  useEffect(()=>{
-    if(!task?.id || !isTerminal(task.status)) return;
-    let cancelled=false;
-    api(`tasks/${task.id}`).then(snapshot=>{if(!cancelled)setActivity({taskId:task.id,items:snapshot.progress??[]});}).catch(()=>{});
-    return()=>{cancelled=true;};
-  },[task?.id,task?.status]);
+  useEffect(() => {
+    if (!task?.id || !isTerminal(task.status)) return;
+    let cancelled = false;
+    api(`tasks/${task.id}`)
+      .then((snapshot) => {
+        if (!cancelled)
+          setActivity({ taskId: task.id, items: snapshot.progress ?? [] });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [task?.id, task?.status]);
   const active = useRef<any>(task),
     load = useCanvas((s) => s.load),
     sync = useCanvas((s) => s.sync);
@@ -210,7 +319,11 @@ export function Chat({
           setRequestPending(false);
           throw e;
         }
-        active.current = { id: submitted.taskId, status: submitted.status, input: { input } };
+        active.current = {
+          id: submitted.taskId,
+          status: submitted.status,
+          input: { input },
+        };
         setTask(active.current);
         onChange();
         let text = "";
@@ -369,92 +482,43 @@ export function Chat({
     }
   }
   const busy = task && !isTerminal(task.status);
-  const progressItems = activity.taskId===task?.id ? compactProgress(activity.items) : [];
-  const currentAction = error ? "连接或执行出现异常，请查看提示" : currentProgress(progressItems,task?.status ?? "queued");
+  const progressItems =
+    activity.taskId === task?.id ? compactProgress(activity.items) : [];
+  const currentAction = error
+    ? "连接或执行出现异常，请查看提示"
+    : currentProgress(progressItems, task?.status ?? "queued");
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-      <ResultContext.Provider
-        value={{
-          onOpen: onOpenCanvas,
-          open: canvasOpen,
-          busy: !!busy || requestPending,
-        }}
-      >
-        <div className="chat-shell">
-          <div className="panel-heading">
-            <div>
-              <span className="eyebrow">HERMES AGENT</span>
-              <h2>研究对话</h2>
+      <StreamingContext.Provider value={!!busy}>
+        <ResultContext.Provider
+          value={{
+            onOpen: onOpenCanvas,
+            open: canvasOpen,
+            busy: !!busy || requestPending,
+          }}
+        >
+          <div className="chat-shell">
+            <div className="panel-heading">
+              <span className="tag" data-status={task?.status}>
+                {task ? statusName[task.status] : "准备就绪"}
+              </span>
             </div>
-            <span className="tag">
-              {task ? statusName[task.status] : "准备就绪"}
-            </span>
-          </div>
-          <ThreadPrimitive.Root className="thread">
-            <ThreadPrimitive.Viewport className="messages">
-              <header className="research-document-heading">
-                <div className="document-meta"><span>{thread.source === "group" ? "飞书群研究 · 只读" : "研究记录"}</span><span>{task ? statusName[task.status] : "准备就绪"}</span></div>
-                <h1>{thread.title || "新的研究"}</h1>
-                <p>Hermes · {thread.source === "group" ? "飞书群研究" : "研究工作区"}</p>
-                {thread.source === "group" && <aside className="document-notice"><strong>这是一份群研究记录</strong><p>请回到原飞书群 @ 助手续聊。发送 /status 查看进度，或 /stop 停止任务。</p></aside>}
-                <h2>研究内容</h2>
-              </header>
-              <ThreadPrimitive.Empty>
-                <WelcomeHeading />
-              </ThreadPrimitive.Empty>
-              <ThreadPrimitive.Messages components={{ Message }} />
-            </ThreadPrimitive.Viewport>
-            {(busy || activity.taskId===task?.id && activity.items.length>0) && <div className="execution-strip">
-              <details className="research-progress" key={task?.id}>
-                <summary>
-                  {busy ? <ResearchStatus taskId={task.id} status={task.status} connectionError={!!error} currentAction={currentAction} /> : <span>查看执行记录 · {progressItems.length}</span>}
-                  <span className="progress-chevron" aria-hidden="true">⌄</span>
-                </summary>
-                <div className="progress-log">
-                  <p>执行记录 <span>新活动自动更新</span></p>
-                  {progressItems.length ? <ol>{[...progressItems].reverse().map(item=><li key={item.sequence}>{progressLabel(item)}</li>)}</ol> : <p>任务已提交，等待执行事件。</p>}
-                </div>
-              </details>
-              {busy && thread.source !== "group" && <button className="stop-execution" onClick={stop} disabled={task.status === "stopping"} aria-label="停止任务">停止</button>}
-            </div>}
-            {error && (
-              <p className="notice" role="alert">
-                {error}
-                {retryParent && thread.source !== "group" && (
-                  <button
-                    type="button"
-                    disabled={requestPending || !!busy}
-                    onClick={() =>
-                      runtime.thread.startRun({ parentId: retryParent })
-                    }
-                  >
-                    重试这条问题
-                  </button>
+            <ThreadPrimitive.Root className="thread">
+              <ThreadPrimitive.Viewport className="messages">
+                {thread.source === "group" && (
+                  <aside className="document-notice">
+                    <strong>这是一份群研究记录</strong>
+                    <p>
+                      请回到原飞书群 @ 助手续聊。发送 /status 查看进度，或 /stop
+                      停止任务。
+                    </p>
+                  </aside>
                 )}
-              </p>
-            )}
-            {thread.source === "group" ? null : (
-              <ComposerPrimitive.Root className="composer">
-                <ComposerPrimitive.Input
-                  placeholder="向 Hermes 提问…"
-                  aria-label="研究问题"
-                  onChange={(event) => {
-                    const text = event.currentTarget.value;
-                    if (text) drafts.set(thread.id, text);
-                    else drafts.delete(thread.id);
-                  }}
-                  disabled={!!busy || requestPending}
-                />
-                <div className="composer-bottom"><ComposerTools disabled={!!busy || requestPending} onSelect={text => { const current = runtime.thread.composer.getState().text; runtime.thread.composer.setText(current ? `${current}\n${text}` : text); }} />
-                  <small className="composer-hint">
-                    Enter 发送 · Shift + Enter 换行
-                  </small>
-                  <span className="agent-label" data-state={profileState}>
-                    <i />
-                    Hermes Agent
-                  </span>
-                  <ComposerPrimitive.Send
+                <ThreadPrimitive.Empty>
+                  <WelcomeHeading />
+                </ThreadPrimitive.Empty>
+                <ThreadPrimitive.Messages components={{ Message }} />
                 {(busy ||
                   (activity.taskId === task?.id &&
                     activity.items.length > 0)) &&
@@ -468,21 +532,77 @@ export function Chat({
                       onStop={thread.source === "group" ? undefined : stop}
                     />
                   )}
+              </ThreadPrimitive.Viewport>
+              {error && (
+                <p className="notice" role="alert">
+                  {error}
+                  {retryParent && thread.source !== "group" && (
+                    <button
+                      type="button"
+                      disabled={requestPending || !!busy}
+                      onClick={() =>
+                        runtime.thread.startRun({ parentId: retryParent })
+                      }
+                    >
+                      重试这条问题
+                    </button>
                   )}
+                </p>
+              )}
+              {thread.source === "group" ? null : (
+                <ComposerPrimitive.Root className="composer">
+                  <ComposerPrimitive.Input
+                    placeholder="描述你想研究的问题…"
+                    aria-label="研究问题"
+                    onChange={(event) => {
+                      const text = event.currentTarget.value;
+                      if (text) drafts.set(thread.id, text);
+                      else drafts.delete(thread.id);
+                    }}
                     disabled={!!busy || requestPending}
-                    aria-label="发送研究"
-                  >
-                    ↑
-                  </ComposerPrimitive.Send>
-                </div>
-              </ComposerPrimitive.Root>
-            )}
-            <p className="caption">
-              用于研究与模拟 · 所有数值应能追溯到数据来源
-            </p>
-          </ThreadPrimitive.Root>
-        </div>
-      </ResultContext.Provider>
+                  />
+                  <div className="composer-bottom">
+                    <ComposerTools
+                      disabled={!!busy || requestPending}
+                      onSelect={(text) => {
+                        const current = runtime.thread.composer.getState().text;
+                        runtime.thread.composer.setText(
+                          current ? `${current}\n${text}` : text,
+                        );
+                      }}
+                    />
+                    <small className="composer-hint">
+                      Enter 发送 · Shift + Enter 换行
+                    </small>
+                    {profileState === "starting" && (
+                      <span className="composer-state">研究环境准备中</span>
+                    )}
+                    <ComposerPrimitive.Send
+                      disabled={!!busy || requestPending}
+                      aria-label="发送研究"
+                    >
+                      <svg
+                        viewBox="0 0 20 20"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M10 15V5m0 0-4 4m4-4 4 4" />
+                      </svg>
+                    </ComposerPrimitive.Send>
+                  </div>
+                </ComposerPrimitive.Root>
+              )}
+              <p className="caption">
+                用于研究与模拟 · 所有数值应能追溯到数据来源
+              </p>
+            </ThreadPrimitive.Root>
+          </div>
+        </ResultContext.Provider>
+      </StreamingContext.Provider>
     </AssistantRuntimeProvider>
   );
 }

@@ -2,8 +2,9 @@
 
 Run as root on the deployment host with ALL existing and new owner directories.
 No evidence is generated here. Preflight uses the real deployment loader before
-publishing registries or restarting services. Worker and supervisor retain their
-current release and database/service credentials.
+publishing registries or restarting services; the same preflight rebinds each
+Profile's deployment_hash to the sealed compose/runtime identity. Worker and
+supervisor retain their current release and database/service credentials.
 Use --no-start during a drained runtime upgrade to publish verified registries
 without resuming tasks before the remaining services have passed health checks.
 """
@@ -46,13 +47,50 @@ assert {e['profileId'] for e in old} <= set(ids), 'Existing Profiles must be ret
 for line in (PRIVATE / 'capability.env').read_text().splitlines():
     key, value = line.split('=', 1)
     env[key] = value
+# The preflight also rebinds each Profile to the sealed compose hash. Image or
+# compose changes alter that hash, and a stale binding makes the supervisor
+# refuse management while capacity stays occupied.
+database_env = PRIVATE / 'database-services' / 'worker.env'
+assert database_env.is_file() and not database_env.is_symlink(), 'private_database_environment_required'
+assert (database_env.stat().st_mode & 0o077) == 0, 'private_database_environment_required'
+for line in database_env.read_text().splitlines():
+    if line.startswith('DATABASE_URL='):
+        value = line.split('=', 1)[1].strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        env.setdefault('DATABASE_URL', value)
+assert env.get('DATABASE_URL'), 'database_url_required'
 stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
 backup = PRIVATE / ('activation-' + stamp)
 backup.mkdir(mode=0o700)
 candidate = backup / 'candidate-registry.json'
 candidate.write_text(json.dumps(entries))
 release = Path(subprocess.check_output(['systemctl','show','alpha-lab-supervisor','-p','WorkingDirectory','--value'], text=True).strip())
-probe = 'const {loadDeployments}=await import("./packages/hermes-adapter/src/lifecycle.ts"); const p=await loadDeployments(process.argv[1],process.argv.slice(2)); console.log(JSON.stringify({verifiedProfiles:p.length}));'
+probe = '''
+const {loadDeployments} = await import("./packages/hermes-adapter/src/lifecycle.ts");
+const deployments = await loadDeployments(process.argv[1], process.argv.slice(2));
+if (!process.env.DATABASE_URL) throw new Error("database_url_required");
+const pg = (await import("pg")).default;
+const pool = new pg.Pool({connectionString: process.env.DATABASE_URL});
+const client = await pool.connect();
+try {
+  await client.query("BEGIN");
+  for (const d of deployments) {
+    const updated = await client.query(
+      "UPDATE profile_instances SET deployment_hash=$2 WHERE id=$1 AND owner_id=$3 AND role=$4",
+      [d.profileId, d.deploymentHash, d.ownerId, d.role]);
+    if (updated.rowCount !== 1) throw new Error("profile_instance_missing");
+  }
+  await client.query("COMMIT");
+  console.log(JSON.stringify({verifiedProfiles: deployments.length, hashesSynced: deployments.length}));
+} catch (error) {
+  await client.query("ROLLBACK").catch(() => undefined);
+  throw error;
+} finally {
+  client.release();
+  await pool.end();
+}
+'''
 subprocess.run([str(NODE),'--import','tsx','--input-type=module','-e',probe,str(candidate),*[str(p) for p in directories]], cwd=release, env=env, check=True)
 registry = PRIVATE / 'profiles.verified.json'
 units = {}

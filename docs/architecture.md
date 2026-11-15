@@ -59,7 +59,7 @@ research 通过项目自定义工具 `submit_specialist`、`get_specialist_resul
 
 普通问答和研究统一走 `/api/research` 与 Runs API，取消独立的 Chat Completions 执行路径。同一 thread 串行处理用户回合，追问携带已确认的研究上下文；“把它改成一年”能解析到前一轮股票。歧义或缺少持仓时返回澄清问题，用户下一条消息启动新任务，不臆造输入。
 
-assistant-ui 使用 LocalRuntime + ChatModelAdapter，由历史适配器从 BFF 恢复消息；适配器累积 delta 后向 LocalRuntime 提交完整内容。Zustand 只保存页面/Canvas 状态。首版关闭消息编辑、分支和重新生成；显式“重新分析”是新任务。只有 research 的最终回答写入主对话，专项进度显示为任务状态。
+assistant-ui 使用 LocalRuntime + ChatModelAdapter，由历史适配器从 BFF 恢复消息；适配器累积 delta 后向 LocalRuntime 提交完整内容。渲染层用 `useSmoothText` 把到达的增量逐字展开（首屏历史直接整段显示，不重放；最终回答替换前缀不一致时直接吸附），因此即使服务端按批送达，读者看到的也是连续生成的文本。Zustand 只保存页面/Canvas 状态。首版关闭消息编辑、分支和重新生成；显式“重新分析”是新任务。只有 research 的最终回答写入主对话，专项进度显示为任务状态。
 
 ## 4. 可信数据与首版能力
 
@@ -152,6 +152,7 @@ BFF 在发送上游前持久化请求；重复提交返回同一任务。Worker 
 - [Hermes Profiles](https://hermes-agent.nousresearch.com/docs/user-guide/profiles)
 - [Hermes API Server](https://hermes-agent.nousresearch.com/docs/user-guide/features/api-server)
 - [Hermes MCP](https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp)
+- [Hermes 上游源码补丁清单](./hermes-upstream-patches.md)（本项目对锁定上游的实际修改、事件契约与升级规则）
 - [assistant-ui LocalRuntime](https://www.assistant-ui.com/docs/runtimes/custom/local-runtime)
 - [Lightweight Charts](https://tradingview.github.io/lightweight-charts/docs)
 

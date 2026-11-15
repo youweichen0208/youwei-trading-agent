@@ -60,14 +60,14 @@ thread 关联 workspace；用户输入和所引用的持仓版本在受理时固
 | running | 正在执行；可进入 stopping、completed、failed、interrupted、unknown |
 | stopping | 已发停止意图，工作尚未确认退出；可进入 cancelled、interrupted 或 unknown |
 | unknown | 执行结果不确定，保留原身份；核对后进入实际状态，禁止盲目重发 |
-| completed | 全部必需工作完成且最终结果已归档，终态 |
+| completed | 全部必需工作完成且最终结果已归档，关键工具没有未恢复的失败，终态 |
 | failed | 已确认退出且不能满足请求，终态；允许保留部分结果 |
 | cancelled | 取消意图已生效且所有执行确认退出，终态 |
 | interrupted | 已确认运行中断且结果不完整，终态 |
 
 停止操作原子设置 cancelRequestedAt 并阻止新子任务。queued 可直接取消；已运行的父子 Agent 与 Quant 作业都发送停止请求并核对退出。停止请求超时保留 stopping/unknown。若完成事务先提交，stop 返回 completed；若取消意图先提交，迟到结果仅归档为部分结果，不能覆盖取消。
 
-必需子任务失败后停止其余工作，全部退出后父任务 failed；不因收到某个 Agent 的最终文本就认定 completed。上游 cancelled/interrupted 显式映射；未识别状态标为 unknown 并报警。审批能力首版不开放，遇到上游等待审批则停止并报告 unsupported_interaction，不自动批准。
+必需子任务失败后停止其余工作，全部退出后父任务 failed；不因收到某个 Agent 的最终文本就认定 completed。工具失败按关键性区分：只有关键工具（`market_history`、`quant_calculate`、专项分派与结果、`read_holdings`、预测/复盘发布、`save_research_summary`、Canvas 产物）在本次任务内没有后续成功调用时才会终止任务；采集与读取类工具（如 `collect_evidence`、`read_research_context`、`read_dataset`）的失败作为覆盖缺失保留，不单独使任务失败。上游 cancelled/interrupted 显式映射；未识别状态标为 unknown 并报警。审批能力首版不开放，遇到上游等待审批则停止并报告 unsupported_interaction，不自动批准。
 
 工具超过观测期限进入 unknown 后，只有原执行器的实际返回才能保存退出回执并核对为终态；停止信号、超时或后续相同键查询本身不是退出证据。Quant 执行器等待子进程 close。退出回执、事实、工具终态与审计在同一事务中提交，取消后到达的有效事实标记 partial。原执行器丢失且没有持久化回执时仍保留 unknown，不自动重跑或释放 Profile。
 
@@ -100,7 +100,7 @@ Worker 启动及每分钟尝试一次有界清理：删除超过 7 天的 task_e
 
 ## 6. 上游事件归档（迁移 012）
 
-Worker 每步对原 run 做有界 SSE 读取，独立保存 executions.event_cursor；不会把它用作浏览器 Last-Event-ID。每次最多 256 条事件、1 MiB、1.5 秒，帧上限 64 KiB；未完成的帧不推进游标，下次从已提交游标继续。只映射主任务 message.delta 为 assistant.delta，以及工具开始/完成为 run.progress；工具预览、参数、推理、供应商错误与原始终态负载不归档。专项文本不加入主回答。
+Worker 每步对原 run 做有界 SSE 读取，独立保存 executions.event_cursor；不会把它用作浏览器 Last-Event-ID。每次最多 256 条事件、1 MiB、0.5 秒，帧上限 64 KiB；未完成的帧不推进游标，下次从已提交游标继续。只映射主任务 message.delta 为 assistant.delta，以及工具开始/完成为 run.progress，并附带受限的调用摘要（仅白名单字段：标的、日期范围、来源名、结果计数与耗时），以及上游明确提供的中间说明与推理预览（脱敏并截断至 600 字）。自定义 Hermes 运行镜像还会在工具边界发布 `reasoning.delta`（供应商原生推理摘要，按工具调用合并、脱敏并截断至 2000 字），它只进入轨迹的「思考」行，不并入最终回答或 `stream_text`。摘要由上游预览解析后生成；原始预览、参数全文、供应商错误与原始终态负载不归档。专项文本不加入主回答。
 
 游标、主任务 stream_text（最多 500,000 字符）与应用事件同事务保存，受 Worker generation/租约和上游 run 身份约束；重复上游序号不会重复追加。state.snapshot 含 task.stream_text 与稳定的 task.stream_message_id，终态消息沿用该 ID，但内容以可核对的最终回答为准。清理 7 天增量事件不清理文本快照。
 
@@ -146,7 +146,7 @@ Worker 每步对原 run 做有界 SSE 读取，独立保存 executions.event_cur
 
 返回 `collectionRef`、`status`、`evidenceRefs`、内容变化用的 `fingerprint`、逐来源状态和 `failures`。整轮状态为 `completed`、`partial`、`unavailable`，同键采集尚未结束时为 `running`；来源状态区分 `available`、有效查询无结果的 `empty`、`partial` 与 `unavailable`。缺凭证、没有访问权限、分页截断和网络超时均会报告。网络阶段最多 22 秒，共享取消信号覆盖响应体读取，不遗留后台抓取。
 
-`read_research_context({symbol,contextRef?,query?})` 返回原冻结快照，或创建新的 `contextRef`。先获取并保存行情和证据，再创建用于发布的快照；其 `evidenceRefs`、`datasetRefs` 固定当时可用版本。快照含公开/获取时间、公司/SIC 同业关系、用户持仓、旧预测和 active 经验。`trialCandidates` 仅含候选版本与适用条件，不包含规则正文；证据顶层 `eventKey` 为来源及源标识的稳定哈希。没有可信公开时间的证据不能用于声明“经验形成后出现的新事件”。
+`read_research_context({symbol,contextRef?,query?})` 返回原冻结快照，或创建新的 `contextRef`。先获取并保存行情和证据，再创建用于发布的快照；其 `evidenceRefs`、`datasetRefs` 固定当时可用版本。快照含公开/获取时间、公司/SIC 同业关系、用户持仓、旧预测和 active 经验。同一任务中，非分页、非查询的新读取如果存在上一次读取的上下文，只返回新增证据并附 `delta`（旧证据未变化、已省略）；显式 `evidenceOffset` 或 `query` 仍返回普通分页。`trialCandidates` 仅含候选版本与适用条件，不包含规则正文；证据顶层 `eventKey` 为来源及源标识的稳定哈希。没有可信公开时间的证据不能用于声明“经验形成后出现的新事件”。
 
 ### 发布、结算与复盘
 

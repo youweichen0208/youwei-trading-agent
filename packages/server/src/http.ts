@@ -298,6 +298,8 @@ export function createHandler(pool: Pool, origin: string) {
           )
             throw new DomainError("invalid_cursor", 400);
           let cancelled = false;
+          let keepaliveAt = 0;
+          let authAt = 0;
           const encoder = new TextEncoder();
           const stream = new ReadableStream<Uint8Array>({
             async start(controller) {
@@ -337,7 +339,14 @@ export function createHandler(pool: Pool, origin: string) {
                   replay = undefined;
                 }
                 while (!cancelled && !req.signal.aborted) {
-                  await auth.authenticate(token);
+                  const now = Date.now();
+                  // The cursor poll below runs every 200ms; re-checking the
+                  // session at that rate only adds database load. Revocation
+                  // still takes effect within a couple of seconds.
+                  if (now - authAt >= 2000) {
+                    authAt = now;
+                    await auth.authenticate(token);
+                  }
                   const events =
                     replay ?? (await tasks.events(owner, id, cursor));
                   replay = undefined;
@@ -372,9 +381,15 @@ export function createHandler(pool: Pool, origin: string) {
                     cursor >= t.sequence
                   )
                     break;
-                  if (!cancelled)
+                  if (!cancelled && now - keepaliveAt >= 5000) {
+                    keepaliveAt = now;
                     controller.enqueue(encoder.encode(": keepalive\n\n"));
-                  await new Promise((r) => setTimeout(r, 500));
+                  }
+                  // Poll the persisted cursor frequently so streamed answer
+                  // deltas reach the browser within a few hundred ms. The
+                  // query is an indexed range scan; the keepalive above holds
+                  // the connection open for proxies between polls.
+                  await new Promise((r) => setTimeout(r, 200));
                 }
               } catch {
                 if (!cancelled)

@@ -12,7 +12,9 @@ const [mode, registry, directory, profileId, containerId, ...extra] =
 const pool = database();
 try {
   if (
-    !["inspect", "confirm-stopped", "interrupt-run"].includes(mode ?? "") ||
+    !["inspect", "confirm-stopped", "confirm-missing", "interrupt-run"].includes(
+      mode ?? "",
+    ) ||
     !registry ||
     !directory ||
     !z.uuid().safeParse(profileId).success ||
@@ -38,7 +40,9 @@ try {
             containerId!,
             profile.runtime,
           )
-        : await supervisor.reconcileStopped(profile, containerId!);
+        : mode === "confirm-missing"
+          ? await supervisor.reconcileMissing(profile, containerId!)
+          : await supervisor.reconcileStopped(profile, containerId!);
   console.info(JSON.stringify(result, null, 2));
 } catch (error) {
   // Only fixed application codes are printable; upstream/DB errors may contain secrets.
@@ -54,9 +58,15 @@ try {
     "recovery_runtime_changed",
     "native_exit_unconfirmed",
     "unknown_managed_profile",
+    "tool_capability_key_required",
+    "runtime_credential_missing",
     "profile_control_busy",
     "profile_deployment_mismatch",
     "container_identity_changed",
+    "container_present",
+    "missing_container_check_unsupported",
+    "invalid_container_identity",
+    "profile_owner_missing",
     "profile_not_reconcilable",
     "profile_execution_unresolved",
     "container_exit_unconfirmed",
@@ -74,6 +84,7 @@ try {
     console.error(
       "usage: pnpm hermes:reconcile inspect VERIFIED_REGISTRY PREPARED_DIRECTORY PROFILE_ID\n" +
         "       pnpm hermes:reconcile confirm-stopped VERIFIED_REGISTRY PREPARED_DIRECTORY PROFILE_ID EXPECTED_CONTAINER_ID\n" +
+        "       pnpm hermes:reconcile confirm-missing VERIFIED_REGISTRY PREPARED_DIRECTORY PROFILE_ID EXPECTED_CONTAINER_ID\n" +
         "       pnpm hermes:reconcile interrupt-run VERIFIED_REGISTRY PREPARED_DIRECTORY PROFILE_ID TASK_ID",
     );
   process.exitCode = 1;

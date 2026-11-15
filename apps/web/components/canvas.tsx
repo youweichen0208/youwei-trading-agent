@@ -651,7 +651,7 @@ function ResultContent({ artifact, data }: { artifact: Artifact; data: any }) {
     );
   return <p>不支持的结果类型。</p>;
 }
-function ArtifactView({ artifact, view = "preview", refreshKey = 0 }: { artifact: Artifact; view?: "preview" | "data"; refreshKey?: number }) {
+function ArtifactView({ artifact, refreshKey = 0 }: { artifact: Artifact; refreshKey?: number }) {
   const [data, setData] = useState<any>(),
     [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
@@ -697,7 +697,7 @@ function ArtifactView({ artifact, view = "preview", refreshKey = 0 }: { artifact
         <p role="status">读取研究结果…</p>
       ) : (
         <>
-          {view === "data" ? <pre className="result-json" tabIndex={0} aria-label="产物原始数据">{JSON.stringify(data, null, 2)}</pre> : <ResultContent artifact={artifact} data={data} />}
+          <ResultContent artifact={artifact} data={data} />
           {data.metadata?.missingSessions?.length > 0 && (
             <p className="notice">
               存在 {data.metadata.missingSessions.length}{" "}
@@ -744,23 +744,12 @@ function ArtifactView({ artifact, view = "preview", refreshKey = 0 }: { artifact
     </article>
   );
 }
-export function Canvas({
-  onStart,
-  onClose,
-  onToggleExpanded,
-  expanded,
-}: {
-  onStart?: () => void;
-  onClose?: () => void;
-  onToggleExpanded?: () => void;
-  expanded?: boolean;
-}) {
+export function Canvas({ onClose }: { onClose?: () => void }) {
   const artifacts = useCanvas((s) => s.artifacts);
   const contextKey = useCanvas(s => `${s.workspaceId}:${s.historyTaskId}`);
   const [selection, setSelection] = useState<{context:string; id:string}|null>(null);
   const activeId = selection?.context === contextKey && artifacts.some(a => a.artifactId === selection.id) ? selection.id : artifacts[0]?.artifactId;
 
-  const [view,setView] = useState<"preview" | "data">("preview");
   const [refreshKey,setRefreshKey] = useState(0);
   const [downloading,setDownloading] = useState(false);
   const [toolbarError,setToolbarError] = useState("");
@@ -829,56 +818,50 @@ export function Canvas({
   }
   return (
     <section className="canvas-panel" aria-label="研究画布">
-      <div className="panel-heading">
-        <div>
-          <div className="preview-modes" aria-label="产物视图"><button aria-pressed={view === "preview"} onClick={()=>setView("preview")}>预览</button><button aria-pressed={view === "data"} onClick={()=>setView("data")}>数据</button></div>
-          <span className="tag">{artifacts.length} 项结果</span>
-        </div>
-        <div className="canvas-window-actions">
-          <button disabled={!currentArtifact || downloading} onClick={()=>void download()}>{downloading ? "下载中…" : "下载产物"}</button>
-          {onToggleExpanded && (
-            <button
-              className="canvas-expand"
-              aria-label={expanded ? "还原画布" : "放大画布"}
-              aria-pressed={!!expanded}
-              onClick={onToggleExpanded}
-            >
-              {expanded ? "↙" : "⤢"}
-            </button>
-          )}
-          {onClose && (
-            <button
-              className="canvas-close"
-              aria-label="收起画布"
-              onClick={onClose}
-            >
-              ×
-            </button>
-          )}
-        </div>
-      </div>
-      <div className="preview-bar">
-        <button aria-label="上一个产物" disabled={!activeId || artifacts.findIndex(a=>a.artifactId===activeId)===0} onClick={()=>{const i=artifacts.findIndex(a=>a.artifactId===activeId);if(i>0)setSelection({context:contextKey,id:artifacts[i-1]!.artifactId});}}>←</button>
-        <button aria-label="下一个产物" disabled={!activeId || artifacts.findIndex(a=>a.artifactId===activeId)>=artifacts.length-1} onClick={()=>{const i=artifacts.findIndex(a=>a.artifactId===activeId);if(i>=0 && i<artifacts.length-1)setSelection({context:contextKey,id:artifacts[i+1]!.artifactId});}}>→</button>
-        <button aria-label="刷新当前产物" disabled={!currentArtifact} onClick={()=>setRefreshKey(v=>v+1)}>↻</button>
-        <span className="preview-state">{historyTaskId ? "历史快照" : artifacts.length ? "研究结果" : "等待研究"}</span>
-        <select aria-label="选择预览产物" value={activeId ?? ""} disabled={!artifacts.length} onChange={e=>setSelection({context:contextKey,id:e.target.value})}>{!artifacts.length && <option value="">/ 研究工作区</option>}{artifacts.map(a=><option key={a.artifactId} value={a.artifactId}>{a.title}</option>)}</select>
-      </div>
-      {toolbarError && <p role="alert" className="notice">{toolbarError}</p>}
       {artifacts.length > 0 && (
-        <nav className="result-nav" aria-label="研究结果导航">
-          {artifacts.map((a) => (
-            <button
-              key={a.artifactId}
-              title={a.title}
-              aria-pressed={activeId === a.artifactId}
-              onClick={() => setSelection({context:contextKey,id:a.artifactId})}
-            >
-              {a.title}
+        <div className="canvas-toolbar">
+          <select
+            className="canvas-select"
+            aria-label="选择研究产物"
+            value={activeId ?? ""}
+            onChange={(e) => setSelection({ context: contextKey, id: e.target.value })}
+          >
+            {artifacts.map((a) => (
+              <option key={a.artifactId} value={a.artifactId}>
+                {a.title}
+              </option>
+            ))}
+          </select>
+          {historyTaskId && <span className="canvas-toolbar-state">历史快照</span>}
+          <div className="canvas-window-actions">
+            <div className="preview-nav">
+              <button aria-label="上一个产物" disabled={!activeId || artifacts.findIndex(a=>a.artifactId===activeId)===0} onClick={()=>{const i=artifacts.findIndex(a=>a.artifactId===activeId);if(i>0)setSelection({context:contextKey,id:artifacts[i-1]!.artifactId});}}>
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 4 6 10l6 6" /></svg>
+              </button>
+              <button aria-label="下一个产物" disabled={!activeId || artifacts.findIndex(a=>a.artifactId===activeId)>=artifacts.length-1} onClick={()=>{const i=artifacts.findIndex(a=>a.artifactId===activeId);if(i>=0 && i<artifacts.length-1)setSelection({context:contextKey,id:artifacts[i+1]!.artifactId});}}>
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m8 4 6 6-6 6" /></svg>
+              </button>
+              <button aria-label="刷新当前产物" disabled={!currentArtifact} onClick={()=>setRefreshKey(v=>v+1)}>
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M16 10a6 6 0 1 1-1.8-4.3M16 4v4h-4" /></svg>
+              </button>
+            </div>
+            <button className="canvas-download" disabled={!currentArtifact || downloading} onClick={()=>void download()}>
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M10 3v9m0 0 3.5-3.5M10 12 6.5 8.5M4 15.5h12" /></svg>
+              <span className="canvas-download-label">{downloading ? "下载中…" : "下载产物"}</span>
             </button>
-          ))}
-        </nav>
+            {onClose && (
+              <button
+                className="canvas-close"
+                aria-label="收起画布"
+                onClick={onClose}
+              >
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15" /></svg>
+              </button>
+            )}
+          </div>
+        </div>
       )}
+      {toolbarError && <p role="alert" className="notice">{toolbarError}</p>}
       {historyTaskId && (
         <div className="notice">
           正在查看历史产物{" "}
@@ -922,40 +905,38 @@ export function Canvas({
                   </button>
                 </div>
               )}
-              <ArtifactView artifact={a} view={view} refreshKey={a.artifactId === activeId ? refreshKey : 0} />
+              <ArtifactView artifact={a} refreshKey={a.artifactId === activeId ? refreshKey : 0} />
             </div>
           ))
         ) : (
           <div className="canvas-idle">
             <div className="canvas-empty">
-              <svg
-                className="empty-chart-icon"
-                viewBox="0 0 48 48"
-                aria-hidden="true"
-              >
-                <path
-                  d="M7 7v34h34M13 29l8-8 7 5 12-14"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                />
-                <circle cx="40" cy="12" r="3" fill="currentColor" />
-              </svg>
+              <span className="empty-art" aria-hidden="true">
+                <svg
+                  className="empty-chart-icon"
+                  viewBox="0 0 48 48"
+                >
+                  <path
+                    d="M8 8v32h32M14 30l8-8 7 5 12-14"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <circle cx="41" cy="13" r="2.5" fill="currentColor" />
+                </svg>
+              </span>
+              <span className="empty-eyebrow">RESEARCH CANVAS</span>
               <h3>研究产物将在这里生成</h3>
               <p>
-                提出问题后，行情、指标与分析结果将在这里呈现。也可以从导航菜单打开已保存的研究。
+                提出问题后，行情、指标与分析结果会在这里呈现；也可以从左侧打开已保存的研究。
               </p>
-              {onStart && (
-                <button className="empty-start" onClick={onStart}>
-                  新建一项研究 ↗
-                </button>
-              )}
-            </div>
-            <div className="empty-types">
-              <span>历史行情</span>
-              <span>MA20 / RSI14</span>
-              <span>预测评估</span>
-              <span>模拟组合</span>
+              <div className="empty-types" aria-hidden="true">
+                <span>行情走势</span>
+                <span>技术指标</span>
+                <span>新闻与结论</span>
+              </div>
             </div>
           </div>
         )}

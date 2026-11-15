@@ -5,6 +5,7 @@
 ## 当前已完成
 
 - 后台 collect/analyze/publish 分阶段执行，预算为 300/300/600 秒；复盘和试验 300 秒。保存已完成交易日截止时间，子任务继承截止时间。
+- `read_research_context` 增量读取：同一任务里新冻结快照的首次读取只返回上次读取后新增的证据（附 `delta`，旧证据说明未变化），避免重新翻完整个快照；显式 `evidenceOffset`/`query` 仍按普通分页。
 - 日报按交易日查询、按股票去重；新增预测与判断变化分别统计，历史积压单独计数。保留通知去重，不重发旧日报。
 - 仅既有飞书绑定账号暂停新增候选（预算 0）并暂停 20 条候选覆盖；63 条历史失败任务保留，未批量重跑。
 - 独立测试账号、真实 AAPL 数据曾完成采集→分析→发布，5/20 日预测、证据引用、2 个卡片落库；约 616 秒。未把测试预测导入生产。
@@ -16,9 +17,10 @@
 
 | 服务/项目 | 当前状态 |
 | --- | --- |
-| Worker / Tools | `20261113-research-repair` |
+| Worker / Tools | Worker `20261115-stream-text-worker`；Tools `20261113-research-repair` |
 | Feishu | `20261113-feishu-symbols` |
-| Web 与入口静态构建 | 保持 `20261112-forecast-production` 版本 |
+| Web 与入口静态构建 | `20261115-stream-text-web`，BUILD_ID `ApSM4D5y4fKE5-2IUeOmt` |
+| Hermes 镜像 | `sha256:cd54b181d56b6b4a794e5e1c3d2417d234aa30c41bdc206b7f63d86bfe0965dd`（含 `reasoning.delta` 补丁） |
 | 数据库 | 已应用 032（候选暂停）、033（澄清上下文） |
 | 自适应证据分页 | 本地代码保留，但生产已回退；该候选真实验收失败，不能随下次发布自动带上 |
 
@@ -26,6 +28,7 @@
 
 ## 优先剩余工作
 
+- **P1：镜像/部署哈希同步（已实现）**：`activate-verified-profiles.py` 现在在同一预检事务中把每个 Profile 的 `profile_instances.deployment_hash` 重绑到当前 sealed compose/runtime 身份；新增受控的 `hermes:reconcile confirm-missing`，仅在原容器 ID 与托管容器名都不存在、且没有未提交执行/未解决工具时清除失效身份。仍需注意 `check-profiles.py` 复用生产容器名会移除原容器；未来可改为隔离命名。
 - **P1：发布可靠性**：保存脱敏的 publish_forecast 参数校验原因，修复后用真实后台流程重验两个期限、证据和页面记录。不要把任务完成或服务存活当作产物通过。
 - **P1：公司实体解析**：当前是已核实别名和规则，不是通用公司名搜索。需建立可更新的公司名、交易所、代码映射，支持歧义、改名、IPO、无数据与未上市的正确区分。
 - **P1：完整对话衔接**：澄清上下文已补，但通用快捷结果与模型历史仍需统一；公司资料追问不应依赖固定命令或让用户重复公司名。

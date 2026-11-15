@@ -100,10 +100,10 @@ pnpm hermes:catalog
 部署在 DigitalOcean，阿里云提供 HTTPS 入口。模型使用已授权的 Claude Code 配置快照，
 行情使用 Alpaca IEX；本项目只做研究和模拟组合分析。
 
-当前发布目录为 `/opt/hermes-alpha-lab/releases/20261112-forecast-production`，公网与源站构建 ID 为 `CuLib1B_up84rxCkS2fQL`。生产 Hermes 镜像为：
+当前 Web 发布目录为 `/opt/hermes-alpha-lab/releases/20261114-tool-trace-web`，公网与源站构建 ID 为 `pRdX6uxRQp1Zal6BrmrX0`；Worker 为 `20261114-tool-trace-worker`，Tools 为 `20261113-research-repair`，Feishu 为 `20261113-feishu-symbols`。生产 Hermes 镜像为：
 
 ```text
-sha256:d3da8c7bc3cc0770bf6eabd109238a6d853a9e0d9cbf273c00ac990c8c141da5
+sha256:cd54b181d56b6b4a794e5e1c3d2417d234aa30c41bdc206b7f63d86bfe0965dd
 ```
 
 主注册表通过 `/var/lib/hermes-alpha-lab/worker/forecast-publications-20261112-r3/current.json` 发布，兼容注册表也已同步为 9 个已验证 Profile。新建 Profile 的准备策略使用同一镜像。多人、准入等功能是否开放仍由既有生产开关决定，不因代码支持多用户就自动开放全部入口。
@@ -215,7 +215,7 @@ DATABASE_URL=postgresql://alpha:local-development-only@127.0.0.1:55439/alpha_tes
 
 任务和所有工具/专项确认结束后，同事务清除能力令牌摘要和密文，旧令牌返回 401。unknown/stopping 执行仍保留原令牌用于核对，不按时间自动轮换。审计查询 `GET /api/tasks/{id}/audit?after=0` 使用用户登录会话，历史结果访问不依赖已退休的工具令牌。
 
-适配器通过私有 `X-Alpha-Tool-Capability` 请求头传给运行环境。**原生 Hermes 不会自动把这个自定义头传给工具。** [可信运行时桥接](services/hermes/README.md)已提供针对固定版本的核心补丁和插件：令牌绑定原始 run，持久化队列只携带不含秘密的运行 ID，工具传输注入令牌与稳定调用 ID。已有本地、源码契约和完整 Hermes 进程验证；三个角色通过实际 Worker、数据库工具网关与 Python 计算保存了五类画布，创建响应丢失后的同键恢复也已验证。早期测试使用受控模型与行情夹具，后续已完成定制镜像、容器隔离、真实模型及 Alpaca 链路验收；其他来源的待接通状态见上文。注册表报告的 `checks` 除前述六项外，还必须包含经过实测的 `toolIdentityInjection: true`。生产报告已通过这一检查；新环境仍需验证，不能跳过门槛直接连接原生 Hermes。
+适配器通过私有 `X-Alpha-Tool-Capability` 请求头传给运行环境。**原生 Hermes 不会自动把这个自定义头传给工具。** [可信运行时桥接](services/hermes/README.md)已提供针对固定版本的核心补丁和插件：令牌绑定原始 run，持久化队列只携带不含秘密的运行 ID，工具传输注入令牌与稳定调用 ID。具体改了哪些上游文件、事件契约与升级规则见 [Hermes 上游源码补丁清单](docs/hermes-upstream-patches.md)。已有本地、源码契约和完整 Hermes 进程验证；三个角色通过实际 Worker、数据库工具网关与 Python 计算保存了五类画布，创建响应丢失后的同键恢复也已验证。早期测试使用受控模型与行情夹具，后续已完成定制镜像、容器隔离、真实模型及 Alpaca 链路验收；其他来源的待接通状态见上文。注册表报告的 `checks` 除前述六项外，还必须包含经过实测的 `toolIdentityInjection: true`。生产报告已通过这一检查；新环境仍需验证，不能跳过门槛直接连接原生 Hermes。
 
 工具包括行情、引用计算、授权数据/结果/用户选定持仓读取、专项任务分派与查询、研究解释保存，以及 Canvas upsert/patch/remove。只有 research 可以分派；prediction 和 portfolio 各最多一个任务，不允许递归。查询专项结果最多等待 25 秒，随后返回当前状态。
 

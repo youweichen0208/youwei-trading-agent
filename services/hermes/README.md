@@ -79,6 +79,13 @@ Bootstrap explicitly disables native deferred tool discovery and connectors.
 Otherwise Hermes replaces the role catalog with `tool_search`/`tool_call`
 wrappers, which the trusted parser rejects before any project tool can run.
 
+Runs also expose the provider's native reasoning summary to authenticated run
+streams as `reasoning.delta`. The adapter buffers reasoning per tool boundary,
+redacts configured secrets, and caps each block at 2000 characters. Reasoning is
+never merged into the final answer text or `stream_text`; a runtime without this
+patch simply omits the event. The full upstream patch inventory, event contract
+and upgrade rules live in [Hermes 上游源码补丁清单](../docs/hermes-upstream-patches.md).
+
 Model-facing catalogs expose plain object schemas. Quant advertises only the
 current role's calculation variant. Canvas advertises that role's components
 and their reference fields, with the conditional reference requirement in the
@@ -246,6 +253,12 @@ file, loopback API port, CPU/memory/PID limits and bounded logs. No host home or
 Docker socket is mounted. Credential files are `0444` inside private `0700`
 directories so the container's unprivileged UID can read only its mounted file.
 Do not relocate those files into a shared/public directory.
+
+Activation also rebinds every Profile's `deployment_hash` to the sealed
+compose/runtime identity in one database transaction. The hash includes the
+compose file, runtime specification, credentials and home identity, so changing
+the image or compose alters it; a stale binding makes the supervisor reject
+management with `profile_deployment_mismatch` while capacity stays occupied.
 
 The upstream s6 initializer prepares the mounted home and drops privileges. Our
 bootstrap refuses root execution, checks owner/Profile/role against the home
@@ -525,12 +538,24 @@ the generated owner Compose project, test Worker processes and database schema.
 
 ## Inspecting and reconciling a stopped Profile
 
-Use the supervisor's private environment and verified deployment files:
+Use the supervisor's private environment and verified deployment files. That
+environment includes the capability key and every verified owner's `worker.env`;
+loading deployments without them fails closed.
 
 ```sh
 pnpm hermes:reconcile inspect VERIFIED_REGISTRY PREPARED_DIRECTORY PROFILE_ID
 pnpm hermes:reconcile confirm-stopped VERIFIED_REGISTRY PREPARED_DIRECTORY PROFILE_ID EXPECTED_CONTAINER_ID
+pnpm hermes:reconcile confirm-missing VERIFIED_REGISTRY PREPARED_DIRECTORY PROFILE_ID EXPECTED_CONTAINER_ID
 ```
+
+`confirm-missing` covers an original container that was removed rather than
+stopped (for example when an isolated acceptance run reused the production
+container name). It requires the recorded 64-character container ID and clears
+the Profile only when Docker confirms neither that ID nor the managed container
+name exists, and no submitted execution or unresolved tool/call remains. It
+clears `container_id`/`container_started_at` and the lifecycle error, writes the
+same immutable audit transition, and never changes task outcomes. A surviving
+container — even stopped — is refused as `container_present`.
 
 `inspect` is read-only. Its JSON contains the bound deployment hash/container ID,
 observed container state, counts of unfinished tasks/submitted executions/unresolved

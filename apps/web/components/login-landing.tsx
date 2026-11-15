@@ -146,16 +146,16 @@ function Preview() {
             className="entry-chart"
             viewBox="0 0 640 270"
             role="img"
-            aria-label="示意折线图：绿色历史走势与虚线预测区间，不代表实际行情"
+            aria-label="示意折线图：蓝色历史走势与虚线预测区间，不代表实际行情"
           >
             <defs>
               <linearGradient id="entry-chart-fill" x1="0" y1="0" x2="0" y2="1">
-                <stop stopColor="#00875a" stopOpacity=".15" />
-                <stop offset="1" stopColor="#00875a" stopOpacity="0" />
+                <stop stopColor="#3370ff" stopOpacity=".16" />
+                <stop offset="1" stopColor="#3370ff" stopOpacity="0" />
               </linearGradient>
             </defs>
             {[35, 80, 125, 170, 215].map((y) => (
-              <line key={y} x1="12" x2="628" y1={y} y2={y} stroke="#e5e8e6" />
+              <line key={y} x1="12" x2="628" y1={y} y2={y} stroke="#eff0f1" />
             ))}
             <path
               d="M14 220 45 197 76 211 107 169 138 153 169 171 200 137 231 159 262 115 293 94 324 119 355 72 386 93 417 61 448 53 448 245 14 245Z"
@@ -164,7 +164,7 @@ function Preview() {
             <path
               d="m14 220 31-23 31 14 31-42 31-16 31 18 31-34 31 22 31-44 31-21 31 25 31-47 31 21 31-32 31-8"
               fill="none"
-              stroke="#00875a"
+              stroke="#3370ff"
               strokeWidth="2.5"
               strokeLinejoin="round"
             />
@@ -187,7 +187,7 @@ function Preview() {
               [417, 61],
               [448, 53],
             ].map(([x, y]) => (
-              <circle key={x} cx={x} cy={y} r="3" fill="#00875a" />
+              <circle key={x} cx={x} cy={y} r="3" fill="#3370ff" />
             ))}
             <text x="12" y="265">
               历史走势
@@ -242,6 +242,7 @@ export function LoginLanding({
   const dialog = useRef<HTMLDialogElement>(null);
   const [opened, setOpened] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [feishuAvailable, setFeishuAvailable] = useState(false);
   const errorRef = useRef<HTMLParagraphElement>(null);
   useEffect(() => {
     if (!opened) return;
@@ -301,9 +302,7 @@ export function LoginLanding({
             HERMES ALPHA LAB <b>三角色协作研究</b>
             <span aria-hidden="true">→</span>
           </a>
-          <h1>
-            让每一次研究，都有据可循
-          </h1>
+          <h1>让每一次研究，都有据可循</h1>
           <p>
             你的美股研究空间。
             <br className="entry-mobile-break" />
@@ -496,6 +495,7 @@ export function LoginLanding({
         ref={dialog}
         className="entry-login-dialog"
         aria-labelledby="entry-login-title"
+        aria-describedby="entry-login-lede"
         onClose={() => setOpened(false)}
         onKeyDown={(event) => {
           if (event.key !== "Tab") return;
@@ -532,95 +532,154 @@ export function LoginLanding({
           aria-label="关闭登录窗口"
           onClick={() => dialog.current?.close()}
         >
-          <span aria-hidden="true">×</span>
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            aria-hidden="true"
+          >
+            <path d="m6 6 12 12M18 6 6 18" />
+          </svg>
         </button>
-        <div className="entry-brand">
-          <Mark />
-          Hermes
-        </div>
-        <span className="entry-kicker">YOUR RESEARCH SPACE</span>
-        <h2 id="entry-login-title">
-          {register ? "开始你的研究旅程" : "欢迎回来。"}
-        </h2>
-        <p>让每一次思考，都有迹可循。</p>
-        <form onSubmit={onSubmit} aria-busy={busy}>
-          <label htmlFor="entry-email">
-            邮箱
-            <input
-              id="entry-email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              placeholder="you@example.com"
-              required
-            />
-          </label>
-          <label htmlFor="entry-password">密码</label>
-          <div className="entry-password">
-            <input
-              id="entry-password"
-              name="password"
-              type={showPassword ? "text" : "password"}
-              minLength={register ? 12 : 1}
-              maxLength={256}
-              autoComplete={register ? "new-password" : "current-password"}
-              aria-describedby={register ? "entry-register-hint" : undefined}
-              required
-              placeholder={register ? "至少 12 个字符" : "输入你的密码"}
-            />
-            <button
-              type="button"
-              aria-label={showPassword ? "隐藏密码" : "显示密码"}
-              aria-pressed={showPassword}
-              onClick={() => setShowPassword(!showPassword)}
-            >
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-              >
-                <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z" />
-                <circle cx="12" cy="12" r="3" />
-                {showPassword && <path d="m3 3 18 18" />}
-              </svg>
-            </button>
-          </div>
-          {register && (
-            <small id="entry-register-hint">
-              密码至少 12 个字符。注册后需开通研究环境。
-            </small>
-          )}
-          {error && (
-            <p
-              ref={errorRef}
-              tabIndex={-1}
-              className="entry-login-error"
-              role="alert"
-            >
-              {error}
+        <div className="entry-login-layout">
+          <aside className="entry-login-panel">
+            <div className="entry-brand">
+              <Mark />
+              <span>Hermes</span>
+            </div>
+            <div className="entry-login-narrative">
+              <span className="entry-kicker">YOUR RESEARCH SPACE</span>
+              <p className="entry-login-panel-title">
+                一个问题，三种视角，
+                <br />
+                一条可回看的研究线索。
+              </p>
+              <ul>
+                {[
+                  "研究、预测、组合三个角色协同作答",
+                  "每条结论都能沿引用回到行情与证据",
+                  "关闭页面后，研究仍在后台继续",
+                ].map((point) => (
+                  <li key={point}>
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="m4 12.5 5 5L20 6.5" />
+                    </svg>
+                    <span>{point}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="entry-login-panel-foot">
+              Research · Understand · Evolve
+            </div>
+          </aside>
+          <div className="entry-login-main">
+            <span className="entry-kicker">
+              {register ? "CREATE ACCOUNT" : "WELCOME BACK"}
+            </span>
+            <h2 id="entry-login-title">
+              {register ? "开始你的研究旅程" : "欢迎回来。"}
+            </h2>
+            <p id="entry-login-lede" className="entry-login-lede">
+              让每一次思考，都有迹可循。
             </p>
-          )}
-          <button
-            className="entry-button entry-button-white entry-submit"
-            disabled={busy}
-          >
-            {busy ? "正在处理…" : register ? "创建账户" : "进入工作台"}
-            <span aria-hidden="true">→</span>
-          </button>
-          <button
-            className="entry-mode-switch"
-            type="button"
-            disabled={busy}
-            onClick={() => onMode(!register)}
-          >
-            {register ? "已有账户？登录" : "还没有账户？注册"}
-          </button>
-        </form>
-        <FeishuLogin />
-        <div className="entry-login-foot">
-          独立研究空间 · 对话与结果持续保存
+            <form onSubmit={onSubmit} aria-busy={busy}>
+              <label htmlFor="entry-email">
+                邮箱
+                <input
+                  id="entry-email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  required
+                />
+              </label>
+              <label htmlFor="entry-password">密码</label>
+              <div className="entry-password">
+                <input
+                  id="entry-password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  minLength={register ? 12 : 1}
+                  maxLength={256}
+                  autoComplete={register ? "new-password" : "current-password"}
+                  aria-describedby={
+                    register ? "entry-register-hint" : undefined
+                  }
+                  required
+                  placeholder={register ? "至少 12 个字符" : "输入你的密码"}
+                />
+                <button
+                  type="button"
+                  aria-label={showPassword ? "隐藏密码" : "显示密码"}
+                  aria-pressed={showPassword}
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                  >
+                    <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z" />
+                    <circle cx="12" cy="12" r="3" />
+                    {showPassword && <path d="m3 3 18 18" />}
+                  </svg>
+                </button>
+              </div>
+              {register && (
+                <small id="entry-register-hint">
+                  密码至少 12 个字符。注册后需开通研究环境。
+                </small>
+              )}
+              {error && (
+                <p
+                  ref={errorRef}
+                  tabIndex={-1}
+                  className="entry-login-error"
+                  role="alert"
+                >
+                  {error}
+                </p>
+              )}
+              <button
+                className="entry-button entry-button-white entry-submit"
+                disabled={busy}
+              >
+                {busy ? "正在处理…" : register ? "创建账户" : "进入工作台"}
+                <span aria-hidden="true">→</span>
+              </button>
+              <button
+                className="entry-mode-switch"
+                type="button"
+                disabled={busy}
+                onClick={() => onMode(!register)}
+              >
+                {register ? "已有账户？登录" : "还没有账户？注册"}
+              </button>
+            </form>
+            {feishuAvailable && (
+              <div className="entry-login-divider">
+                <span>或使用飞书</span>
+              </div>
+            )}
+            <FeishuLogin onStateChange={setFeishuAvailable} />
+            <div className="entry-login-foot">
+              独立研究空间 · 对话与结果持续保存
+            </div>
+          </div>
         </div>
       </dialog>
     </div>

@@ -1,6 +1,8 @@
 import type { ToolCapabilities } from "./tool-context.js";
 import { randomUUID } from "node:crypto";
 import { DomainError, TaskStore, type Task } from "./tasks.js";
+import { failureText } from "./failure-text.js";
+import { fatalToolFailure } from "./tool-policy.js";
 import {
   runSchema,
   UpstreamError,
@@ -26,11 +28,17 @@ For an assigned shadow trial use its frozen evidence and specified method versio
   portfolio: `You are the portfolio specialist. Never delegate, edit holdings or execute trades. read_holdings only the portfolioSnapshotRef selected by the user. Fetch raw daily prices with market_history(adjustment=raw) for that same completed holdings session, then quant_calculate(kind=portfolio) using those saved datasetRefs. A coordinator may supply split-adjusted research history: never use it as raw valuation quotes. If reusing a dataset, read_dataset and verify metadata.adjustment=raw and coverage of the exact holdings date first. read_result before publishing portfolio_summary. If inconsistent_price_basis occurs, fetch the correct raw data and recalculate within this same task; do not ask the coordinator to dispatch you again. Report genuinely missing quotes and null totals/weights as incomplete; do not treat missing prices as zero. Return the saved resultRef and label the portfolio simulated.`,
 };
 
+const languageDirective =
+  "\nOutput language: write all reasoning, progress commentary and the final answer in Simplified Chinese. Keep tool names, parameter names, ticker symbols, ISO dates, JSON keys and numeric values exactly as specified; do not translate identifiers.";
+
 function taskInstructions(task: Task) {
   if (task.input.trialId) {
-    return task.role === "research"
-      ? `You coordinate one isolated shadow experiment arm. Immediately submit_specialist(role=prediction,requestKey="trial-arm",datasetRefs=[],question="Complete only the assigned trial arm using get_trial_context and publish_forecast_trial_arm."). The server carries the assignment. Wait with get_specialist_result and return its receipt. Do not collect new evidence, inspect other research, publish a primary forecast, save a summary or use Canvas. This is a background experiment, not a user answer.`
-      : `You are the prediction specialist for one isolated shadow experiment arm. Call get_trial_context with no arguments. Use only its frozen evidence and the assigned method/lesson version. Form a 5- or 20-session expected return, an 80% return interval, and probability of strictly positive return. Call publish_forecast_trial_arm using its trialId and arm, with four decimal-string distribution fields. Do not fetch fresh evidence, read the other arm, or publish a primary forecast. Return only the saved receipt. The server enforces the future opening deadline.`;
+    return (
+      (task.role === "research"
+        ? `You coordinate one isolated shadow experiment arm. Immediately submit_specialist(role=prediction,requestKey="trial-arm",datasetRefs=[],question="Complete only the assigned trial arm using get_trial_context and publish_forecast_trial_arm."). The server carries the assignment. Wait with get_specialist_result and return its receipt. Do not collect new evidence, inspect other research, publish a primary forecast, save a summary or use Canvas. This is a background experiment, not a user answer.`
+        : `You are the prediction specialist for one isolated shadow experiment arm. Call get_trial_context with no arguments. Use only its frozen evidence and the assigned method/lesson version. Form a 5- or 20-session expected return, an 80% return interval, and probability of strictly positive return. Call publish_forecast_trial_arm using its trialId and arm, with four decimal-string distribution fields. Do not fetch fresh evidence, read the other arm, or publish a primary forecast. Return only the saved receipt. The server enforces the future opening deadline.`) +
+      languageDirective
+    );
   }
   if (task.role === "research" && task.input.researchPhase) {
     const phases: Record<string, string> = {
@@ -40,9 +48,10 @@ function taskInstructions(task: Task) {
       review: "Read the assigned forecast and evaluation, compare its thesis with evidence and record_review. Distinguish direction, magnitude, timing and uncertainty; one case does not prove a lesson.",
     };
     const phase = phases[String(task.input.researchPhase)];
-    if (phase) return `You execute one background research phase using authorized tools only. Reuse saved references in input; never execute trades or invent facts. ${phase}`;
+    if (phase)
+      return `You execute one background research phase using authorized tools only. Reuse saved references in input; never execute trades or invent facts. ${phase}${languageDirective}`;
   }
-  return instructions[task.role];
+  return instructions[task.role] + languageDirective;
 }
 
 export class TaskWorker {
@@ -149,7 +158,7 @@ export class TaskWorker {
             : "running",
         "waiting_for_tools",
       );
-    const toolFailed = operations.some((o) => o.status !== "completed");
+    const toolFailed = fatalToolFailure(operations) !== null;
     const children = await this.store.children(t.owner_id, t.id);
     const childFailed = children.some(
       (ch) => terminal(ch.status) && ch.status !== "completed",
@@ -212,11 +221,7 @@ export class TaskWorker {
         resultRefs,
         datasetRefs,
         text:
-          status === "completed"
-            ? run.output
-            : status === "cancelled"
-              ? "任务已停止。"
-              : "任务未完整完成，请查看任务状态。",
+          status === "completed" ? run.output : failureText(status, reason),
         reason,
         upstreamStatus: run.status,
       });
@@ -272,24 +277,35 @@ export class TaskWorker {
     }
     const children = await this.store.children(t.owner_id, t.id);
     const operations = await this.store.operations(t.owner_id, t.id);
-    const failedChild = children.some(
+    const failedChildTask = children.find(
       (ch) => terminal(ch.status) && ch.status !== "completed",
     );
-    const failedTool = operations.some((op) =>
-      ["failed", "cancelled"].includes(op.status),
-    );
+    const failedChild = !!failedChildTask;
+    // Coverage tools may fail and be reported as missing evidence; only a
+    // critical tool that never succeeded later makes the task unrecoverable.
+    const failedTool = fatalToolFailure(operations);
     if (
       !t.cancel_requested_at &&
       !t.failure_code &&
       (failedChild || failedTool)
-    )
+    ) {
+      const roleLabel =
+        failedChildTask?.role === "prediction"
+          ? "预测"
+          : failedChildTask?.role === "portfolio"
+            ? "组合"
+            : "专项";
       t = await this.store.requestFailure(
         t.owner_id,
         t.id,
         this.id,
         t.generation,
         failedChild ? "required_child_failed" : "required_tool_failed",
+        failedChild
+          ? `${roleLabel}任务${failedChildTask?.status === "cancelled" ? "被取消" : "未完成"}`
+          : `${failedTool!.tool} 调用失败${failedTool!.errorCode ? `（${failedTool!.errorCode}）` : ""}`,
       );
+    }
     if (t.failure_code) await this.stopChildren(t);
     let execution = await this.store.execution(t.owner_id, t.id);
     // This receipt was committed before waiting for children. It survives both
@@ -462,10 +478,14 @@ export class TaskWorker {
     }
     if (operations.some((op) => op.status === "unknown"))
       return this.defer(t, "unknown", "waiting_for_tools", 5000);
+    // Re-claim as soon as the service scan comes around: the 1s idle gap that
+    // used to sit between two upstream samples made streamed text arrive in
+    // paragraphs. The lease is still released, so stop and state checks run.
     return this.defer(
       t,
       run.status === "stopping" ? "stopping" : "running",
       null,
+      250,
     );
   }
 }

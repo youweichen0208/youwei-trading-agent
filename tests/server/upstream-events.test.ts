@@ -22,10 +22,13 @@ test("native SSE identity, replay gaps and bounded safe event mapping", async ()
     frame(2, "message.delta", { delta: "你好 private-api-key" }) +
       frame(3, "tool.completed", {
         tool: "market_history",
-        preview: "SECRET",
+        preview: '{"symbol":"NVDA","token":"private-api-key"}',
         args: { price: 42 },
+        duration: 2.5,
       }) +
-      frame(4, "reasoning.available", { text: "private reasoning" }) +
+      frame(4, "reasoning.available", { text: "summarized reasoning" }) +
+      frame(5, "message.interim", { text: "checking filings" }) +
+      frame(6, "reasoning.delta", { text: "native summary" }) +
       ": stream closed\r\n\r\n",
     1,
   );
@@ -35,10 +38,31 @@ test("native SSE identity, replay gaps and bounded safe event mapping", async ()
     limited: false,
     events: [
       { sequence: 2, kind: "message.delta", text: "你好 [redacted]" },
-      { sequence: 3, kind: "tool.completed", tool: "market_history" },
-      { sequence: 4, kind: "reasoning.available" },
+      {
+        sequence: 3,
+        kind: "tool.completed",
+        tool: "market_history",
+        preview: '{"symbol":"NVDA","token":"[redacted]"}',
+        durationSeconds: 2.5,
+      },
+      {
+        sequence: 4,
+        kind: "reasoning.available",
+        text: "summarized reasoning",
+      },
+      { sequence: 5, kind: "message.interim", text: "checking filings" },
+      { sequence: 6, kind: "reasoning.delta", text: "native summary" },
     ],
   });
+  const capped = await sample(
+    frame(2, "tool.started", {
+      tool: "collect_evidence",
+      preview: "x".repeat(5000),
+    }),
+    -1,
+  );
+  assert.equal(capped.events[0]!.preview!.length, 2048);
+  assert.equal(capped.events[0]!.durationSeconds, undefined);
   assert.equal(
     (await sample(frame(5, "message.delta", { delta: "gap" }))).gap,
     true,

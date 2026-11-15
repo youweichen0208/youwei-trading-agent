@@ -69,6 +69,9 @@ class Engine implements ProfileDriver {
     await this.onStop();
     this.state!.status = "stopped";
   }
+  async absent() {
+    return this.state === undefined;
+  }
 }
 async function setup() {
   const owner = (
@@ -372,6 +375,36 @@ test("operator inspects without mutation and reconciles the original stopped con
   assert.equal(a.creates(), 2);
 });
 
+test("confirm-missing clears only an absent original container and never a replacement", async () => {
+  const a = await uncertainStop();
+  const id = a.engine.state!.id;
+  a.engine.state = undefined;
+  const result = (await a.supervisor.reconcileMissing(a.profile, id))!;
+  assert.equal(result.state, "stopped");
+  const state = await a.state();
+  assert.equal(state.state, "stopped");
+  assert.equal(state.lifecycle_error, null);
+  assert.equal(state.container_id, null);
+  assert.equal(state.container_started_at, null);
+  const receipt = (
+    await pool.query(
+      "SELECT * FROM profile_lifecycle_audit WHERE sequence=$1",
+      [result.auditSequence],
+    )
+  ).rows[0];
+  assert.equal(receipt.previous_container_id, id);
+  assert.equal(receipt.container_id, null);
+  assert.equal(receipt.state, "stopped");
+
+  // A surviving container, even stopped, is not "missing".
+  const b = await uncertainStop();
+  const replacement = b.engine.state!.id;
+  await assert.rejects(
+    b.supervisor.reconcileMissing(b.profile, replacement),
+    /container_present/,
+  );
+});
+
 test("reconciliation refuses unresolved runs including a lost create and never changes task evidence", async () => {
   const a = await setup();
   const root = await a.submit();
@@ -387,6 +420,10 @@ test("reconciliation refuses unresolved runs including a lost create and never c
   const before = await tasks.execution(a.owner, root.id);
   await assert.rejects(
     a.supervisor.reconcileStopped(a.profile, a.engine.state!.id),
+    /profile_execution_unresolved/,
+  );
+  await assert.rejects(
+    a.supervisor.reconcileMissing(a.profile, a.engine.state!.id),
     /profile_execution_unresolved/,
   );
   assert.deepEqual(await tasks.execution(a.owner, root.id), before);

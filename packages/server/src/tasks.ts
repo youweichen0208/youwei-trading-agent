@@ -5,6 +5,12 @@ import {
 import { createHash, randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 import { transaction, lockOwner } from "./db.js";
+import { toolDetail } from "./tool-summary.js";
+import {
+  criticalTools,
+  fatalToolFailure,
+  type ToolOperation,
+} from "./tool-policy.js";
 import type { EventBatch } from "../../hermes-adapter/src/events.js";
 
 export type Role = "research" | "prediction" | "portfolio";
@@ -646,7 +652,7 @@ export class TaskStore {
             : status === "unknown"
               ? "run.unknown"
               : "run.progress",
-          { status },
+          { status, reason },
         );
       }
       return this.task(c, owner, id);
@@ -680,9 +686,12 @@ export class TaskStore {
       if (status === "cancelled" && !t.cancel_requested_at)
         throw new DomainError("cancel_not_requested");
       const operations = (
-        await c.query("SELECT status FROM tool_operations WHERE task_id=$1", [
-          id,
-        ])
+        await c.query<ToolOperation>(
+          `SELECT CASE kind WHEN 'market' THEN 'market_history' ELSE 'quant_calculate' END AS tool,
+           status,error_code,coalesce(finished_at,started_at) AS at
+           FROM tool_operations WHERE task_id=$1`,
+          [id],
+        )
       ).rows;
       if (
         operations.some((o) =>
@@ -690,10 +699,7 @@ export class TaskStore {
         )
       )
         throw new DomainError("tools_still_running");
-      if (
-        status === "completed" &&
-        operations.some((o) => o.status !== "completed")
-      )
+      if (status === "completed" && fatalToolFailure(operations))
         throw new DomainError("required_tool_failed");
       if (
         (
@@ -708,8 +714,19 @@ export class TaskStore {
         status === "completed" &&
         (
           await c.query(
-            `SELECT 1 FROM tool_calls WHERE task_id=$1 AND (response ? 'error' OR ${unresolvedCanvasCorrection})`,
-            [id],
+            `SELECT 1 FROM tool_calls WHERE task_id=$1 AND (
+              (${unresolvedCanvasCorrection})
+              OR (
+                response ? 'error' AND tool = ANY($2::text[])
+                AND NOT EXISTS (
+                  SELECT 1 FROM tool_calls ok
+                  WHERE ok.task_id=tool_calls.task_id AND ok.owner_id=tool_calls.owner_id
+                    AND ok.tool=tool_calls.tool AND ok.created_at>=tool_calls.created_at
+                    AND ok.response IS NOT NULL AND NOT (ok.response ? 'error')
+                )
+              )
+            )`,
+            [id, [...criticalTools]],
           )
         ).rowCount
       )
@@ -775,7 +792,20 @@ export class TaskStore {
         )
       ).rows.map((r) => r.body);
       const progress = (await c.query(
-        "SELECT sequence,jsonb_build_object('stage',data->>'stage','tool',data->>'tool','status',data->>'status','role',data->>'role') AS data FROM task_events WHERE task_id=$1 AND owner_id=$2 AND event IN ('run.progress','run.unknown') ORDER BY sequence DESC LIMIT 100",
+        `WITH steps AS (
+           SELECT sequence, data FROM task_events
+           WHERE task_id=$1 AND owner_id=$2 AND event IN ('run.progress','run.unknown')
+             AND COALESCE(data->>'stage','') NOT IN ('reasoning.available','reasoning.delta','message.interim')
+           ORDER BY sequence DESC LIMIT 100
+         ), thoughts AS (
+           SELECT sequence, data FROM task_events
+           WHERE task_id=$1 AND owner_id=$2 AND event IN ('run.progress','run.unknown')
+             AND data->>'stage' IN ('reasoning.available','reasoning.delta','message.interim')
+           ORDER BY sequence DESC LIMIT 200
+         )
+         SELECT sequence,jsonb_build_object('stage',data->>'stage','tool',data->>'tool','status',data->>'status','role',data->>'role','detail',data->>'detail','reason',data->>'reason') AS data
+         FROM (SELECT * FROM steps UNION ALL SELECT * FROM thoughts) merged
+         ORDER BY sequence DESC`,
         [id, owner],
       )).rows.reverse();
       return {
@@ -830,13 +860,34 @@ export class TaskStore {
             text: event.text,
           });
         } else if (
+          [
+            "message.interim",
+            "reasoning.available",
+            "reasoning.delta",
+          ].includes(event.kind) &&
+          event.text
+        ) {
+          // Visible mid-turn commentary or provider reasoning already bounded
+          // and redacted by the runtime; never raw private context.
+          await this.event(c, t, "run.progress", {
+            role: t.role,
+            stage: event.kind,
+            detail: event.text.slice(0, event.kind === "reasoning.delta" ? 2000 : 600),
+          });
+        } else if (
           ["tool.started", "tool.completed"].includes(event.kind) &&
           event.tool
         ) {
+          const detail = toolDetail(
+            event.kind,
+            event.preview,
+            event.durationSeconds,
+          );
           await this.event(c, t, "run.progress", {
             role: t.role,
             stage: event.kind,
             tool: event.tool,
+            ...(detail ? { detail } : {}),
           });
         }
       }
@@ -1097,6 +1148,7 @@ export class TaskStore {
     worker: string,
     generation: number,
     reason: string,
+    detail?: string,
   ) {
     return this.owned(owner, async (c) => {
       const t = await this.task(c, owner, id);
@@ -1110,7 +1162,11 @@ export class TaskStore {
         [id],
       );
       if (!t.failure_code)
-        await this.event(c, t, "run.progress", { status: "stopping", reason });
+        await this.event(c, t, "run.progress", {
+          status: "stopping",
+          reason,
+          ...(detail ? { detail } : {}),
+        });
       return this.task(c, owner, id);
     });
   }
@@ -1134,16 +1190,24 @@ export class TaskStore {
         [id],
       );
       return (
-        await c.query<{
-          id: string;
-          status: string;
-          error_code: string | null;
-          result: Record<string, unknown> | null;
-        }>(
-          `SELECT id,status,error_code,result FROM tool_operations WHERE task_id=$1 AND owner_id=$2
-          UNION ALL SELECT id,CASE WHEN response IS NULL THEN CASE WHEN created_at<now()-interval '45 seconds' THEN 'unknown' ELSE 'running' END
-          WHEN response ? 'error' OR (${unresolvedCanvasCorrection} AND EXISTS(SELECT 1 FROM executions e WHERE e.task_id=tool_calls.task_id AND e.terminal_receipt IS NOT NULL)) THEN 'failed' ELSE 'completed' END AS status,
-          response->>'error' AS error_code,response AS result FROM tool_calls WHERE task_id=$1 AND owner_id=$2`,
+        await c.query<
+          ToolOperation & {
+            id: string;
+            result: Record<string, unknown> | null;
+          }
+        >(
+          `SELECT id,status,error_code,result,tool,at FROM (
+            SELECT o.id,o.status,o.error_code,o.result,
+              CASE o.kind WHEN 'market' THEN 'market_history' ELSE 'quant_calculate' END AS tool,
+              coalesce(o.finished_at,o.started_at) AS at
+            FROM tool_operations o WHERE o.task_id=$1 AND o.owner_id=$2
+            UNION ALL
+            SELECT tool_calls.id,
+              CASE WHEN response IS NULL THEN CASE WHEN created_at<now()-interval '45 seconds' THEN 'unknown' ELSE 'running' END
+              WHEN response ? 'error' OR (${unresolvedCanvasCorrection} AND EXISTS(SELECT 1 FROM executions e WHERE e.task_id=tool_calls.task_id AND e.terminal_receipt IS NOT NULL)) THEN 'failed' ELSE 'completed' END AS status,
+              response->>'error' AS error_code,response AS result,tool,created_at AS at
+            FROM tool_calls WHERE task_id=$1 AND owner_id=$2
+          ) operations ORDER BY at`,
           [id, owner],
         )
       ).rows;

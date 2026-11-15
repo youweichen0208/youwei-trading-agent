@@ -311,7 +311,10 @@ test("persistent snapshot restores final messages after event retention expires"
   const before = await store.snapshot(owner, task.id);
   await pool.query("DELETE FROM task_events WHERE task_id=$1", [task.id]);
   const restored = await store.snapshot(owner, task.id);
-  assert.deepEqual(restored, before);
+  // Incremental progress expires with its events; durable state must not.
+  const { progress: _before, ...durable } = before;
+  const { progress: _after, ...after } = restored;
+  assert.deepEqual(after, durable);
   assert.equal(restored.messages.at(-1).content, "durable answer");
   assert.ok(restored.lastSequence > 0);
   const other = await setup();

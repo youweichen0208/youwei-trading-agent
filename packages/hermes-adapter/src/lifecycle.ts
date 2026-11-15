@@ -288,6 +288,29 @@ export class DockerProfileDriver implements ProfileDriver {
       throw new Error("docker_operation_unconfirmed");
     }
   }
+  async absent(profile: ManagedProfile, containerId: string): Promise<boolean> {
+    const p = await this.deployment(profile);
+    const byId = (
+      await this.docker([
+        "ps",
+        "-a",
+        "--no-trunc",
+        "--filter",
+        `id=${containerId}`,
+      ])
+    ).trim();
+    if (byId) return false;
+    const byName = (
+      await this.docker([
+        "ps",
+        "-a",
+        "--no-trunc",
+        "--filter",
+        `name=^/${p.container}$`,
+      ])
+    ).trim();
+    return !byName;
+  }
   async inspect(profile: ManagedProfile): Promise<ContainerState | undefined> {
     const p = await this.deployment(profile);
     const ids = (

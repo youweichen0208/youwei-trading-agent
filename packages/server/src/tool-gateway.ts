@@ -1,4 +1,5 @@
 import { researchContextView } from "./research-context-view.js";
+import { contextDeltaView } from "./research-context-delta.js";
 import { assertContextResources } from "./context-resources.js";
 import { ExecutionContextStore } from "./execution-context.js";
 import { z } from "zod";
@@ -253,6 +254,36 @@ export class ToolGateway {
     this.forecasts = new ForecastStore(pool);
     this.experiences = new ExperienceStore(pool);
   }
+  /**
+   * A re-freeze after collection normally creates a new contextRef whose
+   * evidence is mostly what the agent already read. Return only the new items
+   * instead of making it page through the snapshot again.
+   */
+  private async contextDelta(
+    ctx: ToolContext,
+    snapshot: any,
+    view: any,
+  ): Promise<any> {
+    const previous = (
+      await this.pool.query(
+        `SELECT response->>'contextRef' AS ref
+         FROM tool_calls
+         WHERE task_id=$1 AND owner_id=$2 AND tool='read_research_context'
+           AND response IS NOT NULL AND response ? 'contextRef'
+         ORDER BY created_at DESC LIMIT 1`,
+        [ctx.taskId, ctx.ownerId],
+      )
+    ).rows[0];
+    if (!previous?.ref || previous.ref === snapshot.contextRef) return view;
+    let previousSnapshot: any;
+    try {
+      previousSnapshot = await this.research.loadContext(ctx.ownerId, previous.ref);
+    } catch {
+      return view;
+    }
+    if (previousSnapshot?.symbol !== snapshot.symbol) return view;
+    return contextDeltaView(snapshot, view, previousSnapshot);
+  }
   async list(ctx: ToolContext) {
     const task = await this.tasks.get(ctx.ownerId, ctx.taskId);
     const descriptors = toolDescriptors(task.role);
@@ -385,30 +416,38 @@ export class ToolGateway {
         case "read_research_context": {
           if (args.evidenceOffset && !args.contextRef)
             throw new DomainError("context_ref_required_for_pagination", 422);
+          let snapshot: any;
           if (args.contextRef) {
-            const snapshot = await this.research.loadContext(
+            snapshot = await this.research.loadContext(
               ctx.ownerId,
               args.contextRef,
             );
             if (args.symbol && snapshot.symbol !== args.symbol)
               throw new DomainError("research_context_symbol_mismatch", 422);
-            response = snapshot;
           } else {
             if (!task.parent_id && !task.input.researchJobId)
               await this.research.touchTemporary(ctx.ownerId, args.symbol);
-            response = await this.research.context(
+            snapshot = await this.research.context(
               ctx.ownerId,
               args.symbol,
               undefined,
               args.query,
             );
           }
-          response = researchContextView(response, args.evidenceOffset ?? 0);
+          response = researchContextView(snapshot, args.evidenceOffset ?? 0);
           if (task.role === "prediction") {
             const { trialCandidates: _trialCandidates, ...primaryContext } =
               response as Record<string, unknown>;
             response = primaryContext;
           }
+          // A fresh read (not explicit pagination or search) of a newer frozen
+          // snapshot only needs the evidence added since the previous read.
+          if (!args.evidenceOffset && !args.query)
+            response = await this.contextDelta(
+              ctx,
+              snapshot,
+              response as Record<string, unknown>,
+            );
           break;
         }
         case "collect_evidence":

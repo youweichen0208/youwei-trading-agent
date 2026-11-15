@@ -13,13 +13,19 @@ export function StockDetail({
     [research, setResearch] = useState<any>(null),
     [error, setError] = useState(""),
     [attempt, retry] = useState(0);
-  const [translation,setTranslation]=useState<any>(null);
+  const [translation, setTranslation] = useState<any>(null);
   const [period, setPeriod] = useState(100);
   useEffect(() => {
     let active = true;
     setData(null);
     setTranslation(null);
-    void api(`stocks/${encodeURIComponent(symbol)}/news-zh`).then(value=>{if(active)setTranslation(value);}).catch(()=>{if(active)setTranslation({unavailable:true,items:[]});});
+    void api(`stocks/${encodeURIComponent(symbol)}/news-zh`)
+      .then((value) => {
+        if (active) setTranslation(value);
+      })
+      .catch(() => {
+        if (active) setTranslation({ unavailable: true, items: [] });
+      });
     setResearch(null);
     setError("");
     void Promise.allSettled([
@@ -132,8 +138,8 @@ export function StockDetail({
                     role="img"
                     aria-label={`${symbol} 日线收盘走势，区间涨跌 ${change!.toFixed(2)}%`}
                   >
-                    <line x1="40" x2="760" y1="220" y2="220" stroke="#e4e8e5" />
-                    <line x1="40" x2="760" y1="40" y2="40" stroke="#e4e8e5" />
+                    <line x1="40" x2="760" y1="220" y2="220" stroke="#eff0f1" />
+                    <line x1="40" x2="760" y1="40" y2="40" stroke="#eff0f1" />
                     <polygon
                       points={`40,220 ${points} 760,220`}
                       fill="url(#price-fill)"
@@ -148,12 +154,12 @@ export function StockDetail({
                       >
                         <stop
                           offset="0%"
-                          stopColor="#00875a"
-                          stopOpacity=".14"
+                          stopColor="#3370ff"
+                          stopOpacity=".16"
                         />
                         <stop
                           offset="100%"
-                          stopColor="#00875a"
+                          stopColor="#3370ff"
                           stopOpacity="0"
                         />
                       </linearGradient>
@@ -161,7 +167,7 @@ export function StockDetail({
                     <polyline
                       points={points}
                       fill="none"
-                      stroke="#00875a"
+                      stroke="#3370ff"
                       strokeWidth="2.5"
                     />
                     <text x="40" y="258">
@@ -267,7 +273,9 @@ export function StockDetail({
                 )}
                 {news.slice(0, 12).map((n: any) => {
                   const d = n.payload ?? {};
-                  const chinese=translation?.items?.find((item:any)=>item.id===n.sourceKey);
+                  const chinese = translation?.items?.find(
+                    (item: any) => item.id === n.sourceKey,
+                  );
                   const safe = /^https?:\/\//.test(d.url ?? "");
                   return (
                     <article
@@ -280,10 +288,30 @@ export function StockDetail({
                           ? new Date(n.publishedAt).toLocaleDateString("zh-CN")
                           : "发布时间未核实"}
                       </p>
-                      <h3>{chinese?.title ?? (translation ? "中文翻译暂不可用" : "正在翻译新闻…")}</h3>
-                      <p>{chinese?.summary ?? (translation ? "请稍后刷新重试，或展开查看原文。" : "中文标题和摘要将在站内显示，无需访问外网。")}</p>
-                      <details className="news-original"><summary>查看英文原文</summary><h3>{d.title}</h3><p>{d.summary}</p></details>
-                      <footer className="news-source-link">来源：{d.publisher ?? "Alpaca News"} {safe && <a href={d.url} target="_blank" rel="noreferrer">阅读渠道原文 ↗</a>}<span>{chinese ? "机器翻译 · 以原文为准" : ""}</span></footer>
+                      <h3>
+                        {chinese?.title ??
+                          (translation ? "中文翻译暂不可用" : "正在翻译新闻…")}
+                      </h3>
+                      <p>
+                        {chinese?.summary ??
+                          (translation
+                            ? "请稍后刷新重试，或展开查看原文。"
+                            : "中文标题和摘要将在站内显示，无需访问外网。")}
+                      </p>
+                      <details className="news-original">
+                        <summary>查看英文原文</summary>
+                        <h3>{d.title}</h3>
+                        <p>{d.summary}</p>
+                      </details>
+                      <footer className="news-source-link">
+                        来源：{d.publisher ?? "Alpaca News"}{" "}
+                        {safe && (
+                          <a href={d.url} target="_blank" rel="noreferrer">
+                            阅读渠道原文 ↗
+                          </a>
+                        )}
+                        <span>{chinese ? "机器翻译 · 以原文为准" : ""}</span>
+                      </footer>
                     </article>
                   );
                 })}
