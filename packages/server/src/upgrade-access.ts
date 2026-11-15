@@ -41,6 +41,11 @@ export async function upgradeRuntimeAccess(
     await grant("web", "SELECT, INSERT", "feishu_identities");
     for (const table of ["feishu_login_challenges", "feishu_oauth_states"])
       await grant("web", "SELECT, INSERT, UPDATE", table);
+    await grant(
+      "worker",
+      "SELECT, INSERT",
+      "profile_preparation_policy_versions",
+    );
     await grant("worker", "UPDATE(deadline)", "tasks");
     await grant(
       "worker",

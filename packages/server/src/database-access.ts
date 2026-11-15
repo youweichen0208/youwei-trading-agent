@@ -64,6 +64,7 @@ const tables = [
   "runtime_recoveries",
   "profile_preparation_jobs",
   "profile_preparation_policy",
+  "profile_preparation_policy_versions",
   "profile_api_ports",
 ];
 
@@ -144,7 +145,7 @@ export async function provisionDatabaseAccess(
       functions.some(
         (fn) => !fn.owned || !allowedFunctions.includes(fn.proname),
       ) ||
-      sequences.length !== 4 ||
+      sequences.length !== 5 ||
       sequences.some(
         (sequence) =>
           ![
@@ -152,6 +153,7 @@ export async function provisionDatabaseAccess(
             "portfolio_snapshots_ordinal_seq",
             "execution_audit_sequence_seq",
             "profile_lifecycle_audit_sequence_seq",
+            "profile_preparation_policy_versions_generation_seq",
           ].includes(sequence.relname),
       )
     )
@@ -244,6 +246,7 @@ export async function provisionDatabaseAccess(
     for (const table of [
       "profile_preparation_jobs",
       "profile_preparation_policy",
+      "profile_preparation_policy_versions",
       "profile_api_ports",
     ])
       await grant("worker", "SELECT, INSERT", table);

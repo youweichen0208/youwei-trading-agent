@@ -32,6 +32,24 @@ import {
   type PreparationJob,
 } from "./preparation-ledger.js";
 
+/** Stable identity of a dedicated automatic root: path, inode and marker id. */
+export async function preparationRootIdentity(root: string) {
+  const marker = z
+    .object({ id: z.uuid() })
+    .strict()
+    .parse(await readProvisionSettings(join(root, ".auto-preparer.json")));
+  const stat = await lstat(root);
+  return digest(json({ root, dev: stat.dev, ino: stat.ino, id: marker.id }));
+}
+/** The whole automatic policy, so a rotated model set needs a new generation. */
+export function preparationSettingsHash(
+  settings: z.infer<typeof provisionSettings>,
+  lastPort: number,
+  rootIdentity: string,
+) {
+  return digest(json({ settings, lastPort, rootIdentity }));
+}
+
 async function syncDirectory(path: string) {
   const file = await open(path, "r");
   try {
@@ -164,24 +182,48 @@ export class AutoProfilePreparer {
         throw new Error("empty_automatic_root_required");
       await publishPrivate(markerPath, json({ id: randomUUID() }));
     }
-    const marker = z
-      .object({ id: z.uuid() })
-      .strict()
-      .parse(await readProvisionSettings(markerPath));
-    const stat = await lstat(root);
-    const rootIdentity = digest(
-      json({ root, dev: stat.dev, ino: stat.ino, id: marker.id }),
+    const rootIdentity = await preparationRootIdentity(root);
+    const settingsHash = preparationSettingsHash(
+      settings,
+      lastPort,
+      rootIdentity,
     );
-    const settingsHash = digest(json({ settings, lastPort, rootIdentity }));
-    await pool.query(
-      "INSERT INTO profile_preparation_policy(root_identity,settings_hash,first_port,last_port) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING",
-      [rootIdentity, settingsHash, settings.firstPort, lastPort],
-    );
-    const policy = (
+    // The newest generation is authoritative; the legacy singleton is only
+    // evidence for the first generation and must agree with it.
+    let policy = (
       await pool.query(
-        "SELECT * FROM profile_preparation_policy WHERE singleton=true",
+        "SELECT * FROM profile_preparation_policy_versions ORDER BY generation DESC LIMIT 1",
       )
     ).rows[0];
+    if (!policy) {
+      const legacy = (
+        await pool.query(
+          "SELECT * FROM profile_preparation_policy WHERE singleton=true",
+        )
+      ).rows[0];
+      if (
+        legacy &&
+        (legacy.root_identity !== rootIdentity ||
+          legacy.settings_hash !== settingsHash ||
+          legacy.first_port !== settings.firstPort ||
+          legacy.last_port !== lastPort)
+      )
+        throw new Error("preparation_policy_changed");
+      if (!legacy)
+        await pool.query(
+          "INSERT INTO profile_preparation_policy(root_identity,settings_hash,first_port,last_port) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING",
+          [rootIdentity, settingsHash, settings.firstPort, lastPort],
+        );
+      await pool.query(
+        "INSERT INTO profile_preparation_policy_versions(root_identity,settings_hash,first_port,last_port) VALUES($1,$2,$3,$4)",
+        [rootIdentity, settingsHash, settings.firstPort, lastPort],
+      );
+      policy = (
+        await pool.query(
+          "SELECT * FROM profile_preparation_policy_versions ORDER BY generation DESC LIMIT 1",
+        )
+      ).rows[0];
+    }
     if (
       !policy ||
       policy.root_identity !== rootIdentity ||
@@ -202,18 +244,7 @@ export class AutoProfilePreparer {
 
   private async validateRoot() {
     await privatePreparationRoot(this.root);
-    const marker = z
-      .object({ id: z.uuid() })
-      .strict()
-      .parse(
-        await readProvisionSettings(join(this.root, ".auto-preparer.json")),
-      );
-    const stat = await lstat(this.root);
-    if (
-      digest(
-        json({ root: this.root, dev: stat.dev, ino: stat.ino, id: marker.id }),
-      ) !== this.rootIdentity
-    )
+    if ((await preparationRootIdentity(this.root)) !== this.rootIdentity)
       throw new Error("preparation_root_changed");
   }
 

@@ -19,8 +19,15 @@ import { setTimeout } from "node:timers/promises";
 import { Pool } from "pg";
 import { migrate } from "../../packages/server/src/migrate.js";
 import { AuthStore } from "../../packages/server/src/auth.js";
-import { AutoProfilePreparer } from "../../packages/hermes-adapter/src/auto-preparation.js";
-import { prepareProfiles } from "../../packages/hermes-adapter/src/provision.js";
+import {
+  AutoProfilePreparer,
+  preparationRootIdentity,
+  preparationSettingsHash,
+} from "../../packages/hermes-adapter/src/auto-preparation.js";
+import {
+  prepareProfiles,
+  provisionSettings,
+} from "../../packages/hermes-adapter/src/provision.js";
 
 const url = process.env.TEST_DATABASE_URL;
 if (!url || !new URL(url).pathname.endsWith("_test"))
@@ -220,6 +227,51 @@ test("immutable policy rejects changed roots, model credentials and port pools",
       [u.id],
     ),
     /immutable_preparation_binding/,
+  );
+});
+
+test("policy versions seed the legacy row and select the latest generation", async (t) => {
+  const { pool, output, preparer, user } = await setup(t);
+  const u = await user();
+  await preparer.prepare(u.id);
+  assert.deepEqual(
+    (
+      await pool.query(
+        "SELECT settings_hash FROM profile_preparation_policy_versions ORDER BY generation",
+      )
+    ).rows.map((r) => r.settings_hash),
+    [
+      (
+        await pool.query(
+          "SELECT settings_hash FROM profile_preparation_policy",
+        )
+      ).rows[0].settings_hash,
+    ],
+  );
+  const next = provisionSettings.parse(settings());
+  next.models.research.name = "next-model";
+  next.models.prediction.name = "next-model";
+  next.models.portfolio.name = "next-model";
+  const rootIdentity = await preparationRootIdentity(output);
+  const nextHash = preparationSettingsHash(next, 31020, rootIdentity);
+  await pool.query(
+    "INSERT INTO profile_preparation_policy_versions(root_identity,settings_hash,first_port,last_port) VALUES($1,$2,$3,$4)",
+    [rootIdentity, nextHash, 31000, 31020],
+  );
+  const reopened = await AutoProfilePreparer.open(pool, next, output, 31020);
+  assert.equal(reopened.root, output);
+  await assert.rejects(
+    AutoProfilePreparer.open(pool, settings(), output, 31020),
+    /preparation_policy_changed/,
+  );
+  await assert.rejects(
+    pool.query("UPDATE profile_preparation_policy_versions SET last_port=32000"),
+  );
+  await assert.rejects(
+    pool.query("DELETE FROM profile_preparation_policy_versions"),
+  );
+  await assert.rejects(
+    pool.query("TRUNCATE profile_preparation_policy_versions"),
   );
 });
 

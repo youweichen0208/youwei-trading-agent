@@ -853,6 +853,7 @@ test("restricted Worker prepares registration jobs while Web cannot read policy 
     for (const table of [
       "profile_preparation_jobs",
       "profile_preparation_policy",
+      "profile_preparation_policy_versions",
       "profile_api_ports",
     ]) {
       await assert.rejects(pools.web.query(`SELECT * FROM ${table}`), denied);
@@ -860,6 +861,27 @@ test("restricted Worker prepares registration jobs while Web cannot read policy 
       await assert.rejects(pools.worker.query(`DELETE FROM ${table}`), denied);
       await assert.rejects(pools.worker.query(`TRUNCATE ${table}`), denied);
     }
+    for (const [rights, expected] of [
+      ["SELECT", true],
+      ["INSERT", true],
+      ["UPDATE", false],
+      ["DELETE", false],
+      ["TRUNCATE", false],
+    ] as const)
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT has_table_privilege($1,$2,$3) AS granted",
+            [
+              credentials.worker.name,
+              `${schema}.profile_preparation_policy_versions`,
+              rights,
+            ],
+          )
+        ).rows[0].granted,
+        expected,
+        `worker ${rights}`,
+      );
     await assert.rejects(
       pools.web.query(
         "INSERT INTO profile_preparation_jobs(owner_id,status) VALUES($1,'blocked')",
