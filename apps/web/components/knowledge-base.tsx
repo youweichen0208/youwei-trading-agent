@@ -287,6 +287,19 @@ export function KnowledgeBase() {
         </div>
       </div>
 
+      {error && data && !unauthorized && (
+        <p className="knowledge-alert" role="alert">
+          {error}
+          <button
+            type="button"
+            className="knowledge-refresh"
+            onClick={() => void load()}
+          >
+            重试
+          </button>
+        </p>
+      )}
+
       {unauthorized ? (
         <div className="knowledge-empty" role="alert">
           <h2>登录已失效</h2>

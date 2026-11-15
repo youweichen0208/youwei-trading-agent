@@ -404,6 +404,18 @@
   margin-top: var(--sp-2);
   font-size: var(--fs-13);
 }
+.knowledge-alert {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin: 0 0 var(--sp-4);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--warning-soft);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-12);
+  color: var(--warning);
+}
 .knowledge-loading {
   padding: var(--sp-10) 0;
   font-size: var(--fs-13);

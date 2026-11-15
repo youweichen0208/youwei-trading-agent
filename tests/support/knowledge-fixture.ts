@@ -78,6 +78,14 @@ export async function seedKnowledge(email: string) {
       [contextId, owner, new Date(Date.now() - 3600_000).toISOString()],
     );
     await pool.query(
+      "INSERT INTO research_contexts(id,owner_id,symbol,as_of,payload) VALUES($1,$2,'AMD',$3,'{}')",
+      [
+        randomUUID(),
+        owner,
+        new Date(Date.now() - 7200_000).toISOString(),
+      ],
+    );
+    await pool.query(
       "INSERT INTO results(id,owner_id,task_id,kind,payload,lineage) VALUES($1,$2,$3,'research_summary',$4,$5)",
       [
         randomUUID(),
@@ -87,6 +95,15 @@ export async function seedKnowledge(email: string) {
           text: "合成研究摘要：证据支持温和上涨，需关注指引变化。",
         }),
         JSON.stringify({ researchContextRef: contextId }),
+      ],
+    );
+    await pool.query(
+      "INSERT INTO results(id,owner_id,task_id,kind,payload,lineage) VALUES($1,$2,$3,'research_summary',$4,'{}')",
+      [
+        randomUUID(),
+        owner,
+        forecast.task_id,
+        JSON.stringify({ text: "无研究上下文的摘要，不应出现在知识库。" }),
       ],
     );
   } finally {

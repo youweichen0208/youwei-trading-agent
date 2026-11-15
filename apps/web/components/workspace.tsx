@@ -1022,8 +1022,16 @@ export default function Workspace() {
             <button
               className="canvas-toggle"
               aria-label={`研究产物，${artifacts.length} 项`}
-              aria-expanded={canvasOpen}
-              aria-controls="research-canvas"
+              aria-expanded={
+                !hubOpen && !knowledgeOpen && !stockSymbol
+                  ? canvasOpen
+                  : undefined
+              }
+              aria-controls={
+                !hubOpen && !knowledgeOpen && !stockSymbol
+                  ? "research-canvas"
+                  : undefined
+              }
               onClick={() => {
                 router.push("/");
                 setCanvasOpen((v) => !v);
