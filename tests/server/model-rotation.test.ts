@@ -781,3 +781,36 @@ test("rotation accepts an owner prepared under an older generation than the poli
     applied.toHash,
   ]);
 });
+
+test("rotation keeps the prepared deployment image", async (t) => {
+  const { pool, output, preparer, user, backupRoot } = await setup(t);
+  const owner = await user();
+  assert.equal((await preparer.prepare(owner.id)).status, "prepared");
+  const manifestPath = join(output, owner.id, "preparation.json");
+  const composePath = join(output, owner.id, "compose.json");
+  const original = JSON.parse(await readFile(manifestPath, "utf8"));
+  const compose = await readFile(composePath, "utf8");
+  const next = rotatedSettings();
+  next.image = `sha256:${"b".repeat(64)}`;
+  const result = await rotateOwnerPreparation(
+    pool,
+    owner.id,
+    next,
+    output,
+    lastPort,
+    backupRoot,
+  );
+  assert.equal(result.changed, true);
+  const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+  // The deployment image belongs to the compose and the verified registry.
+  assert.equal(manifest.image, original.image);
+  assert.notEqual(manifest.image, next.image);
+  assert.equal(await readFile(composePath, "utf8"), compose);
+  for (const profile of manifest.profiles) {
+    const runtime = await readFile(
+      join(output, owner.id, "profiles", profile.id, "runtime.json"),
+      "utf8",
+    );
+    assert.equal(JSON.parse(runtime).model.name, "deepseek-v4.1-flash");
+  }
+});
