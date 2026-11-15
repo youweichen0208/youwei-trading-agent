@@ -10,7 +10,12 @@ export async function seedForecasts(email: string) {
   const url = process.env.TEST_DATABASE_URL;
   if (!url || !new URL(url).pathname.endsWith("_test"))
     throw new Error("Dedicated TEST_DATABASE_URL ending in _test required");
-  const pool = new Pool({ connectionString: url });
+  const pool = new Pool({
+    connectionString: url,
+    ...(process.env.TEST_DATABASE_SCHEMA
+      ? { options: `-c search_path=${process.env.TEST_DATABASE_SCHEMA}` }
+      : {}),
+  });
   try {
     const owner = (
       await pool.query("SELECT id FROM users WHERE email=$1", [email])

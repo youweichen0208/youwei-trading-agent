@@ -258,6 +258,12 @@ test("personal research tools freeze evidence, publish both horizons, render car
     randomUUID(),
   );
   assert.ok(summary.resultRef);
+  const knowledge = await (await request(a.cookie, "knowledge")).json();
+  assert.equal(knowledge.summaries.length, 1);
+  assert.equal(knowledge.summaries[0].symbol, "NVDA");
+  assert.equal(knowledge.summaries[0].text, "Both forward forecasts saved");
+  assert.ok(knowledge.summaries[0].as_of);
+  assert.ok(Array.isArray(knowledge.lessons));
   const hubResponse = await request(a.cookie, "research-hub");
   assert.equal(
     hubResponse.status,
@@ -313,6 +319,10 @@ test("personal research tools freeze evidence, publish both horizons, render car
   assert.equal(
     (await request(b.cookie, `forecasts/${published[0].forecastId}`)).status,
     404,
+  );
+  assert.equal(
+    (await (await request(b.cookie, "knowledge")).json()).summaries.length,
+    0,
   );
 });
 
