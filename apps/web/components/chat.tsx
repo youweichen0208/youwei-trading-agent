@@ -468,6 +468,7 @@ export function Chat({
                       onStop={thread.source === "group" ? undefined : stop}
                     />
                   )}
+                  )}
                     disabled={!!busy || requestPending}
                     aria-label="发送研究"
                   >

@@ -25,6 +25,11 @@ const isThoughtStage = (stage?: string) =>
   stage === "reasoning.delta" ||
   stage === "message.interim";
 
+const isThoughtStage = (stage?: string) =>
+  stage === "reasoning.available" ||
+  stage === "reasoning.delta" ||
+  stage === "message.interim";
+
 /**
  * Bound the live timeline without discarding the model's thinking. Tool/status
  * events keep the newest `limit` rows; reasoning rows keep the newest
@@ -45,6 +50,32 @@ export function trimProgress(
     ...others.slice(-limit),
   ]);
   return items.filter((item) => keep.has(item));
+}
+
+/**
+ * Bound the live timeline without discarding the model's thinking. Tool/status
+ * events keep the newest `limit` rows; reasoning rows keep the newest
+ * `thoughtLimit` so a long run does not hide its earlier thinking.
+ */
+export function trimProgress(
+  items: ProgressItem[],
+  limit = 100,
+  thoughtLimit = 200,
+) {
+  const thoughts: ProgressItem[] = [];
+  const others: ProgressItem[] = [];
+  for (const item of items)
+    (isThoughtStage(item.data.stage) ? thoughts : others).push(item);
+  if (thoughts.length <= thoughtLimit && others.length <= limit) return items;
+  const keep = new Set([
+    ...thoughts.slice(-thoughtLimit),
+    ...others.slice(-limit),
+  ]);
+  return items.filter((item) => keep.has(item));
+    // Once the task is terminal, intermediate queue/running rows would keep a
+    // green "running" icon in a finished trace. Drop them; keep the terminal row.
+    if (!stage && isTerminalStatus(status) && !isTerminalStatus(item.data.status ?? ""))
+      return;
 }
 
     // Once the task is terminal, intermediate queue/running rows would keep a

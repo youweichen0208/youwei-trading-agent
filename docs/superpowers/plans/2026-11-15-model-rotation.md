@@ -354,7 +354,8 @@ DATABASE_URL=OWNER_URL pnpm hermes:rotate-model \
 ```
 - 读两份 settings；校验 `image/gatewayOrigin/firstPort` 相同、`lastPort` 与 policy 一致。
 - 若 `docker ps -q --filter label=lab.alpha.profile` 非空，拒绝 `profile_container_running`。
-- 若 `systemctl is-active --quiet alpha-lab-supervisor` 或 `alpha-lab-worker` 为 active，拒绝 `rotation_services_running`（运行中的 supervisor 会用旧部署 hash 重新封印，抵消解封）。
+- 若 `systemctl is-active --quiet alpha-lab-supervisor`、`alpha-lab-worker` 或 `alpha-lab-preparer` 为 active，拒绝 `rotation_services_running`（运行中的 supervisor 会用旧部署 hash 重新封印，preparer 会把排队用户准备到旧代际）。
+- 若存在 `profile_preparation_jobs.status IN ('queued','preparing')`，`--apply` 拒绝 `preparation_jobs_pending`；dry-run 打印数量警告。
 - 查询 owner：显式参数或 `SELECT owner_id FROM profile_preparation_jobs WHERE status = 'prepared' ORDER BY owner_id`。
 - 调用 `rotateAllOwners`；`--apply` 成功后原子替换 `CURRENT_SETTINGS` 内容为 `NEW_SETTINGS`（0600，旧文件备份到 `BACKUP_ROOT/<timestamp>/provider/profile-settings.json`）。
 - 输出 `{owners, fromHash, toHash, changed, backupRoot}`；dry-run 只打印计划。
