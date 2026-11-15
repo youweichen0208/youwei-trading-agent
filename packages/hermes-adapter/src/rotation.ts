@@ -491,16 +491,16 @@ async function latestPolicy(pool: Pool) {
 }
 
 /**
- * Check one owner without writing: its job must still be prepared and idle,
- * its evidence must be intact, and it must sit on a generation this plan knows
- * (`fromHash` when it still needs rotation, `toHash` after a partial run).
+ * Check one owner without writing: its job must still be prepared and idle and
+ * its evidence must be intact. Owners legitimately sit on older generations
+ * than the current policy (they were prepared before it), so the manifest hash
+ * is not compared with the plan's hashes; `rotateOwnerPreparation` already
+ * binds each runtime to that owner's recorded fingerprints.
  */
 async function inspectRotationOwner(
   pool: Pool,
   rootPath: string,
   ownerId: string,
-  fromHash: string,
-  toHash: string,
 ) {
   const owner = z.uuid().parse(ownerId).toLowerCase();
   const job = (
@@ -536,10 +536,6 @@ async function inspectRotationOwner(
     manifest.requestId !== job.request_id
   )
     throw new Error("preparation_manifest_changed");
-  // Mixed generations must not be rewritten silently: an owner is either on the
-  // generation this plan starts from or already on the target of a crashed run.
-  if (manifest.settingsHash !== fromHash && manifest.settingsHash !== toHash)
-    throw new Error("preparation_policy_changed");
   for (const profile of manifest.profiles) {
     const runtime = await readArtifact(
       join(directory, "profiles", profile.id, "runtime.json"),
@@ -603,9 +599,7 @@ export async function rotateAllOwners(
     throw new Error("preparation_policy_changed");
   if (!apply) {
     const settled = await Promise.all(
-      owners.map(async (owner) =>
-        inspectRotationOwner(pool, rootPath, owner, fromHash, toHash),
-      ),
+      owners.map(async (owner) => inspectRotationOwner(pool, rootPath, owner)),
     );
     return {
       owners,
@@ -620,7 +614,7 @@ export async function rotateAllOwners(
   try {
     for (const owner of owners) {
       // Re-inspect immediately before writing: a stale plan writes nothing.
-      await inspectRotationOwner(pool, rootPath, owner, fromHash, toHash);
+      await inspectRotationOwner(pool, rootPath, owner);
       rotated.push(
         await rotateOwnerPreparation(
           pool,

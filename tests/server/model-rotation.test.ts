@@ -705,3 +705,79 @@ test("rotation restores every rotated owner when a later owner fails", async (t)
   }
   assert.equal(await policy(), before);
 });
+
+test("rotation accepts an owner prepared under an older generation than the policy", async (t) => {
+  const { pool, output, preparer, user, backupRoot } = await setup(t);
+  const owner = await user();
+  assert.equal((await preparer.prepare(owner.id)).status, "prepared");
+  const manifestPath = join(output, owner.id, "preparation.json");
+  const original = JSON.parse(await readFile(manifestPath, "utf8"));
+  const job = (
+    await pool.query<{ settings_hash: string }>(
+      "SELECT settings_hash FROM profile_preparation_jobs WHERE owner_id=$1",
+      [owner.id],
+    )
+  ).rows[0]!;
+  // A newer policy generation appears without re-preparing the owner: exactly
+  // the production skew where existing artifacts keep an older hash.
+  const policySettings = settings();
+  for (const role of ["research", "prediction", "portfolio"] as const)
+    policySettings.models[role]!.name = "policy-only-model";
+  const rootIdentity = await preparationRootIdentity(await realpath(output));
+  const policyHash = preparationSettingsHash(
+    policySettings,
+    lastPort,
+    rootIdentity,
+  );
+  assert.notEqual(policyHash, original.settingsHash);
+  await pool.query(
+    "INSERT INTO profile_preparation_policy_versions(root_identity,settings_hash,first_port,last_port) VALUES($1,$2,$3,$4)",
+    [rootIdentity, policyHash, policySettings.firstPort, lastPort],
+  );
+  // The owner still carries the generation it was prepared under.
+  assert.equal(job.settings_hash, original.settingsHash);
+  const plan = await rotateAllOwners(
+    pool,
+    [owner.id],
+    policySettings,
+    rotatedSettings(),
+    output,
+    lastPort,
+    backupRoot,
+    false,
+  );
+  assert.equal(plan.fromHash, policyHash);
+  assert.equal(plan.changed, true);
+  const applied = await rotateAllOwners(
+    pool,
+    [owner.id],
+    policySettings,
+    rotatedSettings(),
+    output,
+    lastPort,
+    backupRoot,
+    true,
+  );
+  assert.equal(applied.changed, true);
+  const rotated = JSON.parse(await readFile(manifestPath, "utf8"));
+  assert.equal(rotated.settingsHash, applied.toHash);
+  for (const profile of rotated.profiles) {
+    const runtime = await readFile(
+      join(output, owner.id, "profiles", profile.id, "runtime.json"),
+      "utf8",
+    );
+    assert.equal(JSON.parse(runtime).model.name, "deepseek-v4.1-flash");
+    assert.equal(rotated.fingerprints[profile.id], digest(runtime));
+  }
+  // The target generation is appended after the policy the plan started from.
+  const history = (
+    await pool.query<{ settings_hash: string }>(
+      "SELECT settings_hash FROM profile_preparation_policy_versions ORDER BY generation",
+    )
+  ).rows.map((row) => row.settings_hash);
+  assert.deepEqual(history, [
+    original.settingsHash,
+    policyHash,
+    applied.toHash,
+  ]);
+});
