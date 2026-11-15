@@ -358,6 +358,158 @@ test("restore rejects missing or corrupt backups", async (t) => {
   );
 });
 
+test("a failure after the backup restores the owner and rethrows the original error", async (t) => {
+  const { pool, output, preparer, user, backupRoot } = await setup(t);
+  const owner = await user();
+  assert.equal((await preparer.prepare(owner.id)).status, "prepared");
+  const manifestPath = join(output, owner.id, "preparation.json");
+  const originalManifest = JSON.parse(await readFile(manifestPath, "utf8"));
+  const manifestRaw = JSON.stringify(originalManifest, null, 2) + "\n";
+  const seedPath = join(
+    output,
+    ".auto-seeds",
+    `${originalManifest.requestId}.json`,
+  );
+  const seedRaw = await readFile(seedPath, "utf8");
+  const runtimes = new Map<string, string>();
+  const credentials = new Map<string, string>();
+  for (const profile of originalManifest.profiles) {
+    const profileDirectory = join(output, owner.id, "profiles", profile.id);
+    runtimes.set(
+      profile.id,
+      await readFile(join(profileDirectory, "runtime.json"), "utf8"),
+    );
+    credentials.set(
+      profile.id,
+      await readFile(join(profileDirectory, "credentials.json"), "utf8"),
+    );
+  }
+  await pool.query(
+    "UPDATE profile_instances SET deployment_hash=$2 WHERE owner_id=$1",
+    [owner.id, "d".repeat(64)],
+  );
+  // The seal clear is the only post-backup step a test can fail without an
+  // fs-level hook: a persistent write barrier would block the restore too.
+  // Skipping the update makes clearDeploymentHash see a row-count mismatch.
+  await pool.query(
+    `CREATE FUNCTION skip_deployment_seal() RETURNS trigger LANGUAGE plpgsql AS $$
+     BEGIN RETURN NULL; END $$;
+     CREATE TRIGGER skip_deployment_seal BEFORE UPDATE OF deployment_hash ON profile_instances
+     FOR EACH ROW EXECUTE FUNCTION skip_deployment_seal();`,
+  );
+  await assert.rejects(
+    rotateOwnerPreparation(
+      pool,
+      owner.id,
+      rotatedSettings(),
+      output,
+      lastPort,
+      backupRoot,
+    ),
+    /rotation_verification_failed/,
+  );
+  // The backup was completed before the writes, so its presence proves the
+  // write phase started; its bytes are the pre-rotation generation.
+  const [stamp] = await readdir(backupRoot);
+  const backupDirectory = join(backupRoot, stamp!, owner.id);
+  assert.deepEqual(
+    (await readdir(backupDirectory)).sort(),
+    [
+      "preparation.json",
+      "seed.json",
+      ...originalManifest.profiles.flatMap((profile: { id: string }) => [
+        `runtime-${profile.id}.json`,
+        `credentials-${profile.id}.json`,
+      ]),
+    ].sort(),
+  );
+  assert.equal(
+    await readFile(join(backupDirectory, "preparation.json"), "utf8"),
+    manifestRaw,
+  );
+  assert.equal(
+    await readFile(join(backupDirectory, "seed.json"), "utf8"),
+    seedRaw,
+  );
+  for (const profile of originalManifest.profiles) {
+    assert.equal(
+      await readFile(
+        join(backupDirectory, `runtime-${profile.id}.json`),
+        "utf8",
+      ),
+      runtimes.get(profile.id),
+    );
+    assert.equal(
+      await readFile(
+        join(backupDirectory, `credentials-${profile.id}.json`),
+        "utf8",
+      ),
+      credentials.get(profile.id),
+    );
+  }
+  // Every live artifact is back to the backed-up generation, and no
+  // half-written temp file survives.
+  assert.equal(await readFile(manifestPath, "utf8"), manifestRaw);
+  assert.equal(await readFile(seedPath, "utf8"), seedRaw);
+  for (const profile of originalManifest.profiles) {
+    const profileDirectory = join(output, owner.id, "profiles", profile.id);
+    assert.equal(
+      await readFile(join(profileDirectory, "runtime.json"), "utf8"),
+      runtimes.get(profile.id),
+    );
+    assert.equal(
+      await readFile(join(profileDirectory, "credentials.json"), "utf8"),
+      credentials.get(profile.id),
+    );
+    assert.ok(
+      !(await readdir(profileDirectory)).some((name) => name.endsWith(".tmp")),
+    );
+  }
+  // The skipped seal clear left the recorded seals untouched.
+  const sealQuery =
+    "SELECT deployment_hash FROM profile_instances WHERE owner_id=$1";
+  assert.deepEqual(
+    (
+      await pool.query<{ deployment_hash: string | null }>(sealQuery, [
+        owner.id,
+      ])
+    ).rows.map((row) => row.deployment_hash),
+    ["d".repeat(64), "d".repeat(64), "d".repeat(64)],
+  );
+  await pool.query(
+    "DROP TRIGGER skip_deployment_seal ON profile_instances; DROP FUNCTION skip_deployment_seal()",
+  );
+  // The restored generation is exact enough to rotate from again.
+  const rotated = await rotateOwnerPreparation(
+    pool,
+    owner.id,
+    rotatedSettings(),
+    output,
+    lastPort,
+    backupRoot,
+  );
+  assert.equal(rotated.changed, true);
+  const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+  assert.equal(manifest.settingsHash, rotated.toHash);
+  assert.equal(manifest.requestId, originalManifest.requestId);
+  for (const profile of manifest.profiles) {
+    const runtime = await readFile(
+      join(output, owner.id, "profiles", profile.id, "runtime.json"),
+      "utf8",
+    );
+    assert.equal(JSON.parse(runtime).model.name, "deepseek-v4.1-flash");
+    assert.equal(manifest.fingerprints[profile.id], digest(runtime));
+  }
+  assert.deepEqual(
+    (
+      await pool.query<{ deployment_hash: string | null }>(sealQuery, [
+        owner.id,
+      ])
+    ).rows.map((row) => row.deployment_hash),
+    [null, null, null],
+  );
+});
+
 test("rotation refuses an owner with an active task", async (t) => {
   const { pool, output, preparer, user, backupRoot } = await setup(t);
   const owner = await user();

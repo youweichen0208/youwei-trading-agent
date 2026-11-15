@@ -132,7 +132,9 @@ async function clearDeploymentHash(
  * (`home/`) and the published compose/registry documents are never touched:
  * ports, keys and container topology stay bound to the preparation generation.
  * The recorded deployment seal is cleared so a supervisor may restart the
- * profiles against the specs that are now on disk.
+ * profiles against the specs that are now on disk. If any write, read-back
+ * check or seal clear fails after the backup is complete, the owner is restored
+ * from that backup and the original error is rethrown.
  */
 export async function rotateOwnerPreparation(
   pool: Pool,
@@ -315,60 +317,75 @@ export async function rotateOwnerPreparation(
   await writePrivate(join(backupDirectory, "preparation.json"), manifestRaw);
   if (seedRaw !== null)
     await writePrivate(join(backupDirectory, "seed.json"), seedRaw);
-  for (const file of desired) {
-    const profileDirectory = join(directory, "profiles", file.id);
-    await publishAtomic(
-      join(profileDirectory, "runtime.json"),
-      file.runtime.content,
-      file.runtime.mode,
-    );
-    await publishAtomic(
-      join(profileDirectory, "credentials.json"),
-      file.credentials.content,
-      file.credentials.mode,
-    );
-  }
-  await publishAtomic(manifestPath, manifestContent, renderedManifest.mode);
-  if (seedContent !== null) await publishAtomic(seedPath, seedContent, 0o600);
-  // Read back what is on disk; a partial rewrite must never look successful.
-  const verifiedRaw = await readPrivate(
-    manifestPath,
-    "rotation_verification_failed",
-  );
-  let verified: z.infer<typeof manifestSchema>;
+  // The live generation is modified from here on. Any failure (write, read-back
+  // or seal clear) reverts the owner to the exact bytes in this backup before
+  // the error escapes, so a partly written owner never looks rotated. The
+  // backup already exists, which is what makes the restore possible at all.
   try {
-    verified = manifestSchema.parse(JSON.parse(verifiedRaw));
-  } catch {
-    throw new Error("rotation_verification_failed");
-  }
-  if (
-    verifiedRaw !== manifestContent ||
-    verified.settingsHash !== toHash ||
-    verified.requestId !== manifest.requestId
-  )
-    throw new Error("rotation_verification_failed");
-  for (const file of desired) {
-    const profileDirectory = join(directory, "profiles", file.id);
-    const runtime = await readFile(
-      join(profileDirectory, "runtime.json"),
-      "utf8",
+    for (const file of desired) {
+      const profileDirectory = join(directory, "profiles", file.id);
+      await publishAtomic(
+        join(profileDirectory, "runtime.json"),
+        file.runtime.content,
+        file.runtime.mode,
+      );
+      await publishAtomic(
+        join(profileDirectory, "credentials.json"),
+        file.credentials.content,
+        file.credentials.mode,
+      );
+    }
+    await publishAtomic(manifestPath, manifestContent, renderedManifest.mode);
+    if (seedContent !== null) await publishAtomic(seedPath, seedContent, 0o600);
+    // Read back what is on disk; a partial rewrite must never look successful.
+    const verifiedRaw = await readPrivate(
+      manifestPath,
+      "rotation_verification_failed",
     );
+    let verified: z.infer<typeof manifestSchema>;
+    try {
+      verified = manifestSchema.parse(JSON.parse(verifiedRaw));
+    } catch {
+      throw new Error("rotation_verification_failed");
+    }
     if (
-      runtime !== file.runtime.content ||
-      verified.fingerprints[file.id] !== digest(runtime) ||
-      (await readFile(join(profileDirectory, "credentials.json"), "utf8")) !==
-        file.credentials.content
+      verifiedRaw !== manifestContent ||
+      verified.settingsHash !== toHash ||
+      verified.requestId !== manifest.requestId
     )
       throw new Error("rotation_verification_failed");
+    for (const file of desired) {
+      const profileDirectory = join(directory, "profiles", file.id);
+      const runtime = await readFile(
+        join(profileDirectory, "runtime.json"),
+        "utf8",
+      );
+      if (
+        runtime !== file.runtime.content ||
+        verified.fingerprints[file.id] !== digest(runtime) ||
+        (await readFile(join(profileDirectory, "credentials.json"), "utf8")) !==
+          file.credentials.content
+      )
+        throw new Error("rotation_verification_failed");
+    }
+    if (
+      seedContent !== null &&
+      (await readFile(seedPath, "utf8")) !== seedContent
+    )
+      throw new Error("rotation_verification_failed");
+    // Profiles must be free to restart: the seal recorded for the old runtime
+    // no longer matches the specs that are now on disk.
+    await clearDeploymentHash(pool, manifest.ownerId, manifest.profiles);
+  } catch (error) {
+    // A restore that cannot complete is its own fixed code: the caller rolls
+    // back the other owners, and an operator replays this backup by hand.
+    try {
+      await restoreOwnerPreparation(rootPath, owner, backupDirectory);
+    } catch {
+      throw new Error("rotation_restore_failed");
+    }
+    throw error;
   }
-  if (
-    seedContent !== null &&
-    (await readFile(seedPath, "utf8")) !== seedContent
-  )
-    throw new Error("rotation_verification_failed");
-  // Profiles must be free to restart: the seal recorded for the old runtime
-  // no longer matches the specs that are now on disk.
-  await clearDeploymentHash(pool, manifest.ownerId, manifest.profiles);
   return {
     ownerId: owner,
     fromHash: manifest.settingsHash,

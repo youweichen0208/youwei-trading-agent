@@ -13,7 +13,13 @@ import {
 import { rotateAllOwners } from "../packages/hermes-adapter/src/rotation.js";
 
 const run = promisify(execFile);
-const services = ["alpha-lab-supervisor", "alpha-lab-worker"];
+// The preparer would prepare a queued owner under the old hash while rotation
+// rewrites the shared policy, and the supervisor re-seals with the old hash.
+const services = [
+  "alpha-lab-supervisor",
+  "alpha-lab-worker",
+  "alpha-lab-preparer",
+];
 
 /** execFile/fs/systemctl reject with a system error carrying `code`. */
 function errorCode(error: unknown): unknown {
@@ -182,6 +188,21 @@ if (
         console.error(
           `dry-run: apply would refuse while ${active.join(", ")} are active`,
         );
+    }
+    // A queued or in-flight preparation would be prepared against the old
+    // generation once the policy moves; rotation waits until the ledger is idle.
+    const pending = Number(
+      (
+        await pool.query<{ count: string }>(
+          "SELECT count(*) FROM profile_preparation_jobs WHERE status IN ('queued','preparing')",
+        )
+      ).rows[0]!.count,
+    );
+    if (pending) {
+      if (apply) throw new Error("preparation_jobs_pending");
+      console.error(
+        `dry-run: apply would refuse while ${pending} preparation job(s) are queued or preparing`,
+      );
     }
     const targets = owners.length
       ? owners
