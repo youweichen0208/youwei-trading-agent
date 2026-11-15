@@ -209,6 +209,22 @@ test("rotation rewrites runtime specs, fingerprints and seed without touching me
     await readFile(join(backupDirectory, "seed.json"), "utf8"),
     originalSeed,
   );
+  // Rotation keeps each profile's gateway key: only the model policy moves.
+  for (const profile of manifest.profiles) {
+    const live = JSON.parse(
+      await readFile(
+        join(output, owner.id, "profiles", profile.id, "credentials.json"),
+        "utf8",
+      ),
+    );
+    const backup = JSON.parse(
+      await readFile(
+        join(backupDirectory, `credentials-${profile.id}.json`),
+        "utf8",
+      ),
+    );
+    assert.equal(live.apiKey, backup.apiKey);
+  }
   for (const entry of await readdir(backupDirectory))
     assert.equal(
       (await lstat(join(backupDirectory, entry))).mode & 0o777,
@@ -491,4 +507,71 @@ test("rotation requires a prepared owner job", async (t) => {
     ),
     /preparation_job_not_ready/,
   );
+});
+
+test("rotation refuses a manual preparation", async (t) => {
+  const { pool, output, user, backupRoot } = await setup(t);
+  const owner = await user();
+  // Manual preparations have no automatic marker, manifest generation or seed.
+  await pool.query(
+    "UPDATE profile_preparation_jobs SET status='manual',first_port=32000,settings_hash=$2 WHERE owner_id=$1",
+    [owner.id, "c".repeat(64)],
+  );
+  await assert.rejects(
+    rotateOwnerPreparation(
+      pool,
+      owner.id,
+      rotatedSettings(),
+      output,
+      lastPort,
+      backupRoot,
+    ),
+    /preparation_job_not_ready/,
+  );
+});
+
+test("rotation clears the recorded deployment seal so profiles can restart", async (t) => {
+  const { pool, output, preparer, user, backupRoot } = await setup(t);
+  const owner = await user();
+  assert.equal((await preparer.prepare(owner.id)).status, "prepared");
+  const seal = (hash: string) =>
+    pool.query(
+      "UPDATE profile_instances SET deployment_hash=$2 WHERE owner_id=$1",
+      [owner.id, hash],
+    );
+  const seals = async () =>
+    (
+      await pool.query<{ deployment_hash: string | null }>(
+        "SELECT deployment_hash FROM profile_instances WHERE owner_id=$1 ORDER BY role",
+        [owner.id],
+      )
+    ).rows.map((row) => row.deployment_hash);
+  await seal("a".repeat(64));
+  assert.deepEqual(await seals(), [
+    "a".repeat(64),
+    "a".repeat(64),
+    "a".repeat(64),
+  ]);
+  const result = await rotateOwnerPreparation(
+    pool,
+    owner.id,
+    rotatedSettings(),
+    output,
+    lastPort,
+    backupRoot,
+  );
+  assert.equal(result.changed, true);
+  assert.deepEqual(await seals(), [null, null, null]);
+  // A re-sealed generation is cleared even when the rerun changes nothing.
+  await seal("b".repeat(64));
+  const again = await rotateOwnerPreparation(
+    pool,
+    owner.id,
+    rotatedSettings(),
+    output,
+    lastPort,
+    backupRoot,
+  );
+  assert.equal(again.changed, false);
+  assert.deepEqual(await seals(), [null, null, null]);
 });

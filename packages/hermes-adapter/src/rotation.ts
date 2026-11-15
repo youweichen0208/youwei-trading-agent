@@ -106,10 +106,26 @@ async function publishAtomic(path: string, content: string, mode: number) {
   }
 }
 
+/** A rewritten runtime must not keep sealing the previous generation. */
+async function clearDeploymentHash(
+  pool: Pool,
+  owner: string,
+  profiles: { id: string }[],
+) {
+  const cleared = await pool.query(
+    "UPDATE profile_instances SET deployment_hash=NULL WHERE id=ANY($1::uuid[]) AND owner_id=$2",
+    [profiles.map((profile) => profile.id), owner],
+  );
+  if (cleared.rowCount !== profiles.length)
+    throw new Error("rotation_verification_failed");
+}
+
 /**
  * Rewrite one owner's prepared artifacts for a new model generation. Memory
  * (`home/`) and the published compose/registry documents are never touched:
  * ports, keys and container topology stay bound to the preparation generation.
+ * The recorded deployment seal is cleared so a supervisor may restart the
+ * profiles against the specs that are now on disk.
  */
 export async function rotateOwnerPreparation(
   pool: Pool,
@@ -135,11 +151,7 @@ export async function rotateOwnerPreparation(
       [owner],
     )
   ).rows[0];
-  if (
-    !job ||
-    (job.status !== "prepared" && job.status !== "manual") ||
-    job.first_port === null
-  )
+  if (!job || job.status !== "prepared" || job.first_port === null)
     throw new Error("preparation_job_not_ready");
   const firstPort = job.first_port;
   // A running task still reads the current specs; rotation waits for it.
@@ -261,7 +273,10 @@ export async function rotateOwnerPreparation(
         file.runtime.content === current.get(file.id)!.runtime &&
         file.credentials.content === current.get(file.id)!.credentials,
     )
-  )
+  ) {
+    // The generation is already on disk, but a supervisor seal from an earlier
+    // attempt must still be cleared or the profiles can never restart.
+    await clearDeploymentHash(pool, manifest.ownerId, manifest.profiles);
     return {
       ownerId: owner,
       fromHash: manifest.settingsHash,
@@ -269,6 +284,7 @@ export async function rotateOwnerPreparation(
       changed: false,
       backupDirectory: null,
     };
+  }
   // Backup first: a rewrite is only attempted once the exact originals exist.
   const backupDirectory = join(
     await privatePreparationRoot(backupRoot),
@@ -340,6 +356,9 @@ export async function rotateOwnerPreparation(
     (await readFile(seedPath, "utf8")) !== seedContent
   )
     throw new Error("rotation_verification_failed");
+  // Profiles must be free to restart: the seal recorded for the old runtime
+  // no longer matches the specs that are now on disk.
+  await clearDeploymentHash(pool, manifest.ownerId, manifest.profiles);
   return {
     ownerId: owner,
     fromHash: manifest.settingsHash,
