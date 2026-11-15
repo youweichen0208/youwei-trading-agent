@@ -18,6 +18,7 @@
     "hermes:supervise": "tsx scripts/supervise-profiles.ts",
     "hermes:reconcile": "tsx scripts/reconcile-profile.ts",
     "hermes:prepare-auto": "tsx scripts/prepare-profiles-auto.ts",
+    "hermes:rotate-model": "tsx scripts/rotate-model.ts",
     "feishu": "tsx apps/feishu/main.ts"
   },
   "dependencies": {

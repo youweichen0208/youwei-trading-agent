@@ -54,6 +54,12 @@ const seedSchema = z.object({
   settingsHash: hash,
   firstPort: z.number().int(),
 });
+const policySchema = z.object({
+  root_identity: z.string(),
+  settings_hash: hash,
+  first_port: z.number().int(),
+  last_port: z.number().int(),
+});
 
 async function syncDirectory(path: string) {
   const file = await open(path, "r");
@@ -472,4 +478,198 @@ export async function restoreOwnerPreparation(
     )
       throw new Error("rotation_backup_invalid");
   }
+}
+
+async function latestPolicy(pool: Pool) {
+  const row = (
+    await pool.query(
+      "SELECT root_identity,settings_hash,first_port,last_port FROM profile_preparation_policy_versions ORDER BY generation DESC LIMIT 1",
+    )
+  ).rows[0];
+  if (!row) throw new Error("preparation_policy_changed");
+  return policySchema.parse(row);
+}
+
+/**
+ * Check one owner without writing: its job must still be prepared and idle,
+ * its evidence must be intact, and it must sit on a generation this plan knows
+ * (`fromHash` when it still needs rotation, `toHash` after a partial run).
+ */
+async function inspectRotationOwner(
+  pool: Pool,
+  rootPath: string,
+  ownerId: string,
+  fromHash: string,
+  toHash: string,
+) {
+  const owner = z.uuid().parse(ownerId).toLowerCase();
+  const job = (
+    await pool.query<PreparationJob>(
+      "SELECT * FROM profile_preparation_jobs WHERE owner_id=$1",
+      [owner],
+    )
+  ).rows[0];
+  if (!job || job.status !== "prepared" || job.first_port === null)
+    throw new Error("preparation_job_not_ready");
+  const busy = await pool.query(
+    `SELECT 1 FROM tasks t JOIN thread_contexts tc ON tc.thread_id=t.thread_id AND tc.owner_id=t.owner_id
+     WHERE tc.context_id=$1 AND t.status IN ('queued','running','stopping','unknown') LIMIT 1`,
+    [owner],
+  );
+  if (busy.rowCount) throw new Error("profile_busy");
+  const directory = join(rootPath, owner);
+  let manifest: z.infer<typeof manifestSchema>;
+  try {
+    manifest = manifestSchema.parse(
+      JSON.parse(
+        await readPrivate(
+          join(directory, "preparation.json"),
+          "preparation_manifest_changed",
+        ),
+      ),
+    );
+  } catch {
+    throw new Error("preparation_manifest_changed");
+  }
+  if (
+    (manifest.contextId ?? manifest.ownerId) !== owner ||
+    manifest.requestId !== job.request_id
+  )
+    throw new Error("preparation_manifest_changed");
+  // Mixed generations must not be rewritten silently: an owner is either on the
+  // generation this plan starts from or already on the target of a crashed run.
+  if (manifest.settingsHash !== fromHash && manifest.settingsHash !== toHash)
+    throw new Error("preparation_policy_changed");
+  for (const profile of manifest.profiles) {
+    const runtime = await readArtifact(
+      join(directory, "profiles", profile.id, "runtime.json"),
+      "prepared_files_changed",
+    );
+    if (digest(runtime) !== manifest.fingerprints[profile.id])
+      throw new Error("prepared_files_changed");
+  }
+  return manifest.settingsHash;
+}
+
+export type RotationPlan = {
+  owners: string[];
+  fromHash: string;
+  toHash: string;
+  changed: boolean;
+};
+
+/**
+ * Switch every prepared owner to a new model generation. Owners are rewritten
+ * one at a time, each from its own verified backup; if any owner fails, owners
+ * already rewritten are restored in reverse order and nothing is appended. The
+ * policy generation is inserted exactly once, in one transaction, only after
+ * every owner is on the new generation. Settings files belong to the caller:
+ * this function never writes them, so a crash between artifacts and policy can
+ * be healed by rerunning the same plan.
+ */
+export async function rotateAllOwners(
+  pool: Pool,
+  ownerIds: string[],
+  currentSettings: z.infer<typeof provisionSettings>,
+  settings: z.infer<typeof provisionSettings>,
+  root: string,
+  lastPort: number,
+  backupRoot: string,
+  apply: boolean,
+): Promise<RotationPlan> {
+  if (!ownerIds.length) throw new Error("owners_required");
+  const owners = [
+    ...new Set(ownerIds.map((id) => z.uuid().parse(id).toLowerCase())),
+  ];
+  const current = provisionSettings.parse(currentSettings);
+  const next = provisionSettings.parse(settings);
+  z.number()
+    .int()
+    .min(next.firstPort + 2)
+    .max(65535)
+    .parse(lastPort);
+  const rootPath = await privatePreparationRoot(root);
+  const rootIdentity = await preparationRootIdentity(rootPath);
+  const fromHash = preparationSettingsHash(current, lastPort, rootIdentity);
+  const toHash = preparationSettingsHash(next, lastPort, rootIdentity);
+  if (fromHash === toHash) throw new Error("rotation_settings_unchanged");
+  const policy = await latestPolicy(pool);
+  if (
+    policy.root_identity !== rootIdentity ||
+    policy.first_port !== current.firstPort ||
+    policy.last_port !== lastPort ||
+    (policy.settings_hash !== fromHash && policy.settings_hash !== toHash)
+  )
+    throw new Error("preparation_policy_changed");
+  if (!apply) {
+    const settled = await Promise.all(
+      owners.map(async (owner) =>
+        inspectRotationOwner(pool, rootPath, owner, fromHash, toHash),
+      ),
+    );
+    return {
+      owners,
+      fromHash,
+      toHash,
+      changed:
+        policy.settings_hash !== toHash ||
+        settled.some((generation) => generation !== toHash),
+    };
+  }
+  const rotated: RotatedOwner[] = [];
+  try {
+    for (const owner of owners) {
+      // Re-inspect immediately before writing: a stale plan writes nothing.
+      await inspectRotationOwner(pool, rootPath, owner, fromHash, toHash);
+      rotated.push(
+        await rotateOwnerPreparation(
+          pool,
+          owner,
+          next,
+          rootPath,
+          lastPort,
+          backupRoot,
+        ),
+      );
+    }
+  } catch (error) {
+    const failed: unknown[] = [];
+    for (const owner of rotated.reverse()) {
+      if (owner.backupDirectory === null) continue;
+      try {
+        await restoreOwnerPreparation(
+          rootPath,
+          owner.ownerId,
+          owner.backupDirectory,
+        );
+      } catch (restoreError) {
+        failed.push(restoreError);
+      }
+    }
+    if (failed.length) throw new Error("rotation_rollback_incomplete");
+    throw error;
+  }
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      `INSERT INTO profile_preparation_policy_versions(root_identity,settings_hash,first_port,last_port)
+       SELECT $1,$2,$3,$4
+       WHERE (SELECT settings_hash FROM profile_preparation_policy_versions ORDER BY generation DESC LIMIT 1) IS DISTINCT FROM $2`,
+      [rootIdentity, toHash, current.firstPort, lastPort],
+    );
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+  return {
+    owners,
+    fromHash,
+    toHash,
+    changed:
+      policy.settings_hash !== toHash || rotated.some((owner) => owner.changed),
+  };
 }

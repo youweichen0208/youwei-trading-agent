@@ -25,6 +25,7 @@ import {
 import { digest } from "../../packages/hermes-adapter/src/provision.js";
 import {
   restoreOwnerPreparation,
+  rotateAllOwners,
   rotateOwnerPreparation,
 } from "../../packages/hermes-adapter/src/rotation.js";
 
@@ -574,4 +575,133 @@ test("rotation clears the recorded deployment seal so profiles can restart", asy
   );
   assert.equal(again.changed, false);
   assert.deepEqual(await seals(), [null, null, null]);
+});
+
+test("rotation plans every owner, then switches all of them before the policy", async (t) => {
+  const { pool, output, preparer, user, backupRoot } = await setup(t);
+  const first = await user();
+  const second = await user();
+  assert.equal((await preparer.prepare(first.id)).status, "prepared");
+  assert.equal((await preparer.prepare(second.id)).status, "prepared");
+  const manifest = (owner: string) =>
+    readFile(join(output, owner, "preparation.json"), "utf8");
+  const originals = [await manifest(first.id), await manifest(second.id)];
+  const generations = async () =>
+    (
+      await pool.query<{ settings_hash: string }>(
+        "SELECT settings_hash FROM profile_preparation_policy_versions ORDER BY generation",
+      )
+    ).rows;
+  assert.equal((await generations()).length, 1);
+  const plan = await rotateAllOwners(
+    pool,
+    [first.id, second.id],
+    settings(),
+    rotatedSettings(),
+    output,
+    lastPort,
+    backupRoot,
+    false,
+  );
+  assert.deepEqual(plan.owners, [first.id, second.id]);
+  assert.notEqual(plan.fromHash, plan.toHash);
+  assert.equal(plan.changed, true);
+  // A dry run must not rewrite artifacts, create backups or append a policy.
+  assert.equal(await manifest(first.id), originals[0]);
+  assert.equal(await manifest(second.id), originals[1]);
+  assert.equal((await generations()).length, 1);
+  await assert.rejects(readdir(backupRoot), /ENOENT/);
+  const applied = await rotateAllOwners(
+    pool,
+    [first.id, second.id],
+    settings(),
+    rotatedSettings(),
+    output,
+    lastPort,
+    backupRoot,
+    true,
+  );
+  assert.equal(applied.changed, true);
+  assert.equal(applied.toHash, plan.toHash);
+  for (const owner of [first.id, second.id]) {
+    const rotated = JSON.parse(await manifest(owner));
+    assert.equal(rotated.settingsHash, applied.toHash);
+    for (const profile of rotated.profiles) {
+      const runtime = await readFile(
+        join(output, owner, "profiles", profile.id, "runtime.json"),
+        "utf8",
+      );
+      assert.equal(JSON.parse(runtime).model.name, "deepseek-v4.1-flash");
+      assert.equal(rotated.fingerprints[profile.id], digest(runtime));
+    }
+  }
+  // The policy is appended once, after every owner has switched.
+  const history = await generations();
+  assert.equal(history.length, 2);
+  assert.equal(history.at(-1)!.settings_hash, applied.toHash);
+  // A repeated plan sees the settled generation and schedules no work.
+  const settled = await rotateAllOwners(
+    pool,
+    [first.id, second.id],
+    settings(),
+    rotatedSettings(),
+    output,
+    lastPort,
+    backupRoot,
+    false,
+  );
+  assert.equal(settled.changed, false);
+  assert.equal(settled.fromHash, plan.fromHash);
+  assert.equal(settled.toHash, applied.toHash);
+});
+
+test("rotation restores every rotated owner when a later owner fails", async (t) => {
+  const { pool, output, preparer, user, backupRoot } = await setup(t);
+  const ready = await user();
+  // Registration alone leaves the owner without a prepared job.
+  const unready = await user();
+  assert.equal((await preparer.prepare(ready.id)).status, "prepared");
+  const manifestPath = join(output, ready.id, "preparation.json");
+  const original = JSON.parse(await readFile(manifestPath, "utf8"));
+  const runtimes = new Map<string, string>();
+  for (const profile of original.profiles)
+    runtimes.set(
+      profile.id,
+      await readFile(
+        join(output, ready.id, "profiles", profile.id, "runtime.json"),
+        "utf8",
+      ),
+    );
+  const policy = async () =>
+    (
+      await pool.query<{ count: number }>(
+        "SELECT count(*)::int AS count FROM profile_preparation_policy_versions",
+      )
+    ).rows[0]!.count;
+  const before = await policy();
+  await assert.rejects(
+    rotateAllOwners(
+      pool,
+      [ready.id, unready.id],
+      settings(),
+      rotatedSettings(),
+      output,
+      lastPort,
+      backupRoot,
+      true,
+    ),
+    /preparation_job_not_ready/,
+  );
+  // The owner that did rotate is back on its exact original generation.
+  assert.deepEqual(JSON.parse(await readFile(manifestPath, "utf8")), original);
+  for (const profile of original.profiles) {
+    const runtime = await readFile(
+      join(output, ready.id, "profiles", profile.id, "runtime.json"),
+      "utf8",
+    );
+    assert.equal(runtime, runtimes.get(profile.id));
+    assert.equal(original.fingerprints[profile.id], digest(runtime));
+    assert.equal(JSON.parse(runtime).model.name, "test-only-model");
+  }
+  assert.equal(await policy(), before);
 });
