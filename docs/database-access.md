@@ -128,4 +128,14 @@ GRANT UPDATE(status,first_port,settings_hash,error_code)
 
 Web 只能按默认状态入队，不能指定端口/策略/状态或读取准备表；Tools 无新增权限。Worker 不获得这些记录的删除/截断权限，不能改写 request_id；已绑定端口与配置摘要由触发器保护，策略和端口预留不可修改或删除。自动准备命令使用 Worker 账户与私有策略文件，不需要 Docker 控制权。准备成功不改变 Profile 的就绪状态，也不生成验收证据。新安装器同步维护表/函数清单与权限。
 
+## 从迁移 035 升级（模型代际）
+
+迁移 035 增加只追加的 `profile_preparation_policy_versions`，旧 `profile_preparation_policy` 原样保留并回填为第 1 代。轮换命令与自动准备只读取最新代际；新表禁止 UPDATE/DELETE/TRUNCATE。
+
+```sql
+GRANT SELECT, INSERT ON public.profile_preparation_policy_versions TO alpha_runtime_worker;
+```
+
+Web/Tools 无权限。生产已执行 `scripts/upgrade-multiuser-access.ts` 应用该授权。
+
 上述 017 迁移及最小增量授权已应用本地独立 alpha_test。测试中的真实受限 Worker 已完成自动准备，Web/Tools 越权读写与 Worker 身份修改/删除/截断拒绝均通过。

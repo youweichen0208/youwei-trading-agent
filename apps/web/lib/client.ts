@@ -30,6 +30,7 @@ export const errors: Record<string, string> = {
   provider_unavailable: "研究服务尚未连接，本次任务未执行",
   unauthorized: "登录已失效，请重新登录",
   not_found: "此研究不存在或已无权访问",
+  thread_busy: "该会话仍有研究正在运行，请等待结束或停止后再删除",
   invalid_event_stream: "研究连接返回了无效数据，请重新打开此研究",
 };
 export const message = (e: unknown) =>

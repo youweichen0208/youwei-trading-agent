@@ -148,6 +148,11 @@
   scrollbar-width: thin;
   scrollbar-color: #d9dddd transparent;
 }
+.app .new-research svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
 .app .wordmark {
   display: flex;
   align-items: center;
@@ -1464,6 +1469,9 @@
   }
   .app .quote-context {
     flex-wrap: wrap;
+  .app .research-trace {
+    width: 100%;
+  }
   }
   .app .quote-price strong {
     font-size: 26px;

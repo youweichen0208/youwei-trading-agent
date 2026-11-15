@@ -195,7 +195,7 @@ export class TaskStore {
         );
       const thread = (
         await c.query(
-          "SELECT source FROM threads WHERE id=$1 AND owner_id=$2",
+          "SELECT source FROM threads WHERE id=$1 AND owner_id=$2 AND deleted_at IS NULL",
           [threadId, owner],
         )
       ).rows[0];
@@ -229,10 +229,10 @@ export class TaskStore {
     return this.owned(owner, async (c) => {
       if (
         !(
-          await c.query("SELECT id FROM threads WHERE id=$1 AND owner_id=$2", [
-            threadId,
-            owner,
-          ])
+          await c.query(
+            "SELECT id FROM threads WHERE id=$1 AND owner_id=$2 AND deleted_at IS NULL",
+            [threadId, owner],
+          )
         ).rowCount
       )
         throw new DomainError("not_found", 404);

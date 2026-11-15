@@ -142,6 +142,9 @@ export default function Workspace() {
     [error, setError] = useState("");
   const [threads, setThreads] = useState<any[]>([]),
     [selected, setSelected] = useState<any>(null),
+    [deleteTarget, setDeleteTarget] = useState<any>(null),
+    [deleting, setDeleting] = useState(false),
+    [deleteError, setDeleteError] = useState(""),
     [profiles, setProfiles] = useState<any[]>([]),
     [portfolioRef, setPortfolioRef] = useState(""),
     [showHoldings, setShowHoldings] = useState(false);
@@ -230,6 +233,38 @@ export default function Workspace() {
       previous?.focus();
     };
   }, [showHoldings, closeHoldings]);
+  useEffect(() => {
+    if (!deleteTarget) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const dialog = document.querySelector<HTMLElement>(".confirm-modal");
+    const buttons = () =>
+      Array.from(
+        dialog?.querySelectorAll<HTMLButtonElement>(
+          "button:not([disabled])",
+        ) ?? [],
+      );
+    buttons()[0]?.focus();
+    const key = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !deleting) setDeleteTarget(null);
+      if (event.key === "Tab") {
+        const items = buttons(),
+          first = items[0],
+          last = items.at(-1);
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last?.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first?.focus();
+        }
+      }
+    };
+    document.addEventListener("keydown", key);
+    return () => {
+      document.removeEventListener("keydown", key);
+      previous?.focus();
+    };
+  }, [deleteTarget, deleting]);
   const refresh = useCallback(() => {
     if (!isAccountCurrent()) return;
     const isLatest = recordsScope.begin();
@@ -334,6 +369,24 @@ export default function Workspace() {
     requestAnimationFrame(() => draftInput.current?.focus());
   }
   const [submission, setSubmission] = useState<{input:string;stage:string}|null>(null);
+  async function deleteThread() {
+    if (!deleteTarget || deleting) return;
+    const target = deleteTarget;
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      await api(`threads/${target.id}`, "DELETE");
+      if (!isAccountCurrent()) return;
+      drafts.current.delete(target.id);
+      setThreads((list) => list.filter((t) => t.id !== target.id));
+      if (selected?.id === target.id) newThread();
+      setDeleteTarget(null);
+    } catch (e) {
+      if (isAccountCurrent()) setDeleteError(message(e));
+    } finally {
+      if (isAccountCurrent()) setDeleting(false);
+    }
+  }
   async function startResearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (starting.current || !draft.trim()) return;
@@ -892,6 +945,50 @@ export default function Workspace() {
                 {savingHoldings ? "正在保存…" : "保存新快照"}
               </button>
             </form>
+          </section>
+        </div>
+      )}
+      {deleteTarget && (
+        <div
+          className="modal-backdrop"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !deleting) setDeleteTarget(null);
+          }}
+        >
+          <section
+            className="modal confirm-modal"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="delete-thread-title"
+            aria-describedby="delete-thread-note"
+          >
+            <h2 id="delete-thread-title">删除这个会话？</h2>
+            <p className="confirm-target">{deleteTarget.title}</p>
+            <small id="delete-thread-note">
+              会话会从「最近研究」移除；已保存的画布、研究结果与预测不会被删除。
+            </small>
+            {deleteError && (
+              <p className="notice" role="alert">
+                {deleteError}
+              </p>
+            )}
+            <div className="confirm-actions">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                className="danger"
+                onClick={() => void deleteThread()}
+                disabled={deleting}
+              >
+                {deleting ? "正在删除…" : "删除会话"}
+              </button>
+            </div>
           </section>
         </div>
       )}

@@ -106,6 +106,50 @@ test("BFF authenticates cookies and rejects foreign origins and owner injection"
   assert.match(data, /cancelled/);
 });
 
+test("thread cleanup hides idle threads and refuses running research", async () => {
+  const cookie = await account();
+  const thread = await (
+    await request("threads", "POST", undefined, cookie)
+  ).json();
+  const submitted = await request(
+    "research",
+    "POST",
+    { threadId: thread.id, input: "NVDA" },
+    cookie,
+    { "idempotency-key": randomUUID() },
+  );
+  assert.equal(submitted.status, 202);
+  const task = await submitted.json();
+  assert.equal(
+    (await request(`threads/${thread.id}`, "DELETE", undefined, cookie))
+      .status,
+    409,
+  );
+  assert.equal(
+    (await request(`tasks/${task.taskId}/stop`, "POST", undefined, cookie))
+      .status,
+    200,
+  );
+  assert.equal(
+    (await request(`threads/${thread.id}`, "DELETE", undefined, cookie))
+      .status,
+    200,
+  );
+  assert.equal(
+    (await request(`threads/${thread.id}`, "GET", undefined, cookie)).status,
+    404,
+  );
+  const listed: Array<{ id: string }> = await (
+    await request("threads", undefined, undefined, cookie)
+  ).json();
+  assert.equal(listed.some((t) => t.id === thread.id), false);
+  const other = await account();
+  assert.equal(
+    (await request(`threads/${thread.id}`, "DELETE", undefined, other)).status,
+    404,
+  );
+});
+
 test("SSE disconnect leaves work queued; retained cursors replay and expired cursors restore snapshots", async () => {
   const cookie = await account();
   const thread = await (

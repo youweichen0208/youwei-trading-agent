@@ -68,7 +68,7 @@ export function createHandler(pool: Pool, origin: string) {
       const url = new URL(req.url),
         path = url.pathname.split("/").filter(Boolean).slice(1),
         method = req.method;
-      if (!["GET", "POST", "PUT"].includes(method))
+      if (!["GET", "POST", "PUT", "DELETE"].includes(method))
         return json({ error: "method_not_allowed" }, 405);
       if (method !== "GET" && req.headers.get("origin") !== allowed)
         throw new DomainError("invalid_origin", 403);
@@ -232,6 +232,8 @@ export function createHandler(pool: Pool, origin: string) {
           return json(await tasks.createThread(owner), 201);
         if (path.length === 2 && method === "GET")
           return json(await business.thread(owner, uuid.parse(path[1])));
+        if (path.length === 2 && method === "DELETE")
+          return json(await business.deleteThread(owner, uuid.parse(path[1])));
       }
       if (path[0] === "research" && path.length === 1 && method === "POST") {
         const data = research.parse(await body(req));
@@ -485,7 +487,7 @@ export function createHandler(pool: Pool, origin: string) {
         return json({ error: "invalid_request" }, 400);
       console.error(
         "BFF request failed",
-        e instanceof Error ? e.name : "unknown",
+        e instanceof Error ? `${e.name}: ${e.message}` : "unknown",
       );
       return json({ error: "service_unavailable" }, 503);
     }

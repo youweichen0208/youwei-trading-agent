@@ -1,6 +1,7 @@
 "use client";
 import { progressLabel, compactProgress, currentProgress, type ProgressItem } from "../lib/research-progress";
 import { ResearchStatus } from "./research-status";
+  trimProgress,
 import { ComposerTools } from "./composer-tools";
 import {
   createContext,
@@ -454,6 +455,19 @@ export function Chat({
                     Hermes Agent
                   </span>
                   <ComposerPrimitive.Send
+                {(busy ||
+                  (activity.taskId === task?.id &&
+                    activity.items.length > 0)) &&
+                  task && (
+                    <ResearchTrace
+                      taskId={task.id}
+                      status={task.status}
+                      connectionError={!!error}
+                      currentAction={currentAction}
+                      items={progressItems}
+                      onStop={thread.source === "group" ? undefined : stop}
+                    />
+                  )}
                     disabled={!!busy || requestPending}
                     aria-label="发送研究"
                   >

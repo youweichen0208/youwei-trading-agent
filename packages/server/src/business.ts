@@ -28,7 +28,7 @@ export class BusinessStore {
   async threads(owner: string) {
     return (
       await this.pool.query(
-        "SELECT t.id,t.title,t.created_at,c.kind AS source,t.source AS channel FROM threads t JOIN thread_contexts tc ON tc.thread_id=t.id AND tc.owner_id=t.owner_id JOIN execution_contexts c ON c.id=tc.context_id WHERE t.owner_id=$1 AND t.source<>'background' ORDER BY t.created_at DESC LIMIT 100",
+        "SELECT t.id,t.title,t.created_at,c.kind AS source,t.source AS channel FROM threads t JOIN thread_contexts tc ON tc.thread_id=t.id AND tc.owner_id=t.owner_id JOIN execution_contexts c ON c.id=tc.context_id WHERE t.owner_id=$1 AND t.source<>'background' AND t.deleted_at IS NULL ORDER BY t.created_at DESC LIMIT 100",
         [owner],
       )
     ).rows;
@@ -40,7 +40,7 @@ export class BusinessStore {
       );
       const thread = (
         await c.query(
-          "SELECT t.id,t.title,c.kind AS source,t.source AS channel FROM threads t JOIN thread_contexts tc ON tc.thread_id=t.id AND tc.owner_id=t.owner_id JOIN execution_contexts c ON c.id=tc.context_id WHERE t.id=$1 AND t.owner_id=$2",
+          "SELECT t.id,t.title,c.kind AS source,t.source AS channel FROM threads t JOIN thread_contexts tc ON tc.thread_id=t.id AND tc.owner_id=t.owner_id JOIN execution_contexts c ON c.id=tc.context_id WHERE t.id=$1 AND t.owner_id=$2 AND t.deleted_at IS NULL",
           [id, owner],
         )
       ).rows[0];
@@ -65,6 +65,28 @@ export class BusinessStore {
         )
       ).rows[0];
       return { ...thread, messages, tasks, workspace };
+    });
+  }
+  async deleteThread(owner: string, id: string) {
+    return transaction(this.pool, async (c) => {
+      const thread = (
+        await c.query(
+          "SELECT id FROM threads WHERE id=$1 AND owner_id=$2 AND deleted_at IS NULL FOR UPDATE",
+          [id, owner],
+        )
+      ).rows[0];
+      if (!thread) throw new DomainError("not_found", 404);
+      const active = await c.query(
+        "SELECT 1 FROM tasks WHERE thread_id=$1 AND owner_id=$2 AND status IN ('queued','running','stopping','unknown') LIMIT 1",
+        [id, owner],
+      );
+      if (active.rowCount)
+        throw new DomainError("thread_busy", 409);
+      await c.query(
+        "UPDATE threads SET deleted_at=now() WHERE id=$1 AND owner_id=$2",
+        [id, owner],
+      );
+      return { id, deleted: true };
     });
   }
   async resource(

@@ -84,6 +84,7 @@ export async function grantResearchAccess(
     await grant("worker", "UPDATE", table);
   await grant("worker", "DELETE", "forecast_checks");
   await grant("worker", "UPDATE(source,title)", "threads");
+  await grant("web", "UPDATE(deleted_at)", "threads");
   await grant("worker", "UPDATE(version,revision,snapshot)", "workspaces");
   await c.query(
     `GRANT USAGE ON SEQUENCE ${quote(schema)}.tasks_ordinal_seq TO ${quote(roles.worker)}`,
