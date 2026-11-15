@@ -44,6 +44,7 @@ const manifestSchema = z.object({
   contextId: z.uuid().optional(),
   requestId: z.uuid(),
   settingsHash: hash,
+  image: z.string().regex(/^sha256:[a-f0-9]{64}$/),
   fingerprints: z.record(z.uuid(), hash),
   profiles: z.array(profileSchema).length(3),
 });
@@ -258,6 +259,9 @@ export async function rotateOwnerPreparation(
   const renderedManifest = files.get("preparation.json")!;
   const manifestContent = json({
     ...JSON.parse(renderedManifest.content),
+    // Rotation is model-only: the prepared image still belongs to compose and
+    // the verified registry, so the manifest must keep describing what runs.
+    image: manifest.image,
     requestId: manifest.requestId,
     settingsHash: toHash,
   });
