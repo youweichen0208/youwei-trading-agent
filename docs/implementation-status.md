@@ -1407,3 +1407,15 @@ Worker、Tools 已切换到 `/opt/hermes-alpha-lab/releases/20261113-research-re
 - 运维注意：复制发布目录后 `node_modules` 携带旧虚拟存储路径，`pnpm install` 会提示从另一个 release 目录重建；必须 `rm -rf node_modules` 后 `CI=1 pnpm install --frozen-lockfile`，否则新依赖（`@tiptap/*`）不落地，构建以 Module not found 失败。
 - 未包含：图片/附件/画板/思维导图/流程图（无上传与渲染链路）、文字颜色与高亮（会引入裸色值，与语义色令牌冲突）。
 - 回退：删除 `zzzzzzzzzzzzzzzzzzzz-notes-doc3.conf`、`daemon-reload` 重启 Web 回 `20261116-notes-doc2`（`IptiIDao7vzYOj7isqYb7`），边缘重发旧 BUILD_ID；`body_html` 列为新增可空列，旧代码不读，保留即可。
+
+## 个人笔记编辑器放大与工具栏补全（2026-11-16）
+
+- 反馈四条：可编辑范围像个小输入框、斜杠菜单在底部被裁掉、工具栏功能太少、整体比例失衡。
+- 版面：去掉编辑页的绿色焦点框（此前 `[tabindex]:focus-visible` 给 ProseMirror 套了输入框式描边，视觉上把页面缩成一个表单格）；正文 16px、标题 28px、文档列 960px；编辑区点击空白即落笔，正文与「股票/标签」行恢复内容流排布。
+- 工具栏补齐：字号（14–24）、文字颜色与高亮（固定语义色令牌，不写裸色值）、左/中/右对齐、插入图片（URL）、表格上下文操作（加行/加列/删行/删列/删表）；行内代码与代码块改用不同图标；撤销/重做保留并收进单行。
+- 斜杠菜单：贴近视口底部时向上翻转，并横向夹在视口内，不再被裁切。
+- 修掉自伤：`.note-editor > div:not(.note-slash)` 把工具栏也当成正文容器，压成竖向窄条；改为只影响内容容器（该规则已删除）。
+- 依赖：新增 `@tiptap/extension-text-style`（含 Color/BackgroundColor/FontSize）、`@tiptap/extension-text-align`、`@tiptap/extension-image`。
+- 验证：本地与生产 `notes.spec.ts` 通过；服务端 8 项测试通过；`pnpm typecheck` 通过；颜色写入 `style="color: var(--danger)"`，高亮同理，仍是语义令牌。
+- 生产：release `20261116-notes-doc4`，BUILD_ID `gExKMQKV5WGmSO3eRHjAA`，drop-in `zzzzzzzzzzzzzzzzzzzzz-notes-doc4.conf`，Web 已重启加载；Worker 与数据库未变；边缘 `current` 同 BUILD_ID。
+- 回退：删除 `…-notes-doc4.conf`、`daemon-reload` 重启 Web 回 `20261116-notes-doc3`（`zvbmk5DJEiQcSTGLGEhSs`）。

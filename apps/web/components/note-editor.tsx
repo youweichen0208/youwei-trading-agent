@@ -5,6 +5,14 @@ import StarterKit from "@tiptap/starter-kit";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import Placeholder from "@tiptap/extension-placeholder";
+import Image from "@tiptap/extension-image";
+import TextAlign from "@tiptap/extension-text-align";
+import {
+  BackgroundColor,
+  Color,
+  FontSize,
+  TextStyle,
+} from "@tiptap/extension-text-style";
 import {
   Table,
   TableCell,
@@ -25,6 +33,9 @@ type Block = {
   hint: string;
   run: (editor: Editor, range: { from: number; to: number }) => void;
 };
+
+const askUrl = (message: string, initial = "https://") =>
+  window.prompt(message, initial);
 
 const blocks: Block[] = [
   {
@@ -94,11 +105,22 @@ const blocks: Block[] = [
         .run(),
   },
   {
+    id: "image",
+    label: "图片链接",
+    hint: "img",
+    run: (e, r) => {
+      const src = askUrl("图片地址");
+      const chain = e.chain().focus().deleteRange(r);
+      if (src) chain.setImage({ src }).run();
+      else chain.run();
+    },
+  },
+  {
     id: "link",
     label: "链接",
     hint: "url",
     run: (editor, range) => {
-      const href = window.prompt("链接地址", "https://");
+      const href = askUrl("链接地址");
       if (!href) return editor.chain().focus().deleteRange(range).run();
       return editor
         .chain()
@@ -112,6 +134,23 @@ const blocks: Block[] = [
         .run();
     },
   },
+];
+
+const textColors = [
+  { name: "默认", value: null },
+  { name: "深灰", value: "var(--text-secondary)" },
+  { name: "品牌绿", value: "var(--brand-text)" },
+  { name: "警告橙", value: "var(--warning)" },
+  { name: "失败红", value: "var(--danger)" },
+  { name: "成功绿", value: "var(--success)" },
+];
+const highlightColors = [
+  { name: "无", value: null },
+  { name: "浅灰", value: "var(--n100)" },
+  { name: "品牌浅绿", value: "var(--brand-soft)" },
+  { name: "浅橙", value: "var(--warning-soft)" },
+  { name: "浅红", value: "var(--danger-soft)" },
+  { name: "浅绿", value: "var(--success-soft)" },
 ];
 
 /** Document body: one ProseMirror page, toolbar above it, slash menu at the caret. */
@@ -140,16 +179,16 @@ export function NoteEditor({
   }, [menu?.query]);
   const optionsRef = useRef(options);
   optionsRef.current = options;
+  const editorRef = useRef<Editor | null>(null);
 
   const insert = (block: Block) => {
-    const editor = editorRef.current;
+    const instance = editorRef.current;
     const current = menuRef.current;
-    if (!editor || !current) return;
+    if (!instance || !current) return;
     setMenu(null);
-    block.run(editor, { from: current.from, to: current.to });
+    block.run(instance, { from: current.from, to: current.to });
   };
 
-  const editorRef = useRef<Editor | null>(null);
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
@@ -157,6 +196,12 @@ export function NoteEditor({
         heading: { levels: [1, 2, 3] },
         link: { openOnClick: false, autolink: true },
       }),
+      TextStyle,
+      Color,
+      BackgroundColor,
+      FontSize,
+      TextAlign.configure({ types: ["heading", "paragraph"] }),
+      Image.configure({ inline: false, allowBase64: false }),
       TaskList,
       TaskItem.configure({ nested: true }),
       Placeholder.configure({ placeholder }),
@@ -212,12 +257,18 @@ export function NoteEditor({
       const match = /^\/([^\s/]*)$/.exec(before);
       if (!match) return setMenu(null);
       const coords = instance.view.coordsAtPos(from);
+      const height = Math.min(272, blocks.length * 34 + 32);
+      // Flip above the caret when the menu would fall off the viewport.
+      const flip = coords.bottom + height + 12 > window.innerHeight;
       setMenu({
         query: match[1] ?? "",
         from: from - match[0].length,
         to: from,
-        top: coords.bottom + 6,
-        left: coords.left,
+        top: flip ? Math.max(8, coords.top - height - 6) : coords.bottom + 6,
+        left: Math.min(
+          Math.max(8, coords.left),
+          Math.max(8, window.innerWidth - 216),
+        ),
         index: 0,
       });
     },
@@ -290,15 +341,83 @@ const Icon = ({ path }: { path: string }) => (
   </svg>
 );
 
+function Palette({
+  label,
+  glyph,
+  colors,
+  onPick,
+}: {
+  label: string;
+  glyph: string;
+  colors: { name: string; value: string | null }[];
+  onPick: (value: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    window.addEventListener("mousedown", close);
+    return () => window.removeEventListener("mousedown", close);
+  }, [open]);
+  return (
+    <span className="note-palette">
+      <button
+        type="button"
+        className="note-tool note-glyph"
+        aria-label={label}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        onClick={() => setOpen((value) => !value)}
+      >
+        {glyph}
+      </button>
+      {open && (
+        <div
+          className="note-palette-menu"
+          role="menu"
+          aria-label={label}
+          onMouseDown={(event) => event.stopPropagation()}
+        >
+          {colors.map((color) => (
+            <button
+              key={color.name}
+              type="button"
+              role="menuitem"
+              className="note-swatch"
+              aria-label={color.name}
+              title={color.name}
+              style={{ background: color.value ?? "transparent" }}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                onPick(color.value);
+                setOpen(false);
+              }}
+            />
+          ))}
+        </div>
+      )}
+    </span>
+  );
+}
+
 function Toolbar({ editor }: { editor: Editor }) {
   const setLink = () => {
     const previous = editor.getAttributes("link").href as string | undefined;
-    const href = window.prompt("链接地址", previous ?? "https://");
+    const href = askUrl("链接地址", previous ?? "https://");
     if (href === null) return;
     if (!href) return void editor.chain().focus().unsetLink().run();
     editor.chain().focus().extendMarkRange("link").setLink({ href }).run();
   };
   const state = (name: string) => (editor.isActive(name) ? "true" : undefined);
+  const heading = editor.isActive("heading", { level: 1 })
+    ? "h1"
+    : editor.isActive("heading", { level: 2 })
+      ? "h2"
+      : editor.isActive("heading", { level: 3 })
+        ? "h3"
+        : "p";
+  const size = String(editor.getAttributes("textStyle").fontSize ?? "16px");
+  const inTable = editor.isActive("table");
   return (
     <div
       className="note-toolbar"
@@ -314,19 +433,10 @@ function Toolbar({ editor }: { editor: Editor }) {
       <span className="note-block">
         <select
           aria-label="段落样式"
-          value={
-            editor.isActive("heading", { level: 1 })
-              ? "h1"
-              : editor.isActive("heading", { level: 2 })
-                ? "h2"
-                : editor.isActive("heading", { level: 3 })
-                  ? "h3"
-                  : "p"
-          }
+          value={heading}
           onChange={(event) => {
             const value = event.target.value;
-            if (value === "p")
-              editor.chain().focus().setParagraph().run();
+            if (value === "p") editor.chain().focus().setParagraph().run();
             else
               editor
                 .chain()
@@ -339,6 +449,23 @@ function Toolbar({ editor }: { editor: Editor }) {
           <option value="h1">一级标题</option>
           <option value="h2">二级标题</option>
           <option value="h3">三级标题</option>
+        </select>
+        <select
+          aria-label="字号"
+          value={size}
+          onChange={(event) =>
+            editor
+              .chain()
+              .focus()
+              .setFontSize(event.target.value)
+              .run()
+          }
+        >
+          {["14px", "16px", "18px", "20px", "24px"].map((value) => (
+            <option key={value} value={value}>
+              {value.replace("px", "")}
+            </option>
+          ))}
         </select>
       </span>
       <span className="note-tool-group">
@@ -380,12 +507,68 @@ function Toolbar({ editor }: { editor: Editor }) {
         </button>
         <button
           type="button"
-          className="note-tool note-glyph mono"
+          className="note-tool"
           aria-label="行内代码"
           aria-pressed={state("code")}
           onClick={() => editor.chain().focus().toggleCode().run()}
         >
-          {}</button>
+          <Icon path="m7.5 6.5-3.5 3.5 3.5 3.5M12.5 6.5 16 10l-3.5 3.5" />
+        </button>
+      </span>
+      <span className="note-tool-group">
+        <Palette
+          label="文字颜色"
+          glyph="A"
+          colors={textColors}
+          onPick={(value) => {
+            const chain = editor.chain().focus();
+            if (value) chain.setColor(value).run();
+            else chain.unsetColor().run();
+          }}
+        />
+        <Palette
+          label="高亮颜色"
+          glyph="▨"
+          colors={highlightColors}
+          onPick={(value) => {
+            const chain = editor.chain().focus();
+            if (value) chain.setBackgroundColor(value).run();
+            else chain.unsetBackgroundColor().run();
+          }}
+        />
+        <button
+          type="button"
+          className="note-tool"
+          aria-label="左对齐"
+          aria-pressed={
+            editor.isActive({ textAlign: "left" }) ? "true" : undefined
+          }
+          onClick={() => editor.chain().focus().setTextAlign("left").run()}
+        >
+          <Icon path="M3.5 5.5h13M3.5 10h8M3.5 14.5h13" />
+        </button>
+        <button
+          type="button"
+          className="note-tool"
+          aria-label="居中对齐"
+          aria-pressed={
+            editor.isActive({ textAlign: "center" }) ? "true" : undefined
+          }
+          onClick={() => editor.chain().focus().setTextAlign("center").run()}
+        >
+          <Icon path="M3.5 5.5h13M6 10h8M3.5 14.5h13" />
+        </button>
+        <button
+          type="button"
+          className="note-tool"
+          aria-label="右对齐"
+          aria-pressed={
+            editor.isActive({ textAlign: "right" }) ? "true" : undefined
+          }
+          onClick={() => editor.chain().focus().setTextAlign("right").run()}
+        >
+          <Icon path="M3.5 5.5h13M8.5 10h8M3.5 14.5h13" />
+        </button>
       </span>
       <span className="note-tool-group">
         <button
@@ -438,6 +621,17 @@ function Toolbar({ editor }: { editor: Editor }) {
         <button
           type="button"
           className="note-tool"
+          aria-label="插入图片"
+          onClick={() => {
+            const src = askUrl("图片地址");
+            if (src) editor.chain().focus().setImage({ src }).run();
+          }}
+        >
+          <Icon path="M3.5 4.5h13v11h-13zM3.5 12l4-4 3.5 3.5 2.5-2.5 3 3M7 7.5h.01" />
+        </button>
+        <button
+          type="button"
+          className="note-tool"
           aria-label="插入表格"
           aria-pressed={state("table")}
           onClick={() =>
@@ -465,9 +659,53 @@ function Toolbar({ editor }: { editor: Editor }) {
           aria-pressed={state("codeBlock")}
           onClick={() => editor.chain().focus().toggleCodeBlock().run()}
         >
-          <Icon path="M7.5 6.5 4 10l3.5 3.5M12.5 6.5 16 10l-3.5 3.5" />
+          <Icon path="M3.5 4.5h13v11h-13zM8 8l-2 2 2 2M12 8l2 2-2 2" />
         </button>
       </span>
+      {inTable && (
+        <span className="note-tool-group" aria-label="表格操作">
+          <button
+            type="button"
+            className="note-tool note-text"
+            aria-label="在下方插入行"
+            onClick={() => editor.chain().focus().addRowAfter().run()}
+          >
+            行+
+          </button>
+          <button
+            type="button"
+            className="note-tool note-text"
+            aria-label="在右侧插入列"
+            onClick={() => editor.chain().focus().addColumnAfter().run()}
+          >
+            列+
+          </button>
+          <button
+            type="button"
+            className="note-tool note-text"
+            aria-label="删除当前行"
+            onClick={() => editor.chain().focus().deleteRow().run()}
+          >
+            行−
+          </button>
+          <button
+            type="button"
+            className="note-tool note-text"
+            aria-label="删除当前列"
+            onClick={() => editor.chain().focus().deleteColumn().run()}
+          >
+            列−
+          </button>
+          <button
+            type="button"
+            className="note-tool note-text"
+            aria-label="删除表格"
+            onClick={() => editor.chain().focus().deleteTable().run()}
+          >
+            删表
+          </button>
+        </span>
+      )}
       <span className="note-tool-group note-tool-history">
         <button
           type="button"
