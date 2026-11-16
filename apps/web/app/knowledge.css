@@ -489,9 +489,50 @@
   background: var(--brand-soft-hover);
 }
 .kb-paper p {
-  margin: 0;
-  white-space: pre-line;
+  margin: 0 0 var(--sp-4);
   overflow-wrap: break-word;
+}
+.kb-paper > :last-child {
+  margin-bottom: 0;
+}
+/* Document sub-headings parsed from the summary's 一、/（一） shape. */
+.kb-h3 {
+  margin: var(--sp-8) 0 var(--sp-3);
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--text);
+  letter-spacing: -0.005em;
+}
+.kb-h3:first-child {
+  margin-top: 0;
+}
+/* Source already numbers items (1. …), so the marker is a quiet bullet dot. */
+.kb-list {
+  margin: 0 0 var(--sp-4);
+  padding-left: 1.1em;
+  list-style: none;
+}
+.kb-list li {
+  margin: 0 0 6px;
+  padding-left: 2px;
+  overflow-wrap: break-word;
+}
+.kb-list li {
+  position: relative;
+}
+.kb-list li::before {
+  content: "";
+  position: absolute;
+  left: -0.95em;
+  top: 0.72em;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--n500);
+}
+.kb-list li:last-child {
+  margin-bottom: 0;
 }
 .kb-muted {
   color: var(--text-tertiary);

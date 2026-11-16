@@ -92,7 +92,16 @@ export async function seedKnowledge(email: string) {
         owner,
         forecast.task_id,
         JSON.stringify({
-          text: "合成研究摘要：证据支持温和上涨，需关注指引变化。",
+          text: [
+            "合成研究摘要：证据支持温和上涨，需关注指引变化。",
+            "",
+            "一、研究背景",
+            "1. 指引上调且成交量放大。",
+            "2. 同业估值仍在区间下沿。",
+            "",
+            "二、结论",
+            "证据支持温和上涨，需关注指引变化。",
+          ].join("\n"),
         }),
         JSON.stringify({ researchContextRef: contextId }),
       ],

@@ -145,6 +145,84 @@ function DocButton({
   );
 }
 
+/**
+ * Research summaries are plain text written in a document shape: `一、` section
+ * headings, `1.` list items, blank-line paragraphs. Parse once into blocks so
+ * the reader can render real headings instead of one wall of prose.
+ */
+type Block =
+  | { kind: "heading"; text: string }
+  | { kind: "list"; items: string[] }
+  | { kind: "paragraph"; text: string };
+
+const sectionHeading = /^(?:[一二三四五六七八九十]+、|[（(][一二三四五六七八九十]+[)）]|#+\s*)\s*\S/;
+const listItem = /^(?:\d{1,2}[.、)）]|[（(]\d{1,2}[)）]|[-*·]\s)\s*\S/;
+
+function summaryBlocks(text: string | null): Block[] {
+  const lines = (text ?? "").split(/\r?\n/);
+  const blocks: Block[] = [];
+  let paragraph: string[] = [];
+  let list: string[] = [];
+  const flush = () => {
+    if (list.length) {
+      blocks.push({ kind: "list", items: list });
+      list = [];
+    }
+    if (paragraph.length) {
+      blocks.push({ kind: "paragraph", text: paragraph.join("") });
+      paragraph = [];
+    }
+  };
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) {
+      flush();
+      continue;
+    }
+    if (sectionHeading.test(line)) {
+      flush();
+      blocks.push({
+        kind: "heading",
+        text: line.replace(/^#+\s*/, "").trim(),
+      });
+      continue;
+    }
+    if (listItem.test(line)) {
+      if (paragraph.length) flush();
+      list.push(line);
+      continue;
+    }
+    if (list.length) flush();
+    paragraph.push(line);
+  }
+  flush();
+  return blocks;
+}
+
+function SummaryBody({ text }: { text: string | null }) {
+  const blocks = summaryBlocks(text);
+  if (!blocks.length) return <p className="kb-muted">暂无正文</p>;
+  return (
+    <>
+      {blocks.map((block, index) =>
+        block.kind === "heading" ? (
+          <h3 key={index} className="kb-h3">
+            {block.text}
+          </h3>
+        ) : block.kind === "list" ? (
+          <ol key={index} className="kb-list">
+            {block.items.map((item, i) => (
+              <li key={i}>{item.replace(/^(?:\d{1,2}[.、)）]|[（(]\d{1,2}[)）]|[-*·]\s)\s*/, "")}</li>
+            ))}
+          </ol>
+        ) : (
+          <p key={index}>{block.text}</p>
+        ),
+      )}
+    </>
+  );
+}
+
 export function KnowledgeBase() {
   const [data, setData] = useState<Knowledge | null>(null);
   const [error, setError] = useState("");
@@ -532,21 +610,7 @@ export function KnowledgeBase() {
                       </p>
                     </>
                   ) : selected?.kind === "summary" ? (
-                    <>
-                      {(() => {
-                        const blocks = (selected.summary.text ?? "")
-                          .split(/\n{2,}/)
-                          .map((block) => block.trim())
-                          .filter(Boolean);
-                        return blocks.length ? (
-                          blocks.map((block, index) => (
-                            <p key={index}>{block}</p>
-                          ))
-                        ) : (
-                          <p className="kb-muted">暂无正文</p>
-                        );
-                      })()}
-                    </>
+                    <SummaryBody text={selected.summary.text} />
                   ) : null}
                 </div>
                 <footer className="kb-foot">
@@ -573,18 +637,20 @@ export function KnowledgeBase() {
 
           <aside className="kb-outline" aria-label="文档大纲">
             <p className="kb-outline-title">大纲</p>
-            {selected?.kind === "lesson" ? (
-              <ol>
-                <li>经验结论</li>
-                <li>适用条件</li>
-                <li>失效条件</li>
-                <li>验证进度</li>
-              </ol>
-            ) : (
-              <ol>
-                <li>研究摘要</li>
-              </ol>
-            )}
+            <ol>
+              {(selected?.kind === "lesson"
+                ? ["经验结论", "适用条件", "失效条件", "验证进度"]
+                : summaryBlocks(
+                    selected?.kind === "summary" ? selected.summary.text : "",
+                  )
+                    .filter((block) => block.kind === "heading")
+                    .map((block) => (block.kind === "heading" ? block.text : ""))
+              ).map((label, index) => (
+                <li key={`${label}-${index}`}>
+                  {label.replace(/^[一二三四五六七八九十]+、\s*/, "")}
+                </li>
+              ))}
+            </ol>
             <div className="kb-outline-sep" />
             <button
               type="button"

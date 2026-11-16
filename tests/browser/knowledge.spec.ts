@@ -49,6 +49,13 @@ test("knowledge base archives lessons and research summaries on desktop and mobi
   await expect(
     reader.getByText("合成研究摘要：证据支持温和上涨，需关注指引变化。"),
   ).toBeVisible();
+  // Structured parsing: 一、/二、 sections become headings, not one wall of text.
+  await expect(page.locator(".kb-h3")).toHaveCount(2);
+  await expect(page.locator(".kb-h3").first()).toHaveText("一、研究背景");
+  await expect(page.locator(".kb-list li")).toHaveCount(2);
+  await expect(
+    page.locator(".kb-outline li").first(),
+  ).toHaveText("研究背景");
   expect(await page.locator(".kb-new").count()).toBeGreaterThan(0);
   await page.setViewportSize({ width: 390, height: 844 });
   expect(
