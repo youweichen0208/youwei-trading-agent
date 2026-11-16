@@ -358,6 +358,10 @@ export function KnowledgeBase() {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [contentsOpen, setContentsOpen] = useState(false);
   const [treeOpen, setTreeOpen] = useState(false);
+  // Stock folders start collapsed; search opens them so matches stay reachable.
+  const [expandedStocks, setExpandedStocks] = useState<Record<string, boolean>>(
+    {},
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -764,7 +768,8 @@ export function KnowledgeBase() {
                 {!collapsed.summary &&
                   stockFolders.map((folder) => {
                     const branchKey = `summary:${folder.symbol}`;
-                    const open = !collapsed[branchKey];
+                    const open =
+                      Boolean(needle) || expandedStocks[branchKey] === true;
                     return (
                       <div className="kb-branch" key={folder.symbol}>
                         <button
@@ -772,9 +777,9 @@ export function KnowledgeBase() {
                           className="kb-folder kb-folder-sub"
                           aria-expanded={open}
                           onClick={() =>
-                            setCollapsed((prev) => ({
+                            setExpandedStocks((prev) => ({
                               ...prev,
-                              [branchKey]: open,
+                              [branchKey]: !open,
                             }))
                           }
                         >

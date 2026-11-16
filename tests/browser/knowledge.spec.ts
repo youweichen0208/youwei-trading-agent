@@ -26,27 +26,25 @@ test("knowledge base archives lessons and research summaries on desktop and mobi
     page.getByRole("link", { name: "知识沉淀", exact: true }),
   ).toHaveAttribute("aria-current", "page");
   const reader = page.locator(".kb-reader");
-  // Knowledge is shared, so only this run's tagged documents are asserted.
-  await expect(
-    page.locator(".kb-doc").filter({ hasText: seed.tag }),
-  ).toHaveCount(3);
+  // Stock folders start collapsed; only the always-open lesson list shows a document.
+  const taggedDocs = page.locator(".kb-doc").filter({ hasText: seed.tag });
+  await expect(taggedDocs).toHaveCount(1);
   // Research summaries nest under one folder per stock symbol.
   const primaryFolder = page.getByRole("button", {
     name: new RegExp(`^${seed.primary}\\s*1$`),
   });
+  const primaryDoc = page.getByRole("button", {
+    name: new RegExp(`${seed.primary} 研究摘要`),
+  });
   await expect(
     page.getByRole("button", { name: new RegExp(`^${seed.secondary}\\s*1$`) }),
   ).toBeVisible();
-  await expect(primaryFolder).toHaveAttribute("aria-expanded", "true");
-  await primaryFolder.click();
   await expect(primaryFolder).toHaveAttribute("aria-expanded", "false");
-  await expect(
-    page.getByRole("button", { name: new RegExp(`${seed.primary} 研究摘要`) }),
-  ).toHaveCount(0);
+  await expect(primaryDoc).toHaveCount(0);
   await primaryFolder.click();
-  await expect(
-    page.getByRole("button", { name: new RegExp(`${seed.primary} 研究摘要`) }),
-  ).toBeVisible();
+  await expect(primaryFolder).toHaveAttribute("aria-expanded", "true");
+  await expect(taggedDocs).toHaveCount(2);
+  await expect(primaryDoc).toBeVisible();
   await expect(
     page.getByText("无研究上下文的摘要，不应出现在知识库。"),
   ).toHaveCount(0);

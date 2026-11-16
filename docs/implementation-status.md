@@ -1364,3 +1364,12 @@ Worker、Tools 已切换到 `/opt/hermes-alpha-lab/releases/20261113-research-re
 - 验证：生产 1440 截图确认 `NVDA`（5）下 5 条摘要明显归属该文件夹；折叠该行仅隐藏自身分支（页面摘要数 29 → 24 实测），其他股票不受影响；`knowledge.spec.ts` 与 `apps/web` tsc 通过。
 - 生产：release `20261116-tree-containment`，BUILD_ID `wzZwobLgIo-KuQNeR6IKl`，drop-in `zzzzzzzzzzzzzzz-tree-containment.conf`，MainPID 3344906 → 3450337；边缘 `current` 同 BUILD_ID。
 - 回退：删除 drop-in 并重启回到 `20261116-loading-skeleton`（`yEQ8IKTT0_jFZmlUNqL39`）。
+
+## 知识库股票文件夹默认折叠（2026-11-16）
+
+- 需求：股票文件夹默认不展开，避免一进入知识库就铺开几十个文件。
+- 实现：父级「策略经验 / 个股研究」仍默认展开，股票文件夹改用独立的 `expandedStocks` 状态，初始为空即折叠；搜索时按既有规则强制展开命中项，清空搜索后恢复用户自己的展开状态。
+- 测试：默认断言 `aria-expanded="false"`、可见文档 0 条；点击后展开并出现 2 条本文档（经验列表始终可见 1 条）；搜索自动展开仍通过。
+- 验证：生产只读登录实测前 5 个文件夹均 `aria-expanded=false`、`.kb-doc-sub` 可见 0；点击 `NVDA` 后出现 5 条。
+- 生产：release `20261116-stock-collapsed`，BUILD_ID `D8RAfUFZn2-FdPEqH9D9z`，drop-in `zzzzzzzzzzzzzzzz-stock-collapsed.conf`，MainPID 3450337 → 3464414；边缘 `current` 同 BUILD_ID。
+- 回退：删除 drop-in 并重启回到 `20261116-tree-containment`（`wzZwobLgIo-KuQNeR6IKl`）。
