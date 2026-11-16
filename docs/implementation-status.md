@@ -1435,14 +1435,17 @@ Worker、Tools 已切换到 `/opt/hermes-alpha-lab/releases/20261113-research-re
 - 数据库：021/026 迁移创建的 `feishu_login_challenges` 保留但不再读写，未执行生产删表。
 - 配置：systemd 中的 `FEISHU_LOGIN_ENABLED` 已无代码引用，可后续清理。
 - 验证：`pnpm typecheck`、`pnpm build` 通过；本地 Docker 无法启动容器，DB 集成测试未执行。
-- 尚未部署：生产仍运行 `20261112-multiuser-candidate`，部署后需重新走一次 OAuth 登录验证。
+- 部署：Web 已随 `20261116-workspace-redesign` 上线，旧的私聊挑战路由与入口同时消失；飞书机器人服务仍运行旧 release，其 `/login` 处理已成为无入口可达的睡眠代码，后续单独发布时移除。
 
 ## 工作台视觉重构（2026-11-16）
 
 - 按参照图重做工作台外壳：浅灰画布、白色圆角卡片、黑色主操作；侧栏品牌改为 Youwei Agent / 金融研究工作台，导航改为「对话」，最近会话按今天/昨天/更早分组，自选股与持仓入口固定在底部。
 - 顶栏改为面包屑 + 大标题 + 状态徽标 + 邮箱；研究状态由 Chat 通过 `onStatusChange` 实时上抛，不再只读打开会话时的快照。
 - 会话卡：新增「当前研究」标题与日期、用户消息「研究需求」块、助手头像/名称；失败任务改为独立失败卡（原因、失败步骤、重试研究、无需重新输入），重试复用原用户消息；研究轨迹在终态显示为「研究过程 · N 个步骤」。
-- 画布卡：新增 Canvas 标题栏（内容数、全屏）与底部缩放/平移工具（50%–200%、滚轮缩放、拖动平移、适应窗口）；空状态改为「内容将在这里生成」与表格/图表/图像/文本标签。
+- 画布卡：新增 Canvas 标题栏（内容数、全屏）与底部缩放/平移工具（50%–200%、Ctrl/⌘ + 滚轮缩放、拖动平移、适应窗口）；空状态改为「内容将在这里生成」与表格/图表/图像/文本标签。
 - 样式集中在新增 `apps/web/app/workspace-redesign.css`，在 `workspace.css` 之后加载；旧样式保留以免影响其他页面。
 - 验证：`pnpm typecheck`、`pnpm build` 通过；用静态预览截图核对桌面布局。浏览器端到端测试未运行（本地 Docker 无法启动容器）。
-- 尚未生产部署。
+- 生产发布：release `/opt/hermes-alpha-lab/releases/20261116-workspace-redesign`（由 `20261116-notes-doc5` 复制后覆盖 Web 文件），BUILD_ID `CheqkGJEjsL9V131Rn8sT`；`pnpm build` 通过。drop-in `zzzzzzzzzzzzzzzzzzzzzzzz-workspace-redesign.conf`，Web MainPID 838532 → 3236939；Worker/Tools/Feishu/数据库未变，无迁移。
+- 入口：阿里云运行 `publish-edge.py`，`/var/www/hermes-alpha-lab/current` 由 `LUnXdBqUlUu8E-nZ8XMbg` 切到 `CheqkGJEjsL9V131Rn8sT`。
+- 验证：公网 `/`、`/knowledge`、`/notes` 200；`/api/auth/options` 返回 `feishuOAuth:true`；`/api/auth/session` 401；标题为 Youwei Agent；静态 CSS 包含 `canvas-header`、`research-failure`、`topbar-status`；journal 无 error。
+- 回退：删除 `zzzzzzzzzzzzzzzzzzzzzzzz-workspace-redesign.conf` 后 `daemon-reload && systemctl restart alpha-lab-web` 回到 `20261116-notes-doc5`（`LUnXdBqUlUu8E-nZ8XMbg`）；入口 `current` 指回同一 BUILD_ID。
