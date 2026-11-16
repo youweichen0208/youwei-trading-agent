@@ -1347,3 +1347,12 @@ Worker、Tools 已切换到 `/opt/hermes-alpha-lab/releases/20261113-research-re
 - 验证：`apps/web` tsc 通过；`knowledge.spec.ts` 通过；生产真实账号截图确认 `个股研究 > NVDA > NVDA 研究摘要` 三级层次。
 - 生产：release `20261116-tree-hierarchy`，BUILD_ID `S9yu1VBYTo_B_t8aEWdDg`，drop-in `zzzzzzzzzzzzz-tree-hierarchy.conf`，MainPID 3308149 → 3331542；边缘 `current` 同 BUILD_ID。
 - 回退：删除 drop-in 并重启回到 `20261116-shell-green`（`FT4SJaQDnaEzkpCUKXVgi`）。
+
+## 知识沉淀加载骨架（2026-11-16）
+
+- 问题：加载态只有居中一行「正在加载知识沉淀…」，整页塌成空白，和文档工作台的版式断裂。
+- 修复：新增 `KnowledgeSkeleton`，按真实三栏几何铺骨架——目录（标题、搜索、分段、一级/二级行）、正文（面包屑、标题、元信息、段落、小节）、大纲条目；`kb-shimmer` 1.4s 微光，`prefers-reduced-motion` 下关闭动画；骨架 `aria-hidden`，进度由 `.kb-sr-only` 的 `role="status"` 播报。
+- 文档栏：加载中显示「正在加载…」，数据到达前隐藏经验/摘要计数；刷新按钮保持 disabled。
+- 验证：本地拦截 `/api/knowledge` 4s，1440 与 390 截图版式与真实页面一致；生产拦截 3.5s 实测同一个骨架；`knowledge.spec.ts` 通过。
+- 生产：release `20261116-loading-skeleton`，BUILD_ID `yEQ8IKTT0_jFZmlUNqL39`，drop-in `zzzzzzzzzzzzzz-loading-skeleton.conf`，MainPID 3331542 → 3344906；边缘 `current` 同 BUILD_ID。
+- 回退：删除 drop-in 并重启回到 `20261116-tree-hierarchy`（`S9yu1VBYTo_B_t8aEWdDg`）。

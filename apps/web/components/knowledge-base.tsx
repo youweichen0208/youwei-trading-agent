@@ -135,6 +135,69 @@ function TagIcon() {
 }
 
 
+function Sk({ width, height = 10 }: { width: string; height?: number }) {
+  return (
+    <span className="kb-sk" style={{ width, height }} aria-hidden="true" />
+  );
+}
+
+function KnowledgeSkeleton() {
+  return (
+    <>
+      <span className="kb-sr-only" role="status">
+        正在加载知识沉淀…
+      </span>
+      <div className="kb-body kb-skeleton" aria-hidden="true">
+        <div className="kb-tree">
+          <div className="kb-tree-head">
+            <Sk width="96px" height={14} />
+            <Sk width="24px" height={24} />
+          </div>
+          <div className="kb-tree-top">
+            <Sk width="100%" height={32} />
+            <Sk width="100%" height={24} />
+          </div>
+          <div className="kb-tree-list">
+            {[0, 1, 2, 3, 4, 5, 6].map((row) => (
+              <div
+                key={row}
+                className={row > 1 && row < 6 ? "kb-sk-row kb-sk-row-sub" : "kb-sk-row"}
+              >
+                <Sk width="12px" height={12} />
+                <Sk width={row % 2 ? "42%" : "56%"} height={10} />
+                <Sk width="14px" height={10} />
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="kb-reader">
+          <div className="kb-reader-head">
+            <Sk width="112px" height={9} />
+            <Sk width="56%" height={28} />
+            <Sk width="176px" height={9} />
+          </div>
+          <div className="kb-paper">
+            <Sk width="92%" height={10} />
+            <Sk width="88%" height={10} />
+            <Sk width="95%" height={10} />
+            <Sk width="62%" height={10} />
+            <Sk width="42%" height={16} />
+            <Sk width="90%" height={10} />
+            <Sk width="84%" height={10} />
+            <Sk width="70%" height={10} />
+          </div>
+        </div>
+        <aside className="kb-outline">
+          <Sk width="64px" height={12} />
+          {[78, 66, 84, 58, 72].map((w) => (
+            <Sk key={w} width={`${w}%`} height={10} />
+          ))}
+        </aside>
+      </div>
+    </>
+  );
+}
+
 function SearchIcon() {
   return (
     <svg viewBox="0 0 20 20" aria-hidden="true">
@@ -534,7 +597,9 @@ export function KnowledgeBase() {
               ? selected.kind === "lesson"
                 ? selected.lesson.title
                 : `${selected.summary.symbol} 研究摘要`
-              : "尚未选择文档"}
+              : loading
+                ? "正在加载…"
+                : "尚未选择文档"}
           </span>
         </div>
         <div className="kb-bar-actions">
@@ -548,9 +613,11 @@ export function KnowledgeBase() {
             <OutlineIcon />
             目录
           </button>
-          <span className="kb-bar-count">
-            {stats.lessons} 经验 · {stats.summaries} 摘要
-          </span>
+          {data && (
+            <span className="kb-bar-count">
+              {stats.lessons} 经验 · {stats.summaries} 摘要
+            </span>
+          )}
           <button
             type="button"
             className="kb-btn"
@@ -586,9 +653,7 @@ export function KnowledgeBase() {
           </button>
         </div>
       ) : !data ? (
-        <p className="kb-loading" role="status">
-          正在加载知识沉淀…
-        </p>
+        <KnowledgeSkeleton />
       ) : (
         <div className="kb-body">
           <a className="kb-skip" href="#kb-paper">
