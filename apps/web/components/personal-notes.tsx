@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { api, message } from "../lib/client";
 
 type Note = {
@@ -63,6 +63,39 @@ const day = (value: string) =>
     day: "2-digit",
     timeZone: "Asia/Shanghai",
   });
+const Plus = () => (
+  <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+    <path d="M10 4.5v11M4.5 10h11" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
+const Search = () => (
+  <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+    <circle cx="9" cy="9" r="5.2" stroke="currentColor" strokeWidth="1.6" />
+    <path d="m13 13 3.4 3.4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+  </svg>
+);
+const Pin = () => (
+  <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+    <path
+      d="M12.6 3.4 16.6 7.4l-2 .7-2.6 2.6.3 2.7-4.7-4.7 2.7.3 2.6-2.6Z"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinejoin="round"
+    />
+    <path d="m8.4 11.6-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+  </svg>
+);
+const Spark = () => (
+  <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+    <path
+      d="M10 3.2l1.5 4.1 4.1 1.5-4.1 1.5L10 14.4 8.5 10.3 4.4 8.8l4.1-1.5Z"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinejoin="round"
+    />
+    <path d="M15.4 13.6l.6 1.6 1.6.6-1.6.6-.6 1.6-.6-1.6-1.6-.6 1.6-.6Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
+  </svg>
+);
 
 export function PersonalNotes() {
   const [notes, setNotes] = useState<Note[] | null>(null);
@@ -70,6 +103,7 @@ export function PersonalNotes() {
   const [query, setQuery] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
     let active = true;
     api<Note[]>("personal-notes")
@@ -116,8 +150,7 @@ export function PersonalNotes() {
   const set = (patch: Partial<Draft>) =>
     setDraft((current) => (current ? { ...current, ...patch } : current));
   // Guarded navigation: unsaved text is never dropped without a confirmation.
-  const canLeave = () =>
-    !dirty || window.confirm("放弃未保存的修改？");
+  const canLeave = () => !dirty || window.confirm("放弃未保存的修改？");
   const select = (note: Note) => {
     if (!canLeave()) return;
     setDraft(toDraft(note));
@@ -186,120 +219,92 @@ export function PersonalNotes() {
   };
   return (
     <section className="notes">
-      <header className="notes-bar">
-        <span className="notes-title">个人笔记</span>
-        <span className="notes-hint">
-          Hermes
-          会参考勾选的笔记（置顶优先，单条前2000字，建议保持精炼）；仅当前账号个人研究使用，不进入群研究
-        </span>
-        <input
-          className="notes-search"
-          aria-label="搜索笔记"
-          placeholder="搜索笔记"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-        />
-        <button type="button" className="notes-new" onClick={start}>
-          ＋ 新建笔记
-        </button>
-      </header>
       {error && (
         <p className="notes-error" role="alert">
           {error}
         </p>
       )}
       <div className="notes-body">
-        <nav className="notes-list" aria-label="笔记列表">
-          {notes === null ? (
-            <p className="notes-loading" role="status">
-              正在加载笔记…
-            </p>
-          ) : (
-            visible.map((note) => (
-              <button
-                key={note.id}
-                type="button"
-                className="notes-item"
-                aria-current={draft?.id === note.id ? "true" : undefined}
-                onClick={() => select(note)}
-              >
-                <span className="notes-item-title">
-                  {note.pinned ? "置顶 · " : ""}
-                  {note.title}
-                </span>
-                <span className="notes-item-meta">
-                  {day(note.updatedAt)} ·{" "}
-                  {note.useInAgent ? "参考中" : "不参考"}
-                </span>
-                {note.symbol && (
-                  <span className="notes-item-meta">{note.symbol}</span>
-                )}
-              </button>
-            ))
-          )}
-          {notes && !visible.length && (
-            <p className="notes-loading">
-              {query.trim() ? "没有匹配的笔记" : "还没有笔记"}
-            </p>
-          )}
-        </nav>
+        <aside className="notes-rail">
+          <div className="notes-rail-head">
+            <h2 className="notes-rail-title">
+              笔记
+              <span className="notes-count">{notes?.length ?? 0}</span>
+            </h2>
+            <button
+              type="button"
+              className="notes-new"
+              aria-label="＋ 新建笔记"
+              title="新建笔记"
+              onClick={start}
+            >
+              <Plus />
+            </button>
+          </div>
+          <div className="notes-rail-search">
+            <Search />
+            <input
+              className="notes-search"
+              aria-label="搜索笔记"
+              placeholder="搜索笔记"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </div>
+          <nav className="notes-list" aria-label="笔记列表">
+            {notes === null ? (
+              <p className="notes-loading" role="status">
+                正在加载笔记…
+              </p>
+            ) : (
+              visible.map((note) => (
+                <button
+                  key={note.id}
+                  type="button"
+                  className="notes-item"
+                  aria-current={draft?.id === note.id ? "true" : undefined}
+                  onClick={() => select(note)}
+                >
+                  <span className="notes-item-title">
+                    {note.pinned && (
+                      <span className="notes-item-pin" aria-hidden="true">
+                        <Pin />
+                      </span>
+                    )}
+                    {note.pinned ? "置顶 · " : ""}
+                    {note.title}
+                  </span>
+                  <span className="notes-item-meta">
+                    {day(note.updatedAt)} ·{" "}
+                    {note.useInAgent ? "参考中" : "不参考"}
+                    {note.symbol ? ` · ${note.symbol}` : ""}
+                  </span>
+                </button>
+              ))
+            )}
+            {notes && !visible.length && (
+              <p className="notes-loading">
+                {query.trim() ? "没有匹配的笔记" : "还没有笔记"}
+              </p>
+            )}
+          </nav>
+          <p className="notes-hint">
+            Hermes 会参考勾选的笔记（置顶优先，单条前 2000 字）；仅当前账号个人研究使用，不进入群研究
+          </p>
+        </aside>
         {draft ? (
-          <form className="notes-editor" onSubmit={save}>
-            <label className="notes-field">
-              标题
-              <input
-                type="text"
-                aria-label="笔记标题"
-                maxLength={200}
-                value={draft.title}
-                onChange={(event) => set({ title: event.target.value })}
-              />
-            </label>
-            <div className="notes-row">
-              <label className="notes-field">
-                关注股票（可选）
-                <input
-                  type="text"
-                  aria-label="关注股票"
-                  maxLength={15}
-                  placeholder="NVDA"
-                  value={draft.symbol}
-                  onChange={(event) => set({ symbol: event.target.value })}
-                />
-              </label>
-              <label className="notes-field">
-                标签（可选，逗号分隔）
-                <input
-                  type="text"
-                  aria-label="笔记标签"
-                  maxLength={310}
-                  placeholder="估值，风险，行业"
-                  value={draft.tags}
-                  onChange={(event) => set({ tags: event.target.value })}
-                />
-              </label>
-            </div>
-            <label className="notes-field">
-              正文
-              <textarea
-                className="notes-editor-body"
-                aria-label="笔记正文"
-                rows={14}
-                maxLength={20000}
-                value={draft.body}
-                onChange={(event) => set({ body: event.target.value })}
-              />
-            </label>
-            <div className="notes-row">
-              <label className="notes-check">
+          <form className="notes-doc" onSubmit={save}>
+            <div className="notes-toolbar">
+              <label className="notes-toggle">
                 <input
                   type="checkbox"
                   checked={draft.pinned}
                   onChange={(event) => set({ pinned: event.target.checked })}
                 />
+                <Pin />
                 置顶
               </label>
-              <label className="notes-check">
+              <label className="notes-toggle">
                 <input
                   type="checkbox"
                   checked={draft.useInAgent}
@@ -307,31 +312,83 @@ export function PersonalNotes() {
                     set({ useInAgent: event.target.checked })
                   }
                 />
+                <Spark />
                 让 Hermes 在分析时参考
               </label>
+              <div className="notes-tools">
+                <button
+                  type="button"
+                  className="notes-delete"
+                  disabled={!draft.id || saving}
+                  onClick={() => void remove()}
+                >
+                  删除笔记
+                </button>
+                <button
+                  type="submit"
+                  className="notes-save"
+                  disabled={!dirty || saving}
+                >
+                  {saving ? "正在保存…" : "保存笔记"}
+                </button>
+              </div>
             </div>
-            <div className="notes-actions">
-              <button
-                type="submit"
-                className="notes-save"
-                disabled={!dirty || saving}
-              >
-                {saving ? "正在保存…" : "保存笔记"}
-              </button>
-              <button
-                type="button"
-                className="notes-delete"
-                disabled={!draft.id || saving}
-                onClick={() => void remove()}
-              >
-                删除笔记
-              </button>
+            <div
+              className="notes-editor"
+              // Clicking the blank page below the last line starts writing there.
+              onClick={(event) => {
+                if (event.target === event.currentTarget) bodyRef.current?.focus();
+              }}
+            >
+              <input
+                className="notes-title-input"
+                type="text"
+                aria-label="笔记标题"
+                placeholder="无标题"
+                maxLength={200}
+                value={draft.title}
+                onChange={(event) => set({ title: event.target.value })}
+              />
+              <textarea
+                ref={bodyRef}
+                className="notes-editor-body"
+                aria-label="笔记正文"
+                placeholder="写点什么：你的投资风格、偏好，或一次复盘的心得……"
+                rows={6}
+                maxLength={20000}
+                value={draft.body}
+                onChange={(event) => set({ body: event.target.value })}
+              />
+              <div className="notes-meta">
+                <label className="notes-meta-field">
+                  <span>股票</span>
+                  <input
+                    type="text"
+                    aria-label="关注股票"
+                    maxLength={15}
+                    placeholder="NVDA"
+                    value={draft.symbol}
+                    onChange={(event) => set({ symbol: event.target.value })}
+                  />
+                </label>
+                <label className="notes-meta-field">
+                  <span>标签</span>
+                  <input
+                    type="text"
+                    aria-label="笔记标签"
+                    maxLength={310}
+                    placeholder="估值，风险，行业"
+                    value={draft.tags}
+                    onChange={(event) => set({ tags: event.target.value })}
+                  />
+                </label>
+              </div>
             </div>
           </form>
         ) : (
           notes && (
-            <div className="notes-editor notes-empty">
-              <p>
+            <div className="notes-doc notes-doc-empty">
+              <p className="notes-blank">
                 还没有笔记。写下你的投资风格、偏好或复盘心得，Hermes
                 会在分析时参考。
               </p>

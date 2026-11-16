@@ -23,6 +23,9 @@ test("personal notebook saves, survives reload, edits and deletes", async ({
   ).toHaveAttribute("aria-current", "page");
   await expect(page.getByText(/还没有笔记/).first()).toBeVisible();
   await page.getByRole("button", { name: "＋ 新建笔记" }).first().click();
+  await page.screenshot({
+    path: testInfo.outputPath("notes-empty-draft.png"),
+  });
   await page.getByLabel("笔记标题").fill("我的投资风格");
   await page
     .getByLabel("笔记正文")
