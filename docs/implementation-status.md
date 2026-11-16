@@ -1419,3 +1419,11 @@ Worker、Tools 已切换到 `/opt/hermes-alpha-lab/releases/20261113-research-re
 - 验证：本地与生产 `notes.spec.ts` 通过；服务端 8 项测试通过；`pnpm typecheck` 通过；颜色写入 `style="color: var(--danger)"`，高亮同理，仍是语义令牌。
 - 生产：release `20261116-notes-doc4`，BUILD_ID `gExKMQKV5WGmSO3eRHjAA`，drop-in `zzzzzzzzzzzzzzzzzzzzz-notes-doc4.conf`，Web 已重启加载；Worker 与数据库未变；边缘 `current` 同 BUILD_ID。
 - 回退：删除 `…-notes-doc4.conf`、`daemon-reload` 重启 Web 回 `20261116-notes-doc3`（`zvbmk5DJEiQcSTGLGEhSs`）。
+
+## 编辑器焦点描边修复（2026-11-16）
+
+- 现象：线上打开新笔记，正文仍被 2px 绿色描边包成一个输入框，看起来「能编辑的区域只有一小块」；上一版声称已去掉描边，但只在未聚焦的截图里成立。
+- 根因：`workspace.css` 的 `.app :is(button,a,input,textarea,select,summary,[tabindex]):focus-visible` 特指度 (0,3,0)，高于 notes.css 里 `.note-page:focus-visible` 的 (0,2,0)，聚焦时输掉级联。
+- 修复：改为 `.notes .note-editor .note-page:focus(-visible)`（(0,4,0)）后再无描边；`notes.spec.ts` 增加断言：聚焦正文后 `getComputedStyle(.note-page).outlineStyle === "none"`，防止再次回归。
+- 生产：release `20261116-notes-doc5`，BUILD_ID `LUnXdBqUlUu8E-nZ8XMbg`，drop-in `zzzzzzzzzzzzzzzzzzzzzz-notes-doc5.conf`；边缘 `current` 同 BUILD_ID；生产实测 `outlineStyle: none`、工具栏 21 个按钮、`notes.spec.ts` 通过。
+- 回退：删除 doc5 drop-in 重启回 `20261116-notes-doc4`（`gExKMQKV5WGmSO3eRHjAA`）。

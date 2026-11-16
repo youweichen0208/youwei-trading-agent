@@ -428,9 +428,10 @@
   outline: none;
 }
 /* A document shows the caret, not an input ring: the green box made the page
-   look like a small form field. */
-.note-page:focus,
-.note-page:focus-visible {
+   look like a small form field. Scoped deep enough to beat
+   `.app :is(...,[tabindex]):focus-visible` from workspace.css. */
+.notes .note-editor .note-page:focus,
+.notes .note-editor .note-page:focus-visible {
   outline: none;
   box-shadow: none;
 }

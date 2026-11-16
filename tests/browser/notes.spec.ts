@@ -34,6 +34,13 @@ test("personal notebook saves, survives reload, edits and deletes", async ({
   // Bold while typing (no select-all: a browser select-all keeps a document
   // selection that swallows Enter).
   await page.getByLabel("笔记正文").click();
+  // The focused page must not draw the app's input ring.
+  expect(
+    await page.evaluate(() => {
+      const page = document.querySelector(".note-page");
+      return page ? getComputedStyle(page).outlineStyle : "missing";
+    }),
+  ).toBe("none");
   await page.keyboard.press("End");
   await page.keyboard.press("Enter");
   await page.getByRole("button", { name: "粗体" }).click();
