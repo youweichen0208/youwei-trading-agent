@@ -19,9 +19,9 @@
 | --- | --- |
 | Worker / Tools | Worker `20261116-personal-notes-worker`；Tools `20261113-research-repair` |
 | Feishu | `20261113-feishu-symbols` |
-| Web 与入口静态构建 | `20261116-notes-doc2`，BUILD_ID `IptiIDao7vzYOj7isqYb7` |
+| Web 与入口静态构建 | `20261116-notes-doc3`，BUILD_ID `zvbmk5DJEiQcSTGLGEhSs` |
 | Hermes 镜像 | `sha256:cd54b181d56b6b4a794e5e1c3d2417d234aa30c41bdc206b7f63d86bfe0965dd`（含 `reasoning.delta` 补丁） |
-| 数据库 | 已应用 037（个人笔记）、032（候选暂停）、033（澄清上下文） |
+| 数据库 | 已应用 038（笔记正文 HTML）、037（个人笔记）、032（候选暂停）、033（澄清上下文） |
 | 自适应证据分页 | 本地代码保留，但生产已回退；该候选真实验收失败，不能随下次发布自动带上 |
 
 分页候选将上下文调用由 20 次降至 8 次，但全流程 732 秒、发布请求连续 400、预测为 0；参数错误根因未确定，不能归因于分页，也不能宣称性能改善。

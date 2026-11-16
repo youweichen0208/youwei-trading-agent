@@ -1396,3 +1396,14 @@ Worker、Tools 已切换到 `/opt/hermes-alpha-lab/releases/20261113-research-re
 - 生产：release `20261116-notes-doc2`，BUILD_ID `IptiIDao7vzYOj7isqYb7`，drop-in `zzzzzzzzzzzzzzzzzzz-notes-doc2.conf`，Web MainPID 3752775 → 3807058；Worker 未改动（`20261116-personal-notes-worker`，MainPID 3752789）；边缘 `current` 同 BUILD_ID。
 - 观察：Web 重启后首个 `/api/personal-notes` 冷请求可能超过 Playwright 默认 5s 断言窗口（首次生产验收因此失败一次，页面已显示加载态）；重跑通过，未改超时掩盖。
 - 回退：删除 `zzzzzzzzzzzzzzzzzz-notes-doc.conf`、`zzzzzzzzzzzzzzzzzzz-notes-doc2.conf` 后 `daemon-reload` 并重启 Web，回到 `20261116-personal-notes`（`6MmntwMwWP_d9_erLLfJJ`），边缘重发旧 BUILD_ID。
+
+## 个人笔记富文本编辑器（2026-11-16）
+
+- 需求：笔记正文要像语雀文档一样可排版，而不是纯文本输入框。
+- 实现：引入 Tiptap（StarterKit + TaskList/TaskItem + Placeholder + Table）；正文页支持 H1–H3、粗体/斜体/下划线/删除线/行内代码、引用、有序/无序/任务列表、链接、3×3 表格、分隔线、代码块、撤销重做；输入 `/` 打开插入菜单（↑↓/Enter/Esc），工具栏按钮 `mousedown` 阻止默认行为以保持选区和焦点，`/` 菜单项同样不抢焦点。
+- 存储：迁移 038 为 `personal_notes` 增加 `body_html`（可空，≤200000 字节字符）；`body` 仍是纯文本镜像，Hermes 注入、列表检索与摘要预览都读纯文本，格式化不进入提示词。旧行 `body_html` 为空时按段落回填显示。BFF 请求体上限 64 KiB，因此 `body_html` schema 上限取 60000，客户端在保存前按字节校验并给出「正文内容过长」。
+- 验证：本地与生产各跑 `notes.spec.ts`（粗体、`/` 插入一级标题、无序列表、保存后 reload 仍在、API 返回 `body` 无 `<` 且 `bodyHtml` 含 `<strong>`、删除、390px 无横向溢出、零 pageerror）；服务端 8 项测试含 bodyHtml 往返、清空、超限 400；`pnpm typecheck` 通过。
+- 生产：release `20261116-notes-doc3`，BUILD_ID `zvbmk5DJEiQcSTGLGEhSs`，drop-in `zzzzzzzzzzzzzzzzzzzz-notes-doc3.conf`，Web 服务已重启并加载该目录；迁移 038 已应用（共 38 条）；`has_column_privilege` 核实 `alpha_live_web`/`alpha_live_worker` 对新列 SELECT，Web 另有 UPDATE；Worker 未改动（`20261116-personal-notes-worker`），`forAgent` 只读纯文本。
+- 运维注意：复制发布目录后 `node_modules` 携带旧虚拟存储路径，`pnpm install` 会提示从另一个 release 目录重建；必须 `rm -rf node_modules` 后 `CI=1 pnpm install --frozen-lockfile`，否则新依赖（`@tiptap/*`）不落地，构建以 Module not found 失败。
+- 未包含：图片/附件/画板/思维导图/流程图（无上传与渲染链路）、文字颜色与高亮（会引入裸色值，与语义色令牌冲突）。
+- 回退：删除 `zzzzzzzzzzzzzzzzzzzz-notes-doc3.conf`、`daemon-reload` 重启 Web 回 `20261116-notes-doc2`（`IptiIDao7vzYOj7isqYb7`），边缘重发旧 BUILD_ID；`body_html` 列为新增可空列，旧代码不读，保留即可。
