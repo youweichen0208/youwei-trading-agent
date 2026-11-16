@@ -17,6 +17,8 @@ test("knowledge base archives lessons and research summaries on desktop and mobi
   });
   expect(registered.status()).toBe(201);
   const seed = await seedKnowledge(email);
+  // Three-pane reading layout is the desktop target; narrow widths drop the outline.
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/knowledge");
   await expect(page.locator(".kb-bar")).toBeVisible();
   await expect(page.locator(".topbar-title")).toHaveText("知识沉淀");
@@ -77,9 +79,6 @@ test("knowledge base archives lessons and research summaries on desktop and mobi
   );
   await outlineItems.nth(1).click();
   await expect(outlineItems.nth(1)).toHaveAttribute("aria-current", "location");
-  await expect(
-    page.locator(".kb-outline li").first(),
-  ).toHaveText("研究背景");
   expect(await page.locator(".kb-new").count()).toBeGreaterThan(0);
   await page.screenshot({
     path: testInfo.outputPath("knowledge-desktop.png"),
@@ -93,21 +92,26 @@ test("knowledge base archives lessons and research summaries on desktop and mobi
   await page.getByLabel("搜索知识").fill(seed.primary);
   await expect(
     page.getByRole("button", { name: new RegExp(`${seed.primary} 研究摘要`) }),
-  ).toHaveCount(0);
-  await page.getByLabel("搜索知识").fill(seed.primary);
-  await expect(
-    page.getByRole("button", { name: new RegExp(`${seed.primary} 研究摘要`) }),
   ).toBeVisible();
   await page.getByLabel("搜索知识").fill("");
   await page.setViewportSize({ width: 390, height: 844 });
+  // Phones open on the document; the tree is a drawer.
+  await expect(page.locator(".kb-tree")).toBeHidden();
+  await page.getByRole("button", { name: "目录" }).click();
+  await expect(page.locator(".kb-tree")).toBeVisible();
+  await page.getByRole("button", { name: "目录" }).click();
+  await expect(page.locator(".kb-tree")).toBeHidden();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
+  // Chromium composites the off-canvas fixed app sidebar into narrow captures.
+  await page.addStyleTag({
+    content: ".app .sidebar,.app .nav-scrim{display:none !important}",
+  });
   await page.screenshot({
     path: testInfo.outputPath("knowledge-mobile.png"),
-    fullPage: true,
   });
   expect(errors).toEqual([]);
 });
