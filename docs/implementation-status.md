@@ -1338,3 +1338,12 @@ Worker、Tools 已切换到 `/opt/hermes-alpha-lab/releases/20261113-research-re
 - 验证：`apps/web` tsc 通过；`knowledge.spec.ts` 通过；登录视觉用例在 HEAD 上已因标题文案变更失效（断言「研究，洞察，进化」在 `login-landing.tsx` 中不存在），与本次配色无关。
 - 生产：release `20261116-shell-green`，BUILD_ID `FT4SJaQDnaEzkpCUKXVgi`，drop-in `zzzzzzzzzzzz-shell-green.conf`，MainPID 3277253 → 3308149；边缘 `current` 同 BUILD_ID；`--brand` 实测 `#007d55`，`/`、`/knowledge` 200，`/api/auth/session` 401。
 - 回退：删除 drop-in 并重启回到 `20261116-knowledge-yuque`（BUILD_ID `_TV4MKzR41pONyGxrUwxP`）；边缘 `current` 指回该 BUILD_ID。
+
+## 知识库目录层级辨识度（2026-11-16）
+
+- 问题：一级（`个股研究`）与二级（`NVDA`）都是 13px/500 + 文件夹图标，名称仅差 4px，层级读不出来。
+- 修复：一级 13px/600 墨色 + 文件夹图标 + 灰底计数 pill；二级缩进 34px、12px/500、`letter-spacing: .04em`、标签图标（`TagIcon`）、无 pill 计数；文档行缩进 52px，仍用时钟图标。三级嵌套在 260px 宽内保留可读标题宽度。
+- 根因修复：`.kb .kb-doc` / `.kb .kb-folder` 的 `padding`（0,2,0）覆盖了 `.kb-doc-sub` / `.kb-folder-sub`（0,1,0），嵌套缩进此前实际未生效；改为 `.kb .kb-doc-sub`、`.kb .kb-folder-sub` 后左侧缩进 26/44 → 34/52。
+- 验证：`apps/web` tsc 通过；`knowledge.spec.ts` 通过；生产真实账号截图确认 `个股研究 > NVDA > NVDA 研究摘要` 三级层次。
+- 生产：release `20261116-tree-hierarchy`，BUILD_ID `S9yu1VBYTo_B_t8aEWdDg`，drop-in `zzzzzzzzzzzzz-tree-hierarchy.conf`，MainPID 3308149 → 3331542；边缘 `current` 同 BUILD_ID。
+- 回退：删除 drop-in 并重启回到 `20261116-shell-green`（`FT4SJaQDnaEzkpCUKXVgi`）。

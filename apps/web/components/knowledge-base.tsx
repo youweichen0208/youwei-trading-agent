@@ -125,6 +125,15 @@ function OutlineIcon() {
   );
 }
 
+function TagIcon() {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true">
+      <path d="M3.4 9.1V4.6c0-.7.5-1.2 1.2-1.2h4.5c.3 0 .6.1.8.3l5.5 5.5c.3.3.3.8 0 1.1l-4.4 4.4c-.3.3-.8.3-1.1 0L4.4 9.9a1.2 1.2 0 0 1-.3-.8Z" />
+      <circle cx="6.8" cy="6.8" r="1.1" />
+    </svg>
+  );
+}
+
 
 function SearchIcon() {
   return (
@@ -706,7 +715,7 @@ export function KnowledgeBase() {
                         >
                           <ChevronIcon />
                           <span className="kb-folder-icon">
-                            <FolderIcon />
+                            <TagIcon />
                           </span>
                           <span className="kb-folder-name">
                             {folder.symbol}
