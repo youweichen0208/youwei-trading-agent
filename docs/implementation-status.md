@@ -1317,3 +1317,14 @@ Worker、Tools 已切换到 `/opt/hermes-alpha-lab/releases/20261113-research-re
 - 生产发布：release `20261116-shared-knowledge`，BUILD_ID `Xuq5MawMzDvPHW_6fNR8-`，drop-in `zzzzzzzzzz-shared-knowledge.conf`，MainPID 3138703 → 3208969；边缘 `current` 同 BUILD_ID。
 - 验证：根与 `apps/web` `tsc` 通过，`knowledge.spec.ts` 通过；生产登录 `owner@alpha.local` 后 `/api/knowledge` 返回 **29** 条（自有 25 条可归属 + 另一账号 4 条），页面 22 个股票目录、`/knowledge` 200，公网 `/` 200、`/api/auth/session` 401，journal 无 error。
 - 回退：删除 drop-in 后 `daemon-reload && systemctl restart alpha-lab-web` 回到 `20261116-stock-folders`；边缘 `current` 指回 `EcUaP6Uqr1YiWGB38SpGv`。
+
+## 知识沉淀页视觉重构（2026-11-16）
+
+- 参考语雀文档工作台改为三栏：目录 260px（`#fafbfc`）· 正文（白色、上限 720px）· 大纲 244px；56px 文档栏 + 2px 细分割线，页面级绿色强调 `--kb-accent #00875a` 仅用于操作、选中图标与大纲指示。
+- 阅读排版：正文 15px / 行高 1.85，文档标题 30px/1.32，`一、` 小节标题 17px，段落与列表 1em 节奏；目录行 13px、元信息 11px，日期收短为 `MM/DD`。
+- 交互：大纲可点击跳转（`href="#kb-b-n"`，`prefers-reduced-motion` 时取消平滑滚动），滚动时按章节位置高亮（`aria-current="location"`）；切换文档回到正文顶部；目录自动滚动到当前选中项；≤900px 目录改为「目录」抽屉并在选中后收起；新增「跳到正文」跳转链接。
+- 可读性：`--kb-ink-3` 调至 `#646a73`（白底 5.45:1、侧栏 5.26:1）；大纲选中态用 `--kb-accent-hover`（软底 5.51:1）；计数使用 tabular-nums；超长大纲标题 2 行截断并附 `title` 全文。
+- 断点：≥1360px 三栏；<1360px 隐藏大纲（1280px 正文 676px）；≤900px 目录抽屉化、正文单列。
+- 测试：`knowledge.spec.ts` 桌面视口改为 1440×1000，新增大纲 `aria-current`/跳转与移动抽屉开关断言；移动截图前隐藏离屏固定侧栏，规避 Chromium 合成残影（仅测试证据处理，不改产品样式）。
+- 生产：release `20261116-knowledge-yuque`，BUILD_ID `_TV4MKzR41pONyGxrUwxP`，drop-in `zzzzzzzzzzz-knowledge-yuque.conf`，MainPID 3208969 → 3277253；边缘 `current` 同 BUILD_ID。生产实测 1440px 下正文 592px、大纲 244px、6 个章节标题；1280px 隐藏大纲、正文 676px；`/`、`/knowledge` 200，`/api/auth/session` 401，journal 无 error。
+- 回退：删除 drop-in 后 `daemon-reload && systemctl restart alpha-lab-web` 回到 `20261116-shared-knowledge`；边缘 `current` 指回 `Xuq5MawMzDvPHW_6fNR8-`。
