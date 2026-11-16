@@ -80,7 +80,7 @@
 - Python stdin 桥只接收可信服务解析后的数据，独立进程不继承数据库和供应商凭证，有输入/输出大小、15 秒计算时限与 SIGTERM/SIGKILL 退出等待。公开工具接口不直接暴露这个内部桥。
 - 计算结果保存输入引用/哈希/元信息、参数、Decimal 精度、代码版本与计算时间。组合缺价时 partial + null 总值/权重，预测标记探索性回溯基线。
 - 可选 Alpaca 适配器固定官方只读行情地址，显式选择 feed 和口径，完整处理分页，不通过二进制浮点解析金融数字。未配置或鉴权/网络失败时显式失败，无供应商回退。本轮没有真实供应商请求。
-- Worker 现在等待工具退出，并归档最终数据/结果引用；必需工具失败会立即请求停止上游，退出后 failed。审批等待标记 unsupported_interaction，截止时间保留 deadline_exceeded。工具执行器丢失为 unknown，真实核对/解除流程尚待实现。
+- Worker 现在等待工具退出，并归档最终数据/结果引用；关键工具失败且本次任务没有后续成功调用时请求停止上游，退出后 failed；采集/读取类工具失败按覆盖缺失保留。审批等待标记 unsupported_interaction，截止时间保留 deadline_exceeded。工具执行器丢失为 unknown，真实核对/解除流程尚待实现。
 - 工具服务尚未通过认证网关暴露给 Hermes，Canvas 尚未自动消费这些结果；内部集成测试不等于真实三角色端到端完成。
 
 - 最新验证：真实 PostgreSQL 后端集成测试 **42 项通过**，Python **20 项通过**，`pnpm typecheck`、`uv run ruff check .`、`pnpm build` 通过。Python 日历依赖产生 8 条 pandas 弃用警告，未隐藏。迁移 005/006 已应用到本地独立 alpha_test。新数据链未进行真实供应商或浏览器 Canvas 端到端验证。
@@ -162,7 +162,7 @@
 ## 上游事件归档、文本恢复与接纳竞态（最新）
 
 - 新增迁移 012：执行独立上游游标/缺口/关闭标记，以及任务连续文本快照和稳定消息 ID。游标、文本和应用事件同事务保存，generation/租约与 run 身份校验拒绝旧收集器；重放不重复追加。主回答最多 500,000 字符，专项文本不进入主消息。
-- HermesClient 读取固定版本原生 SSE，每步最多 256 条、1 MiB、1.5 秒；验证 run/seq/id、UTF-8 和帧大小，未完成帧不推进游标。只保存主回答增量及工具开始/完成的受控字段，不保存原始预览、参数、推理或供应商错误。
+- HermesClient 读取固定版本原生 SSE，每步最多 256 条、1 MiB、0.5 秒；验证 run/seq/id、UTF-8 和帧大小，未完成帧不推进游标。只保存主回答增量及工具开始/完成的受控字段，不保存原始预览、参数、推理或供应商错误。
 - 原生只保留内存中最近 1,000 条事件，进程重启后可能无法重放。截断/缺口记录 event_history_gap，后续不拼接缺段文本；上游事件结束不等于应用任务结束。Worker 先归档状态查询所得终态回执，再分批读取余下事件；注册表不可用或上游状态过期不会让已保存回执失效，最终仍等待工具和专项退出。
 - 浏览器刷新后读取文本前缀，再接续后续增量；最终回答替换前缀，消息 ID 稳定。已用真实受限 Web 数据库账户验证刷新前半段、刷新后后半段，以及离线恢复、五类 Canvas 和既有工作流。
 - 实际 Hermes 联调暴露创建响应丢失后的接纳竞态：任务临时 unknown 时原进程已抵达工具入口。现仅对在数据库接纳之前明确回滚的事务等待最多 10 秒核对；不持锁等待、不执行供应商/计算、不重发任务，取消/失败立即拒绝。退出回执不走此等待逻辑，既有 unknown 工具恢复测试继续通过。
@@ -1080,3 +1080,217 @@ Worker、Tools 已切换到 `/opt/hermes-alpha-lab/releases/20261113-research-re
 ## GitHub 同步验证（2026-11-13）
 
 从远程 develop 的 12b30c5 基线建立独立检出，与当前工作目录同步 25 个变更文件；排除 .local、环境凭据、依赖、缓存、浏览器截图及临时验收产物。类型检查、Next 构建与全部 192 项服务端测试通过。修正后台验收脚本卡片联表为 source_task_id（匹配实际 schema），本次未重新跑真实模型验收。当前完成/剩余事项已集中更新 production-follow-up.md；历史失败与回退结论保留。GitHub 代码快照包含未通过真实验收的自适应分页候选，不等于生产统一发布版本。
+
+## 研究轨迹工具摘要与失败策略发布（2026-11-14）
+
+发布范围为本次会话的定向变更，不包含本地保留但生产已回退的自适应证据分页候选：
+
+- Web：`20261114-tool-trace-web`（首个 BUILD_ID `w50Um-25TksiGcEqY3cmr`，随后追补为 `7Gh5dl6sNvUrbDa_pCnf1`），在 `20261115-workbench-v2` 基础上覆盖研究轨迹组件、进度聚合、样式及 BFF 快照字段。
+- Worker：`20261114-tool-trace-worker`，在 `20261113-research-repair` 基础上覆盖事件映射、任务归档、Worker 失败判定及新增 `tool-summary`/`tool-policy`/`failure-text`。
+- Tools/Feishu 未变更；无数据库迁移。阿里云入口通过 `publish-edge.py` 发布同一构建，公网 `/` 的 SHA-256 与源站 `server/app/index.html` 完全一致，静态 chunk 返回 200，无 Cookie 的 `/api/auth/session` 仍返回 401。
+
+本次行为变化：工具开始/完成合并为一行并按真实工具名显示；白名单工具摘要（标的、日期范围、来源、计数、耗时）写入 `run.progress.detail`，原始预览、推理和参数全文仍不归档；终态消息与「正在停止」行显示失败原因；仅关键工具在无后续成功调用时判定任务失败，采集/读取类失败按覆盖缺失保留；失败任务头部不再显示绿色对勾。
+
+验证：两个发布目录 `pnpm typecheck` 通过；服务器独立测试库 `alpha_acceptance_test` 上 `pnpm test` 196/196 通过；Next 构建成功。切换前确认无 queued/running/stopping/unknown 任务。修正了三处旧测试：快照对比需排除已随事件过期的 `progress` 字段。
+
+未验证：发布后未触发真实模型研究，因此生产环境的实时轨迹渲染、工具摘要和失败原因展示尚缺用户侧截图证据；本次健康检查不等同于真实研究端到端通过。
+
+回退：删除 `alpha-lab-web.service.d/zzz-tool-trace.conf` 与 `alpha-lab-worker.service.d/zzz-tool-trace.conf`，`systemctl daemon-reload` 后重启两服务即可回到 `20261115-workbench-v2` 和 `20261113-research-repair`；入口 `current` 可指回 `vl5YJ7kT0pMn73kcAZKIO` 构建，旧静态资源保留。
+
+### 追补：模型说明与上游思考预览（2026-11-14）
+
+生产截图反馈仍看不到模型思考过程。核查锁定镜像 `alpha-lab-hermes:forecast-acceptance-20261112-r3` 确认：Runs API 未向 agent 传 `reasoning_callback`（`gateway/platforms/api_server_runs.py:1156`），原生 reasoning 不进入 run SSE；仅在模型未走原生 reasoning 时提供 ≤500 字符的 `reasoning.available` 预览，另有少量 `message.interim` 中间说明。私有思维链不可获得。
+
+本次追补：
+
+- Web 更新为 BUILD_ID `7Gh5dl6sNvUrbDa_pCnf1`：轨迹按工具切分显示模型可见说明（取上一个工具之后、当前工具之前的 `assistant.delta` 文本，截取 800 字符、最多 4 行）；`reasoning.available` / `message.interim` 以「思考 / 说明」行展示；低于 0.1 秒的耗时不再显示。
+- Worker 同步归档上述两类上游文本（脱敏、≤600 字符）；原始参数与供应商私有推理仍不归档。
+- 验证：worker 发布目录 `pnpm typecheck` 与 197/197 测试通过；Web 构建成功；公网 `/` 的 SHA-256 与源站 `server/app/index.html` 一致，静态 chunk 返回 200，无 Cookie 的 `/api/auth/session` 返回 401。首次 Web 切换时有一个研究任务正在运行，因此先只重启 Web；任务自然结束后确认活动任务为 0 才重启 Worker，未打断执行。
+- 未验证：当前模型（`anthropic_messages`）未观察到 `reasoning.available`/`message.interim`；「模型说明」来自可见回复文本，需要用户下一次研究确认显示效果。若需要真正的原生推理链，必须修改 Hermes 镜像转发 reasoning 流，属于独立变更。
+
+## Hermes 原生推理链部署（2026-11-14）
+
+为在轨迹中展示 Hermes 的原生思考，构建了新的自定义 Hermes 镜像并完成生产重新验证：
+
+- 补丁（`services/hermes/apply_patch.py`）：Runs API 此前没有向 canonical turn 传 `reasoning_callback`（`session_api_turn.py` 本身已支持 observer）。现按工具边界缓冲模型原生 reasoning，脱敏后以 `reasoning.delta` 事件写入 run SSE，每块上限 2000 字符；同时覆盖 admission 与非 admission 两条执行路径。推理文本不并入最终回答或 `stream_text`。补丁清单、事件契约与升级规则见 [Hermes 上游源码补丁清单](hermes-upstream-patches.md)。
+- 镜像：`sha256:cd54b181d56b6b4a794e5e1c3d2417d234aa30c41bdc206b7f63d86bfe0965dd`（`alpha-lab-hermes:reasoning-20261114`），基于锁定上游 v0.23.1 构建，未改变 `upstream.json` 的哈希钉。
+- 适配层/Worker/Web：消费 `reasoning.delta` 并显示为「思考」行；`pnpm typecheck` 通过，服务端测试 197/197；Web 构建 `pRdX6uxRQp1Zal6BrmrX0`，公网 `/` 与源站 `server/app/index.html` 的 SHA-256 一致。
+
+验证证据：
+
+- 隔离真实模型验收（`tests/hermes/provider_integration.py`，新镜像）：3 个角色全部通过，包含工具往返与 research 重启重放，耗时 130.77 秒。
+- 定向探针读取真实 run SSE：research/prediction/portfolio 分别收到 2/2/1 个 `reasoning.delta`，内容为可读的推理摘要；确认不是只改镜像而无事件。
+- `check-profiles.py` 对三个 owner、9 个 Profile 逐一通过（真实模型、工具服务停止、合成工具响应），每次生成新镜像证据。
+- `activate-verified-profiles.py` 激活 9 个 Profile；由于 Supervisor 使用独立的 publication 指针，另以 `publishDeployment` 在 `forecast-publications-20261114-reasoning` 生成新版本并切换 `HERMES_PUBLICATION_POINTER`。五个服务 active，Worker 与 publication 注册表均为新镜像，活动任务为 0。
+
+回退：恢复 `reasoning-image-backup-20261114/` 下的 `compose.json`、`preparation.json`、两个 registry；删除 `alpha-lab-supervisor.service.d/zzz-reasoning-publication.conf`；恢复 `activation-20261114T225134Z/previous-worker-registry.json` 到 Worker registry；重启 Worker 与 Supervisor。旧镜像 `d3da8c7b…` 与旧 publication 仍保留。
+
+未验证：切换后尚未发起真实用户研究，生产页面的「思考」行渲染尚缺用户侧截图；隔离探针只证明事件与内容存在。
+
+## 镜像切换后的队列阻塞与恢复（2026-11-14）
+
+镜像切换后用户提交的研究任务在队列停留超过 4 分钟。任务本身没有失败，Worker 也没有领取；容量闸门被 Profile 生命周期状态挡住。
+
+根因链：
+
+1. `compose.json` 的镜像变更会改变 `deploymentHash`（`digest({files,homeIdentity})`，其中包含 compose 内容），但 `profile_instances.deployment_hash` 仍指向旧部署。
+2. Supervisor 每次 tick 在 `profile_deployment_mismatch` 处抛错，catch 将 Profile 记为 `unknown / supervisor_check_failed`，不会自动重绑。
+3. `capacityAvailable` 将任何 lifecycle-managed 的 `unknown/starting/ready/stopping` Profile 视为占用（即使属于同一 owner 的另一套 context 或其他 owner），因此任务无法被领取。
+4. `check-profiles.py` 使用生产 compose 与生产容器名启动验收容器，结束时 `compose down` 移除它们；DB 中记录的旧 `container_id` 已不存在，tick 随后进入 `container_identity_changed`，而该状态按设计拒绝自动恢复。
+
+恢复步骤（已执行）：
+
+- 用 `loadDeployments` 重新计算 9 个注册 Profile 的 `deploymentHash`，备份 `profile_instances` 后以事务更新。
+- 对 4 个 `container_identity_changed` 的 Profile 运行只读 `hermes:reconcile inspect`：`submitted/tools/calls` 均为 0；`docker inspect` 确认记录的容器 ID 全部不存在。
+- 再次备份后，以事务将这四个 Profile 置为 `stopped`、清空 `lifecycle_error`、`container_id`、`container_started_at`；不修改任务结果或执行证据。
+- Supervisor 随即用新镜像启动 research Profile（容器镜像 `cd54b181d56b`，状态 ready），Worker 提交执行，任务进入 running。
+
+发布流程缺口与修复（P1，已实现）：
+
+- `activate-verified-profiles.py` 现在在预检中通过 `loadDeployments` 重算哈希，并在同一数据库事务里重绑所有 Profile 的 `profile_instances.deployment_hash`；数据库连接来自私有 `database-services/worker.env`。2026-11-14 在生产重跑激活，输出 `hashesSynced: 9`，服务正常重启。
+- 新增 `hermes:reconcile confirm-missing`：要求原 64 位容器 ID 与托管容器名都不存在、且 `submitted/tools/calls` 均为 0，才把 Profile 置为 stopped 并清空 `container_id`/`container_started_at`；存活的容器（即使已停止）返回 `container_present`。它写入同一条不可变生命周期审计，不改变任务结果或执行证据。
+- 验证：服务端测试 198/198 通过（新增 confirm-missing 的缺失容器、替换容器、未完成执行拒绝用例）；生产冒烟中错误容器 ID 返回 `container_identity_changed`，`inspect` 显示 `state=stopped, submitted/tools/calls=0`。Supervisor 发布目录已更新并重启（`Profile supervisor started { profiles: 9 }`）。
+- 剩余风险：`check-profiles.py` 仍复用生产容器名，验收会移除原容器；已记录为后续改进（隔离命名），当前可用 `confirm-missing` 受控恢复。
+
+### 追补：推理链中文化（2026-11-14）
+
+角色指令（research/prediction/portfolio，含后台阶段与试验臂）追加统一的输出语言要求：推理、进度说明与最终回答使用简体中文；工具名、参数名、标的代码、ISO 日期、JSON 键和数值保持原样，不翻译标识符。Worker 在无活动任务时重启加载该指令（23:24 UTC）。
+
+边界：原生推理语言由模型决定，指令不保证所有供应商都遵循；已归档的英文推理不会回溯翻译，只影响新任务。若新任务仍为英文，可再评估展示层翻译（需要额外模型调用）或仅展示中文可见说明。
+
+### 追补：轨迹可读性与中文优先（2026-11-14）
+
+- 思考块不再作为编号步骤：只有工具与任务状态步骤显示序号，头部步数只统计实际步骤；流式占位「模型思考」不再渲染为时间线行（头部仍显示生成状态）。
+- 思考块改为带左侧竖线的独立区域；连续推理合并；推理文本中的工具/组件标识映射为中文名称，截断产生的半词开头会被清理。
+- 中文优先：默认展示模型可见说明（中文，作为「思考」块）；原生英文推理收进可展开的「推理原文」；没有中文说明的步骤（例如专项子任务）默认展开原文。
+- 实测语言指令未改变原生推理语言：最新 `reasoning.delta` 仍为英文，只有模型正文为中文。因此采用中文优先展示，而不是额外调用翻译。
+- Web 构建 `FrqFaYL-XP4LenBLcOsZJ`，公网 `/` 与源站 `index.html` 的 SHA-256 一致，未登录 API 仍返回 401。
+- 限制：中文「思考」来自流式可见文本，仅实时任务可见；刷新后不会重建中文块，仍可展开英文「推理原文」。若要持久化中文说明，需要把每个工具前的助手文本片段归档到进度事件。
+- 终态图标修正：任务 completed 时头部固定显示完成图标，不再取最后一行（思考）的状态；非运行中的历史「思考」点改为静态，不再播放运行中动画。Web 构建 `8gGkz80uboq4ff7OHNWM4`。
+- 重复工具调用折叠：连续、同一工具/角色、都已完成的步骤合并为一行，显示 `×N` 并保留各次摘要的 tooltip；不同工具或中间插入思考块时不合并。头部步数与编号按合并后行数计算。Web 构建 `LhaUBtINdeXY1udvrYfd8`。
+
+## 上下文增量读取（P0，2026-11-15）
+
+真实任务记录显示，一次 80 条证据的研究里 `read_research_context` 被调用了 12 次：每次采集后重新冻结产生新的 `contextRef`，模型又从 offset 0 重新翻页。生产 Tools 每页 5 条，主要浪费是“新快照重复返回已读证据”。
+
+实现：
+
+- `tool-gateway.ts` 在非分页（无 `evidenceOffset`）、非查询（无 `query`）的新上下文读取中，查找同一任务上一次 `read_research_context` 的 `contextRef`，加载旧快照并按证据 `id` 做差集。
+- 只返回新增证据（最多 20 条），附 `delta: {previousContextRef,newEvidence,unchangedEvidence,totalEvidence}` 和明确说明“旧证据未变化、已省略”；无新增时返回空证据的短回执。
+- 显式 `evidenceOffset`/`query` 保持普通分页；相同 `contextRef` 不触发增量；符号不同则回退完整视图。
+- 不改变证据存储或快照语义，只改变模型传输视图。
+
+验证：新增 `research-context-delta.test.ts`（新增/无新增/超限截断）；服务端测试 **201/201** 通过；Tools 发布目录类型检查通过，服务重启于 00:03:34 UTC。尚未用真实任务复测调用次数，需下一次研究观察 `delta` 是否减少翻页。
+
+回退：恢复 `20261113-research-repair/packages/server/src/tool-gateway.ts` 的上一版本并删除 `research-context-delta.ts`，重启 Tools；不涉及数据库变更。
+
+## 回答正文逐字显示发布（2026-11-15）
+
+问题：回答正文虽然走 `assistant.delta` 流式，但每 2–3 秒整段到达。三层延迟叠加：Worker 每次只向上游 SSE 采样 1.5 秒、随后空等 1 秒；BFF 事件端点每 500ms 轮询一次持久化游标；前端到多少渲染多少。
+
+改动：
+
+- Worker：上游采样窗口 1500ms → 500ms，`defer` 空等 1000ms → 250ms（租约仍释放，停止与状态检查不变）。
+- BFF SSE：游标轮询 500ms → 200ms；keepalive 限流 5 秒、会话校验限流 2 秒，避免轮询提速后数据库调用同比上升。
+- Web：新增 `useSmoothText` 逐字展开（新块约 420ms 追上；历史消息首屏整段显示不重放；最终回答与前缀不一致时直接吸附；`prefers-reduced-motion` 下整段显示），流式中末尾显示细光标。重连续流路径（`runtime.thread.reset`）同样生效。
+
+发布：
+
+- Web `20261115-stream-text-web`，BUILD_ID `ApSM4D5y4fKE5-2IUeOmt`，基于 `20261114-tool-trace-web`；Worker `20261115-stream-text-worker`，基于 `20261114-tool-trace-worker`；对应 drop-in `zzzz-stream-text.conf`。
+- Web 发布目录不覆盖 `packages/server/src/worker.ts`：该谱系缺少 `failure-text.ts` 等 Worker 专用模块，覆盖会使目录类型检查失败；Web 进程不加载该文件。Worker 发布目录不覆盖 Web 组件，同理。
+- Tools、Feishu、数据库与 Hermes 镜像未变更；无迁移。入口发布同一构建。
+
+验证：两个发布目录 `pnpm typecheck` 通过；Worker 发布目录在 `alpha_acceptance_test` 上 `pnpm test` **201/201** 通过；Web 发布目录 `smooth-text`/`http`/`task-stream`/`upstream-events` 通过；Next 构建成功。切换前确认无 queued/running/stopping/unknown 任务。重启后 Web ready、Worker `Task Worker started`，`/lab` 返回 200，无 Cookie 的 `/api/auth/session` 返回 401。入口 `current` 指向同一 BUILD_ID，公网 `/` 与源站 `server/app/index.html` SHA-256 一致（`08cad6874d6f…`），新 CSS chunk 返回 200 且包含 `.stream-caret`。
+
+未验证：发布后未触发真实研究任务，生产模型链路上的逐字观感与首字延迟仍待用户侧确认；健康检查不等于端到端通过。
+
+限制：轨迹中的「思考」块仍按工具调用边界整块出现，这是 Hermes 上游补丁（`reasoning.delta` 按工具边界缓冲）的有意设计；如需逐字显示思考，需改 `services/hermes/apply_patch.py` 并重建镜像。
+
+回退：删除 `alpha-lab-web.service.d/zzzz-stream-text.conf` 与 `alpha-lab-worker.service.d/zzzz-stream-text.conf`，`systemctl daemon-reload` 后重启两服务，回到 `20261114-tool-trace-web` / `20261114-tool-trace-worker`；入口 `current` 指回 `LhaUBtINdeXY1udvrYfd8`。
+
+## Web 对话/画布比例修复部署（2026-11-15）
+
+- Web 发布目录 `/opt/hermes-alpha-lab/releases/20261115-layout-split`，BUILD_ID `vLDmwS-Nq68Pyl3uvqKZD`。目录基于 `20261115-stream-text-web` 复制，仅覆盖 `apps/web/app/split.css` 与 `apps/web/components/workspace.tsx` 两个文件；Worker/Tools/Feishu/数据库均未变更，无迁移。
+- 行为：对话与画布默认 45% / 55%（对话最小 420px、最大 60%，可拖拽分隔条调整）；canvas 不再无条件吃满剩余宽度。≥1100px 时「研究记录与持仓」抽屉改为占位推挤，不再覆盖对话列；窗口或抽屉宽度变化时通过 `ResizeObserver` 重新收敛对话宽度；双击分隔条恢复默认比例。持久化键升级为 `hermes:chat-width:v2`，避免沿用旧的 420px 偏好。
+- 验证：服务器 `pnpm typecheck` 通过、Next 构建成功；源站 `/`、`/lab` 返回 200，无 Cookie 的 `/api/auth/session` 返回 401；切换前活动任务为 0。入口 `current` 指向 `vLDmwS-Nq68Pyl3uvqKZD`，公网 `/` 与源站 `server/app/index.html` SHA-256 一致（`bcba1781aabdbdf46df8ebaa73070691088ea421d029b4da2b4f1b548079cbff`），两个 CSS chunk 返回 200 且包含新的 `min-width:1100px` 桌面规则。
+- 回归：`alpha_acceptance_test` 上 `pnpm test` 179/183；4 个失败（maintenance 2 项、tasks/worker 各 1 项）在既有 `20261115-stream-text-web` 目录以相同环境复跑同样失败，属于既有环境/用例问题，与本次纯前端改动无关。
+- 未验证：未用生产账号在 1920px 浏览器里做登录态截图核对；布局依据构建产物、静态资源内容与本地真实 CSS 渲染验证。
+- 回退：删除 `/etc/systemd/system/alpha-lab-web.service.d/zzzzz-layout-split.conf`，`systemctl daemon-reload && systemctl restart alpha-lab-web`；入口把 `/var/www/hermes-alpha-lab/current` 指回 `ApSM4D5y4fKE5-2IUeOmt`（旧静态资源保留）。
+
+## Web 历史栏常驻与工作区重设计部署（2026-11-15）
+
+- Web 发布目录 `/opt/hermes-alpha-lab/releases/20261115-history-rail`，BUILD_ID `tnM0K5p6wC4llPJcUc_bg`。基于 `20261115-layout-split` 复制，覆盖 `apps/web/app/split.css`、`apps/web/components/workspace.tsx`、`apps/web/components/canvas.tsx`；Worker/Tools/Feishu/数据库未变更，无迁移。
+- 行为：
+  - ≥1100px 时「最近研究」历史栏常驻左侧（280px），移除顶栏汉堡与「研究记录与持仓」折叠按钮；<1100px 保留抽屉。历史列表在栏内滚动并占满剩余高度。
+  - 对话/画布改为 **50% / 50%**，并改为按**比例**存储与重算（`hermes:chat-ratio:v3`），窗口、侧栏或画布尺寸变化时保持比例，不再沿用首次挂载时的像素宽度。
+  - 画布区域使用独立浅色表面；空状态改为带虚线边框的卡片，并补充「行情走势 / 技术指标 / 新闻与结论」三个能力标签。
+  - 欢迎区内容限制在 680px，避免宽对话列下按钮和输入框过宽。
+- 验证：服务器 `pnpm typecheck` 通过、Next 构建成功；源站 `/`、`/lab` 200，无 Cookie 的 `/api/auth/session` 401；切换前活动任务为 0。入口 `current` 指向 `tnM0K5p6wC4llPJcUc_bg`，公网 `/` 与源站 `server/app/index.html` SHA-256 一致（`82c3c66a495e2a35ab92741907d58ab57139d765fdb6b94bf1ab59b4e5a71ac2`），CSS chunk `d3ef556b3740d0f6` 返回 200 并包含 `min(var(--chat-width,50%))`、`min-width:1100px`、`flex:0 0 280px`。
+- 未验证：未用生产账号在登录态截图核对；布局尺寸使用真实 CSS 在 1920/1440/1280/1100 视口验证（1920：侧栏 280、对话 820、画布 814）。
+- 回退：删除 `/etc/systemd/system/alpha-lab-web.service.d/zzzzzz-history-rail.conf`，`systemctl daemon-reload && systemctl restart alpha-lab-web`；入口 `current` 指回 `vLDmwS-Nq68Pyl3uvqKZD`。
+
+## 飞书风格工作区部署与轨迹修复（2026-11-15）
+
+- Web 发布目录 `/opt/hermes-alpha-lab/releases/20261115-feishu-ui`，当前 BUILD_ID `3hO7ZrwnjPCj9wcCHGhru`（首次发布 `wq9VDCv7qQpgVE8RArmfl`）。覆盖令牌层、侧栏常驻、居中对话与画布分栏的 11 个前端文件；本轮修复另覆盖 `research-status.tsx`、`research-progress.ts`、`packages/server/src/tasks.ts`。Worker/Tools/Feishu 与 Hermes 镜像未变更；本轮新增 `034_thread_cleanup.sql`（线程软删除列，可空、无回填）。
+- 轨迹顺序：`ResearchTrace` 从消息列表之前移到 `ThreadPrimitive.Messages` 之后，执行轨迹出现在用户问题与模型回答的下方；桌面宽度 100%，移动端不再重复扣减内边距。
+- 思考保留：快照查询改为「最近 100 条工具/状态事件 + 最多 200 条思考事件」，客户端 `trimProgress` 同样优先保留 `reasoning.delta` / `reasoning.available` / `message.interim`，避免超过 100 条工具/状态事件的长任务丢弃早期思考。任务 `7115ad26…` 只有 21 条 `run.progress`，本次修复前也已全部返回；该问题的直接原因是下方镜像缓冲，不是前端截断。
+- 等待态：任务已运行但尚未收到工具/推理事件时，轨迹标题显示「模型正在思考」并使用思考动画，不再显示容易误解为排队等待的「等待研究响应」。
+- 首轮验证（BUILD_ID `gglpe8elJiyVhrOsPJdi3`）：本地与服务器 `pnpm typecheck` 通过，`tests/server/research-progress.test.ts` 11/11；服务器 Next 构建成功；源站 `/` 200、无 Cookie `/api/auth/session` 401；入口 `current` 指向 `gglpe8elJiyVhrOsPJdi3`，公网 `/` 与源站 `server/app/index.html` SHA-256 一致（`559d5f6b2f9e77a41b0b71f195e93286a40e76acb23c9a2b6238e9479d5a48a1`），轨迹 CSS chunk `f54f45b69f04165b` 返回 200 且包含 `width:100%`。
+- 未修复（需重建 Hermes 镜像）：上游 `reasoning_callback` 虽按 token 触发，`apply_patch.py` 仅在累计 6000 字符、工具开始或回合结束时 `reasoning.delta`；截图链路首次思考事件在任务开始后 76 秒才出现。要更早看到思考内容，需将缓冲改为短周期冲刷并重新验证 9 个 Profile；本轮未改动生产推理镜像。
+- 轨迹终态（BUILD_ID `_n1V_ls805DUWG-dNL6JY`）：任务结束后丢弃 `queued/running/stopping/unknown` 状态行，只保留终态行，避免已完成轨迹里残留绿色运行脉冲；新增 `finished traces drop stale queue and running rows` 回归测试。
+- 思考卡片按语雀文档风格重做：外层轨迹改为白底描边卡片；「推理原文」改为「思考过程」，头部含灯泡图标、角色标签、折叠态一行预览与 chevron；正文白底、14px/1.75、段落分隔，并标注「模型原始推理，工具名已转为中文」；叙述块改为中性灰引用，不再使用蓝色左条。角色标签移入卡片头部，避免与分组标题重复。
+- 验证：`research-progress` 12/12；服务器 `pnpm typecheck` 与 Next 构建通过；源站 `/` 200、无 Cookie `/api/auth/session` 401；入口 `current` 指向 `_n1V_ls805DUWG-dNL6JY`，公网 `/` 与源站 `server/app/index.html` SHA-256 一致（`b4fa47c7919de2f0f22eb7bf9360dd714c29bd06928a9d74698a268fdbb8acf0`），思考卡片 CSS chunk `059906a5634e6dbd` 返回 200 且包含 `.trace-body{max-height:360px}` 与 `.trace-thought-text` 的 14px 规则。
+- 视觉核对：本地以生产 CSS 渲染 824px 预览，卡片 690×215、头部 36px、正文 14px/24.5px、无横向溢出；未用生产账号做登录态截图。
+- 回退：发布目录与入口静态资源保留；将入口 `current` 指回 `wq9VDCv7qQpgVE8RArmfl` 可恢复上一版页面。
+
+## 侧栏语雀化与会话清理部署（2026-11-15）
+
+- 发布目录 `/opt/hermes-alpha-lab/releases/20261115-feishu-ui`，BUILD_ID `3hO7ZrwnjPCj9wcCHGhru`。前端覆盖 `workspace.tsx`、`workspace.css`、`client.ts`；服务端覆盖 `business.ts`、`http.ts`、`tasks.ts`、`apps/web/app/api/[...path]/route.ts`；新增迁移 `infra/migrations/034_thread_cleanup.sql`。Worker/Tools/Feishu/Hermes 镜像未变。
+- 侧栏列表改为语雀文档列表：每条会话两行（标题 / 来源 · 日期），活跃项浅蓝底与品牌色标题；删除按钮 34px 悬停/聚焦/选中时出现，移动端 40px；「最近研究」分组增加分隔线与计数。
+- 删除行为为软删除：`threads.deleted_at` 置位，列表与单条读取过滤；不删除 messages、tasks、task_events、workspaces、datasets、results、forecasts，研究事实与画布保留。仍有 `queued/running/stopping/unknown` 任务的会话返回 `thread_busy` (409)，前端提示等待或停止后再删。
+- API：新增 `DELETE /threads/:id`（owner 校验、`FOR UPDATE`、CSRF Origin 校验沿用）；`research` 提交与背景线程查找拒绝已删除线程。前端确认弹窗含标题、保留范围说明、取消/删除、Escape 关闭、Tab 焦点循环，删除中禁用重复提交。
+- 迁移：`pnpm db:migrate` 已在生产应用（`Migrations applied`），迁移前活动任务为 0；`deleted_at` 初始为空。
+- 验证：`pnpm typecheck` 本地/服务器通过；`tests/server/http.test.ts` 在 `alpha_acceptance_test` **8/8** 通过，覆盖运行中 409、停止后 200、列表隐藏、单条 404、他人 404；Next 构建成功；源站 `/` 200、无 Cookie `/api/auth/session` 401；入口 `current` 指向 `3hO7ZrwnjPCj9wcCHGhru`，公网 `/` 与源站 `server/app/index.html` SHA-256 一致（`1502354868bd5050330ec2c6d794b3924e5651e64f4a25710eb4f16887b20475`），侧栏 CSS chunk `380e446e4e7e28fa` 返回 200 且包含 `.thread-row`/`.thread-open`。
+- 回归：发布目录自带的旧测试副本跑出 180/184；4 个失败均为旧测试仍要求快照在事件清理后完全不变。同步当前 `maintenance.test.ts` / `worker.test.ts` / `tasks.test.ts` 后，对应套件 **20/20 + 16/16** 通过，确认失败来自测试漂移而非本次代码。
+- 视觉核对：本地以生产 CSS 渲染 280px 侧栏，行高 57px、活跃底 `rgb(232,240,255)`、标题省略、删除按钮选中可见/空闲隐藏/悬停渐显；确认弹窗 400×204、危险按钮 `rgb(197,39,29)` 白字。未用生产账号做登录态截图。
+- 回退：入口 `current` 指回 `_n1V_ls805DUWG-dNL6JY` 可恢复上一版前端；旧代码不读取 `deleted_at`，已软删除会话会重新出现在列表中。若要彻底回退，需删除 `034_thread_cleanup.sql` 对应列并清理 `migrations` 记录，属独立数据变更，未执行。
+
+## 会话删除 503 修复：threads 列授权（2026-11-15）
+
+- 现象：生产删除会话弹窗返回「服务暂时不可用，请稍后重试」，`alpha-lab-web` journal 记录 `BFF request failed error`。根因是 Web 数据库角色 `alpha_live_web` 仅有 `threads.title` 的列级 `UPDATE`，执行 `UPDATE threads SET deleted_at=now()` 时抛 `42501 permission denied`，被 BFF 兜底为 503 `service_unavailable`；`http.test.ts` 使用 owner 连接，未覆盖受限角色。
+- 修复：`grantResearchAccess` 增加 `GRANT UPDATE(deleted_at) ON threads TO web`（初始建号与 `upgradeRuntimeAccess` 共用），已在生产执行 `scripts/upgrade-multiuser-access.ts alpha_live_web alpha_live_worker alpha_live_tools alpha_live_feishu`，输出 `multiuser_permissions_upgraded`；BFF 兜底日志改为打印 `error.name: message`。
+- 验证：生产 owner 查询 `has_column_privilege('alpha_live_web','threads','deleted_at','UPDATE')` 为 `t`；以 `SET ROLE alpha_live_web` 在事务内对真实会话执行 `FOR UPDATE` + `UPDATE threads SET deleted_at=now()` 返回 `UPDATE 1` 后回滚，行仍为未删除。`tests/server/database-access.test.ts` 新增「web role can soft-delete its own threads」并以受限 web 角色跑通，**8/8** 通过；`pnpm typecheck` 通过。
+- 发布：同一 release 重新构建，BUILD_ID `WKEuGizy0Ktw8wrrisl37`；入口 `current` 指向该目录，公网 `/`、源站 `server/app/index.html`、入口 `current/index.html` SHA-256 均为 `29bfdde74d4cafec71a7390ba3a6be77b927878976369a5c9a3cca4721000cad`；公网 `/` 200、无 Cookie `/api/auth/session` 401、CSS chunk `5db54892259ff52d` 200。
+- 回退：数据库授权可用 `REVOKE UPDATE(deleted_at) ON threads FROM alpha_live_web` 撤销；前端/接口无行为变化，回退授权会使删除恢复 503。
+
+## Hermes 模型切至 deepseek-v4.1-flash（2026-11-15）
+
+- 迁移 `035_profile_policy_versions`：新增只追加的 `profile_preparation_policy_versions`，旧 `profile_preparation_policy` 保留为第 1 代；`AutoProfilePreparer` 读取最新代际，Worker 获得 `SELECT/INSERT`。生产迁移后第 1 代为 glm hash `fe827a7d…`。
+- 轮换命令 `pnpm hermes:rotate-model CURRENT_SETTINGS NEW_SETTINGS PRIVATE_ROOT LAST_PORT BACKUP_ROOT [--owner UUID] [--apply]`：逐 owner 校验 runtime 指纹、备份并原地重写 `runtime.json`/`credentials.json`/`preparation.json`/seed，全部成功后追加策略代际并替换 settings；失败按备份恢复。新表禁止 UPDATE/DELETE/TRUNCATE，Web/Tools 无访问权。
+- 生产执行：3 个 owner（170a9f10…、4b776186…、e241924e…）共 9 个 Profile 全部切到 `deepseek-v4.1-flash`，新代际 hash `1775b3d2…`。`private/profile-settings.json`、`private/provider/claude-code-model.json`、`private/provider/news-translation.json` 均只保留 deepseek；备份在 `private/rotation-backups/20261115T143937Z`。
+- 过程问题与修复：首次轮换把 `preparation.json.image` 从部署镜像 `cd54b181…` 改成 settings 的 `d3da8c7b…`，导致 `loadDeployments` 以 `verified_profile_registry_required` 拒绝；代码修复为始终保留现有 manifest image（回归测试覆盖），三份生产 manifest 已从备份恢复 image，9 个 `profile_instances.deployment_hash` 重新绑定到轮换后的 runtime/compose。
+- 运行态：旧 prediction `1d32a0ff…` 的 `unknown/supervisor_check_failed` 经 `hermes:reconcile confirm-stopped`（原容器 ID 匹配且实际停止）清除；`alpha-lab-preparer` 通过 drop-in 切到 `releases/20261115-feishu-ui` 并重启，日志无 `preparation_policy_changed`。
+- 验证：`tests/server/model-rotation.test.ts` **13/13**（含镜像保留、旧代际 owner、busy、回滚、dry-run）；3 个 owner 的 `verify-prepared-profile` 均输出 `acceptance_verified`（真实 deepseek + 合成工具网关，9 个 Profile 全绿）；新闻翻译配置实测返回 `deepseek-v4-1-flash-261017` 与中文 JSON。`pnpm typecheck` 通过；`/` 200、无 Cookie `/api/auth/session` 401；supervisor 启动日志 `profiles: 9`。
+- 回退：用备份的旧 `profile-settings.json` 作为 NEW、当前 deepseek 作为 CURRENT 再执行 `--apply`，会恢复 artifacts、写回旧 settings 并追加旧 hash 代际；再重启 preparer/supervisor。旧 glm 配置仅存在于 `rotation-backups/20261115T143937Z`，确认无需回退后可手动删除。
+
+- 发布：重新 `pnpm build` 后 BUILD_ID `qE4HG3RC5TUEPFQLZc3bj`；入口 `current` 指向该目录，公网 `/`、源站 `server/app/index.html`、入口 `current/index.html` SHA-256 均为 `671af8b7efb69ed62514473eb8f2a4e4c8ecfadd1096c0ea8562bbe50d691392`；公网 `/` 200、无 Cookie `/api/auth/session` 401、CSS chunk `5db54892259ff52d` 200。回归：`model-rotation`/`auto-preparation`/`database-access`/`provision` 共 **35/35** 通过。
+
+- 终审修复：`hermes:rotate-model --apply` 现在同时拒绝运行中的 preparer 和存在 `queued/preparing` 准备任务；单 owner 写入失败会先用备份自恢复再抛原错误（`rotation_restore_failed` 表示恢复失败）。`model-rotation` **14/14**；全量服务端 **199/200**，唯一失败为既有 `task-stream` 重连用例的偶发时序，单独重跑 7/7 通过。
+
+## 知识沉淀页面部署（2026-11-15）
+
+- Web 发布目录 `/opt/hermes-alpha-lab/releases/20261115-knowledge-base`，BUILD_ID `svQKDz7ZsXHj1bhy8d-y_`，基于 `20261115-feishu-ui` 复制后覆盖 10 个文件（`research-api.ts`、`workspace.tsx`、`layout.tsx`、新增 `knowledge.css`、`knowledge-base.tsx`、`knowledge/page.tsx`，以及 3 个测试/夹具文件）。Worker/Tools/Feishu/数据库/Hermes 镜像均未变更，无迁移。
+- 接口：新增 `GET /api/knowledge`（owner 过滤），返回经验版本与 `kind='research_summary'` 的研究摘要（经 `research_contexts` 归属股票）。缺 `lineage.researchContextRef` 的历史摘要不返回，不猜测归属。
+- 切换：新增 drop-in `zzzzzzzz-knowledge-base.conf`，`systemctl daemon-reload && systemctl restart alpha-lab-web`；MainPID 227535 → 291316。
+- 验证：发布目录 `tsc --noEmit`（根 + `apps/web`）通过；`next build` 成功并产出 `/knowledge` 路由；源站 `/`、`/lab`、`/knowledge` 均 200，无 Cookie `/api/knowledge` 401；公网 `/` 200、`/knowledge` 200、`/api/knowledge` 401；CSS chunk `92afa933a3fe2223.css` 200 且包含全部 `.knowledge-*` 规则（`knowledge-layout`、`knowledge-doc` 等）。journal 无 error。
+- 测试（部署前）：`research-integration.test.ts` **6/6**（含新 knowledge 断言与跨用户隔离）；Playwright `knowledge.spec.ts` 桌面 + 390px 通过；`/lab` 与 `/` 回归通过。
+- 回退：删除 `/etc/systemd/system/alpha-lab-web.service.d/zzzzzzzz-knowledge-base.conf`，`systemctl daemon-reload && systemctl restart alpha-lab-web`，回到 `20261115-feishu-ui`（BUILD_ID `qE4HG3RC5TUEPFQLZc3bj`）。无数据变更，无需回滚数据库。
+
+## 咨询任务与队列修复（2026-11-16）
+
+- 问题：所有用户消息都变成 `research` 任务，「帮我看一下知识沉淀」会冻结证据并派发预测/组合子任务。根因是 `messages.task_id` 非空且提交入口只有 `POST /api/research`。
+- 修复：`packages/server/src/research-intent.ts` 在入库前分类，非股票问题落 `role='consult'`；迁移 `036_consult_tasks.sql` 放宽 `tasks_role_check` 与 `tasks_check`（根任务允许 `research|consult`）。consult 只拿 7 个只读工具、不占 10 个交互研究槽位、不写研究产物。
+- 部署：web `20261115-knowledge-base`（BUILD_ID `XKFDew1XQ2smZ24iEht5J`）、worker `20261115-stream-text-worker`、tools `20261113-research-repair` 三处同步；生产 `tsc` 通过，迁移 `036` 已应用。
+- 测试：`tasks`/`consult`/`research-intent`/`research-progress` 共 **35/35**；生产实测「可以帮我看一下我当前的知识沉淀内容吗」落库为 `consult`。
+- 队列停摆排查：`acceptance_capacity` 是全局单例闸门，被测试账号的 `unknown` 预留占死，叠加 9 条 `unknown`/`queued` 任务，导致新任务永不执行。已清除孤儿预留与不可变审计之外的残留任务，并把测试账号的 `research_coverage`（110 条）删除以停止后台调度。
+- 待办：新注册账号的 profile 仍为 `unprovisioned`，preparer 报 `profile_acceptance_waiting_or_requires_reconciliation`（真实原因为 `acceptance_waiting_for_capacity`），需要继续排查验收链路；`owner@alpha.local` 有 1 条 11-13 起的 `deferred` 研究任务。
