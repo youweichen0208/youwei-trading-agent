@@ -17,15 +17,16 @@
   --n700: #4e545c;
   --n900: #1f2329;
 
-  /* Brand */
-  --brand: #3370ff;
-  --brand-hover: #245bdb;
-  --brand-active: #1a47b8;
-  --brand-soft: #e8f0ff;
-  --brand-soft-hover: #d6e4ff;
-  --brand-ring: rgba(51, 112, 255, 0.16);
-  /* Text-safe brand tone: 6.7:1 on white, 5.9:1 on brand-soft. */
-  --brand-text: #1f4bd8;
+  /* Brand — one accent, the knowledge-green from the document workspace.
+     4.8:1 on --bg, 5.0:1 on --surface-sunken, 5.2:1 white text on filled. */
+  --brand: #007d55;
+  --brand-hover: #006b48;
+  --brand-active: #00563a;
+  --brand-soft: #e7f6ef;
+  --brand-soft-hover: #d5efe3;
+  --brand-ring: rgba(0, 125, 85, 0.16);
+  /* Text-safe brand tone: 6.6:1 on white, 5.9:1 on brand-soft. */
+  --brand-text: #006b48;
 
   /* Status — chosen so 12–13px text clears 4.5:1 on its own soft surface. */
   --success: #1a7f37;

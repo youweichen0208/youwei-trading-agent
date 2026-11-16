@@ -1,9 +1,8 @@
 /*
  * Knowledge base — Yuque-style document workspace.
  * Pane tree on a quiet neutral, a white reading column with 15/1.85 body text,
- * and an outline rail that follows the scroll. All colors resolve to tokens;
- * the only page-scoped accent is the knowledge green used for actions and the
- * active outline marker.
+ * and an outline rail that follows the scroll. All colors resolve to the global
+ * tokens; the page only names the panes.
  */
 .kb {
   --kb-surface: #ffffff;
@@ -15,10 +14,10 @@
   --kb-ink-2: #4e545c;
   --kb-ink-3: #646a73;
   --kb-hover: #f2f3f5;
-  --kb-accent: #00875a;
-  --kb-accent-hover: #00704b;
-  --kb-accent-soft: #e7f6ef;
-  --kb-accent-ring: rgba(0, 135, 90, 0.16);
+  --kb-accent: var(--brand);
+  --kb-accent-hover: var(--brand-hover);
+  --kb-accent-soft: var(--brand-soft);
+  --kb-accent-ring: var(--brand-ring);
   --kb-bar-height: 56px;
 
   display: flex;

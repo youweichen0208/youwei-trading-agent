@@ -146,12 +146,12 @@ function Preview() {
             className="entry-chart"
             viewBox="0 0 640 270"
             role="img"
-            aria-label="示意折线图：蓝色历史走势与虚线预测区间，不代表实际行情"
+            aria-label="示意折线图：绿色历史走势与虚线预测区间，不代表实际行情"
           >
             <defs>
               <linearGradient id="entry-chart-fill" x1="0" y1="0" x2="0" y2="1">
-                <stop stopColor="#3370ff" stopOpacity=".16" />
-                <stop offset="1" stopColor="#3370ff" stopOpacity="0" />
+                <stop className="chart-stop" stopOpacity=".16" />
+                <stop className="chart-stop" offset="1" stopOpacity="0" />
               </linearGradient>
             </defs>
             {[35, 80, 125, 170, 215].map((y) => (
@@ -163,8 +163,8 @@ function Preview() {
             />
             <path
               d="m14 220 31-23 31 14 31-42 31-16 31 18 31-34 31 22 31-44 31-21 31 25 31-47 31 21 31-32 31-8"
+              className="chart-line"
               fill="none"
-              stroke="#3370ff"
               strokeWidth="2.5"
               strokeLinejoin="round"
             />
@@ -187,7 +187,7 @@ function Preview() {
               [417, 61],
               [448, 53],
             ].map(([x, y]) => (
-              <circle key={x} cx={x} cy={y} r="3" fill="#3370ff" />
+              <circle className="chart-dot" key={x} cx={x} cy={y} r="3" />
             ))}
             <text x="12" y="265">
               历史走势

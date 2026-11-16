@@ -2101,3 +2101,14 @@
 .entry-loading-footer {
   color: var(--text-tertiary);
 }
+
+/* Decorative forecast chart follows the single brand accent. */
+.entry-chart .chart-stop {
+  stop-color: var(--brand);
+}
+.entry-chart .chart-line {
+  stroke: var(--brand);
+}
+.entry-chart .chart-dot {
+  fill: var(--brand);
+}

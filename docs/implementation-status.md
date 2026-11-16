@@ -1328,3 +1328,13 @@ Worker、Tools 已切换到 `/opt/hermes-alpha-lab/releases/20261113-research-re
 - 测试：`knowledge.spec.ts` 桌面视口改为 1440×1000，新增大纲 `aria-current`/跳转与移动抽屉开关断言；移动截图前隐藏离屏固定侧栏，规避 Chromium 合成残影（仅测试证据处理，不改产品样式）。
 - 生产：release `20261116-knowledge-yuque`，BUILD_ID `_TV4MKzR41pONyGxrUwxP`，drop-in `zzzzzzzzzzz-knowledge-yuque.conf`，MainPID 3208969 → 3277253；边缘 `current` 同 BUILD_ID。生产实测 1440px 下正文 592px、大纲 244px、6 个章节标题；1280px 隐藏大纲、正文 676px；`/`、`/knowledge` 200，`/api/auth/session` 401，journal 无 error。
 - 回退：删除 drop-in 后 `daemon-reload && systemctl restart alpha-lab-web` 回到 `20261116-shared-knowledge`；边缘 `current` 指回 `Xuq5MawMzDvPHW_6fNR8-`。
+
+## 全局品牌色与外壳对齐语雀风格（2026-11-16）
+
+- 单一强调色：`--brand` 由飞书蓝改为知识绿 `#007d55`（`--bg` 4.8:1、白底 5.2:1、填充按钮白字 5.2:1），`--brand-text #006b48`（白底 6.6:1、软底 5.9:1），`--brand-soft #e7f6ef`；登录页示意图表与个股价格线改用 class + token，不再硬编码 `#3370ff`。
+- 侧栏：行高 32 / 圆角 6 / 间距 2，选中态改为浅灰底 + 墨色字 + 绿色图标（与知识库文档行一致）；`新建研究` 34px 圆角 6；logo 24px。
+- 顶栏：`研究产物` 28px 圆角 6、计数 16px；账号摘要 28px、头像 24px、邮箱 12px；模式 chip 11px 直角。
+- 知识页 `--kb-accent*` 改为引用全局 brand token，页面内不再重复定义绿色。
+- 验证：`apps/web` tsc 通过；`knowledge.spec.ts` 通过；登录视觉用例在 HEAD 上已因标题文案变更失效（断言「研究，洞察，进化」在 `login-landing.tsx` 中不存在），与本次配色无关。
+- 生产：release `20261116-shell-green`，BUILD_ID `FT4SJaQDnaEzkpCUKXVgi`，drop-in `zzzzzzzzzzzz-shell-green.conf`，MainPID 3277253 → 3308149；边缘 `current` 同 BUILD_ID；`--brand` 实测 `#007d55`，`/`、`/knowledge` 200，`/api/auth/session` 401。
+- 回退：删除 drop-in 并重启回到 `20261116-knowledge-yuque`（BUILD_ID `_TV4MKzR41pONyGxrUwxP`）；边缘 `current` 指回该 BUILD_ID。

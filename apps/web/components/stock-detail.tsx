@@ -153,21 +153,21 @@ export function StockDetail({
                         y2="1"
                       >
                         <stop
+                          className="stock-stop"
                           offset="0%"
-                          stopColor="#3370ff"
                           stopOpacity=".16"
                         />
                         <stop
+                          className="stock-stop"
                           offset="100%"
-                          stopColor="#3370ff"
                           stopOpacity="0"
                         />
                       </linearGradient>
                     </defs>
                     <polyline
                       points={points}
+                      className="stock-line"
                       fill="none"
-                      stroke="#3370ff"
                       strokeWidth="2.5"
                     />
                     <text x="40" y="258">

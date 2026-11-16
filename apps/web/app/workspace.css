@@ -106,12 +106,12 @@
 }
 .app .topbar-mode {
   flex: none;
-  padding: 1px 8px;
-  border-radius: var(--r-pill);
-  background: var(--surface-muted);
+  padding: 1px 7px;
+  border-radius: var(--r-xs);
+  background: var(--surface-hover);
   color: var(--text-tertiary);
-  font-size: var(--fs-12);
-  line-height: 20px;
+  font-size: var(--fs-11);
+  line-height: 18px;
   white-space: nowrap;
 }
 .app .topbar-actions {
@@ -125,13 +125,13 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 32px;
-  padding: 0 10px;
-  border: 1px solid var(--border) !important;
-  border-radius: var(--r-md);
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: var(--r-sm);
   background: var(--surface) !important;
   color: var(--text-secondary);
-  font-size: var(--fs-13);
+  font-size: var(--fs-12);
   white-space: nowrap;
 }
 .app .canvas-toggle:hover:not(:disabled) {
@@ -144,16 +144,17 @@
   color: var(--text-tertiary);
 }
 .app .canvas-toggle .canvas-toggle-count {
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: var(--r-pill);
-  background: var(--surface-muted);
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: var(--r-xs);
+  background: var(--surface-hover);
   color: var(--text-secondary);
-  font-size: var(--fs-11);
+  font-size: 10px;
   font-weight: 600;
-  line-height: 18px;
+  line-height: 16px;
   text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 .app .canvas-toggle[aria-expanded="true"] {
   background: var(--brand-soft) !important;
@@ -182,12 +183,12 @@
   align-items: center;
   gap: 6px;
   min-width: 0;
-  height: 32px;
+  height: 28px;
   padding: 0 6px;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   list-style: none;
   color: var(--text-secondary);
-  font-size: var(--fs-13);
+  font-size: var(--fs-12);
 }
 .app .account-menu > summary::-webkit-details-marker {
   display: none;
@@ -201,8 +202,8 @@
 .app .account-avatar {
   display: grid;
   place-items: center;
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
   flex: none;
   border-radius: 50%;
   background: var(--brand-soft);
@@ -296,8 +297,8 @@
   color: var(--text);
 }
 .app .wordmark svg {
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
   padding: 4px;
   border-radius: var(--r-sm);
   background: var(--brand);
@@ -323,9 +324,9 @@
   gap: 6px;
   flex-shrink: 0;
   width: 100%;
-  height: 36px;
+  height: 34px;
   margin-bottom: var(--sp-2);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   font-size: var(--fs-13);
   font-weight: 500;
 }
@@ -334,8 +335,8 @@
   align-items: center;
   gap: var(--sp-2);
   flex-shrink: 0;
-  height: 34px;
-  padding: 0 10px;
+  height: 32px;
+  padding: 0 8px;
   border-radius: var(--r-sm);
   color: var(--text-secondary);
   font-size: var(--fs-13);
@@ -355,12 +356,12 @@
   color: var(--text);
 }
 .app .workspace-library-link[aria-current="page"] {
-  background: var(--brand-soft);
-  color: var(--brand-text);
+  background: var(--surface-hover);
+  color: var(--text);
   font-weight: 500;
 }
 .app .workspace-library-link[aria-current="page"] svg {
-  color: var(--brand-text);
+  color: var(--brand);
 }
 .app .sidebar-label {
   display: flex;
@@ -390,7 +391,7 @@
 .app .sidebar nav {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
@@ -430,15 +431,14 @@
   background: var(--surface-hover);
 }
 .app .thread-row.active .thread-open {
-  background: var(--brand-soft);
+  background: var(--surface-hover);
 }
 .app .thread-row.active .thread-title {
-  color: var(--brand-text);
+  color: var(--text);
   font-weight: 500;
 }
 .app .thread-row.active .thread-meta {
-  color: var(--brand-text);
-  opacity: 0.72;
+  color: var(--text-tertiary);
 }
 .app .thread-delete {
   position: absolute;
