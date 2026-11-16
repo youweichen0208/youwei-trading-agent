@@ -77,6 +77,11 @@ export async function seedKnowledge(email: string) {
       "INSERT INTO research_contexts(id,owner_id,symbol,as_of,payload) VALUES($1,$2,'NVDA',$3,'{}')",
       [contextId, owner, new Date(Date.now() - 3600_000).toISOString()],
     );
+    const aaplContextId = randomUUID();
+    await pool.query(
+      "INSERT INTO research_contexts(id,owner_id,symbol,as_of,payload) VALUES($1,$2,'AAPL',$3,'{}')",
+      [aaplContextId, owner, new Date(Date.now() - 5400_000).toISOString()],
+    );
     await pool.query(
       "INSERT INTO research_contexts(id,owner_id,symbol,as_of,payload) VALUES($1,$2,'AMD',$3,'{}')",
       [
@@ -104,6 +109,18 @@ export async function seedKnowledge(email: string) {
           ].join("\n"),
         }),
         JSON.stringify({ researchContextRef: contextId }),
+      ],
+    );
+    await pool.query(
+      "INSERT INTO results(id,owner_id,task_id,kind,payload,lineage) VALUES($1,$2,$3,'research_summary',$4,$5)",
+      [
+        randomUUID(),
+        owner,
+        forecast.task_id,
+        JSON.stringify({
+          text: "合成研究摘要：服务业务增速稳定，关注汇率影响。",
+        }),
+        JSON.stringify({ researchContextRef: aaplContextId }),
       ],
     );
     await pool.query(

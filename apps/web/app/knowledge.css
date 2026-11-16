@@ -267,6 +267,20 @@
   line-height: 16px;
 }
 
+/* Nested stock folder under 个股研究 */
+.kb-branch {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+.kb-folder-sub {
+  padding-left: 20px;
+}
+.kb-folder-sub .kb-folder-name {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
 /* Document row */
 .kb-doc {
   display: flex;
@@ -284,6 +298,9 @@
 }
 .kb-doc:hover {
   background: var(--surface-hover);
+}
+.kb-doc-sub {
+  padding-left: 38px;
 }
 .kb-doc:focus-visible {
   outline: 2px solid var(--brand);

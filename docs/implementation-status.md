@@ -1294,3 +1294,16 @@ Worker、Tools 已切换到 `/opt/hermes-alpha-lab/releases/20261113-research-re
 - 测试：`tasks`/`consult`/`research-intent`/`research-progress` 共 **35/35**；生产实测「可以帮我看一下我当前的知识沉淀内容吗」落库为 `consult`。
 - 队列停摆排查：`acceptance_capacity` 是全局单例闸门，被测试账号的 `unknown` 预留占死，叠加 9 条 `unknown`/`queued` 任务，导致新任务永不执行。已清除孤儿预留与不可变审计之外的残留任务，并把测试账号的 `research_coverage`（110 条）删除以停止后台调度。
 - 待办：新注册账号的 profile 仍为 `unprovisioned`，preparer 报 `profile_acceptance_waiting_or_requires_reconciliation`（真实原因为 `acceptance_waiting_for_capacity`），需要继续排查验收链路；`owner@alpha.local` 有 1 条 11-13 起的 `deferred` 研究任务。
+
+## 知识库按股票分类（2026-11-16）
+
+- 目录结构：`个股研究` 下按 `symbol` 新增一层股票文件夹（`NVDA`、`AAPL` 等），每个文件夹显示摘要数并可独立折叠；文件夹顺序沿用文档的最近更新时间降序，标题仍为「`SYMBOL` 研究摘要」。`策略经验` 保持平铺，经验自身已有 scope/状态维度。
+- 交互：股票文件夹与一级文件夹共用 `aria-expanded` 折叠语义；开始在搜索框输入时自动展开全部文件夹，避免命中的文档被折叠隐藏。嵌套文档行使用 `.kb-doc-sub` 缩进，计数 `font-variant-numeric: tabular-nums`。
+- 变更：`apps/web/components/knowledge-base.tsx`（`toEntry` 提升为模块级、按 symbol 分桶）、`apps/web/app/knowledge.css`（`.kb-branch`、`.kb-folder-sub`、`.kb-doc-sub`）、`tests/support/knowledge-fixture.ts`（新增 AAPL 上下文与摘要，覆盖两个股票目录）、`tests/browser/knowledge.spec.ts`（子文件夹数量/计数/折叠/搜索自动展开断言，新增桌面截图 `knowledge-desktop.png`）。
+- 验证：`pnpm typecheck`（根 + `apps/web`）通过；`playwright test tests/browser/knowledge.spec.ts` 通过（桌面 1280px 与 390px，`overflow-x` 为 0）；截图确认 `个股研究 > AAPL/NVDA > 摘要` 两级缩进与选中态。
+- 环境：本地 3400 的旧 dev server 已死锁（TCP 可连、HTTP 240s 无响应、`.next` 停在 11/14），已重启；`alpha_test` 库按 README 执行 `pnpm db:migrate` 补齐 `execution_contexts` 等表后才可跑浏览器用例。
+- 生产发布：Web 目录 `/opt/hermes-alpha-lab/releases/20261116-stock-folders`（由 `20261115-knowledge-base` 复制后覆盖 `knowledge-base.tsx`、`knowledge.css`、浏览器用例与夹具），BUILD_ID `EcUaP6Uqr1YiWGB38SpGv`；`tsc -p apps/web` 与 `next build` 通过。未同步 `20261115-knowledge-base` 缺失的 `packages/server/src/research-context-delta.ts`、`failure-text.ts`（`tool-gateway.ts`/`worker.ts` 已 import，属既有缺口且不在 Web 依赖图内），根 `pnpm typecheck` 仍报这两处，`.next` 构建与路由不受影响。
+- 切换：新增 drop-in `/etc/systemd/system/alpha-lab-web.service.d/zzzzzzzzz-stock-folders.conf`，`daemon-reload && restart alpha-lab-web`，MainPID 2424016 → 3138703。
+- 入口：边缘 `python3 /opt/hermes-alpha-entry/publish-edge.py` 发布 shell 与静态资源，`/var/www/hermes-alpha-lab/current` → `EcUaP6Uqr1YiWGB38SpGv`。
+- 验证：源站 `/`、`/knowledge`、`/lab` 200，无 Cookie `/api/knowledge` 401，CSS chunk `d8851cf121ad4b58.css` 200 且包含 `.kb-doc-sub`、`.kb-folder-sub`；公网 `trading.youwei-agent.com` 的 `/`、`/knowledge`、该 CSS 均 200，`/api/knowledge`、`/api/auth/session` 401。登录态下的目录展开为本地浏览器用例证据，未用生产账号目视复核。
+- 回退：删除 `zzzzzzzzz-stock-folders.conf` 后 `daemon-reload && systemctl restart alpha-lab-web` 回到 `20261115-knowledge-base`；入口把 `current` 指回 `I6TvDPw94IhNxEm2vLJAR`。无数据变更，不需要迁移回滚。

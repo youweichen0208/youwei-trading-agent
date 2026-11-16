@@ -24,7 +24,19 @@ test("knowledge base archives lessons and research summaries on desktop and mobi
     page.getByRole("link", { name: "知识沉淀", exact: true }),
   ).toHaveAttribute("aria-current", "page");
   const reader = page.locator(".kb-reader");
-  await expect(page.locator(".kb-doc")).toHaveCount(2);
+  await expect(page.locator(".kb-doc")).toHaveCount(3);
+  // Research summaries nest under one folder per stock symbol.
+  const nvdaFolder = page.getByRole("button", { name: /^NVDA\s*1$/ });
+  await expect(page.locator(".kb-folder-sub")).toHaveCount(2);
+  await expect(nvdaFolder).toHaveAttribute("aria-expanded", "true");
+  await expect(page.locator(".kb-doc-sub")).toHaveCount(2);
+  await nvdaFolder.click();
+  await expect(nvdaFolder).toHaveAttribute("aria-expanded", "false");
+  await expect(
+    page.getByRole("button", { name: /NVDA 研究摘要/ }),
+  ).toHaveCount(0);
+  await nvdaFolder.click();
+  await expect(page.locator(".kb-doc-sub")).toHaveCount(2);
   await expect(
     page.getByRole("button", { name: /AMD 研究摘要/ }),
   ).toHaveCount(0);
@@ -57,6 +69,19 @@ test("knowledge base archives lessons and research summaries on desktop and mobi
     page.locator(".kb-outline li").first(),
   ).toHaveText("研究背景");
   expect(await page.locator(".kb-new").count()).toBeGreaterThan(0);
+  await page.screenshot({
+    path: testInfo.outputPath("knowledge-desktop.png"),
+    fullPage: true,
+  });
+  // Starting a search expands folders so matches are never hidden.
+  await page.getByRole("button", { name: /^个股研究\s*2$/ }).click();
+  await expect(page.locator(".kb-doc-sub")).toHaveCount(0);
+  await page.getByLabel("搜索知识").fill("AAPL");
+  await expect(page.locator(".kb-doc-sub")).toHaveCount(1);
+  await expect(
+    page.getByRole("button", { name: /AAPL 研究摘要/ }),
+  ).toBeVisible();
+  await page.getByLabel("搜索知识").fill("");
   await page.setViewportSize({ width: 390, height: 844 });
   expect(
     await page.evaluate(

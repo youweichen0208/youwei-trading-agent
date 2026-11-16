@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, message } from "../lib/client";
 
 type Lesson = {
@@ -68,6 +68,20 @@ const day = (value: string | null | undefined) =>
         timeZone: "Asia/Shanghai",
       });
 
+type Entry = { key: string; fresh: boolean; title: string; meta: string };
+const toEntry = (doc: Doc): Entry => ({
+  key: doc.key,
+  fresh: isRecent(doc.at),
+  title:
+    doc.kind === "lesson" ? doc.lesson.title : `${doc.summary.symbol} 研究摘要`,
+  meta:
+    doc.kind === "lesson"
+      ? `${scopeName[doc.lesson.scope] ?? doc.lesson.scope} · ${
+          lessonStatus[doc.lesson.status] ?? doc.lesson.status
+        } · ${doc.lesson.horizon} 个交易日 · ${day(doc.at)}`
+      : `${doc.summary.symbol} · ${day(doc.summary.as_of)}`,
+});
+
 function FolderIcon() {
   return (
     <svg viewBox="0 0 20 20" aria-hidden="true">
@@ -117,6 +131,7 @@ function DocButton({
   title,
   meta,
   fresh,
+  nested,
   onSelect,
 }: {
   active: boolean;
@@ -124,12 +139,13 @@ function DocButton({
   title: string;
   meta: string;
   fresh: boolean;
+  nested?: boolean;
   onSelect: () => void;
 }) {
   return (
     <button
       type="button"
-      className="kb-doc"
+      className={nested ? "kb-doc kb-doc-sub" : "kb-doc"}
       aria-current={active ? "page" : undefined}
       onClick={onSelect}
     >
@@ -306,6 +322,13 @@ export function KnowledgeBase() {
   }, [data, docs]);
 
   const needle = query.trim().toLowerCase();
+  // Opening a search collapses nothing: expand every folder so matches are visible.
+  const wasSearching = useRef(false);
+  useEffect(() => {
+    if (needle && !wasSearching.current) setCollapsed({});
+    wasSearching.current = Boolean(needle);
+  }, [needle]);
+
   const visible = docs.filter((doc) => {
     if (onlyNew && !isRecent(doc.at)) return false;
     if (!needle) return true;
@@ -323,26 +346,27 @@ export function KnowledgeBase() {
       .filter(Boolean)
       .some((value) => String(value).toLowerCase().includes(needle));
   });
-  const groups = (["lesson", "summary"] as const).map((kind) => ({
-    kind,
-    label: kind === "lesson" ? "策略经验" : "个股研究",
-    entries: visible
-      .filter((doc) => doc.kind === kind)
-      .map((doc) => ({
-        key: doc.key,
-        fresh: isRecent(doc.at),
-        title:
-          doc.kind === "lesson"
-            ? doc.lesson.title
-            : `${doc.summary.symbol} 研究摘要`,
-        meta:
-          doc.kind === "lesson"
-            ? `${scopeName[doc.lesson.scope] ?? doc.lesson.scope} · ${
-                lessonStatus[doc.lesson.status] ?? doc.lesson.status
-              } · ${doc.lesson.horizon} 个交易日 · ${day(doc.at)}`
-            : `${doc.summary.symbol} · ${day(doc.summary.as_of)}`,
-      })),
-  }));
+
+  const lessonEntries = visible
+    .filter(
+      (doc): doc is Extract<Doc, { kind: "lesson" }> => doc.kind === "lesson",
+    )
+    .map(toEntry);
+  // One folder per symbol; `docs` is newest-first so folders follow recency.
+  const stockFolders: { symbol: string; entries: Entry[] }[] = [];
+  let summaryCount = 0;
+  for (const doc of visible) {
+    if (doc.kind !== "summary") continue;
+    summaryCount += 1;
+    const folder = stockFolders.find((f) => f.symbol === doc.summary.symbol);
+    if (folder) folder.entries.push(toEntry(doc));
+    else
+      stockFolders.push({
+        symbol: doc.summary.symbol,
+        entries: [toEntry(doc)],
+      });
+  }
+
   const selected = docs.find((doc) => doc.key === selectedKey) ?? null;
 
   const readerHead = selected ? (
@@ -484,45 +508,106 @@ export function KnowledgeBase() {
             </div>
 
             <nav className="kb-tree-list" aria-label="知识文档">
-              {groups.map((group) => {
-                const open = !collapsed[group.kind];
-                return (
-                  <section key={group.kind}>
-                    <button
-                      type="button"
-                      className="kb-folder"
-                      aria-expanded={open}
-                      onClick={() =>
-                        setCollapsed((prev) => ({
-                          ...prev,
-                          [group.kind]: open,
-                        }))
-                      }
-                    >
-                      <ChevronIcon />
-                      <span className="kb-folder-icon">
-                        <FolderIcon />
-                      </span>
-                      <span className="kb-folder-name">{group.label}</span>
-                      <span className="kb-folder-count">
-                        {group.entries.length}
-                      </span>
-                    </button>
-                    {open &&
-                      group.entries.map((entry) => (
-                        <DocButton
-                          key={entry.key}
-                          kind={group.kind}
-                          active={entry.key === selectedKey}
-                          title={entry.title}
-                          meta={entry.meta}
-                          fresh={entry.fresh}
-                          onSelect={() => setSelectedKey(entry.key)}
-                        />
-                      ))}
-                  </section>
-                );
-              })}
+              <section>
+                <button
+                  type="button"
+                  className="kb-folder"
+                  aria-expanded={!collapsed.lesson}
+                  onClick={() =>
+                    setCollapsed((prev) => ({
+                      ...prev,
+                      lesson: !prev.lesson,
+                    }))
+                  }
+                >
+                  <ChevronIcon />
+                  <span className="kb-folder-icon">
+                    <FolderIcon />
+                  </span>
+                  <span className="kb-folder-name">策略经验</span>
+                  <span className="kb-folder-count">
+                    {lessonEntries.length}
+                  </span>
+                </button>
+                {!collapsed.lesson &&
+                  lessonEntries.map((entry) => (
+                    <DocButton
+                      key={entry.key}
+                      kind="lesson"
+                      active={entry.key === selectedKey}
+                      title={entry.title}
+                      meta={entry.meta}
+                      fresh={entry.fresh}
+                      onSelect={() => setSelectedKey(entry.key)}
+                    />
+                  ))}
+              </section>
+
+              <section>
+                <button
+                  type="button"
+                  className="kb-folder"
+                  aria-expanded={!collapsed.summary}
+                  onClick={() =>
+                    setCollapsed((prev) => ({
+                      ...prev,
+                      summary: !prev.summary,
+                    }))
+                  }
+                >
+                  <ChevronIcon />
+                  <span className="kb-folder-icon">
+                    <FolderIcon />
+                  </span>
+                  <span className="kb-folder-name">个股研究</span>
+                  <span className="kb-folder-count">{summaryCount}</span>
+                </button>
+                {!collapsed.summary &&
+                  stockFolders.map((folder) => {
+                    const branchKey = `summary:${folder.symbol}`;
+                    const open = !collapsed[branchKey];
+                    return (
+                      <div className="kb-branch" key={folder.symbol}>
+                        <button
+                          type="button"
+                          className="kb-folder kb-folder-sub"
+                          aria-expanded={open}
+                          onClick={() =>
+                            setCollapsed((prev) => ({
+                              ...prev,
+                              [branchKey]: open,
+                            }))
+                          }
+                        >
+                          <ChevronIcon />
+                          <span className="kb-folder-icon">
+                            <FolderIcon />
+                          </span>
+                          <span className="kb-folder-name">
+                            {folder.symbol}
+                          </span>
+                          <span className="kb-folder-count">
+                            {folder.entries.length}
+                          </span>
+                        </button>
+                        {open &&
+                          folder.entries.map((entry) => (
+                            <DocButton
+                              key={entry.key}
+                              kind="summary"
+                              nested
+                              active={entry.key === selectedKey}
+                              title={entry.title}
+                              meta={entry.meta}
+                              fresh={entry.fresh}
+                              onSelect={() => setSelectedKey(entry.key)}
+                            />
+                          ))}
+                      </div>
+                    );
+                  })}
+              </section>
+
               {visible.length === 0 && (
                 <p className="kb-tree-empty">
                   {docs.length === 0
