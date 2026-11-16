@@ -69,6 +69,15 @@ const day = (value: string | null | undefined) =>
         timeZone: "Asia/Shanghai",
       });
 
+const shortDay = (value: string | null | undefined) =>
+  !value
+    ? "—"
+    : new Date(value).toLocaleDateString("zh-CN", {
+        month: "2-digit",
+        day: "2-digit",
+        timeZone: "Asia/Shanghai",
+      });
+
 type Entry = { key: string; fresh: boolean; title: string; meta: string };
 const toEntry = (doc: Doc): Entry => ({
   key: doc.key,
@@ -79,8 +88,8 @@ const toEntry = (doc: Doc): Entry => ({
     doc.kind === "lesson"
       ? `${scopeName[doc.lesson.scope] ?? doc.lesson.scope} · ${
           lessonStatus[doc.lesson.status] ?? doc.lesson.status
-        } · ${doc.lesson.horizon} 个交易日 · ${day(doc.at)}`
-      : `${doc.summary.symbol} · ${day(doc.summary.as_of)}`,
+        } · ${doc.lesson.horizon} 日 · ${shortDay(doc.at)}`
+      : `${doc.summary.symbol} · ${shortDay(doc.summary.as_of)}`,
 });
 
 function FolderIcon() {
@@ -844,11 +853,15 @@ export function KnowledgeBase() {
               </span>
             </div>
             <nav aria-label="跳到章节">
+              {outline.length === 0 && (
+                <p className="kb-outline-empty">本文暂无分节</p>
+              )}
               <ol>
                 {outline.map((item) => (
                   <li key={item.id}>
                     <a
                       href={`#${item.id}`}
+                      title={item.label}
                       aria-current={
                         activeSection === item.id ? "location" : undefined
                       }

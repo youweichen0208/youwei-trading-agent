@@ -93,6 +93,10 @@ test("knowledge base archives lessons and research summaries on desktop and mobi
   await page.getByLabel("搜索知识").fill(seed.primary);
   await expect(
     page.getByRole("button", { name: new RegExp(`${seed.primary} 研究摘要`) }),
+  ).toHaveCount(0);
+  await page.getByLabel("搜索知识").fill(seed.primary);
+  await expect(
+    page.getByRole("button", { name: new RegExp(`${seed.primary} 研究摘要`) }),
   ).toBeVisible();
   await page.getByLabel("搜索知识").fill("");
   await page.setViewportSize({ width: 390, height: 844 });
