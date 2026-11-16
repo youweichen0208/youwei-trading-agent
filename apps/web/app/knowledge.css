@@ -387,19 +387,34 @@
 
 /* Nested stock folder under 个股研究: tag icon, indented, quieter type. */
 .kb-branch {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 2px;
+  margin: 2px 0;
+}
+/* Rail that ties the stock folder to the documents it owns. */
+.kb-branch::before {
+  content: "";
+  position: absolute;
+  left: 18px;
+  top: 30px;
+  bottom: 6px;
+  width: 1px;
+  background: var(--kb-line-strong);
+  pointer-events: none;
 }
 .kb .kb-folder-sub {
   height: 28px;
-  padding-left: 34px;
+  margin-left: 12px;
+  width: calc(100% - 12px);
+  padding-left: 22px;
 }
 .kb .kb-folder-sub .kb-folder-name {
   font-size: var(--fs-12);
   font-weight: 500;
   letter-spacing: 0.04em;
-  color: var(--kb-ink-2);
+  color: var(--kb-ink);
   font-variant-numeric: tabular-nums;
 }
 .kb .kb-folder-sub .kb-folder-icon > svg {
@@ -411,7 +426,9 @@
   background: transparent;
 }
 .kb .kb-doc-sub {
-  padding-left: 52px;
+  margin-left: 26px;
+  width: calc(100% - 26px);
+  padding-left: 26px;
 }
 
 /* Document row */

@@ -1356,3 +1356,11 @@ Worker、Tools 已切换到 `/opt/hermes-alpha-lab/releases/20261113-research-re
 - 验证：本地拦截 `/api/knowledge` 4s，1440 与 390 截图版式与真实页面一致；生产拦截 3.5s 实测同一个骨架；`knowledge.spec.ts` 通过。
 - 生产：release `20261116-loading-skeleton`，BUILD_ID `yEQ8IKTT0_jFZmlUNqL39`，drop-in `zzzzzzzzzzzzzz-loading-skeleton.conf`，MainPID 3331542 → 3344906；边缘 `current` 同 BUILD_ID。
 - 回退：删除 drop-in 并重启回到 `20261116-tree-hierarchy`（`S9yu1VBYTo_B_t8aEWdDg`）。
+
+## 知识库目录嵌套包含关系（2026-11-16）
+
+- 现象：股票文件夹展开后，文档卡片仍横向铺满目录宽度，看起来像与文件夹同级的兄弟节点；视觉上像是「展开为空、资料在外面」。
+- 修复：二级股票行 inset 12px（`margin-left`/`width`），文档行 `margin-left: 26px; width: calc(100% - 26px)`，选中/悬停底色落在缩进区内；`.kb-branch::before` 从二级行下方绘制 1px 连接导轨（left 18px），文档卡片左侧留 8px 可见；二级名称改为墨色 500。
+- 验证：生产 1440 截图确认 `NVDA`（5）下 5 条摘要明显归属该文件夹；折叠该行仅隐藏自身分支（页面摘要数 29 → 24 实测），其他股票不受影响；`knowledge.spec.ts` 与 `apps/web` tsc 通过。
+- 生产：release `20261116-tree-containment`，BUILD_ID `wzZwobLgIo-KuQNeR6IKl`，drop-in `zzzzzzzzzzzzzzz-tree-containment.conf`，MainPID 3344906 → 3450337；边缘 `current` 同 BUILD_ID。
+- 回退：删除 drop-in 并重启回到 `20261116-loading-skeleton`（`yEQ8IKTT0_jFZmlUNqL39`）。
