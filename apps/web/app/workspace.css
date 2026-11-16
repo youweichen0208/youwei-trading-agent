@@ -2178,6 +2178,11 @@ body.is-resizing .app .desk-divider::before {
   overflow: auto;
   background: var(--bg);
 }
+/* Document surface owns its own scroll so sticky tree and bar can pin. */
+.app .workspace-hub-doc {
+  overflow: hidden;
+  background: var(--surface);
+}
 .app .nav-scrim {
   display: none;
 }

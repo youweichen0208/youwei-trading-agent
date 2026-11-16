@@ -1291,7 +1291,10 @@ export default function Workspace() {
             </section>
           )}
           {user && knowledgeOpen && (
-            <section className="workspace-hub" aria-label="知识沉淀">
+            <section
+              className="workspace-hub workspace-hub-doc"
+              aria-label="知识沉淀"
+            >
               <KnowledgeBase key={user.id} />
             </section>
           )}
