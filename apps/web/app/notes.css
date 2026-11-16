@@ -1,0 +1,237 @@
+/*
+ * Personal notebook — list on a sunken rail, one editor column.
+ * Every color resolves to the global tokens; only geometry and type scale are set here.
+ */
+.notes {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--surface);
+}
+
+/* ── Bar ─────────────────────────────────────────────────── */
+.notes-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  min-height: 56px;
+  height: auto;
+  padding: var(--sp-2) var(--sp-5);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.notes-title {
+  font-size: var(--fs-14);
+  font-weight: 600;
+}
+.notes-hint {
+  flex: 1;
+  min-width: 220px;
+  color: var(--text-tertiary);
+  font-size: var(--fs-12);
+  line-height: 1.5;
+}
+.notes-search {
+  width: 220px;
+  height: 30px;
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-13);
+}
+
+/* ── Panes ───────────────────────────────────────────────── */
+.notes-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  min-height: 0;
+}
+.notes-list {
+  overflow: auto;
+  padding: var(--sp-2);
+  border-right: 1px solid var(--border-subtle);
+  background: var(--surface-sunken);
+}
+.notes .notes-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: stretch;
+  width: 100%;
+  padding: var(--sp-3);
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.notes .notes-item:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+.notes .notes-item[aria-current="true"] {
+  background: var(--brand-soft);
+  color: var(--brand-text);
+}
+.notes-item-title {
+  overflow: hidden;
+  font-size: var(--fs-13);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.notes-item-meta {
+  color: var(--text-tertiary);
+  font-size: var(--fs-11);
+}
+
+/* ── Editor ──────────────────────────────────────────────── */
+.notes-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  width: 100%;
+  max-width: 880px;
+  padding: var(--sp-6) var(--sp-8);
+  overflow: auto;
+}
+.notes-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  color: var(--text-secondary);
+  font-size: var(--fs-12);
+}
+.notes-field input,
+.notes-field textarea {
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-14);
+}
+.notes-editor-body {
+  min-height: 320px;
+  line-height: 1.7;
+  resize: vertical;
+}
+.notes-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-4);
+}
+.notes-check {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: center;
+  font-size: var(--fs-13);
+}
+.notes-actions {
+  display: flex;
+  gap: var(--sp-3);
+}
+.notes .notes-new,
+.notes .notes-save,
+.notes .notes-delete {
+  padding: var(--sp-2) var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-13);
+  cursor: pointer;
+}
+.notes .notes-new {
+  background: var(--surface);
+  color: var(--text);
+}
+.notes .notes-save {
+  border-color: var(--brand);
+  background: var(--brand);
+  color: var(--n0);
+}
+.notes .notes-save:hover:not(:disabled) {
+  border-color: var(--brand-hover);
+  background: var(--brand-hover);
+  color: var(--n0);
+}
+.notes .notes-delete {
+  background: transparent;
+  color: var(--danger);
+}
+.notes .notes-new:hover:not(:disabled),
+.notes .notes-delete:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+.notes .notes-delete:hover:not(:disabled) {
+  color: var(--danger);
+}
+.notes-error {
+  margin: 0;
+  padding: var(--sp-2) var(--sp-5);
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: var(--fs-12);
+}
+.notes-empty {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--text-tertiary);
+}
+.notes-empty p {
+  margin: 0;
+  max-width: 420px;
+  font-size: var(--fs-13);
+  line-height: 1.7;
+}
+.notes-loading {
+  margin: 0;
+  padding: var(--sp-4) var(--sp-3);
+  color: var(--text-tertiary);
+  font-size: var(--fs-12);
+}
+
+@media (max-width: 960px) {
+  /* Stacked bar: title, hint, search, then the action, each on its own line. */
+  .notes-bar {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    height: auto;
+    padding: var(--sp-3);
+  }
+  .notes-title {
+    order: 1;
+  }
+  .notes-hint {
+    order: 2;
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  .notes-search {
+    order: 3;
+    flex: 1 1 100%;
+    width: 100%;
+  }
+  .notes .notes-new {
+    order: 4;
+  }
+  .notes-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .notes-list {
+    max-height: 38vh;
+    border-right: 0;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .notes-editor {
+    padding: var(--sp-4);
+  }
+}

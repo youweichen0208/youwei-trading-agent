@@ -23,6 +23,7 @@ export const researchTables = [
   "research_schedule_runs",
   "research_checks",
   "notifications",
+  "personal_notes",
 ] as const;
 
 /** Additive permissions for both initial provisioning and an existing deployment. */
@@ -48,6 +49,7 @@ export async function grantResearchAccess(
   for (const table of ["research_coverage", "research_settings"])
     await grant("web", "INSERT, UPDATE, DELETE", table);
   await grant("web", "DELETE", "watchlist");
+  await grant("web", "INSERT, UPDATE, DELETE", "personal_notes");
   await grant("web", "UPDATE(read_at)", "notifications");
   for (const table of [
     "portfolios",
@@ -60,13 +62,15 @@ export async function grantResearchAccess(
     "task_artifacts",
   ])
     await grant("worker", "SELECT", table);
+  // Notes are user-authored only; the worker renders them into instructions and
+  // must never be able to fabricate one.
   for (const table of [
     "threads",
     "workspaces",
     "tasks",
     "results",
     "datasets",
-    ...researchTables,
+    ...researchTables.filter((table) => table !== "personal_notes"),
   ])
     await grant("worker", "INSERT", table);
   for (const table of [

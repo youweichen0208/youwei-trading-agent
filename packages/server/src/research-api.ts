@@ -6,6 +6,7 @@ import { symbol, uuid } from "./business.js";
 import { ForecastStore } from "./forecast-store.js";
 import { ExperienceStore } from "./experience-store.js";
 import { NotificationStore } from "./notifications.js";
+import { PersonalNoteStore } from "./personal-notes.js";
 import { ResearchStore, sourceCapabilities } from "./research-store.js";
 
 /** Authenticated personal research views. Public callers never supply an owner. */
@@ -14,11 +15,13 @@ export class ResearchAPI {
   readonly forecasts: ForecastStore;
   readonly experiences: ExperienceStore;
   readonly notifications: NotificationStore;
+  readonly notes: PersonalNoteStore;
   constructor(readonly pool: Pool) {
     this.research = new ResearchStore(pool);
     this.forecasts = new ForecastStore(pool);
     this.experiences = new ExperienceStore(pool);
     this.notifications = new NotificationStore(pool);
+    this.notes = new PersonalNoteStore(pool);
   }
   private coverageView(rows: any[]) {
     return rows.map((row) => ({
@@ -228,6 +231,18 @@ export class ResearchAPI {
         .parse(await readBody());
       await this.notifications.markRead(owner, uuid.parse(path[1]));
       return { ok: true };
+    }
+    if (path[0] === "personal-notes") {
+      if (path.length === 1) {
+        if (method === "GET") return this.notes.list(owner);
+        if (method === "POST") return this.notes.create(owner, await readBody());
+      }
+      if (path.length === 2) {
+        const id = uuid.parse(path[1]);
+        if (method === "PUT")
+          return this.notes.update(owner, id, await readBody());
+        if (method === "DELETE") return this.notes.remove(owner, id);
+      }
     }
     return undefined;
   }

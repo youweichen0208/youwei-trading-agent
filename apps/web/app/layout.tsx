@@ -5,6 +5,7 @@ import "./workspace.css";
 import "./research.css";
 import "./yuque.css";
 import "./knowledge.css";
+import "./notes.css";
 export const metadata: Metadata = {
   title: "Hermes Alpha Lab",
   description: "有依据的美股研究工作台",

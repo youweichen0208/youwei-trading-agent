@@ -92,11 +92,16 @@ const KnowledgeBase = dynamic(
   () => import("./knowledge-base").then((m) => m.KnowledgeBase),
   { loading: () => <p role="status">正在加载知识沉淀…</p> },
 );
+const PersonalNotes = dynamic(
+  () => import("./personal-notes").then((m) => m.PersonalNotes),
+  { loading: () => <p role="status">正在加载个人笔记…</p> },
+);
 export default function Workspace() {
   const pathname = usePathname();
   const router = useRouter();
   const hubOpen = pathname === "/lab";
   const knowledgeOpen = pathname === "/knowledge";
+  const notesOpen = pathname === "/notes";
   const stockSymbol = pathname.startsWith("/stocks/")
     ? decodeURIComponent(pathname.split("/")[2] ?? "").toUpperCase()
     : null;
@@ -110,7 +115,7 @@ export default function Workspace() {
   const editorScope = useResponseScope();
   const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => {
-    if (hubOpen || knowledgeOpen || stockSymbol) {
+    if (hubOpen || knowledgeOpen || notesOpen || stockSymbol) {
       setCanvasOpen(true);
       setMenuOpen(false);
     }
@@ -668,14 +673,18 @@ export default function Workspace() {
       ? "研究中心"
       : knowledgeOpen
         ? "知识沉淀"
-        : selected?.title || "新的研究");
+        : notesOpen
+          ? "个人笔记"
+          : selected?.title || "新的研究");
   const pageMode = stockSymbol
     ? "个股详情"
     : hubOpen
       ? "研究"
       : knowledgeOpen
         ? "知识库"
-        : "研究对话";
+        : notesOpen
+          ? "风格与心得"
+          : "研究对话";
   return (
     <div className={`app${canvasOpen ? " mobile-results" : ""}`}>
       {error && !showHoldings && (
@@ -735,7 +744,7 @@ export default function Workspace() {
         <Link
           href="/"
           className="workspace-library-link"
-          aria-current={!hubOpen && !knowledgeOpen && !stockSymbol ? "page" : undefined}
+          aria-current={!hubOpen && !knowledgeOpen && !notesOpen && !stockSymbol ? "page" : undefined}
         >
           <svg
             viewBox="0 0 20 20"
@@ -787,6 +796,25 @@ export default function Workspace() {
             <path d="M11 3.5V8h4.5M7 11h6M7 14h4" />
           </svg>
           知识沉淀
+        </Link>
+        <Link
+          href="/notes"
+          className="workspace-library-link"
+          aria-current={notesOpen ? "page" : undefined}
+        >
+          <svg
+            viewBox="0 0 20 20"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M4.5 3.5h8A2.5 2.5 0 0 1 15 6v10.5H6A1.5 1.5 0 0 1 4.5 15Z" />
+            <path d="M6.5 7h6M6.5 10h6M6.5 13h4" />
+          </svg>
+          个人笔记
         </Link>
         <div className="sidebar-label">
           最近研究 <span>{threads.length}</span>
@@ -1023,12 +1051,12 @@ export default function Workspace() {
               className="canvas-toggle"
               aria-label={`研究产物，${artifacts.length} 项`}
               aria-expanded={
-                !hubOpen && !knowledgeOpen && !stockSymbol
+                !hubOpen && !knowledgeOpen && !notesOpen && !stockSymbol
                   ? canvasOpen
                   : undefined
               }
               aria-controls={
-                !hubOpen && !knowledgeOpen && !stockSymbol
+                !hubOpen && !knowledgeOpen && !notesOpen && !stockSymbol
                   ? "research-canvas"
                   : undefined
               }
@@ -1098,9 +1126,9 @@ export default function Workspace() {
               "--chat-width": chatWidth ? `${chatWidth}px` : undefined,
             } as CSSProperties
           }
-          className={`desk${canvasOpen ? " canvas-visible" : ""}${!hubOpen && !knowledgeOpen && !stockSymbol ? " desk-split" : ""}`}
+          className={`desk${canvasOpen ? " canvas-visible" : ""}${!hubOpen && !knowledgeOpen && !notesOpen && !stockSymbol ? " desk-split" : ""}`}
         >
-          {!hubOpen && !knowledgeOpen && !stockSymbol && (
+          {!hubOpen && !knowledgeOpen && !notesOpen && !stockSymbol && (
             <div className="conversation-column">
               {submission ? (
                 <section className="submission-view" aria-label="提交研究">
@@ -1244,7 +1272,7 @@ export default function Workspace() {
               )}
             </div>
           )}
-          {!hubOpen && !knowledgeOpen && !stockSymbol && (
+          {!hubOpen && !knowledgeOpen && !notesOpen && !stockSymbol && (
             <>
               <div
                 className="desk-divider"
@@ -1296,6 +1324,14 @@ export default function Workspace() {
               aria-label="知识沉淀"
             >
               <KnowledgeBase key={user.id} />
+            </section>
+          )}
+          {user && notesOpen && (
+            <section
+              className="workspace-hub workspace-hub-doc"
+              aria-label="个人笔记"
+            >
+              <PersonalNotes key={user.id} />
             </section>
           )}
         </main>
