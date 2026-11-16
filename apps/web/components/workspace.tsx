@@ -18,9 +18,9 @@ import {
   HermesMark,
   SuggestionIcon,
   WelcomeHeading,
+  YouweiMark,
   researchSuggestions,
 } from "./research-welcome";
-import { FeishuLogin } from "./feishu-login";
 import { LoginLanding } from "./login-landing";
 import { api, message, statusName } from "../lib/client";
 import { useCanvas } from "../lib/canvas";
@@ -154,6 +154,8 @@ export default function Workspace() {
   }, [menuOpen]);
   const [draft, setDraft] = useState("");
   const [canvasOpen, setCanvasOpen] = useState(false);
+  const [canvasFull, setCanvasFull] = useState(false);
+  const [liveStatus, setLiveStatus] = useState<string | null>(null);
   const [chatWidth, setChatWidth] = useState(0);
   const deskRef = useRef<HTMLElement>(null);
   const chatWidthRef = useRef(0);
@@ -174,6 +176,7 @@ export default function Workspace() {
     setCanvasOpen(true);
   }, []);
   const closeCanvas = useCallback(() => {
+    setCanvasFull(false);
     setCanvasOpen(false);
     requestAnimationFrame(() => {
       const target = canvasTrigger.current;
@@ -322,6 +325,9 @@ export default function Workspace() {
       closeHoldings();
       starting.current = false;
       setBusy(false);
+      setCanvasFull(false);
+      setCanvasOpen(false);
+      setLiveStatus(null);
       setUser(next);
     },
     [accountScope, researchScope, recordsScope, closeHoldings],
@@ -338,6 +344,9 @@ export default function Workspace() {
     document.addEventListener("keydown", key);
     return () => document.removeEventListener("keydown", key);
   }, [canvasOpen, showHoldings, closeCanvas]);
+  useEffect(() => {
+    setLiveStatus(null);
+  }, [hubOpen, knowledgeOpen, notesOpen, stockSymbol, selected?.id]);
   useEffect(() => {
     if (!selected && draft) draftInput.current?.focus();
   }, [selected, draft]);
@@ -426,6 +435,8 @@ export default function Workspace() {
         useCanvas.getState().load(thread.workspace);
         setSelected(thread);
         router.push("/");
+        setCanvasFull(false);
+        setLiveStatus(null);
         setCanvasOpen(true);
         setMenuOpen(false);
         setError("");
@@ -500,6 +511,8 @@ export default function Workspace() {
     );
     startRequest.current = null;
     useCanvas.getState().load(null);
+    setCanvasFull(false);
+    setLiveStatus(null);
     setCanvasOpen(true);
     setMenuOpen(false);
     setError("");
@@ -634,6 +647,27 @@ export default function Workspace() {
       }
     }
   }
+  const threadGroups = useMemo(() => {
+    const startOf = (value: string | Date) => {
+      const date = new Date(value);
+      date.setHours(0, 0, 0, 0);
+      return date.getTime();
+    };
+    const today = startOf(new Date());
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayAt = startOf(yesterday);
+    const groups: { label: string; items: any[] }[] = [];
+    for (const thread of threads) {
+      const at = startOf(thread.created_at);
+      const label =
+        at === today ? "今天" : at === yesterdayAt ? "昨天" : "更早";
+      const group = groups.find((entry) => entry.label === label);
+      if (group) group.items.push(thread);
+      else groups.push({ label, items: [thread] });
+    }
+    return groups;
+  }, [threads]);
   if (loading)
     return (
       <main className="entry-loading" aria-busy="true">
@@ -685,6 +719,11 @@ export default function Workspace() {
         : notesOpen
           ? "风格与心得"
           : "研究对话";
+  const conversationPage =
+    !hubOpen && !knowledgeOpen && !notesOpen && !stockSymbol;
+  const threadStatus = conversationPage
+    ? (liveStatus ?? selected?.tasks?.[0]?.status ?? null)
+    : null;
   return (
     <div className={`app${canvasOpen ? " mobile-results" : ""}`}>
       {error && !showHoldings && (
@@ -713,7 +752,11 @@ export default function Workspace() {
       )}
       <aside className={menuOpen ? "sidebar expanded" : "sidebar"}>
         <div className="wordmark">
-          <HermesMark /> Hermes <span>研究工作台</span>
+          <YouweiMark />
+          <span className="wordmark-text">
+            Youwei Agent
+            <small>金融研究工作台</small>
+          </span>
         </div>
 
         <button
@@ -739,7 +782,7 @@ export default function Workspace() {
           >
             <path d="M10 4.5v11M4.5 10h11" />
           </svg>
-          新建研究
+          新对话
         </button>
         <Link
           href="/"
@@ -757,7 +800,7 @@ export default function Workspace() {
           >
             <path d="M17 9.5a6.5 6.5 0 1 1-3.2-5.6M17 3v5h-5" />
           </svg>
-          研究对话
+          对话
         </Link>
         <Link
           href="/lab"
@@ -817,71 +860,87 @@ export default function Workspace() {
           个人笔记
         </Link>
         <div className="sidebar-label">
-          最近研究 <span>{threads.length}</span>
+          最近对话 <span>{threads.length}</span>
         </div>
         <nav aria-label="研究记录">
-          {threads.map((t) => {
-            const active = selected?.id === t.id;
-            const source =
-              t.source === "group"
-                ? "群研究"
-                : t.channel === "feishu_private"
-                  ? "飞书"
-                  : "网页";
-            return (
-              <div
-                key={t.id}
-                className={active ? "thread-row active" : "thread-row"}
-              >
-                <button
-                  type="button"
-                  className="thread-open"
-                  disabled={busy}
-                  aria-current={active ? "page" : undefined}
-                  onClick={() => open(t.id)}
-                >
-                  <span className="thread-title">{t.title}</span>
-                  <span className="thread-meta">
-                    <span className="thread-source">{source}</span>
-                    <span aria-hidden="true">·</span>
-                    <time dateTime={t.created_at}>
-                      {new Date(t.created_at).toLocaleDateString("zh-CN", {
-                        month: "2-digit",
-                        day: "2-digit",
-                      })}
-                    </time>
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  className="thread-delete"
-                  aria-label={`删除会话：${t.title}`}
-                  disabled={busy || deleting}
-                  onClick={() => {
-                    setDeleteError("");
-                    setDeleteTarget(t);
-                  }}
-                >
-                  <svg
-                    viewBox="0 0 20 20"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
+          {threadGroups.map((group) => (
+            <div className="thread-group" key={group.label}>
+              <div className="thread-group-label">{group.label}</div>
+              {group.items.map((t) => {
+                const active = selected?.id === t.id;
+                const source =
+                  t.source === "group"
+                    ? "群研究"
+                    : t.channel === "feishu_private"
+                      ? "飞书"
+                      : "网页";
+                return (
+                  <div
+                    key={t.id}
+                    className={active ? "thread-row active" : "thread-row"}
                   >
-                    <path d="M4.5 6h11M8 3.5h4M6.5 6l.7 10h5.6l.7-10M8.5 9v4.5M11.5 9v4.5" />
-                  </svg>
-                </button>
-              </div>
-            );
-          })}
+                    <button
+                      type="button"
+                      className="thread-open"
+                      disabled={busy}
+                      aria-current={active ? "page" : undefined}
+                      onClick={() => open(t.id)}
+                    >
+                      <span className="thread-title">{t.title}</span>
+                      <span className="thread-meta">
+                        <span className="thread-source">{source}</span>
+                        <time dateTime={t.created_at}>
+                          {new Date(t.created_at).toLocaleDateString("zh-CN", {
+                            month: "2-digit",
+                            day: "2-digit",
+                          })}
+                        </time>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="thread-delete"
+                      aria-label={`删除会话：${t.title}`}
+                      disabled={busy || deleting}
+                      onClick={() => {
+                        setDeleteError("");
+                        setDeleteTarget(t);
+                      }}
+                    >
+                      <svg
+                        viewBox="0 0 20 20"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M4.5 6h11M8 3.5h4M6.5 6l.7 10h5.6l.7-10M8.5 9v4.5M11.5 9v4.5" />
+                      </svg>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
           {!threads.length && <p className="sidebar-empty">尚无研究记录</p>}
         </nav>
         <details className="watch-section">
           <summary>
-            自选股 <span className="watch-count">{watchlist.length}</span>
+            <svg
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="m10 3.2 2.1 4.3 4.7.7-3.4 3.3.8 4.7-4.2-2.2-4.2 2.2.8-4.7L3.2 8.2l4.7-.7Z" />
+            </svg>
+            <span className="sidebar-row-label">自选股</span>
+            <span className="watch-count">{watchlist.length}</span>
           </summary>
           <form
             className="watch-add"
@@ -947,7 +1006,21 @@ export default function Workspace() {
           </div>
         </details>
         <details className="sidebar-utilities">
-          <summary>持仓与运行状态</summary>
+          <summary>
+            <svg
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="10" cy="10" r="3.2" />
+              <path d="M10 3v1.6M10 15.4V17M3 10h1.6M15.4 10H17M4.9 4.9l1.1 1.1M14 14l1.1 1.1M15.1 4.9 14 6M6 14l-1.1 1.1" />
+            </svg>
+            <span className="sidebar-row-label">持仓与运行状态</span>
+          </summary>
           <div className="profile-strip" aria-label="Agent 状态">
             <div className="sidebar-label">AGENT 状态</div>
             {["research", "prediction", "portfolio"].map((role, i) => (
@@ -1038,13 +1111,20 @@ export default function Workspace() {
               <path d="M3 6h14M3 10h14M3 14h14" />
             </svg>
           </button>
-          <Link className="topbar-brand" href="/" aria-label="Hermes 首页">
-            <HermesMark />
-            <span>Hermes</span>
+          <Link className="topbar-brand" href="/" aria-label="Youwei Agent 首页">
+            <YouweiMark />
+            <span>Youwei Agent</span>
           </Link>
           <div className="topbar-heading">
-            <h1 className="topbar-title">{pageTitle}</h1>
             <span className="topbar-mode">{pageMode}</span>
+            <div className="topbar-title-row">
+              <h1 className="topbar-title">{pageTitle}</h1>
+              {threadStatus && (
+                <span className="topbar-status" data-status={threadStatus}>
+                  {statusName[threadStatus] ?? threadStatus}
+                </span>
+              )}
+            </div>
           </div>
           <div className="topbar-actions">
             <button
@@ -1062,6 +1142,7 @@ export default function Workspace() {
               }
               onClick={() => {
                 router.push("/");
+                setCanvasFull(false);
                 setCanvasOpen((v) => !v);
               }}
             >
@@ -1105,8 +1186,6 @@ export default function Workspace() {
                 </summary>
                 <div className="account-popover">
                   <p className="account-identity">{user.email || "飞书用户"}</p>
-                  <div className="account-section-label">飞书</div>
-                  <FeishuLogin binding />
                   <button
                     className="account-logout"
                     onClick={() => void logout()}
@@ -1126,7 +1205,7 @@ export default function Workspace() {
               "--chat-width": chatWidth ? `${chatWidth}px` : undefined,
             } as CSSProperties
           }
-          className={`desk${canvasOpen ? " canvas-visible" : ""}${!hubOpen && !knowledgeOpen && !notesOpen && !stockSymbol ? " desk-split" : ""}`}
+          className={`desk${canvasOpen ? " canvas-visible" : ""}${!hubOpen && !knowledgeOpen && !notesOpen && !stockSymbol ? " desk-split" : ""}${canvasFull ? " canvas-full" : ""}`}
         >
           {!hubOpen && !knowledgeOpen && !notesOpen && !stockSymbol && (
             <div className="conversation-column">
@@ -1151,6 +1230,7 @@ export default function Workspace() {
                     showCanvas();
                   }}
                   canvasOpen={canvasOpen}
+                  onStatusChange={setLiveStatus}
                   profileState={
                     profiles.find((p) => p.role === "research")?.state
                   }
@@ -1274,24 +1354,33 @@ export default function Workspace() {
           )}
           {!hubOpen && !knowledgeOpen && !notesOpen && !stockSymbol && (
             <>
-              <div
-                className="desk-divider"
-                role="separator"
-                aria-orientation="vertical"
-                aria-label="调整对话与画布宽度"
-                aria-valuemin={CHAT_MIN_WIDTH}
-                aria-valuemax={Math.round(maxChatWidth())}
-                aria-valuenow={chatWidth || undefined}
-                aria-valuetext={
-                  chatWidth ? `对话宽度 ${chatWidth} 像素` : "对话宽度自动"
-                }
-                tabIndex={0}
-                onPointerDown={startChatResize}
-                onKeyDown={resizeChatWithKeyboard}
-                onDoubleClick={() => applyChatRatio(CHAT_DEFAULT_RATIO)}
-              />
+              {!canvasFull && (
+                <div
+                  className="desk-divider"
+                  role="separator"
+                  aria-orientation="vertical"
+                  aria-label="调整对话与画布宽度"
+                  aria-valuemin={CHAT_MIN_WIDTH}
+                  aria-valuemax={Math.round(maxChatWidth())}
+                  aria-valuenow={chatWidth || undefined}
+                  aria-valuetext={
+                    chatWidth ? `对话宽度 ${chatWidth} 像素` : "对话宽度自动"
+                  }
+                  tabIndex={0}
+                  onPointerDown={startChatResize}
+                  onKeyDown={resizeChatWithKeyboard}
+                  onDoubleClick={() => applyChatRatio(CHAT_DEFAULT_RATIO)}
+                />
+              )}
               <aside id="research-canvas" className="canvas-drawer">
-                <Canvas onClose={() => setCanvasOpen(false)} />
+                <Canvas
+                  fullscreen={canvasFull}
+                  onFullscreen={() => setCanvasFull((value) => !value)}
+                  onClose={() => {
+                    setCanvasFull(false);
+                    setCanvasOpen(false);
+                  }}
+                />
               </aside>
             </>
           )}

@@ -42,13 +42,13 @@ tool_operations 的 SELECT(task_id,status)、UPDATE(status)；三个 feishu 表�
 
 当前仍是单人入口，不能宣称对外多人可用。020 迁移新增按 app_id + open_id 唯一的身份映射，以及可选邮箱、密码和显示名称；FeishuIdentityStore 提供事务化准入（默认 10 人）和显式原账号绑定。准入关闭时已有映射仍可解析。映射服务尚未接入机器人或 Web 路由，不接受浏览器自行提供身份。绑定必须先验证原账号登录及飞书身份，不按姓名或邮箱合并。
 
-待完成：按用户与群隔离的执行上下文及工具引用检查、OAuth 与浏览器绑定的一次性私聊登录挑战、渠道最小数据库权限、自动准备与动态注册表加载、根任务容量预约、群研究只读网页展示、开关与真实部署验收。在上述隔离落实前保持现有机器人发送者限制。部署迁移前备份数据库；没有执行生产迁移或飞书后台发布。
+待完成：按用户与群隔离的执行上下文及工具引用检查、渠道最小数据库权限、自动准备与动态注册表加载、根任务容量预约、群研究只读网页展示、开关与真实部署验收。在上述隔离落实前保持现有机器人发送者限制。部署迁移前备份数据库；没有执行生产迁移或飞书后台发布。
 
 新增并发准入、名额、关闭准入及旧账号绑定集成测试，需要 TEST_DATABASE_URL 指向名称以 _test 结尾的独立 PostgreSQL 数据库。
 
 ### 实施进展补充
 
-已实现身份映射、五分钟浏览器绑定私聊确认登录、OAuth state/PKCE 服务端流程及网页入口。相关开关默认关闭：`FEISHU_LOGIN_ENABLED`、`FEISHU_OAUTH_ENABLED`、`FEISHU_MULTIUSER_ENABLED`、`FEISHU_ADMISSION_ENABLED`，值为 `1` 才开启；`FEISHU_TRIAL_LIMIT` 默认 10。多人模式当前只处理私聊，群运行环境尚未贯通。开启前仍须完成权限与真实外部用户验收。
+已实现身份映射、OAuth state/PKCE 服务端流程及网页入口。2026-11-16 起移除五分钟私聊确认登录和私聊绑定：登录页只保留「企业内部飞书授权登录」，机器人对 `/login` 仅回复停用提示。相关开关默认关闭：`FEISHU_OAUTH_ENABLED`、`FEISHU_MULTIUSER_ENABLED`、`FEISHU_ADMISSION_ENABLED`，值为 `1` 才开启；`FEISHU_TRIAL_LIMIT` 默认 10；`FEISHU_LOGIN_ENABLED` 已不再使用。多人模式当前只处理私聊，群运行环境尚未贯通。OAuth 登录要求应用开通 `contact:user.base:readonly` 并配置回调 `https://<origin>/api/auth/feishu/oauth-callback`。开启前仍须完成权限与真实外部用户验收。
 
 Worker 每五秒重载有效注册表，可用 `HERMES_REGISTRY_CREDENTIALS` 指定 0600 JSON 凭据映射文件；该文件不允许覆盖 TOOL_CAPABILITY_KEY。Supervisor 可用 `HERMES_DEPLOYMENT_DIRECTORIES` 指定私有 JSON 目录数组，加载新增部署时保留原部署身份。生产 Worker 默认启用 `RESEARCH_SINGLE_ROOT=1`。旧运行身份仅在当前进程中保留，重启后缺失旧凭据的任务仍需恢复处理，不能宣称凭据轮换后的重启恢复已完成。
 

@@ -22,9 +22,5 @@ export async function grantFeishuIdentityAccess(pool: Pool, role: string) {
     await grant("SELECT, INSERT", "profile_instances");
     await grant("SELECT, INSERT(owner_id)", "profile_preparation_jobs");
     await grant("SELECT, INSERT, UPDATE", "auth_attempts");
-    await grant(
-      "SELECT(id,code_hash,owner_id,binding_owner_id,expires_at,confirmed_at,consumed_at), UPDATE(owner_id,confirmed_at,confirmed_app_id,confirmed_open_id)",
-      "feishu_login_challenges",
-    );
   });
 }

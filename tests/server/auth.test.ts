@@ -166,60 +166,6 @@ test("Feishu concurrent admission is unique, capped and explicit binding preserv
   );
 });
 
-test("Feishu login requires private confirmation and original browser; completion is single use", async () => {
-  const { FeishuIdentityStore } =
-    await import("../../packages/server/src/feishu-identity.js");
-  const { FeishuLoginStore } =
-    await import("../../packages/server/src/feishu-login.js");
-  const app = `cli_${randomUUID()}`;
-  const identity = await new FeishuIdentityStore(pool).resolve(
-    app,
-    "ou_login",
-    { allowRegistration: true },
-  );
-  const store = new FeishuLoginStore(pool);
-  const challenge = await store.create();
-  await assert.rejects(
-    store.confirm(challenge.command, "group", app, "ou_login"),
-    /login_private_chat_required/,
-  );
-  await assert.rejects(
-    store.complete(challenge.id, challenge.browser),
-    /login_challenge_invalid/,
-  );
-  await assert.rejects(
-    store.confirm(challenge.command, "p2p", app, "ou_forged"),
-    /login_challenge_invalid/,
-  );
-  await store.confirm(challenge.command, "p2p", app, "ou_login");
-  await assert.rejects(
-    store.status(challenge.id, "wrong-browser"),
-    /login_challenge_invalid/,
-  );
-  await assert.rejects(
-    store.complete(challenge.id, "wrong-browser"),
-    /login_challenge_invalid/,
-  );
-  assert.deepEqual(await store.status(challenge.id, challenge.browser), {
-    confirmed: true,
-  });
-  const session = await store.complete(challenge.id, challenge.browser);
-  assert.equal((await auth.authenticate(session)).id, identity.id);
-  await assert.rejects(
-    store.complete(challenge.id, challenge.browser),
-    /login_challenge_invalid/,
-  );
-  const expired = await store.create();
-  await pool.query(
-    "UPDATE feishu_login_challenges SET expires_at=now()-interval '1 second' WHERE id=$1",
-    [expired.id],
-  );
-  await assert.rejects(
-    store.confirm(expired.command, "p2p", app, "ou_login"),
-    /login_challenge_invalid/,
-  );
-});
-
 test("OAuth binds state to browser, consumes once, sends PKCE and creates normal session", async () => {
   const { FeishuOAuth } =
     await import("../../packages/server/src/feishu-oauth.js");
@@ -268,56 +214,11 @@ test("OAuth binds state to browser, consumes once, sends PKCE and creates normal
   assert.equal(calls, 2);
 });
 
-test("explicit binding requires original logged-in account and refuses identity takeover", async () => {
-  const { FeishuLoginStore } =
-    await import("../../packages/server/src/feishu-login.js");
-  const { FeishuIdentityStore } =
-    await import("../../packages/server/src/feishu-identity.js");
-  const store = new FeishuLoginStore(pool);
-  const owner = await auth.register(
-    `${randomUUID()}@example.test`,
-    "long binding password",
-  );
-  const app = `cli_${randomUUID()}`;
-  const challenge = await store.create(owner.id);
-  await store.confirm(challenge.command, "p2p", app, "ou_binding");
-  await assert.rejects(
-    store.complete(challenge.id, challenge.browser),
-    /binding_session_required/,
-  );
-  const session = await store.complete(
-    challenge.id,
-    challenge.browser,
-    owner.id,
-  );
-  assert.equal((await auth.authenticate(session)).id, owner.id);
-  const other = await auth.register(
-    `${randomUUID()}@example.test`,
-    "other binding password",
-  );
-  const takeover = await store.create(other.id);
-  await store.confirm(takeover.command, "p2p", app, "ou_binding");
-  await assert.rejects(
-    store.complete(takeover.id, takeover.browser, other.id),
-    /feishu_identity_already_bound/,
-  );
-  assert.equal(
-    (
-      await new FeishuIdentityStore(pool).resolve(app, "ou_binding", {
-        allowRegistration: false,
-      })
-    ).id,
-    owner.id,
-  );
-});
-
-test("bot identity role provisions users and confirms login without reading authentication secrets", async () => {
+test("bot identity role provisions users without reading authentication secrets", async () => {
   const { grantFeishuIdentityAccess } =
     await import("../../packages/server/src/feishu-access.js");
   const { FeishuIdentityStore } =
     await import("../../packages/server/src/feishu-identity.js");
-  const { FeishuLoginStore } =
-    await import("../../packages/server/src/feishu-login.js");
   const role = `bot_${randomUUID().replaceAll("-", "")}`;
   await admin.query(`CREATE ROLE ${role}`);
   const bot = new Pool({
@@ -333,27 +234,11 @@ test("bot identity role provisions users and confirms login without reading auth
       "ou_restricted",
       { allowRegistration: true },
     );
-    const login = new FeishuLoginStore(pool);
-    const challenge = await login.create();
-    await new FeishuLoginStore(bot).confirm(
-      challenge.command,
-      "p2p",
-      app,
-      "ou_restricted",
-    );
-    assert.equal(
-      (
-        await auth.authenticate(
-          await login.complete(challenge.id, challenge.browser),
-        )
-      ).id,
-      identity.id,
-    );
+    assert.ok(identity.id);
     for (const query of [
       "SELECT password_hash FROM users",
       "SELECT email FROM users",
       "SELECT token_hash FROM login_sessions",
-      "SELECT browser_hash FROM feishu_login_challenges",
       "SELECT verifier FROM feishu_oauth_states",
     ])
       await assert.rejects(

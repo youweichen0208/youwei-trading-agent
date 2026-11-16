@@ -240,7 +240,6 @@ export async function provisionDatabaseAccess(
     await grant("web", "SELECT, INSERT", "feishu_identities");
     await grant("web", "UPDATE(context_id)", "thread_contexts");
     await grant("worker", "UPDATE(context_id)", "thread_contexts");
-    await grant("web", "SELECT, INSERT, UPDATE", "feishu_login_challenges");
     await grant("web", "INSERT", "task_events");
     await grant("web", "INSERT(owner_id)", "profile_preparation_jobs");
     for (const table of [

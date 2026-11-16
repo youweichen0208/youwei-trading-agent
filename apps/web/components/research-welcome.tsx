@@ -46,6 +46,24 @@ export function HermesMark() {
     </svg>
   );
 }
+
+/** Product mark: dark rounded tile with the Youwei "Y". */
+export function YouweiMark() {
+  return (
+    <svg className="youwei-mark" viewBox="0 0 24 24" aria-hidden="true">
+      <rect width="24" height="24" rx="6" fill="#1d2942" />
+      <path
+        d="M6.6 7.2 12 13.1l5.4-5.9M12 13.1V18"
+        fill="none"
+        stroke="#ffffff"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="17.4" cy="6.6" r="1.6" fill="#6f9bff" />
+    </svg>
+  );
+}
 export function SuggestionIcon({ icon }: { icon: SuggestIcon }) {
   const paths: Record<SuggestIcon, string> = {
     trend: "M3 16.5 7.5 11l3.5 3L17 6M17 6h-4m4 0v4",

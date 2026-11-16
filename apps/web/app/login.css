@@ -1112,124 +1112,10 @@
   width: 17px;
   height: 17px;
 }
-.entry .entry-feishu-regenerate {
-  padding: 4px 2px;
-  border: 0;
-  background: transparent;
-  color: var(--entry-accent);
-  font-size: 12px;
-}
-.entry .entry-feishu-regenerate:hover {
-  background: transparent;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-.entry-feishu-card {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 16px;
-  border: 1px solid #e2eae5;
-  border-radius: 12px;
-  background: #f8fbf9;
-}
-.entry-feishu-hint {
-  margin: 0;
-  font-size: 12.5px;
-  line-height: 1.7;
-  color: #5c6b63;
-}
-.entry-feishu-command {
-  display: grid;
-  gap: 8px;
-}
-.entry-feishu-command > label {
-  font-size: 12px;
-  font-weight: 600;
-  color: #2b3a33;
-}
-.entry-feishu-input {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.entry-feishu-input input {
-  flex: 1 1 auto;
-  width: auto;
-  min-width: 0;
-  min-height: 44px;
-  padding: 8px 12px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 12.5px;
-  letter-spacing: -0.01em;
-}
-.entry .entry-feishu-copy {
-  flex: none;
-  min-height: 44px;
-  padding: 0 14px;
-  border: 1px solid #d7e0da;
-  border-radius: 9px;
-  background: #ffffff;
-  color: #2b3a33;
-  font-size: 12px;
-}
-.entry .entry-feishu-copy:hover {
-  background: #f1f5f2;
-  border-color: #b9c8c0;
-}
-.entry-feishu-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.entry-feishu-status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  font-size: 12px;
-  color: #5c6b63;
-}
-.entry-feishu-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #c8a13a;
-  box-shadow: 0 0 0 4px rgba(200, 161, 58, 0.14);
-  animation: entry-pulse 1.8s ease-in-out infinite;
-}
-.entry-feishu-dot.is-done {
-  background: #00875a;
-  box-shadow: 0 0 0 4px rgba(0, 135, 90, 0.14);
-  animation: none;
-}
-.entry .entry-feishu-finish {
-  min-height: 42px;
-  border: 1px solid var(--entry-accent, #00875a);
-  border-radius: 9px;
-  background: var(--entry-accent, #00875a);
-  color: #ffffff;
-  font-size: 13px;
-  font-weight: 600;
-}
-.entry .entry-feishu-finish:hover:not(:disabled) {
-  background: #006e49;
-  border-color: #006e49;
-}
 .entry-feishu-error {
   margin: 0;
   font-size: 12px;
   color: #a32a22;
-}
-@keyframes entry-pulse {
-  0%,
-  100% {
-    opacity: 0.5;
-  }
-  50% {
-    opacity: 1;
-  }
 }
 @media (max-width: 860px) {
   .entry-login-dialog {
@@ -1270,11 +1156,6 @@
   .entry .entry-dialog-close:hover {
     background: rgba(255, 255, 255, 0.2);
     border-color: transparent;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .entry-feishu-dot {
-    animation: none;
   }
 }
 .entry-loading {

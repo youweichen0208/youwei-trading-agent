@@ -2,6 +2,7 @@
 import {
   compactProgress,
   currentProgress,
+  traceRows,
   trimProgress,
   type ProgressItem,
 } from "../lib/research-progress";
@@ -34,12 +35,22 @@ import {
 } from "../lib/client";
 import { useCanvas } from "../lib/canvas";
 import { useSmoothText } from "../lib/smooth-text";
-import { WelcomeHeading } from "./research-welcome";
+import { WelcomeHeading, YouweiMark } from "./research-welcome";
 const ResultContext = createContext({
   onOpen: () => {},
   open: false,
   busy: false,
 });
+type FailureState = {
+  taskId: string;
+  text: string;
+  steps: any[];
+  retry: () => void;
+  retrying: boolean;
+  consult: boolean;
+  canRetry: boolean;
+};
+const FailureContext = createContext<FailureState | null>(null);
 // True while the current task can still extend the last assistant message,
 // including the reconnect path that restores text without an adapter run.
 const StreamingContext = createContext(false);
@@ -152,10 +163,116 @@ function PlainText({ text }: { text?: string }) {
   return <p>{text ?? ""}</p>;
 }
 
+function ResearchFailure({ state }: { state: FailureState }) {
+  const failed = state.steps.filter(
+    (row) =>
+      row.kind === "step" &&
+      (row.meta.state === "failed" || row.meta.state === "warn"),
+  );
+  const first = failed[0]?.meta;
+  const title =
+    first?.tool === "market_history" ? "行情数据暂未获取" : "研究未完整完成";
+  const hint =
+    first?.tool === "market_history"
+      ? "未生成行情、技术指标或研究结论"
+      : "本次研究没有返回完整结论";
+  return (
+    <section className="research-failure" aria-label="研究未完成">
+      <div className="message-agent">
+        <YouweiMark />
+        <strong>Youwei Agent</strong>
+        <span className="agent-role">研究助手</span>
+      </div>
+      <h2>
+        {state.consult
+          ? "回答暂时中断，可以从这里继续。"
+          : "研究暂时中断，可以从这里继续。"}
+      </h2>
+      <p className="failure-summary">
+        {state.text || "本次研究未完整完成，请重试。"}
+      </p>
+      <div className="failure-card">
+        <div className="failure-card-head">
+          <span className="failure-icon" aria-hidden="true">
+            <svg
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.7"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M10 3.5 17 16H3L10 3.5Z" />
+              <path d="M10 8v4M10 14.2v.3" />
+            </svg>
+          </span>
+          <div>
+            <h3>{title}</h3>
+            <p>{hint}</p>
+          </div>
+        </div>
+        {failed.length > 0 && (
+          <ul className="failure-steps">
+            {failed.slice(0, 4).map((row) => (
+              <li key={row.key}>
+                <span className="failure-step-x" aria-hidden="true">
+                  ×
+                </span>
+                <span>{row.meta.label}</span>
+                <span className="failure-step-state">
+                  {row.meta.state === "failed" ? "调用失败" : "等待数据"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="failure-actions">
+          {state.canRetry && (
+            <button
+              type="button"
+              onClick={state.retry}
+              disabled={state.retrying}
+            >
+              <svg
+                viewBox="0 0 20 20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M16 10a6 6 0 1 1-1.8-4.3M16 4v4h-4" />
+              </svg>
+              重试研究
+            </button>
+          )}
+          <span>
+            {state.canRetry ? "无需重新输入问题" : "群研究记录为只读"}
+          </span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function Message() {
   const role = useAuiState((state) => state.message.role);
+  const taskId = useAuiState(
+    (state) => state.message.metadata.custom.taskId as string | undefined,
+  );
+  const failure = useContext(FailureContext);
+  if (role === "assistant" && failure && failure.taskId === taskId)
+    return <ResearchFailure state={failure} />;
   return (
     <MessagePrimitive.Root className="chat-message" data-role={role}>
+      {role === "assistant" && (
+        <div className="message-agent">
+          <YouweiMark />
+          <strong>Youwei Agent</strong>
+          <span className="agent-role">研究助手</span>
+        </div>
+      )}
       <div className="message-body">
         <MessagePrimitive.Parts
           components={{
@@ -174,6 +291,7 @@ export function Chat({
   initialPrompt,
   onOpenCanvas,
   canvasOpen,
+  onStatusChange,
   profileState,
   drafts,
 }: {
@@ -183,6 +301,7 @@ export function Chat({
   initialPrompt?: string;
   onOpenCanvas: () => void;
   canvasOpen: boolean;
+  onStatusChange?: (status: string | null) => void;
   profileState?: string;
   drafts: Map<string, string>;
 }) {
@@ -246,6 +365,9 @@ export function Chat({
       }));
     }
   }
+  useEffect(() => {
+    onStatusChange?.(task?.status ?? null);
+  }, [task?.status, onStatusChange]);
   useEffect(() => {
     if (!task?.id || !isTerminal(task.status)) return;
     let cancelled = false;
@@ -482,16 +604,38 @@ export function Chat({
     }
   }
   const busy = task && !isTerminal(task.status);
-  const progressItems =
-    activity.taskId === task?.id ? compactProgress(activity.items) : [];
+  const progressItems = useMemo(
+    () => (activity.taskId === task?.id ? compactProgress(activity.items) : []),
+    [activity, task?.id],
+  );
   const currentAction = error
     ? "连接或执行出现异常，请查看提示"
     : currentProgress(progressItems, task?.status ?? "queued");
+  const failure = useMemo<FailureState | null>(() => {
+    if (!task || !["failed", "interrupted"].includes(task.status)) return null;
+    return {
+      taskId: task.id,
+      text: typeof task.output?.text === "string" ? task.output.text : "",
+      steps: traceRows(progressItems, task.status),
+      retry: () => {
+        if (thread.source === "group") return;
+        const live = runtime.thread.getState().messages as any[];
+        const lastUser = [...live]
+          .reverse()
+          .find((item) => item.role === "user" && item.id);
+        if (lastUser) runtime.thread.startRun({ parentId: lastUser.id });
+      },
+      retrying: !!busy || requestPending,
+      consult: task.role === "consult",
+      canRetry: thread.source !== "group",
+    };
+  }, [task, progressItems, busy, requestPending, runtime, thread.source]);
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       <StreamingContext.Provider value={!!busy}>
-        <ResultContext.Provider
+        <FailureContext.Provider value={failure}>
+          <ResultContext.Provider
           value={{
             onOpen: onOpenCanvas,
             open: canvasOpen,
@@ -506,6 +650,19 @@ export function Chat({
             </div>
             <ThreadPrimitive.Root className="thread">
               <ThreadPrimitive.Viewport className="messages">
+                {((thread.messages?.length ?? 0) > 0 || task) && (
+                  <div className="research-current-head">
+                    <h2>当前研究</h2>
+                    <time dateTime={task?.created_at ?? undefined}>
+                      {new Date(
+                        task?.created_at ?? thread.created_at ?? Date.now(),
+                      ).toLocaleDateString("zh-CN", {
+                        month: "2-digit",
+                        day: "2-digit",
+                      })}
+                    </time>
+                  </div>
+                )}
                 {thread.source === "group" && (
                   <aside className="document-notice">
                     <strong>这是一份群研究记录</strong>
@@ -553,7 +710,7 @@ export function Chat({
               {thread.source === "group" ? null : (
                 <ComposerPrimitive.Root className="composer">
                   <ComposerPrimitive.Input
-                    placeholder="描述你想研究的问题…"
+                    placeholder="继续追问，或描述新的研究问题…"
                     aria-label="研究问题"
                     onChange={(event) => {
                       const text = event.currentTarget.value;
@@ -573,7 +730,7 @@ export function Chat({
                       }}
                     />
                     <small className="composer-hint">
-                      Enter 发送 · Shift + Enter 换行
+                      Shift + Enter 换行
                     </small>
                     {profileState === "starting" && (
                       <span className="composer-state">研究环境准备中</span>
@@ -598,11 +755,12 @@ export function Chat({
                 </ComposerPrimitive.Root>
               )}
               <p className="caption">
-                用于研究与模拟 · 所有数值应能追溯到数据来源
+                用于研究与模拟，所有数值应能追溯到数据来源
               </p>
             </ThreadPrimitive.Root>
           </div>
         </ResultContext.Provider>
+        </FailureContext.Provider>
       </StreamingContext.Provider>
     </AssistantRuntimeProvider>
   );

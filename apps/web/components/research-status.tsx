@@ -199,10 +199,10 @@ export function ResearchTrace({
           <span className="trace-head-state" data-state={headState} aria-hidden="true">
             <StateIcon state={headState} />
           </span>
-          <span className="trace-current" role="status">
-            {headLabel}
+          <span className="trace-current" role="status" title={headLabel}>
+            {busy ? headLabel : "研究过程"}
           </span>
-          <span className="trace-steps">{stepCount} 步</span>
+          <span className="trace-steps">{stepCount} 个步骤</span>
           <svg
             className="trace-chevron"
             data-expanded={expanded || undefined}

@@ -1,7 +1,6 @@
 import type { Pool } from "pg";
 import { z } from "zod";
 import { FeishuOAuth } from "./feishu-oauth.js";
-import { FeishuLoginStore } from "./feishu-login.js";
 import { ExecutionContextStore } from "./execution-context.js";
 import { AuthStore } from "./auth.js";
 import { BusinessStore, holdings, uuid, symbol } from "./business.js";
@@ -74,7 +73,6 @@ export function createHandler(pool: Pool, origin: string) {
         throw new DomainError("invalid_origin", 403);
       if (path.join("/") === "auth/options" && method === "GET")
         return json({
-          feishuLogin: process.env.FEISHU_LOGIN_ENABLED === "1",
           feishuOAuth: process.env.FEISHU_OAUTH_ENABLED === "1",
         });
       if (
@@ -133,62 +131,6 @@ export function createHandler(pool: Pool, origin: string) {
         .map((s) => s.trim())
         .find((s) => s.startsWith(`${cookieName}=`))
         ?.slice(cookieName.length + 1);
-      if (
-        path[0] === "auth" &&
-        path[1] === "feishu" &&
-        path.length === 3 &&
-        process.env.FEISHU_LOGIN_ENABLED === "1"
-      ) {
-        const store = new FeishuLoginStore(pool);
-        const browser =
-          req.headers
-            .get("cookie")
-            ?.split(";")
-            .map((s) => s.trim())
-            .find((s) => s.startsWith("alpha_feishu_browser="))
-            ?.slice("alpha_feishu_browser=".length) ?? "";
-        if (
-          ["challenge", "bind-challenge"].includes(path[2]!) &&
-          method === "POST"
-        ) {
-          const bindingOwner =
-            path[2] === "bind-challenge"
-              ? (await auth.authenticate(token)).id
-              : undefined;
-          const challenge = await store.create(bindingOwner);
-          const res = json(
-            {
-              id: challenge.id,
-              command: challenge.command,
-              expiresIn: challenge.expiresIn,
-            },
-            201,
-          );
-          res.headers.set(
-            "Set-Cookie",
-            `alpha_feishu_browser=${challenge.browser}; HttpOnly; SameSite=Strict; Path=/api/auth/feishu; Max-Age=300${allowed.startsWith("https:") ? "; Secure" : ""}`,
-          );
-          return res;
-        }
-        if (path[2] === "status" && method === "GET")
-          return json(
-            await store.status(uuid.parse(url.searchParams.get("id")), browser),
-          );
-        if (path[2] === "complete" && method === "POST") {
-          const data = z
-            .object({ id: uuid })
-            .strict()
-            .parse(await body(req));
-          const session = await store.complete(
-            data.id,
-            browser,
-            token ? (await auth.authenticate(token)).id : undefined,
-          );
-          const res = json({ ok: true });
-          res.headers.set("Set-Cookie", cookie(session));
-          return res;
-        }
-      }
       if (path[0] === "auth" && path.length === 2) {
         if (path[1] === "register" && method === "POST") {
           await auth.rateLimit("registration_global", 30);

@@ -10,7 +10,6 @@ import {
   deliverNextFeishu,
 } from "../../packages/server/src/notifications.js";
 import { ExecutionContextStore } from "../../packages/server/src/execution-context.js";
-import { FeishuLoginStore } from "../../packages/server/src/feishu-login.js";
 import { FeishuIdentityStore } from "../../packages/server/src/feishu-identity.js";
 import { loadTaskCards } from "../../packages/server/src/feishu-cards.js";
 import * as lark from "@larksuiteoapi/node-sdk";
@@ -180,25 +179,14 @@ await ws.start({
         }
       }
       if (input.startsWith("/login")) {
-        let reply = "网页登录暂未开放。";
-        if (process.env.FEISHU_LOGIN_ENABLED === "1") {
-          try {
-            await new FeishuLoginStore(pool!).confirm(
-              input,
-              m.chat_type,
-              appId,
-              s.sender_id.open_id,
-            );
-            reply =
-              "已确认网页登录，请返回发起登录的浏览器完成。仅确认你本人发起的登录。";
-          } catch {
-            reply =
-              "登录确认未成功。请仅在私聊发送网页提供的完整确认命令；登录码五分钟有效且只能使用一次。";
-          }
-        }
         await client.im.message.reply({
           path: { message_id: m.message_id },
-          data: { msg_type: "text", content: JSON.stringify({ text: reply }) },
+          data: {
+            msg_type: "text",
+            content: JSON.stringify({
+              text: "私聊确认登录已停用，请在工作台登录页点击「企业内部飞书授权登录」。",
+            }),
+          },
         });
         return;
       }

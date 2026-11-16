@@ -1,5 +1,11 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import {
   createChart,
   CandlestickSeries,
@@ -744,11 +750,68 @@ function ArtifactView({ artifact, refreshKey = 0 }: { artifact: Artifact; refres
     </article>
   );
 }
-export function Canvas({ onClose }: { onClose?: () => void }) {
+export function Canvas({
+  onClose,
+  fullscreen,
+  onFullscreen,
+}: {
+  onClose?: () => void;
+  fullscreen?: boolean;
+  onFullscreen?: () => void;
+}) {
   const artifacts = useCanvas((s) => s.artifacts);
   const contextKey = useCanvas(s => `${s.workspaceId}:${s.historyTaskId}`);
   const [selection, setSelection] = useState<{context:string; id:string}|null>(null);
   const activeId = selection?.context === contextKey && artifacts.some(a => a.artifactId === selection.id) ? selection.id : artifacts[0]?.artifactId;
+  const [zoom, setZoom] = useState(1);
+  const [panMode, setPanMode] = useState<"select" | "hand">("select");
+  const stage = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
+  const setZoomClamped = (value: number) =>
+    setZoom(Math.min(2, Math.max(0.5, Number(value.toFixed(2)))));
+  function startPan(event: ReactPointerEvent<HTMLDivElement>) {
+    if (panMode !== "hand" || !stage.current) return;
+    if (
+      (event.target as HTMLElement).closest(
+        "button, a, input, select, textarea, summary",
+      )
+    )
+      return;
+    drag.current = {
+      x: event.clientX,
+      y: event.clientY,
+      left: stage.current.scrollLeft,
+      top: stage.current.scrollTop,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+  function movePan(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!drag.current || !stage.current) return;
+    stage.current.scrollLeft = drag.current.left - (event.clientX - drag.current.x);
+    stage.current.scrollTop = drag.current.top - (event.clientY - drag.current.y);
+  }
+  function endPan() {
+    drag.current = null;
+  }
+  useEffect(() => {
+    setZoom(1);
+    setPanMode("select");
+  }, [contextKey, activeId]);
+  useEffect(() => {
+    const node = stage.current;
+    if (!node) return;
+    const onWheel = (event: WheelEvent) => {
+      if (!useCanvas.getState().artifacts.length) return;
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      setZoom((value) => {
+        const next = Number((value - event.deltaY * 0.0015).toFixed(2));
+        return Math.min(2, Math.max(0.5, next));
+      });
+    };
+    node.addEventListener("wheel", onWheel, { passive: false });
+    return () => node.removeEventListener("wheel", onWheel);
+  }, []);
 
   const [refreshKey,setRefreshKey] = useState(0);
   const [downloading,setDownloading] = useState(false);
@@ -818,6 +881,68 @@ export function Canvas({ onClose }: { onClose?: () => void }) {
   }
   return (
     <section className="canvas-panel" aria-label="研究画布">
+      <div className="canvas-header">
+        <span className="canvas-header-icon" aria-hidden="true">
+          <svg
+            viewBox="0 0 20 20"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <rect x="3" y="4" width="14" height="12" rx="2" />
+            <path d="M8 4v12M11 8h3M11 11h3" />
+          </svg>
+        </span>
+        <h2>Canvas</h2>
+        <span className="canvas-header-count">{artifacts.length} 个内容</span>
+        <div className="canvas-header-actions">
+          {onFullscreen && (
+            <button
+              type="button"
+              onClick={onFullscreen}
+              aria-label={fullscreen ? "退出全屏" : "全屏"}
+            >
+              <svg
+                viewBox="0 0 20 20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                {fullscreen ? (
+                  <path d="M7 3v4H3M13 3v4h4M7 17v-4H3M13 17v-4h4" />
+                ) : (
+                  <path d="M3 7V3h4M17 7V3h-4M3 13v4h4M17 13v4h-4" />
+                )}
+              </svg>
+              {fullscreen ? "退出全屏" : "全屏"}
+            </button>
+          )}
+          {onClose && (
+            <button
+              type="button"
+              className="canvas-close"
+              aria-label="收起画布"
+              onClick={onClose}
+            >
+              <svg
+                viewBox="0 0 20 20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                aria-hidden="true"
+              >
+                <path d="m5 5 10 10M15 5 5 15" />
+              </svg>
+            </button>
+          )}
+        </div>
+      </div>
       {artifacts.length > 0 && (
         <div className="canvas-toolbar">
           <select
@@ -849,15 +974,6 @@ export function Canvas({ onClose }: { onClose?: () => void }) {
               <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M10 3v9m0 0 3.5-3.5M10 12 6.5 8.5M4 15.5h12" /></svg>
               <span className="canvas-download-label">{downloading ? "下载中…" : "下载产物"}</span>
             </button>
-            {onClose && (
-              <button
-                className="canvas-close"
-                aria-label="收起画布"
-                onClick={onClose}
-              >
-                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15" /></svg>
-              </button>
-            )}
           </div>
         </div>
       )}
@@ -881,9 +997,22 @@ export function Canvas({ onClose }: { onClose?: () => void }) {
       )}
       {historyError && <p role="alert">{historyError}</p>}
       <div
-        ref={results}
-        className={artifacts.length ? "artifacts" : "canvas-empty-wrap"}
+        ref={stage}
+        className="canvas-stage"
+        data-pan={panMode}
+        onPointerDown={startPan}
+        onPointerMove={movePan}
+        onPointerUp={endPan}
+        onPointerCancel={endPan}
       >
+        <div
+          className="canvas-zoom-layer"
+          style={artifacts.length ? { zoom } : undefined}
+        >
+          <div
+            ref={results}
+            className={artifacts.length ? "artifacts" : "canvas-empty-wrap"}
+          >
         {artifacts.length ? (
           artifacts.map((a, index) => (
             <div key={a.artifactId} data-artifact-id={a.artifactId} hidden={a.artifactId !== activeId}>
@@ -928,18 +1057,98 @@ export function Canvas({ onClose }: { onClose?: () => void }) {
                 </svg>
               </span>
               <span className="empty-eyebrow">RESEARCH CANVAS</span>
-              <h3>研究产物将在这里生成</h3>
+              <h3>内容将在这里生成</h3>
               <p>
-                提出问题后，行情、指标与分析结果会在这里呈现；也可以从左侧打开已保存的研究。
+                继续左侧对话，表格、图表、图像等内容会自动呈现在画布中。
               </p>
               <div className="empty-types" aria-hidden="true">
-                <span>行情走势</span>
-                <span>技术指标</span>
-                <span>新闻与结论</span>
+                <span>表格</span>
+                <span>图表</span>
+                <span>图像</span>
+                <span>文本</span>
               </div>
             </div>
           </div>
         )}
+          </div>
+        </div>
+      </div>
+      <div className="canvas-controls">
+        <div className="canvas-pan-toggle" role="group" aria-label="画布操作">
+          <button
+            type="button"
+            aria-pressed={panMode === "select"}
+            aria-label="选择"
+            onClick={() => setPanMode("select")}
+          >
+            <svg
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M5 3.5 14.5 10 10 11l-2 4.5Z" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            aria-pressed={panMode === "hand"}
+            aria-label="拖动平移"
+            onClick={() => setPanMode("hand")}
+          >
+            <svg
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M7 9V5.5a1.3 1.3 0 0 1 2.6 0V9m0-.5V4.3a1.3 1.3 0 0 1 2.6 0v4.4m0-.2V5.8a1.3 1.3 0 0 1 2.6 0v5.4c0 3-1.8 5.3-4.9 5.3-2.2 0-3.2-.9-4.3-2.5L3.8 11a1.3 1.3 0 0 1 2-1.5L7 11" />
+            </svg>
+          </button>
+        </div>
+        <span className="canvas-controls-hint">
+          拖动平移 · Ctrl + 滚轮缩放
+        </span>
+        <div className="canvas-zoom">
+          <button
+            type="button"
+            aria-label="缩小"
+            onClick={() => setZoomClamped(zoom - 0.1)}
+          >
+            −
+          </button>
+          <span>{Math.round(zoom * 100)}%</span>
+          <button
+            type="button"
+            aria-label="放大"
+            onClick={() => setZoomClamped(zoom + 0.1)}
+          >
+            +
+          </button>
+          <button
+            type="button"
+            aria-label="适应窗口"
+            onClick={() => setZoom(1)}
+          >
+            <svg
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M7 3H3v4M13 3h4v4M7 17H3v-4M13 17h4v-4" />
+            </svg>
+          </button>
+        </div>
       </div>
       <footer className="canvas-foot">
         <span>数据来源与计算版本随结果保存</span>
