@@ -389,8 +389,9 @@ export function PersonalNotes() {
           notes && (
             <div className="notes-doc notes-doc-empty">
               <p className="notes-blank">
-                还没有笔记。写下你的投资风格、偏好或复盘心得，Hermes
-                会在分析时参考。
+                {notes.length
+                  ? "从左侧选一条笔记继续写，或新建一条。"
+                  : "还没有笔记。写下你的投资风格、偏好或复盘心得，Hermes 会在分析时参考。"}
               </p>
               <button type="button" className="notes-new" onClick={start}>
                 ＋ 新建笔记

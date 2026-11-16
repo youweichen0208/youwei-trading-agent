@@ -1385,3 +1385,14 @@ Worker、Tools 已切换到 `/opt/hermes-alpha-lab/releases/20261113-research-re
 - 顺带发现（既有问题，非本次引入）：`consult` 任务在生产没有对应 Profile，6 个历史 consult 任务全部 cancelled；新提交的 consult 会停在 `unknown/profile_unavailable`，并挡住同线程后续 research 任务的排队条件。
 - 备份：`/opt/hermes-alpha-lab/private/personal-notes-20261116/alpha_production-pre-notes.dump`（0600）。
 - 回退：删除上述两个 drop-in、`daemon-reload` 并重启 Web/Worker，回到 `20261116-stock-collapsed`（`D8RAfUFZn2-FdPEqH9D9z`）与 `20261115-stream-text-worker`，边缘重发旧 BUILD_ID；`personal_notes` 为新增表，旧代码不读取，可保留，无需数据回滚。
+
+## 个人笔记文档式改版（2026-11-16）
+
+- 需求：新建笔记的版式向语雀小记靠拢——左栏笔记卡片列表，右侧一页白纸，标题和正文直接落字，不再是一组带标签的方框。
+- 实现：栏内改为「笔记 N + 新建图标 + 搜索 + 卡片列表 + 说明页脚」；编辑区改为工具栏（置顶、让 Hermes 参考两枚可选芯片 + 删除/保存）加无边框标题（24px/600）、正文（15px/1.9，`field-sizing: content` 随文字增高）和文末「股票 / 标签」行内字段；点击正文下方空白聚焦正文。
+- 可访问性：保留 `aria-label` 与真实 checkbox（透明覆盖整枚芯片，`aria-pressed` 语义由原生状态提供），`:has(input:focus-visible)` 提供焦点环；股票/标签保留可见的小标签文字。
+- 修正：空文档在已有笔记时曾显示「还没有笔记」，改为「从左侧选一条笔记继续写，或新建一条」；删除后仍显示引导文案。
+- 验证：本地与生产各跑 `notes.spec.ts`（注册 → 新建 → 截图 → reload → 选中 → 改标题 → reload → 删除 → 390px 无横向溢出，零 pageerror）；`pnpm typecheck` 通过。
+- 生产：release `20261116-notes-doc2`，BUILD_ID `IptiIDao7vzYOj7isqYb7`，drop-in `zzzzzzzzzzzzzzzzzzz-notes-doc2.conf`，Web MainPID 3752775 → 3807058；Worker 未改动（`20261116-personal-notes-worker`，MainPID 3752789）；边缘 `current` 同 BUILD_ID。
+- 观察：Web 重启后首个 `/api/personal-notes` 冷请求可能超过 Playwright 默认 5s 断言窗口（首次生产验收因此失败一次，页面已显示加载态）；重跑通过，未改超时掩盖。
+- 回退：删除 `zzzzzzzzzzzzzzzzzz-notes-doc.conf`、`zzzzzzzzzzzzzzzzzzz-notes-doc2.conf` 后 `daemon-reload` 并重启 Web，回到 `20261116-personal-notes`（`6MmntwMwWP_d9_erLLfJJ`），边缘重发旧 BUILD_ID。
