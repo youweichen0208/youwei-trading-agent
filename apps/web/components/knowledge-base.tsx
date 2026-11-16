@@ -58,6 +58,7 @@ const scopeName: Record<string, string> = {
   industry: "行业",
   general: "通用",
 };
+const lessonSections = ["经验结论", "适用条件", "失效条件", "验证进度"];
 const day = (value: string | null | undefined) =>
   !value
     ? "—"
@@ -89,6 +90,32 @@ function FolderIcon() {
     </svg>
   );
 }
+
+function BookIcon() {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true" className="kb-book-icon">
+      <path d="M3.2 4.4A1.4 1.4 0 0 1 4.6 3h3.2c.8 0 1.5.4 1.9 1.1l.3.6.3-.6c.4-.7 1.1-1.1 1.9-1.1h3.2a1.4 1.4 0 0 1 1.4 1.4v9.2a1.4 1.4 0 0 1-1.4 1.4h-3.6c-.6 0-1.1.2-1.5.6l-.3.3-.3-.3c-.4-.4-.9-.6-1.5-.6H4.6a1.4 1.4 0 0 1-1.4-1.4Z" />
+      <path d="M10 5v10.5" />
+    </svg>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true">
+      <path d="M10 4.6v10.8M4.6 10h10.8" />
+    </svg>
+  );
+}
+
+function OutlineIcon() {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true" className="kb-outline-icon">
+      <path d="M4 6h9M4 10h9M4 14h6" />
+    </svg>
+  );
+}
+
 
 function SearchIcon() {
   return (
@@ -152,7 +179,7 @@ function DocButton({
       <DocIcon kind={kind} />
       <span className="kb-doc-text">
         <span className="kb-doc-title">
-          {title}
+          <span className="kb-doc-name">{title}</span>
           {fresh && <span className="kb-new">新</span>}
         </span>
         <span className="kb-doc-meta">{meta}</span>
@@ -222,7 +249,7 @@ function SummaryBody({ text }: { text: string | null }) {
     <>
       {blocks.map((block, index) =>
         block.kind === "heading" ? (
-          <h3 key={index} className="kb-h3">
+          <h3 key={index} id={`kb-b-${index}`} className="kb-h3">
             {block.text}
           </h3>
         ) : block.kind === "list" ? (
@@ -249,6 +276,7 @@ export function KnowledgeBase() {
   const [selectedKey, setSelectedKey] = useState("");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [contentsOpen, setContentsOpen] = useState(false);
+  const [treeOpen, setTreeOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -368,6 +396,63 @@ export function KnowledgeBase() {
   }
 
   const selected = docs.find((doc) => doc.key === selectedKey) ?? null;
+  const readerRef = useRef<HTMLElement | null>(null);
+  const paperRef = useRef<HTMLDivElement | null>(null);
+  const treeListRef = useRef<HTMLElement | null>(null);
+  const [activeSection, setActiveSection] = useState("");
+
+  const outline = useMemo(() => {
+    if (!selected) return [];
+    if (selected.kind === "lesson")
+      return lessonSections.map((label, index) => ({
+        id: `kb-l-${index}`,
+        label,
+      }));
+    return summaryBlocks(selected.summary.text).flatMap((block, index) =>
+      block.kind === "heading"
+        ? [
+            {
+              id: `kb-b-${index}`,
+              label: block.text.replace(/^[一二三四五六七八九十]+、\s*/, ""),
+            },
+          ]
+        : [],
+    );
+  }, [selected]);
+
+  // A new document starts at its first line, like any document reader.
+  useEffect(() => {
+    readerRef.current?.scrollTo({ top: 0 });
+    // On phones the tree is a drawer; picking a document returns to the text.
+    if (window.matchMedia("(max-width: 900px)").matches) setTreeOpen(false);
+  }, [selectedKey]);
+
+  useEffect(() => {
+    treeListRef.current
+      ?.querySelector('[aria-current="page"]')
+      ?.scrollIntoView({ block: "nearest" });
+  }, [selectedKey, collapsed, visible.length]);
+
+  // Follow the reader's scroll so the outline marks where the reader is.
+  useEffect(() => {
+    const scroller = readerRef.current;
+    const paper = paperRef.current;
+    setActiveSection(outline[0]?.id ?? "");
+    if (!scroller || !paper || !outline.length) return;
+    const sync = () => {
+      const line = scroller.getBoundingClientRect().top + 96;
+      let current = outline[0]!.id;
+      for (const item of outline) {
+        const heading = paper.querySelector<HTMLElement>(`#${item.id}`);
+        if (heading && heading.getBoundingClientRect().top <= line)
+          current = item.id;
+      }
+      setActiveSection(current);
+    };
+    sync();
+    scroller.addEventListener("scroll", sync, { passive: true });
+    return () => scroller.removeEventListener("scroll", sync);
+  }, [outline]);
 
   const readerHead = selected ? (
     selected.kind === "lesson" ? (
@@ -435,6 +520,16 @@ export function KnowledgeBase() {
           </span>
         </div>
         <div className="kb-bar-actions">
+          <button
+            type="button"
+            className="kb-bar-tree"
+            aria-expanded={treeOpen}
+            aria-controls="kb-tree"
+            onClick={() => setTreeOpen((open) => !open)}
+          >
+            <OutlineIcon />
+            目录
+          </button>
           <span className="kb-bar-count">
             {stats.lessons} 经验 · {stats.summaries} 摘要
           </span>
@@ -478,7 +573,28 @@ export function KnowledgeBase() {
         </p>
       ) : (
         <div className="kb-body">
-          <aside className="kb-tree" aria-label="知识库目录">
+          <a className="kb-skip" href="#kb-paper">
+            跳到正文
+          </a>
+          <aside
+            id="kb-tree"
+            className={treeOpen ? "kb-tree kb-tree-open" : "kb-tree"}
+            aria-label="知识库目录"
+          >
+            <div className="kb-tree-head">
+              <span className="kb-tree-brand">
+                <BookIcon />
+                <span>研究知识库</span>
+              </span>
+              <Link
+                className="kb-tree-new"
+                href="/"
+                aria-label="新建研究"
+                title="新建研究"
+              >
+                <PlusIcon />
+              </Link>
+            </div>
             <div className="kb-tree-top">
               <label className="kb-search">
                 <SearchIcon />
@@ -507,7 +623,7 @@ export function KnowledgeBase() {
               </div>
             </div>
 
-            <nav className="kb-tree-list" aria-label="知识文档">
+            <nav className="kb-tree-list" aria-label="知识文档" ref={treeListRef}>
               <section>
                 <button
                   type="button"
@@ -640,7 +756,7 @@ export function KnowledgeBase() {
             <p className="kb-tree-foot">只读 · 自动归档</p>
           </aside>
 
-          <article className="kb-reader">
+          <article className="kb-reader" ref={readerRef}>
             {docs.length === 0 ? (
               <div className="kb-state kb-state-inline">
                 <h2>还没有沉淀知识</h2>
@@ -655,16 +771,16 @@ export function KnowledgeBase() {
             ) : (
               <>
                 <div className="kb-reader-head">{readerHead}</div>
-                <div className="kb-paper">
+                <div className="kb-paper" id="kb-paper" ref={paperRef}>
                   {selected?.kind === "lesson" ? (
                     <>
-                      <h2>经验结论</h2>
+                      <h2 id="kb-l-0">经验结论</h2>
                       <p>{selected.lesson.statement}</p>
-                      <h2>适用条件</h2>
+                      <h2 id="kb-l-1">适用条件</h2>
                       <p>{selected.lesson.applicability}</p>
-                      <h2>失效条件</h2>
+                      <h2 id="kb-l-2">失效条件</h2>
                       <p>{selected.lesson.invalidation}</p>
-                      <h2>验证进度</h2>
+                      <h2 id="kb-l-3">验证进度</h2>
                       <p className="kb-progress">
                         <strong>{selected.lesson.trial_count}</strong>
                         <span>/ 30 组独立事件</span>
@@ -721,21 +837,42 @@ export function KnowledgeBase() {
           </article>
 
           <aside className="kb-outline" aria-label="文档大纲">
-            <p className="kb-outline-title">大纲</p>
-            <ol>
-              {(selected?.kind === "lesson"
-                ? ["经验结论", "适用条件", "失效条件", "验证进度"]
-                : summaryBlocks(
-                    selected?.kind === "summary" ? selected.summary.text : "",
-                  )
-                    .filter((block) => block.kind === "heading")
-                    .map((block) => (block.kind === "heading" ? block.text : ""))
-              ).map((label, index) => (
-                <li key={`${label}-${index}`}>
-                  {label.replace(/^[一二三四五六七八九十]+、\s*/, "")}
-                </li>
-              ))}
-            </ol>
+            <div className="kb-outline-head">
+              <span className="kb-outline-title">
+                大纲
+                <OutlineIcon />
+              </span>
+            </div>
+            <nav aria-label="跳到章节">
+              <ol>
+                {outline.map((item) => (
+                  <li key={item.id}>
+                    <a
+                      href={`#${item.id}`}
+                      aria-current={
+                        activeSection === item.id ? "location" : undefined
+                      }
+                      onClick={(event) => {
+                        event.preventDefault();
+                        paperRef.current
+                          ?.querySelector<HTMLElement>(`#${item.id}`)
+                          ?.scrollIntoView({
+                            block: "start",
+                            behavior: window.matchMedia(
+                              "(prefers-reduced-motion: reduce)",
+                            ).matches
+                              ? "auto"
+                              : "smooth",
+                          });
+                        setActiveSection(item.id);
+                      }}
+                    >
+                      {item.label}
+                    </a>
+                  </li>
+                ))}
+              </ol>
+            </nav>
             <div className="kb-outline-sep" />
             <button
               type="button"

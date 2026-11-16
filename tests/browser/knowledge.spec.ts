@@ -68,6 +68,15 @@ test("knowledge base archives lessons and research summaries on desktop and mobi
   await expect(page.locator(".kb-h3")).toHaveCount(2);
   await expect(page.locator(".kb-h3").first()).toHaveText("一、研究背景");
   await expect(page.locator(".kb-list li")).toHaveCount(2);
+  // The outline tracks the reader and jumps to a section.
+  const outlineItems = page.locator(".kb-outline li a");
+  await expect(outlineItems.first()).toHaveText("研究背景");
+  await expect(outlineItems.first()).toHaveAttribute(
+    "aria-current",
+    "location",
+  );
+  await outlineItems.nth(1).click();
+  await expect(outlineItems.nth(1)).toHaveAttribute("aria-current", "location");
   await expect(
     page.locator(".kb-outline li").first(),
   ).toHaveText("研究背景");
