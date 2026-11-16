@@ -121,10 +121,13 @@ Worker 每步对原 run 做有界 SSE 读取，独立保存 executions.event_cur
 | GET | `/api/stocks/{symbol}` | 公司研究摘要、证据、预测、经验、采集状态及历史数量 |
 | GET | `/api/forecasts/{id}` | 预测、评估、复盘、修订关联和原始证据引用 |
 | GET | `/api/experiences` | 经验版本、当前状态和配对试验统计 |
+| GET | `/api/knowledge` | Hermes agent 共享知识池：所有账号的研究摘要与经验版本，不按 owner 过滤；摘要经 `research_contexts` 归属股票 |
 | GET | `/api/notifications` | 最近持久通知 |
 | POST | `/api/notifications/{id}/read` | 请求体 `{}`，幂等标记本人通知已读 |
 
-`/api/coverage` 保留 `tier` 并提供展示用的 `kind` 与 `status=active|paused`。加入自选不会把持仓降级；移除持仓标记为暂停跟踪，不改写持仓数量。临时/候选观察的恢复重新计算 20 个交易日期限。`/api/watchlist` 的既有添加操作仍可用，研究池同步读取其结果。
+`/api/coverage` 保留 `tier` 并提供展示用的 `kind` 与 `status=active|paused`。加入自选不会把持仓降级；移除持仓标记为暂停跟踪，不改写持仓数量。临时/候选观察的恢复重新计算 20 个交易日期限。`/api/watchlist` 的既有添加操作仍可用；研究池同步读取其结果。
+
+`/api/knowledge` 是唯一跨账号可读的业务接口：知识沉淀属于同一个 Hermes agent，任何已登录账号都看到同一份经验与摘要；其余接口（预测、通知、经验试验、持仓、任务、文章）继续按 `owner_id` 隔离。写入仍从任务 owner 进入，不因共享读而放宽写入权限。
 
 设置默认值如下；`dailyResearchLimit` 范围 1–100、`dailyCandidateLimit` 范围 0–30 且不大于前者，`digestHour` 范围 0–23，解释为 Asia/Shanghai 小时。关闭 `enabled` 不删除已有预测或停止确定性到期结算。
 

@@ -170,14 +170,17 @@ export class ExperienceStore {
       }),
     );
   }
-  async list(owner: string) {
+  /** `owner` null lists the Hermes agent's shared lessons across accounts. */
+  async list(owner: string | null) {
     return (
       await this.pool.query(
         `SELECT l.*,v.horizon,v.symbol,v.event_type,v.statement,v.applicability,v.invalidation,
       (SELECT count(*)::integer FROM experience_trials t WHERE t.lesson_version_id=v.id) AS trial_count,
       (SELECT payload FROM experience_batches b WHERE b.lesson_version_id=v.id ORDER BY created_at DESC LIMIT 1) AS last_batch
-      FROM experience_lessons l JOIN experience_versions v ON v.id=l.current_version_id WHERE l.owner_id=$1 ORDER BY l.created_at DESC LIMIT 200`,
-        [owner],
+      FROM experience_lessons l JOIN experience_versions v ON v.id=l.current_version_id${
+        owner === null ? "" : " WHERE l.owner_id=$1"
+      } ORDER BY l.created_at DESC LIMIT 200`,
+        owner === null ? [] : [owner],
       )
     ).rows;
   }

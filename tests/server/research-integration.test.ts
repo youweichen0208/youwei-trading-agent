@@ -320,9 +320,12 @@ test("personal research tools freeze evidence, publish both horizons, render car
     (await request(b.cookie, `forecasts/${published[0].forecastId}`)).status,
     404,
   );
-  assert.equal(
-    (await (await request(b.cookie, "knowledge")).json()).summaries.length,
-    0,
+  // Knowledge is the Hermes agent's shared pool: another login sees the same summary.
+  const shared: { summaries: { id: string }[] } = await (
+    await request(b.cookie, "knowledge")
+  ).json();
+  assert.ok(
+    shared.summaries.some((row) => row.id === knowledge.summaries[0].id),
   );
 });
 

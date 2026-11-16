@@ -8,6 +8,11 @@ export async function seedKnowledge(email: string) {
   if (!url || !new URL(url).pathname.endsWith("_test"))
     throw new Error("Dedicated TEST_DATABASE_URL ending in _test required");
   await seedForecasts(email);
+  // Knowledge is shared across accounts, so every run needs its own symbols and title.
+  const tag = randomUUID().replaceAll("-", "").slice(0, 5).toUpperCase();
+  const primary = `N${tag}`;
+  const secondary = `A${tag}`;
+  const lessonTitle = `指引兑现后的短期动量 ${tag}`;
   const pool = new Pool({
     connectionString: url,
     ...(process.env.TEST_DATABASE_SCHEMA
@@ -53,11 +58,11 @@ export async function seedKnowledge(email: string) {
       versionId = randomUUID();
     await pool.query(
       "INSERT INTO experience_lessons(id,owner_id,title,scope,status) VALUES($1,$2,$3,'company','shadow')",
-      [lessonId, owner, "指引兑现后的短期动量"],
+      [lessonId, owner, lessonTitle],
     );
     await pool.query(
       `INSERT INTO experience_versions(id,owner_id,lesson_id,review_id,horizon,symbol,event_type,statement,applicability,invalidation)
-       VALUES($1,$2,$3,$4,5,'NVDA','guidance',$5,$6,$7)`,
+       VALUES($1,$2,$3,$4,5,$8,'guidance',$5,$6,$7)`,
       [
         versionId,
         owner,
@@ -66,6 +71,7 @@ export async function seedKnowledge(email: string) {
         "当公司上调指引且股价尚未反映时，未来 5 个交易日倾向上涨。",
         "指引上调且公告后首个交易日成交量高于 20 日均量。",
         "指引上调后 5 日内出现反向公告或成交量持续萎缩。",
+        primary,
       ],
     );
     await pool.query(
@@ -74,13 +80,23 @@ export async function seedKnowledge(email: string) {
     );
     const contextId = randomUUID();
     await pool.query(
-      "INSERT INTO research_contexts(id,owner_id,symbol,as_of,payload) VALUES($1,$2,'NVDA',$3,'{}')",
-      [contextId, owner, new Date(Date.now() - 3600_000).toISOString()],
+      "INSERT INTO research_contexts(id,owner_id,symbol,as_of,payload) VALUES($1,$2,$3,$4,'{}')",
+      [
+        contextId,
+        owner,
+        primary,
+        new Date(Date.now() - 3600_000).toISOString(),
+      ],
     );
-    const aaplContextId = randomUUID();
+    const secondaryContextId = randomUUID();
     await pool.query(
-      "INSERT INTO research_contexts(id,owner_id,symbol,as_of,payload) VALUES($1,$2,'AAPL',$3,'{}')",
-      [aaplContextId, owner, new Date(Date.now() - 5400_000).toISOString()],
+      "INSERT INTO research_contexts(id,owner_id,symbol,as_of,payload) VALUES($1,$2,$3,$4,'{}')",
+      [
+        secondaryContextId,
+        owner,
+        secondary,
+        new Date(Date.now() - 5400_000).toISOString(),
+      ],
     );
     await pool.query(
       "INSERT INTO research_contexts(id,owner_id,symbol,as_of,payload) VALUES($1,$2,'AMD',$3,'{}')",
@@ -120,7 +136,7 @@ export async function seedKnowledge(email: string) {
         JSON.stringify({
           text: "合成研究摘要：服务业务增速稳定，关注汇率影响。",
         }),
-        JSON.stringify({ researchContextRef: aaplContextId }),
+        JSON.stringify({ researchContextRef: secondaryContextId }),
       ],
     );
     await pool.query(
@@ -135,4 +151,5 @@ export async function seedKnowledge(email: string) {
   } finally {
     await pool.end();
   }
+  return { tag, primary, secondary, lessonTitle };
 }

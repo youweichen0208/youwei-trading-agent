@@ -148,19 +148,19 @@ export class ResearchAPI {
       dossier: dossier ? { summary: dossier.payload.text } : null,
     };
   }
-  async knowledge(owner: string) {
+  /** The knowledge base is the Hermes agent's shared pool, not per-account data. */
+  async knowledge() {
     const [lessons, summaries] = await Promise.all([
-      this.experiences.list(owner),
+      this.experiences.list(null),
       this.pool.query(
         `SELECT r.id, r.created_at, rc.symbol, rc.as_of, r.payload->>'text' AS text
        FROM results r
        JOIN research_contexts rc
          ON rc.id = (r.lineage->>'researchContextRef')::uuid
         AND rc.owner_id = r.owner_id
-       WHERE r.owner_id = $1 AND r.kind = 'research_summary'
+       WHERE r.kind = 'research_summary'
        ORDER BY r.created_at DESC
        LIMIT 300`,
-        [owner],
       ),
     ]);
     return { lessons, summaries: summaries.rows };
@@ -214,7 +214,7 @@ export class ResearchAPI {
     if (path.length === 1 && path[0] === "experiences" && method === "GET")
       return this.experiences.list(owner);
     if (path.length === 1 && path[0] === "knowledge" && method === "GET")
-      return this.knowledge(owner);
+      return this.knowledge();
     if (path.length === 1 && path[0] === "notifications" && method === "GET")
       return this.notifications.list(owner);
     if (

@@ -1307,3 +1307,13 @@ Worker、Tools 已切换到 `/opt/hermes-alpha-lab/releases/20261113-research-re
 - 入口：边缘 `python3 /opt/hermes-alpha-entry/publish-edge.py` 发布 shell 与静态资源，`/var/www/hermes-alpha-lab/current` → `EcUaP6Uqr1YiWGB38SpGv`。
 - 验证：源站 `/`、`/knowledge`、`/lab` 200，无 Cookie `/api/knowledge` 401，CSS chunk `d8851cf121ad4b58.css` 200 且包含 `.kb-doc-sub`、`.kb-folder-sub`；公网 `trading.youwei-agent.com` 的 `/`、`/knowledge`、该 CSS 均 200，`/api/knowledge`、`/api/auth/session` 401。登录态下的目录展开为本地浏览器用例证据，未用生产账号目视复核。
 - 回退：删除 `zzzzzzzzz-stock-folders.conf` 后 `daemon-reload && systemctl restart alpha-lab-web` 回到 `20261115-knowledge-base`；入口把 `current` 指回 `I6TvDPw94IhNxEm2vLJAR`。无数据变更，不需要迁移回滚。
+
+## 知识沉淀改为 Hermes agent 共享池（2026-11-16）
+
+- 语义：知识沉淀属于同一个 Hermes agent，不再按账号过滤；任何已登录账号看到同一份研究摘要与经验版本。其余接口（预测、通知、经验试验、持仓、任务）继续按 `owner_id` 隔离，写入仍从任务 owner 进入。
+- 变更：`packages/server/src/research-api.ts` 的 `knowledge()` 去掉 owner 条件；`packages/server/src/experience-store.ts` 的 `list(owner|null)` 支持共享列表；`docs/api-contract.md` 记录该接口是唯一跨账号可读的业务接口。
+- 归属规则不变：摘要仍要求 `lineage.researchContextRef` 指向同所有者 `research_contexts`；生产 35 条摘要中 29 条可归属，6 条无上下文的保持不可见。
+- 测试：`tests/server/research-integration.test.ts` 跨账号断言改为账号 B 可见账号 A 的摘要；浏览器夹具改为每次生成唯一 tag（符号 `N/A + tag`、经验标题带 tag），`knowledge.spec.ts` 按 tag 收敛断言，避免共享池导致计数漂移。
+- 生产发布：release `20261116-shared-knowledge`，BUILD_ID `Xuq5MawMzDvPHW_6fNR8-`，drop-in `zzzzzzzzzz-shared-knowledge.conf`，MainPID 3138703 → 3208969；边缘 `current` 同 BUILD_ID。
+- 验证：根与 `apps/web` `tsc` 通过，`knowledge.spec.ts` 通过；生产登录 `owner@alpha.local` 后 `/api/knowledge` 返回 **29** 条（自有 25 条可归属 + 另一账号 4 条），页面 22 个股票目录、`/knowledge` 200，公网 `/` 200、`/api/auth/session` 401，journal 无 error。
+- 回退：删除 drop-in 后 `daemon-reload && systemctl restart alpha-lab-web` 回到 `20261116-stock-folders`；边缘 `current` 指回 `EcUaP6Uqr1YiWGB38SpGv`。
