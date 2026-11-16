@@ -1373,3 +1373,15 @@ Worker、Tools 已切换到 `/opt/hermes-alpha-lab/releases/20261113-research-re
 - 验证：生产只读登录实测前 5 个文件夹均 `aria-expanded=false`、`.kb-doc-sub` 可见 0；点击 `NVDA` 后出现 5 条。
 - 生产：release `20261116-stock-collapsed`，BUILD_ID `D8RAfUFZn2-FdPEqH9D9z`，drop-in `zzzzzzzzzzzzzzzz-stock-collapsed.conf`，MainPID 3450337 → 3464414；边缘 `current` 同 BUILD_ID。
 - 回退：删除 drop-in 并重启回到 `20261116-tree-containment`（`wzZwobLgIo-KuQNeR6IKl`）。
+
+## 个人笔记发布（2026-11-16）
+
+- 功能：账号级笔记本 `/notes`，可新增、编辑、删除、置顶、搜索，并逐条控制是否让 Hermes 参考；同一账号的 research/prediction/portfolio 共用，群聊与 shadow trial 不注入。
+- 注入：任务首次 `prepareExecution` 时按 personal 上下文读取笔记，冻结进 `executions.request.instructions` 的 PERSONAL NOTEBOOK 段（最多 20 条、单条前 2000 字、合计 9000 字预算）；读取失败记录 `Personal notes unavailable` 并按无笔记执行。
+- 数据与授权：迁移 037 已应用（共 37 条）；`alpha_live_web` 获 INSERT/UPDATE/DELETE，`alpha_live_worker`、`alpha_live_tools` 仅 SELECT，worker 明确不授予 INSERT，已用 `has_table_privilege` 逐项核对。
+- 验证：本地 `pnpm typecheck` 通过；7 项服务端测试覆盖账号隔离、校验、置顶排序、symbol 清空、删除、personal 注入、trial/群聊排除、截断与读取失败降级；生产 Playwright 在同一域名完成注册→新建→刷新→改标题→刷新→确认删除→390px 无横向溢出，页面零 pageerror，`/api/personal-notes` 未登录 401。
+- 生产：Web release `20261116-personal-notes`，BUILD_ID `6MmntwMwWP_d9_erLLfJJ`，drop-in `zzzzzzzzzzzzzzzzz-personal-notes.conf`，MainPID 3464414 → 3752775；Worker release `20261116-personal-notes-worker`，drop-in `zzzzz-personal-notes.conf`，MainPID → 3752789；边缘 `current` 同 BUILD_ID，入口 `/` 与首屏 CSS 均 200。
+- 未验证：生产真实研究任务的注入未执行——新建校验账号的 Profile 尚未连接（任务返回 `profile_unavailable`），注入路径由同一 commit 的 `worker.ts` 与本地测试证明，需要一次真实研究才算生产验收。
+- 顺带发现（既有问题，非本次引入）：`consult` 任务在生产没有对应 Profile，6 个历史 consult 任务全部 cancelled；新提交的 consult 会停在 `unknown/profile_unavailable`，并挡住同线程后续 research 任务的排队条件。
+- 备份：`/opt/hermes-alpha-lab/private/personal-notes-20261116/alpha_production-pre-notes.dump`（0600）。
+- 回退：删除上述两个 drop-in、`daemon-reload` 并重启 Web/Worker，回到 `20261116-stock-collapsed`（`D8RAfUFZn2-FdPEqH9D9z`）与 `20261115-stream-text-worker`，边缘重发旧 BUILD_ID；`personal_notes` 为新增表，旧代码不读取，可保留，无需数据回滚。
