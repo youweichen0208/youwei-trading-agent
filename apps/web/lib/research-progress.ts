@@ -50,7 +50,26 @@ export const roleNames: Record<string, string> = {
   research: "研究",
   prediction: "预测",
   portfolio: "组合",
+  consult: "问答",
 };
+
+/**
+ * Running/finished wording. A consult answers a question, so reusing the
+ * research labels would claim evidence was frozen when nothing was.
+ */
+const stateNamesFor = (role?: string | null): Record<string, string> =>
+  role === "consult"
+    ? {
+        queued: "任务已进入队列",
+        running: "正在回答",
+        completed: "已回答",
+        failed: "回答未完成",
+        cancelled: "任务已取消",
+        stopping: "正在停止",
+        unknown: "正在核对执行状态",
+        interrupted: "回答已中断",
+      }
+    : stateNames;
 
 /** Human-readable cause for a stop/failure transition, when the Worker knows one. */
 const reasonNames: Record<string, string> = {
@@ -76,7 +95,9 @@ export function progressLabel(item: ProgressItem) {
   if (stage === "reasoning.available" || stage === "reasoning.delta")
     return `${prefix}思考`;
   if (stage === "message.interim") return `${prefix}说明`;
-  return prefix + (stateNames[status ?? ""] ?? "任务状态更新");
+  return (
+    prefix + (stateNamesFor(role)[status ?? ""] ?? "任务状态更新")
+  );
 }
 
 export type StepState =
@@ -152,7 +173,7 @@ export function progressMeta(item: ProgressItem): ProgressMeta {
   return {
     role,
     roleLabel,
-    label: stateNames[status ?? ""] ?? "任务状态更新",
+    label: stateNamesFor(role)[status ?? ""] ?? "任务状态更新",
     detail: detail ?? reasonNames[reason ?? ""],
     state: stateForStatus(status),
   };

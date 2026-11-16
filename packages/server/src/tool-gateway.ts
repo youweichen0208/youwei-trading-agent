@@ -215,9 +215,16 @@ const tools = {
 };
 // Build-time export for the pinned Hermes plugin. Authorization still happens
 // on every gateway call; publishing a schema grants no capability.
-export function toolDescriptors(role: "research" | "prediction" | "portfolio") {
+export function toolDescriptors(
+  role: "research" | "prediction" | "portfolio" | "consult",
+) {
+  // A consult answer may read saved facts; it must never write or publish.
   return Object.entries(tools)
-    .filter(([, t]) => t.roles.includes(role))
+    .filter(([, t]) =>
+      role === "consult"
+        ? !t.write && t.roles.includes("research")
+        : t.roles.includes(role),
+    )
     .map(([name, t]) => ({
       name,
       description: t.description,

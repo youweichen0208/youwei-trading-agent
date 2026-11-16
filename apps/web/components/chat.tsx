@@ -526,6 +526,7 @@ export function Chat({
                     <ResearchTrace
                       taskId={task.id}
                       status={task.status}
+                      role={task.role}
                       connectionError={!!error}
                       currentAction={currentAction}
                       items={progressItems}

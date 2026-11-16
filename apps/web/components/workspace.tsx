@@ -1138,8 +1138,8 @@ export default function Workspace() {
                       ref={draftInput}
                       value={draft}
                       onChange={(e) => setDraft(e.target.value)}
-                      aria-label="研究问题"
-                      placeholder="描述你想研究的问题，例如：查一下特斯拉最近的走势"
+                      aria-label="提问或研究"
+                      placeholder="问点什么，或让我研究一只股票，例如：查一下特斯拉最近的走势"
                       rows={2}
                       maxLength={16000}
                       disabled={busy}

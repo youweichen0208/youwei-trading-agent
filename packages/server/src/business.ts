@@ -54,7 +54,7 @@ export class BusinessStore {
       ).rows;
       const tasks = (
         await c.query(
-          "SELECT id,status,output,stream_text,stream_message_id,created_at FROM tasks WHERE thread_id=$1 AND owner_id=$2 AND parent_id IS NULL ORDER BY ordinal DESC",
+          "SELECT id,role,status,output,stream_text,stream_message_id,created_at FROM tasks WHERE thread_id=$1 AND owner_id=$2 AND parent_id IS NULL ORDER BY ordinal DESC",
           [id, owner],
         )
       ).rows;

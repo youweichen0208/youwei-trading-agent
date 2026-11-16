@@ -353,7 +353,9 @@ test("queue admission is bounded per owner under concurrency and preserves idemp
   const attempts = await Promise.allSettled(
     Array.from({ length: 20 }, (_, i) =>
       store.submit(a.owner, a.thread.id, `quota-${i}`, {
-        input: `question ${i}`,
+        // Research wording so the admission cap applies; consults bypass it.
+        // The trailing number is parsed below to rebuild the original key.
+        input: `research NVDA ${i}`,
       }),
     ),
   );
@@ -392,24 +394,25 @@ test("queue admission is bounded per owner under concurrency and preserves idemp
   );
   const before = await store.snapshot(a.owner, root.id);
   await assert.rejects(
-    store.submit(a.owner, a.thread.id, "extra", { input: "extra" }),
+    store.submit(a.owner, a.thread.id, "extra", { input: "分析 AAPL 近期走势" }),
     error("queue_full"),
   );
   assert.deepEqual(await store.snapshot(a.owner, root.id), before);
   const first = admitted[0]!;
-  const firstKey = `quota-${String(first.input.input).split(" ")[1]}`;
+  // Rebuild the original key from the trailing index in "research NVDA <i>".
+  const firstKey = `quota-${String(first.input.input).split(" ")[2]}`;
   assert.equal(
     (await store.submit(a.owner, a.thread.id, firstKey, first.input)).id,
     first.id,
   );
   await assert.rejects(
-    store.submit(a.owner, a.thread.id, firstKey, { input: "different" }),
+    store.submit(a.owner, a.thread.id, firstKey, { input: "分析 MSFT 近期走势" }),
     error("idempotency_conflict"),
   );
   assert.equal(
     (
       await store.submit(b.owner, b.thread.id, "other-owner", {
-        input: "independent",
+        input: "分析 NVDA 近期走势",
       })
     ).status,
     "queued",
@@ -451,7 +454,7 @@ test("group tasks select only their own Profile sessions", async () => {
     error("not_found"),
   );
   await store.submit(owner, thread.id, randomUUID(), {
-    input: "group research",
+    input: "分析 NVDA 近期走势",
   });
   const claim = (await store.claim(owner, worker))!;
   const execution = await store.executionContext(

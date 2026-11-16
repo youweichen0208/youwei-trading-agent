@@ -173,3 +173,19 @@ test('finished traces drop stale queue and running rows',()=>{
  assert.equal(rows[0]!.meta.state,'done');
  assert.equal(rows[1]!.meta.state,'done');
 });
+
+test('consult tasks describe an answer, not a finished research run',()=>{
+ // A question about saved data must never read as 研究完成: no evidence was
+ // frozen and no forecast published.
+ const items=[
+  {sequence:1,data:{status:'queued',role:'consult'}},
+  {sequence:2,data:{status:'running',role:'consult'}},
+  {sequence:3,data:{status:'completed',role:'consult'}},
+ ];
+ const rows=traceRows(items,'completed');
+ assert.equal(rows.at(-1)!.meta.label,'已回答');
+ const running=traceRows([{sequence:1,data:{status:'running',role:'consult'}}],'running');
+ assert.equal(running[0]!.meta.label,'正在回答');
+ const research=traceRows([{sequence:1,data:{status:'completed',role:'research'}}],'completed');
+ assert.equal(research[0]!.meta.label,'研究完成');
+});

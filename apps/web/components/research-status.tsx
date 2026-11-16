@@ -112,6 +112,7 @@ function ThoughtBlock({
 export function ResearchTrace({
   taskId,
   status,
+  role,
   connectionError = false,
   currentAction,
   items,
@@ -119,6 +120,7 @@ export function ResearchTrace({
 }: {
   taskId: string;
   status: string;
+  role?: string;
   connectionError?: boolean;
   currentAction?: string;
   items: ProgressItem[];
@@ -164,21 +166,28 @@ export function ResearchTrace({
             : steps.some((row) => row.meta.tool)
               ? (latest?.state ?? "running")
               : "thinking";
+  // A consult answers a question; calling it a finished "研究" would imply
+  // evidence was frozen and forecasts published when nothing happened.
+  const consult = role === "consult";
   const headLabel = connectionError
     ? "连接异常，正在恢复"
     : busy
       ? currentAction ?? "模型正在思考"
       : status === "failed" || status === "interrupted"
-        ? "研究未完成"
+        ? consult
+          ? "回答未完成"
+          : "研究未完成"
         : status === "cancelled"
           ? "任务已取消"
-          : "研究已完成";
+          : consult
+            ? "已回答"
+            : "研究已完成";
 
   return (
     <section
       className="research-trace"
       data-busy={busy || undefined}
-      aria-label="研究执行轨迹"
+      aria-label={consult ? "回答过程" : "研究执行轨迹"}
     >
       <div className="trace-head">
         <button

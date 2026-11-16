@@ -12,8 +12,9 @@ import {
   type ToolOperation,
 } from "./tool-policy.js";
 import type { EventBatch } from "../../hermes-adapter/src/events.js";
+import { roleFor } from "./research-intent.js";
 
-export type Role = "research" | "prediction" | "portfolio";
+export type Role = "research" | "prediction" | "portfolio" | "consult";
 export type Status =
   | "queued"
   | "running"
@@ -252,6 +253,11 @@ export class TaskStore {
           system.budgetSeconds > 600)
       )
         throw new DomainError("invalid_background_budget", 400);
+      // Classify before the capacity guard so a consult is never counted against,
+      // or rejected by, the ten-slot interactive research cap.
+      const role: Role = system
+        ? "research"
+        : roleFor(String(input.input ?? ""));
       const hash = digest({ threadId, input, ...(system ? { system } : {}) });
       const old = (
         await c.query<Task>(
@@ -268,10 +274,11 @@ export class TaskStore {
       // Unknown work still occupies capacity; replay of an existing key does not.
       const pending = await c.query(
         `SELECT 1 FROM tasks WHERE owner_id=$1 AND parent_id IS NULL AND origin='interactive'
+         AND role='research'
          AND status IN ('queued','running','stopping','unknown') LIMIT 10`,
         [owner],
       );
-      if (!system && pending.rowCount === 10)
+      if (!system && role === "research" && pending.rowCount === 10)
         throw new DomainError("queue_full", 429);
       const workspace = (
         await c.query(
@@ -284,11 +291,12 @@ export class TaskStore {
       const t = (
         await c.query<Task>(
           `INSERT INTO tasks(id,owner_id,thread_id,root_id,role,request_key,request_hash,input,workspace_id,workspace_revision,origin,priority,budget_seconds,research_job_id)
-        VALUES($1,$2,$3,$1,'research',$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+        VALUES($1,$2,$3,$1,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
           [
             id,
             owner,
             threadId,
+            role,
             key,
             hash,
             JSON.stringify(input),

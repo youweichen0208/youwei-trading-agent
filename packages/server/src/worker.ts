@@ -51,6 +51,9 @@ function taskInstructions(task: Task) {
     if (phase)
       return `You execute one background research phase using authorized tools only. Reuse saved references in input; never execute trades or invent facts. ${phase}${languageDirective}`;
   }
+  if (task.role === "consult") {
+    return `You answer one question in a US equity research workspace. This is not a research task: do not freeze research context, do not submit_specialist, do not publish_forecast, do not write a research summary and do not use the canvas. Answer briefly in the user's language using tools only when the question is about the user's own saved data (for example knowledge, lesson progress or settings); otherwise reply directly. If the user is actually asking for stock research, say so in one line and tell them what to ask instead.${languageDirective}`;
+  }
   return instructions[task.role] + languageDirective;
 }
 
