@@ -30,6 +30,29 @@ test("personal notebook saves, survives reload, edits and deletes", async ({
   await page
     .getByLabel("笔记正文")
     .fill("偏好现金流稳定的成长股，回避高杠杆。");
+  // Formatting is stored as HTML for the page and as plain text for Hermes.
+  // Bold while typing (no select-all: a browser select-all keeps a document
+  // selection that swallows Enter).
+  await page.getByLabel("笔记正文").click();
+  await page.keyboard.press("End");
+  await page.keyboard.press("Enter");
+  await page.getByRole("button", { name: "粗体" }).click();
+  await page.keyboard.type("加粗要点");
+  await page.getByRole("button", { name: "粗体" }).click();
+  await expect(page.locator(".note-page strong")).toHaveText("加粗要点");
+  // Slash menu inserts a block at the caret.
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("/");
+  await expect(
+    page.getByRole("listbox", { name: "插入内容" }),
+  ).toBeVisible();
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("风险清单");
+  await expect(page.locator(".note-page h1")).toHaveText("风险清单");
+  await page.keyboard.press("Enter");
+  await page.getByRole("button", { name: "无序列表" }).click();
+  await page.keyboard.type("关注自由现金流");
+  await expect(page.locator(".note-page ul li")).toHaveCount(1);
   await page.getByLabel("关注股票").fill("nvda");
   await page.getByLabel("笔记标签").fill("估值，风险，估值");
   await page.getByRole("checkbox", { name: "置顶" }).check();
@@ -53,9 +76,21 @@ test("personal notebook saves, survives reload, edits and deletes", async ({
   await expect(items).toHaveCount(1);
   await items.first().click();
   await expect(page.getByLabel("笔记标题")).toHaveValue("我的投资风格");
-  await expect(page.getByLabel("笔记正文")).toHaveValue(
+  await expect(page.getByLabel("笔记正文")).toContainText(
     "偏好现金流稳定的成长股，回避高杠杆。",
   );
+  // The document round-trips: bold survives, and the heading and list reopen.
+  await expect(page.locator(".note-page strong")).toHaveText("加粗要点");
+  await expect(page.locator(".note-page h1")).toHaveText("风险清单");
+  await expect(page.locator(".note-page ul li")).toContainText(
+    "关注自由现金流",
+  );
+  const stored = (await (
+    await context.request.get("/api/personal-notes")
+  ).json()) as { body: string; bodyHtml: string | null }[];
+  expect(stored[0]!.body).toContain("偏好现金流稳定的成长股");
+  expect(stored[0]!.body).not.toContain("<");
+  expect(stored[0]!.bodyHtml).toContain("<strong>");
   await page.getByLabel("笔记标题").fill("我的投资风格（修订）");
   await page.getByRole("button", { name: "保存笔记" }).click();
   await expect(items.first()).toContainText("我的投资风格（修订）");

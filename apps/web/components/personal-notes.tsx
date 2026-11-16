@@ -1,11 +1,14 @@
 "use client";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import type { Editor } from "@tiptap/react";
 import { api, message } from "../lib/client";
+import { NoteEditor } from "./note-editor";
 
 type Note = {
   id: string;
   title: string;
   body: string;
+  bodyHtml: string | null;
   tags: string[];
   symbol: string | null;
   pinned: boolean;
@@ -16,7 +19,7 @@ type Note = {
 type Draft = {
   id: string | null;
   title: string;
-  body: string;
+  html: string;
   tags: string;
   symbol: string;
   pinned: boolean;
@@ -25,7 +28,7 @@ type Draft = {
 const emptyDraft: Draft = {
   id: null,
   title: "",
-  body: "",
+  html: "",
   tags: "",
   symbol: "",
   pinned: false,
@@ -39,10 +42,21 @@ const parseTags = (value: string) => [
       .filter(Boolean),
   ),
 ];
+const escapeHtml = (value: string) =>
+  value.replace(/[&<>]/g, (char) =>
+    char === "&" ? "&amp;" : char === "<" ? "&lt;" : "&gt;",
+  );
+/** Notes saved before the editor existed hold plain text only. */
+const htmlFromText = (text: string) =>
+  text
+    .split("\n")
+    .map((line) => `<p>${escapeHtml(line) || "<br>"}</p>`)
+    .join("");
+const noteHtml = (note: Note) => note.bodyHtml ?? htmlFromText(note.body);
 const toDraft = (note: Note): Draft => ({
   id: note.id,
   title: note.title,
-  body: note.body,
+  html: noteHtml(note),
   tags: note.tags.join("，"),
   symbol: note.symbol ?? "",
   pinned: note.pinned,
@@ -103,7 +117,7 @@ export function PersonalNotes() {
   const [query, setQuery] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const bodyRef = useRef<Editor | null>(null);
   useEffect(() => {
     let active = true;
     api<Note[]>("personal-notes")
@@ -123,14 +137,14 @@ export function PersonalNotes() {
     if (!draft) return false;
     if (!draft.id)
       return Boolean(
-        draft.title || draft.body || draft.tags || draft.symbol,
+        draft.title || draft.tags || draft.symbol || draft.html,
       );
     const note = notes?.find((row) => row.id === draft.id);
     // The note is gone; keep the text so nothing typed is lost.
     if (!note) return true;
     return (
       draft.title !== note.title ||
-      draft.body !== note.body ||
+      draft.html !== noteHtml(note) ||
       parseTags(draft.tags).join("\n") !== note.tags.join("\n") ||
       draft.symbol !== (note.symbol ?? "") ||
       draft.pinned !== note.pinned ||
@@ -164,16 +178,28 @@ export function PersonalNotes() {
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!draft) return;
-    const title = draft.title.trim(),
-      body = draft.body.trim();
+    const title = draft.title.trim();
+    const html = bodyRef.current?.getHTML() ?? draft.html;
+    const body = (bodyRef.current?.getText() ?? "")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
     if (!title || !body) {
       setError("标题和正文不能为空");
+      return;
+    }
+    if (body.length > 20000) {
+      setError("正文最多 20000 字");
+      return;
+    }
+    if (new TextEncoder().encode(html).length > 60000) {
+      setError("正文内容过长，请精简格式或文字");
       return;
     }
     const symbol = draft.symbol.trim().toUpperCase();
     const base = {
       title,
       body,
+      bodyHtml: html || null,
       tags: parseTags(draft.tags).slice(0, 10),
       pinned: draft.pinned,
       useInAgent: draft.useInAgent,
@@ -337,7 +363,8 @@ export function PersonalNotes() {
               className="notes-editor"
               // Clicking the blank page below the last line starts writing there.
               onClick={(event) => {
-                if (event.target === event.currentTarget) bodyRef.current?.focus();
+                if (event.target === event.currentTarget)
+                  bodyRef.current?.commands.focus();
               }}
             >
               <input
@@ -349,15 +376,14 @@ export function PersonalNotes() {
                 value={draft.title}
                 onChange={(event) => set({ title: event.target.value })}
               />
-              <textarea
-                ref={bodyRef}
-                className="notes-editor-body"
-                aria-label="笔记正文"
+              <NoteEditor
+                key={draft.id ?? "new"}
+                initialHtml={draft.html}
                 placeholder="写点什么：你的投资风格、偏好，或一次复盘的心得……"
-                rows={6}
-                maxLength={20000}
-                value={draft.body}
-                onChange={(event) => set({ body: event.target.value })}
+                onChange={(html) => set({ html })}
+                onReady={(editor) => {
+                  bodyRef.current = editor;
+                }}
               />
               <div className="notes-meta">
                 <label className="notes-meta-field">

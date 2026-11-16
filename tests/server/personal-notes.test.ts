@@ -102,6 +102,48 @@ test("one account reads, edits and deletes only its own notes", async () => {
   assert.equal(kept[0].title, "我的风格");
 });
 
+test("formatted bodies keep a plain-text mirror for the agent", async () => {
+  const cookie = await account();
+  const created = (await (
+    await request(
+      "personal-notes",
+      "POST",
+      {
+        title: "带格式的笔记",
+        body: "偏好现金流稳定的成长股",
+        bodyHtml: "<p><strong>偏好现金流稳定的成长股</strong></p>",
+      },
+      cookie,
+    )
+  ).json()) as any;
+  assert.equal(
+    created.bodyHtml,
+    "<p><strong>偏好现金流稳定的成长股</strong></p>",
+  );
+  assert.equal(created.body, "偏好现金流稳定的成长股");
+  const cleared = (await (
+    await request(
+      `personal-notes/${created.id}`,
+      "PUT",
+      { bodyHtml: null },
+      cookie,
+    )
+  ).json()) as any;
+  assert.equal(cleared.bodyHtml, null);
+  assert.equal(cleared.body, "偏好现金流稳定的成长股");
+  assert.equal(
+    (
+      await request(
+        "personal-notes",
+        "POST",
+        { title: "过长", body: "正文", bodyHtml: "a".repeat(60001) },
+        cookie,
+      )
+    ).status,
+    400,
+  );
+});
+
 test("invalid note input is rejected before storage", async () => {
   const cookie = await account();
   const invalid = [

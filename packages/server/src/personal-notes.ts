@@ -11,6 +11,8 @@ export const MAX_NOTE_BODY_CHARS = 2000;
 export const MAX_NOTE_PROMPT_CHARS = 9000;
 
 const tag = z.string().trim().min(1).max(30);
+// The BFF caps a request body at 64 KiB; keep the formatted body under it.
+const bodyHtml = z.string().min(1).max(60000);
 const tags = z
   .array(tag)
   .max(10)
@@ -20,6 +22,7 @@ export const personalNoteInput = z
   .object({
     title: z.string().trim().min(1).max(200),
     body: z.string().trim().min(1).max(20000),
+    bodyHtml: bodyHtml.optional(),
     tags: tags.default([]),
     symbol: symbol.optional(),
     pinned: z.boolean().default(false),
@@ -31,6 +34,7 @@ export const personalNoteUpdateInput = z
   .object({
     title: z.string().trim().min(1).max(200).optional(),
     body: z.string().trim().min(1).max(20000).optional(),
+    bodyHtml: bodyHtml.nullable().optional(),
     tags: tags.optional(),
     symbol: symbol.nullable().optional(),
     pinned: z.boolean().optional(),
@@ -43,6 +47,7 @@ export type PersonalNote = {
   id: string;
   title: string;
   body: string;
+  bodyHtml: string | null;
   tags: string[];
   symbol: string | null;
   pinned: boolean;
@@ -55,6 +60,7 @@ const view = (row: any): PersonalNote => ({
   id: row.id,
   title: row.title,
   body: row.body,
+  bodyHtml: row.body_html ?? null,
   tags: row.tags ?? [],
   symbol: row.symbol,
   pinned: row.pinned,
@@ -106,12 +112,13 @@ export class PersonalNoteStore {
     return view(
       (
         await this.pool.query(
-          "INSERT INTO personal_notes(id,owner_id,title,body,tags,symbol,pinned,use_in_agent) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *",
+          "INSERT INTO personal_notes(id,owner_id,title,body,body_html,tags,symbol,pinned,use_in_agent) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *",
           [
             randomUUID(),
             owner,
             note.title,
             note.body,
+            note.bodyHtml ?? null,
             note.tags,
             note.symbol ?? null,
             note.pinned,
@@ -139,6 +146,7 @@ export class PersonalNoteStore {
       const merged = {
         title: patch.title ?? row.title,
         body: patch.body ?? row.body,
+        bodyHtml: "bodyHtml" in patch ? patch.bodyHtml : row.body_html,
         tags: patch.tags ?? row.tags,
         symbol: "symbol" in patch ? patch.symbol : row.symbol,
         pinned: patch.pinned ?? row.pinned,
@@ -147,12 +155,13 @@ export class PersonalNoteStore {
       return view(
         (
           await c.query(
-            "UPDATE personal_notes SET title=$3,body=$4,tags=$5,symbol=$6,pinned=$7,use_in_agent=$8,updated_at=now() WHERE id=$1 AND owner_id=$2 RETURNING *",
+            "UPDATE personal_notes SET title=$3,body=$4,body_html=$5,tags=$6,symbol=$7,pinned=$8,use_in_agent=$9,updated_at=now() WHERE id=$1 AND owner_id=$2 RETURNING *",
             [
               id,
               owner,
               merged.title,
               merged.body,
+              merged.bodyHtml ?? null,
               merged.tags,
               merged.symbol ?? null,
               merged.pinned,

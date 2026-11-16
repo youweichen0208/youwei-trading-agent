@@ -24,6 +24,13 @@
   "dependencies": {
     "@assistant-ui/react": "0.15.32",
     "@larksuiteoapi/node-sdk": "1.76.0",
+    "@tiptap/extension-placeholder": "^3.34.0",
+    "@tiptap/extension-table": "^3.34.0",
+    "@tiptap/extension-task-item": "^3.34.0",
+    "@tiptap/extension-task-list": "^3.34.0",
+    "@tiptap/pm": "^3.34.0",
+    "@tiptap/react": "^3.34.0",
+    "@tiptap/starter-kit": "^3.34.0",
     "lightweight-charts": "5.2.1",
     "next": "16.4.5",
     "pg": "8.23.1",
