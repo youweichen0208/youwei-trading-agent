@@ -344,6 +344,14 @@ export default function Workspace() {
     document.addEventListener("keydown", key);
     return () => document.removeEventListener("keydown", key);
   }, [canvasOpen, showHoldings, closeCanvas]);
+  // Hub routes draw inside the results pane. Session bootstrap (changeUser)
+  // closes that pane, so reopen it once the account is known; otherwise the
+  // page renders an empty <main> on phones.
+  useEffect(() => {
+    if (!user) return;
+    if (hubOpen || knowledgeOpen || notesOpen || stockSymbol)
+      setCanvasOpen(true);
+  }, [user, hubOpen, knowledgeOpen, notesOpen, stockSymbol]);
   useEffect(() => {
     setLiveStatus(null);
   }, [hubOpen, knowledgeOpen, notesOpen, stockSymbol, selected?.id]);
